@@ -1,0 +1,13 @@
+schemaVersion: 1
+# Canonical performance-profile registry. Feature `performance:` entries and
+# scenario references such as load profile "calculator-standard-load" must
+# resolve here (validation Pass 5).
+performanceProfiles:
+  - id: calculator-standard-load
+    owner: calculator-team
+    description: >-
+      Representative sustained load for the public calculator endpoint, used by
+      PERF-CALC-EVALUATE-P95 in FEAT-CALC-001.
+    duration: 10m
+    arrivalRate: 50
+    arrivalRateUnit: requests/second

@@ -1,0 +1,20 @@
+name: zuke_frontend
+description: Gherkin feature parsing and specification compilation.
+version: 0.1.0
+environment:
+  sdk: '>=3.10.0 <4.0.0'
+resolution: workspace
+dependencies:
+  yaml: ^3.1.2
+  glob: ^2.1.2
+  file: ^7.0.1
+  crypto: ^3.0.6
+dev_dependencies:
+  test: ^1.24.0
+repository: https://github.com/Ultarius/zuke
+issue_tracker: https://github.com/Ultarius/zuke/issues
+documentation: https://github.com/Ultarius/zuke/blob/main/docs/integration-guide.md
+topics:
+  - zuke
+  - gherkin
+  - bdd

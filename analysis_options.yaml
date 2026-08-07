@@ -1,0 +1,7 @@
+analyzer:
+  plugins:
+    - zuke_analyzer
+
+linter:
+  rules:
+    avoid_print: false

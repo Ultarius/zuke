@@ -1,0 +1,9 @@
+schemaVersion: 1
+# Canonical PBI registry. Every @PBI-* tag and feature `pbis:` entry must
+# resolve here (validation Pass 5). IDs are stable and never reused.
+pbis:
+  - id: PBI-CART-001
+    title: Shopping Cart UI & Discounts
+    owner: shopping-team
+    feature: FEAT-CART-001
+    status: active

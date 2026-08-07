@@ -1,0 +1,50 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Todo App (Flutter)",
+      "request": "launch",
+      "type": "dart",
+      "program": "lib/main.dart",
+      "cwd": "${workspaceFolder}/examples/todo_app"
+    },
+    {
+      "name": "Shopping Cart (Flutter)",
+      "request": "launch",
+      "type": "dart",
+      "program": "lib/main.dart",
+      "cwd": "${workspaceFolder}/examples/shopping_cart"
+    },
+    {
+      "name": "Calculator Mobile (Flutter)",
+      "request": "launch",
+      "type": "dart",
+      "program": "lib/main.dart",
+      "cwd": "${workspaceFolder}/examples/calculator-product/apps/calculator_mobile"
+    },
+    {
+      "name": "Calculator API (Dart Server)",
+      "request": "launch",
+      "type": "dart",
+      "program": "bin/server.dart",
+      "cwd": "${workspaceFolder}/examples/calculator-product/apps/calculator_api"
+    }
+  ],
+  "compounds": [
+    {
+      "name": "Calculator Stack (Mobile + API Server)",
+      "configurations": [
+        "Calculator API (Dart Server)",
+        "Calculator Mobile (Flutter)"
+      ]
+    },
+    {
+      "name": "All Example Apps (Todo + Cart + Calculator Mobile)",
+      "configurations": [
+        "Todo App (Flutter)",
+        "Shopping Cart (Flutter)",
+        "Calculator Mobile (Flutter)"
+      ]
+    }
+  ]
+}

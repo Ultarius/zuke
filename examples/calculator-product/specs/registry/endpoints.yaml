@@ -1,0 +1,13 @@
+schemaVersion: 1
+# Canonical endpoint registry. Feature `endpoints:` declarations must resolve
+# here; a Feature owning an endpoint repeats method/contract, a referencing
+# Feature uses `usage: reference` only.
+endpoints:
+  - id: calculator.evaluate
+    title: Evaluate a calculation
+    owner: calculator-team
+    target: backend
+    method: POST
+    path: /v1/calculations/evaluate
+    contract: packages/calculator_contracts/evaluate.schema.json
+    owningFeature: FEAT-CALC-001

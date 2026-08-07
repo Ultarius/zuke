@@ -1,0 +1,34 @@
+schemaVersion: 1
+id: EPIC-CALC-001
+title: Reliable cross-platform calculator
+owner: product-management
+strategicGoal: >-
+  Provide a small production-quality reference application demonstrating
+  specification-driven Flutter and backend development.
+businessContext: >-
+  The calculator is simple enough to understand while exercising UI mappings,
+  backend contracts, validation, safe error behavior, telemetry, feature flags,
+  accessibility, performance, and duplicate detection.
+successMetrics:
+  - id: KPI-CALC-ZUKE-COVERAGE
+    description: Active rules have all mandatory mappings and evidence.
+    target: 100
+    unit: percent
+  - id: KPI-CALC-STATIC-VALIDATION
+    description: Static specification validation finishes within its CI budget.
+    target: 10
+    unit: seconds
+scope:
+  in:
+    - addition
+    - subtraction
+    - multiplication
+    - division
+    - decimal operands
+    - validation and safe errors
+    - Flutter and backend verification
+  out:
+    - scientific functions
+    - symbolic mathematics
+    - user accounts
+    - synchronized calculation history

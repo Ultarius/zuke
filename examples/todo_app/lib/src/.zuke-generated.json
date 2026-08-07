@@ -1,0 +1,13 @@
+{
+  "files": [
+    {
+      "path": "lib/src/generated/feat_todo_001_contracts.g.dart",
+      "contentHash": "28eadac7705a79aab4800d94698987fb16c6514d7934e31b60ab5b81e038c566"
+    },
+    {
+      "path": "test/support/generated/feat_todo_001_steps.g.dart",
+      "contentHash": "12d3003f60b1be8e6cd30eeb9feccb892804bee8b4ab9c8b899aec79e67ad093"
+    }
+  ],
+  "hash": "6498763f4afdb7aee047b9c35d63123dfd72227a37a4129dbc03d772522fd38d"
+}

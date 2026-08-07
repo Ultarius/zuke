@@ -1,0 +1,67 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Zuke: Run All Specification Gates (zuke:gate:all)",
+      "type": "shell",
+      "command": "dart run melos run zuke:gate:all",
+      "problemMatcher": [],
+      "group": {
+        "kind": "test",
+        "isDefault": true
+      },
+      "detail": "Runs validation, test execution, and lock verification across calculator, shopping cart, and todo examples."
+    },
+    {
+      "label": "Zuke: Run Repository Check Suite (zuke:check)",
+      "type": "shell",
+      "command": "dart run melos run zuke:check",
+      "problemMatcher": [],
+      "group": "test",
+      "detail": "Runs format check, doc check, analysis, unit/widget tests, generation check, and spec gates."
+    },
+    {
+      "label": "Melos: Run All Tests (test:all)",
+      "type": "shell",
+      "command": "dart run melos run test:all",
+      "problemMatcher": [],
+      "group": "test",
+      "detail": "Runs pure Dart tests and Flutter widget tests across all packages and examples."
+    },
+    {
+      "label": "Melos: Analyze Workspace (analyze:all)",
+      "type": "shell",
+      "command": "dart run melos run analyze:all",
+      "problemMatcher": [],
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      },
+      "detail": "Runs dart analyze across SDK packages and flutter analyze across example apps."
+    },
+    {
+      "label": "Zuke: Generate Contracts (zuke:generate)",
+      "type": "shell",
+      "command": "dart run melos run zuke:generate",
+      "problemMatcher": [],
+      "group": "build",
+      "detail": "Generates contract code from Gherkin feature specifications."
+    },
+    {
+      "label": "Melos: Coverage Check (coverage:check)",
+      "type": "shell",
+      "command": "dart run melos run coverage:check",
+      "problemMatcher": [],
+      "group": "test",
+      "detail": "Runs clean LCOV coverage collection and verifies coverage thresholds."
+    },
+    {
+      "label": "Melos: Workspace Bootstrap",
+      "type": "shell",
+      "command": "dart run melos bootstrap",
+      "problemMatcher": [],
+      "group": "build",
+      "detail": "Runs pub get and connects workspace members using Dart Pub Workspaces."
+    }
+  ]
+}

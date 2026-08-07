@@ -1,0 +1,21 @@
+schemaVersion: 1
+# Canonical PBI registry. Every @PBI-* tag and feature `pbis:` entry must
+# resolve here (validation Pass 5). IDs are stable and never reused.
+pbis:
+  - id: PBI-CALC-001
+    title: Basic arithmetic operations
+    owner: calculator-team
+    feature: FEAT-CALC-001
+    status: active
+
+  - id: PBI-CALC-002
+    title: Validation, safe errors, accessibility, and latency budget
+    owner: calculator-team
+    feature: FEAT-CALC-001
+    status: active
+
+  - id: PBI-CALC-003
+    title: Public calculator endpoint protection
+    owner: platform-security
+    feature: FEAT-CALC-002
+    status: active

@@ -1,0 +1,8 @@
+schemaVersion: 1
+id: shopping-cart-project-policy
+description: Project policy overlay for shopping_cart application.
+scenarioCoverage:
+  securityRulesRequireNegativeScenario: true
+  accessibilityRulesRequireFlutterEvidence: true
+documentationOnly:
+  requireReason: true

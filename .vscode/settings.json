@@ -1,0 +1,11 @@
+{
+  "dart.openFlutterDocs": "never",
+  "files.associations": {
+    "*.feature": "gherkin"
+  },
+  "search.exclude": {
+    "**/.zuke": true,
+    "**/generated/evidence": true,
+    "**/coverage": true
+  }
+}

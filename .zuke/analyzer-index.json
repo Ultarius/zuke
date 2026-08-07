@@ -1,0 +1,10 @@
+{
+  "schemaVersion": "zuke.analyzer-index.v1",
+  "inputDigest": "sha256:b64bf5a4f2133e3e62d9b9dc7b256afb7323778d9fb863a9f3cc2242f77b7f9f",
+  "generatedManifestDigest": "sha256:c10d83f56af74f6e35c71f50b9f54063edd97a097295e36e840171508b5c540a",
+  "generatedManifestPath": "lib/src/.zuke-generated.json",
+  "inputs": [],
+  "requirementIds": [],
+  "controlIds": [],
+  "bindingIds": []
+}

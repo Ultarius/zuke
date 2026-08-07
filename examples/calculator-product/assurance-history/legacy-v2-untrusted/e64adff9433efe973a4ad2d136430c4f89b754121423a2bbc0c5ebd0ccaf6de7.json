@@ -1,0 +1,21 @@
+{
+  "schemaVersion": "behavioral-assurance-release.v2",
+  "signer": {
+    "signerId": "calculator-release-signer-v1",
+    "keyId": "default",
+    "algorithm": "Ed25519"
+  },
+  "body": {
+    "workspace": "calculator-product",
+    "repositoryState": "ee376c180e6cd43770a402f154cc24a30b989c05",
+    "engineVersion": "1.0.0",
+    "lockDigest": "f66f8f4364b2efc2d6b3734c752ac494409d720f73d8f28816c563d0085de425",
+    "policyHash": "sha256:21fb1eb3f9a65ffd705fcb831d6c3a81321389e2e38e9ad5d18c44aaba8e020a",
+    "evidenceRequirementsHash": "sha256:2e1cfa82b035c26cbbbdae632cea070514eb8b773f616aaeaf668e2f0be8f10d",
+    "assurance": [],
+    "evidenceDigests": [],
+    "previousRecord": null
+  },
+  "recordDigest": "e64adff9433efe973a4ad2d136430c4f89b754121423a2bbc0c5ebd0ccaf6de7",
+  "signature": "pZr6AltCCKu0PdtbLpJxOJgxwW8NhFn8bjHhXBjaYenmuIKEmTiq0Sb2IYIvy9aMipQw/OvP25lnxpPIQIIzBQ=="
+}

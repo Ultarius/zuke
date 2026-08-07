@@ -1,0 +1,83 @@
+{
+  "schemaVersion": "zuke.analyzer-index.v2",
+  "inputDigest": "sha256:71d7311f46c8eac6ff540267d41c1ec5f98707603bc116185e988276d65cc2bb",
+  "generatedManifestDigest": "sha256:a7183987cc26a508437be66fc9aa2beb48896abb46733de6b14ea59300ceb8e1",
+  "generatedManifestPath": "lib/src/.zuke-generated.json",
+  "inputs": [
+    {
+      "path": "policies/project-policy.yaml",
+      "digest": "sha256:3ff1476f42a79ea5a97a639b52d8735227829f5450d42046b26473eb36f033b7"
+    },
+    {
+      "path": "policies/security-profiles.yaml",
+      "digest": "sha256:08956bcc60de1c42ccb27c328ac2cfd74b1ce21428afbb3105ad0c62fbacf189"
+    },
+    {
+      "path": "specs/controls/shopping-controls.yaml",
+      "digest": "sha256:36fb809e79faa65b5b250fd98ac4f01ec65581d468713722097ddb641368b188"
+    },
+    {
+      "path": "specs/epics/EPIC-SHOPPING-001.yaml",
+      "digest": "sha256:307622bc6f51965bbcc2e362acfce5ae60d704188448135c73be692bddb74044"
+    },
+    {
+      "path": "specs/features/shopping_cart.feature",
+      "digest": "sha256:078f49cc3341be96243e39d114e47b7427dccd6474e1d3bdade4433370365a8c"
+    },
+    {
+      "path": "specs/registry/pbis.yaml",
+      "digest": "sha256:e94d47b68f68126043b0e43d964cf1adef2248a9f93e2783ed0bd3aa434e5b6f"
+    },
+    {
+      "path": "specs/registry/retired-ids.yaml",
+      "digest": "sha256:12236cee08854945126b2490d0670c0909d0900c5a335480302aa35f5915b264"
+    },
+    {
+      "path": "zuke.yaml",
+      "digest": "sha256:5a58777b64a96a4255e252e8eabd922bbdc95d7491ed2187cacaac533fb3a273"
+    }
+  ],
+  "inputPatterns": [
+    "policies/project-policy.yaml",
+    "policies/security-profiles.yaml",
+    "specs/controls/**/*.yaml",
+    "specs/epics/**/*.yaml",
+    "specs/features/**/*.feature",
+    "specs/registry/**/*.yaml"
+  ],
+  "patternInputs": [
+    "policies/project-policy.yaml",
+    "policies/security-profiles.yaml",
+    "specs/controls/shopping-controls.yaml",
+    "specs/epics/EPIC-SHOPPING-001.yaml",
+    "specs/features/shopping_cart.feature",
+    "specs/registry/pbis.yaml",
+    "specs/registry/retired-ids.yaml"
+  ],
+  "requirementIds": [
+    "FEAT-CART-001",
+    "RULE-CART-ACCESSIBILITY",
+    "RULE-CART-EMPTY-CHECKOUT",
+    "RULE-CART-ITEM-MANAGEMENT",
+    "RULE-CART-PROMO-DISCOUNT",
+    "RULE-CART-SUCCESSFUL-CHECKOUT"
+  ],
+  "controlIds": [
+    "CTRL-CART-ACCESSIBLE",
+    "CTRL-CART-VALIDATION",
+    "CTRL-PROMO-VALIDATION"
+  ],
+  "bindingIds": [
+    "shopping.addToCartHeadphones",
+    "shopping.applyPromoButton",
+    "shopping.cartBadge",
+    "shopping.catalogItemName",
+    "shopping.catalogItemPrice",
+    "shopping.checkoutButton",
+    "shopping.discountStatusDisplay",
+    "shopping.promoInput",
+    "shopping.statusMessageDisplay",
+    "shopping.subtotalDisplay",
+    "shopping.totalDisplay"
+  ]
+}

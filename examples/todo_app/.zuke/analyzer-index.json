@@ -1,0 +1,77 @@
+{
+  "schemaVersion": "zuke.analyzer-index.v2",
+  "inputDigest": "sha256:40985f791974155b8f86c8145ba6aa1cfbca14613d96352baddf8a5e0a9d6e07",
+  "generatedManifestDigest": "sha256:74774c8e854711d3b763400b2c2a5f9da7ebe6b6217a9a63e40c8dd0548430ef",
+  "generatedManifestPath": "lib/src/.zuke-generated.json",
+  "inputs": [
+    {
+      "path": "policies/project-policy.yaml",
+      "digest": "sha256:ba60974aec64984a23a821fffcbfaa8587c19a8fa69592f37a19a8e31a570508"
+    },
+    {
+      "path": "policies/security-profiles.yaml",
+      "digest": "sha256:f5e5603554e5b6cab12b603376e85d55c52a64e06746193fb932e2b50f99251e"
+    },
+    {
+      "path": "specs/controls/todo-controls.yaml",
+      "digest": "sha256:4533cdc71b4608ad4a0ee482495eaa8c931cd641b6d20f7d986ef8967a220fda"
+    },
+    {
+      "path": "specs/epics/EPIC-TODO-001.yaml",
+      "digest": "sha256:624600bf5be8064bddfa715842219bd6c6ca7921dfab86f6c77c331b00d94245"
+    },
+    {
+      "path": "specs/features/todo.feature",
+      "digest": "sha256:98af5eb654b918cc285b977fa16d61497716473c6bc3ca47817e4a6a300c242e"
+    },
+    {
+      "path": "specs/registry/pbis.yaml",
+      "digest": "sha256:577493c7f719270f74ed7532ff405ab54f4fe8ca403d61b17965808ac8168fd7"
+    },
+    {
+      "path": "specs/registry/retired-ids.yaml",
+      "digest": "sha256:12236cee08854945126b2490d0670c0909d0900c5a335480302aa35f5915b264"
+    },
+    {
+      "path": "zuke.yaml",
+      "digest": "sha256:79aed7cc3ef806f3282b89a90fe619edd33f6c969dde806183cb161ba1d809bc"
+    }
+  ],
+  "inputPatterns": [
+    "policies/project-policy.yaml",
+    "policies/security-profiles.yaml",
+    "specs/controls/**/*.yaml",
+    "specs/epics/**/*.yaml",
+    "specs/features/**/*.feature",
+    "specs/registry/**/*.yaml"
+  ],
+  "patternInputs": [
+    "policies/project-policy.yaml",
+    "policies/security-profiles.yaml",
+    "specs/controls/todo-controls.yaml",
+    "specs/epics/EPIC-TODO-001.yaml",
+    "specs/features/todo.feature",
+    "specs/registry/pbis.yaml",
+    "specs/registry/retired-ids.yaml"
+  ],
+  "requirementIds": [
+    "FEAT-TODO-001",
+    "RULE-TODO-ADD-ITEM",
+    "RULE-TODO-COMPLETE-ITEM"
+  ],
+  "controlIds": [
+    "CTRL-TODO-ACCESSIBLE",
+    "CTRL-TODO-VALIDATION"
+  ],
+  "bindingIds": [
+    "todo.addTaskButton",
+    "todo.clearCompletedButton",
+    "todo.emptyStateMessage",
+    "todo.errorMessage",
+    "todo.taskCountDisplay",
+    "todo.taskInput",
+    "todo.taskItemCheckbox",
+    "todo.taskItemText",
+    "todo.taskList"
+  ]
+}

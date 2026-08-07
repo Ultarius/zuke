@@ -1,0 +1,112 @@
+schemaVersion: 2
+
+workspace:
+  name: calculator-product
+  root: .
+
+specifications:
+  features: [specs/features/**/*.feature]
+  epics: [specs/epics/**/*.yaml]
+  controls: [specs/controls/**/*.yaml]
+  registries: [specs/registry/**/*.yaml]
+
+targets:
+  flutter:
+    language: dart
+    packages:
+      - path: apps/calculator_mobile
+        roots: [lib, test]
+      - path: packages/calculator_domain
+        roots: [lib]
+    contractOutput: packages/calculator_contracts/lib/src/generated
+    contractExport: packages/calculator_contracts/lib/calculator_contracts.dart
+    extractor: zuke-dart-resolved
+
+  backend:
+    language: dart
+    packages:
+      - path: apps/calculator_api
+        roots: [lib, bin, test]
+    extractor: zuke-dart-http
+
+  edge:
+    language: external
+    extractor: attestation
+
+dartTooling:
+  extraction:
+    authority: cli
+    cache: .zuke/cache/dart
+    requireResolvedAnnotations: true
+    rejectIncompleteFragments: true
+  analyzerPlugin:
+    enabled: true
+  buildHooks:
+    default: disabled
+    enabledPackages: []
+  generation:
+    driver: zuke-cli
+    commitGeneratedSource: true
+    buildRunner: disabled
+    watchCommand: zuke watch --generate --validate
+
+policies:
+  preset: secure-product-v1
+  project: policies/project-policy.yaml
+  profiles: [policies/security-profiles.yaml, policies/attestations.yaml]
+  protectedSeverities:
+    duplicateId: error
+    ambiguousBinding: error
+    missingSecurityEvidence: error
+    staleLock: error
+
+execution:
+  endpoints:
+    calculator-api:
+      baseUrlFrom: CALCULATOR_TEST_API_URL
+  runners:
+    - id: calculator-api-build
+      kind: setup
+      target: backend
+      executable: dart
+      args: [analyze]
+      workingDirectory: apps/calculator_api
+      timeoutSeconds: 120
+    - id: calculator-api-tests
+      kind: gherkin
+      target: backend
+      evidenceTypes: [api-contract, gherkin-api, security-integration, logging-verification, performance, attestation-freshness]
+      executable: dart
+      args: [test, --reporter, expanded]
+      workingDirectory: apps/calculator_api
+      timeoutSeconds: 120
+    - id: calculator-flutter-tests
+      kind: gherkin
+      target: flutter
+      evidenceTypes: [domain-unit, flutter-widget, gherkin-ui, accessibility-integration]
+      executable: flutter
+      args: [test, --no-pub, --reporter, expanded]
+      workingDirectory: apps/calculator_mobile
+      timeoutSeconds: 600
+  pullRequest:
+    tagExpression: '@pr'
+  merge:
+    tagExpression: '@pr or @merge'
+  release:
+    tagExpression: '@pr or @merge or @release'
+  nightly:
+    tagExpression: '@nightly or @performance'
+
+evidence:
+  output: generated/evidence/records
+  records: generated/evidence/records
+  observations: generated/evidence/runs
+  includeSourceCode: false
+
+trust:
+  bundle: assurance-history/trust/ed25519-v2.json
+  algorithm: ed25519
+
+lock:
+  file: zuke.lock.json
+  requireCleanGeneration: true

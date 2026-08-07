@@ -1,0 +1,343 @@
+{
+  "schemaVersion": "behavioral-assurance-manifest.v1",
+  "workspace": "calculator-product",
+  "observedAt": "2026-07-19T19:51:44.472527Z",
+  "requirements": [
+    {
+      "id": "RULE-CALC-ADDITION",
+      "feature": "FEAT-CALC-001",
+      "implementations": [
+        {
+          "role": "domain",
+          "symbolId": "package:calculator_domain/src/calculator.dart#Calculator",
+          "source": "package:calculator_domain/src/calculator.dart:7"
+        },
+        {
+          "role": "backend",
+          "symbolId": "typescript:apps/calculator_api/src/controller.ts#EvaluateCalculatorController",
+          "source": "typescript:apps/calculator_api/src/controller.ts:6"
+        }
+      ],
+      "controls": [],
+      "requiredEvidence": [
+        "domain-unit",
+        "flutter-widget",
+        "api-contract",
+        "gherkin-api",
+        "gherkin-ui"
+      ]
+    },
+    {
+      "id": "RULE-CALC-SUBTRACTION",
+      "feature": "FEAT-CALC-001",
+      "implementations": [
+        {
+          "role": "domain",
+          "symbolId": "package:calculator_domain/src/calculator.dart#Calculator",
+          "source": "package:calculator_domain/src/calculator.dart:7"
+        },
+        {
+          "role": "backend",
+          "symbolId": "typescript:apps/calculator_api/src/controller.ts#EvaluateCalculatorController",
+          "source": "typescript:apps/calculator_api/src/controller.ts:6"
+        }
+      ],
+      "controls": [],
+      "requiredEvidence": [
+        "domain-unit",
+        "flutter-widget",
+        "api-contract",
+        "gherkin-api",
+        "gherkin-ui"
+      ]
+    },
+    {
+      "id": "RULE-CALC-MULTIPLICATION",
+      "feature": "FEAT-CALC-001",
+      "implementations": [
+        {
+          "role": "domain",
+          "symbolId": "package:calculator_domain/src/calculator.dart#Calculator",
+          "source": "package:calculator_domain/src/calculator.dart:7"
+        },
+        {
+          "role": "backend",
+          "symbolId": "typescript:apps/calculator_api/src/controller.ts#EvaluateCalculatorController",
+          "source": "typescript:apps/calculator_api/src/controller.ts:6"
+        }
+      ],
+      "controls": [],
+      "requiredEvidence": [
+        "domain-unit",
+        "flutter-widget",
+        "api-contract",
+        "gherkin-api",
+        "gherkin-ui"
+      ]
+    },
+    {
+      "id": "RULE-CALC-DIVISION",
+      "feature": "FEAT-CALC-001",
+      "implementations": [
+        {
+          "role": "domain",
+          "symbolId": "package:calculator_domain/src/calculator.dart#Calculator",
+          "source": "package:calculator_domain/src/calculator.dart:7"
+        },
+        {
+          "role": "backend",
+          "symbolId": "typescript:apps/calculator_api/src/controller.ts#EvaluateCalculatorController",
+          "source": "typescript:apps/calculator_api/src/controller.ts:6"
+        }
+      ],
+      "controls": [
+        {
+          "id": "CTRL-CALC-ERROR-REDACTION",
+          "target": "backend",
+          "assurance": "PROVEN"
+        }
+      ],
+      "requiredEvidence": [
+        "domain-unit",
+        "flutter-widget",
+        "api-contract",
+        "security-integration",
+        "gherkin-api",
+        "gherkin-ui"
+      ]
+    },
+    {
+      "id": "RULE-CALC-VALIDATION",
+      "feature": "FEAT-CALC-001",
+      "implementations": [
+        {
+          "role": "domain",
+          "symbolId": "package:calculator_domain/src/calculator.dart#Calculator",
+          "source": "package:calculator_domain/src/calculator.dart:7"
+        },
+        {
+          "role": "backend",
+          "symbolId": "typescript:apps/calculator_api/src/controller.ts#EvaluateCalculatorController",
+          "source": "typescript:apps/calculator_api/src/controller.ts:6"
+        }
+      ],
+      "controls": [
+        {
+          "id": "CTRL-CALC-INPUT-VALIDATION",
+          "target": "backend",
+          "assurance": "PROVEN"
+        }
+      ],
+      "requiredEvidence": [
+        "domain-unit",
+        "flutter-widget",
+        "api-contract",
+        "security-integration",
+        "gherkin-api",
+        "gherkin-ui"
+      ]
+    },
+    {
+      "id": "RULE-CALC-ACCESSIBILITY",
+      "feature": "FEAT-CALC-001",
+      "implementations": [],
+      "controls": [],
+      "requiredEvidence": [
+        "flutter-widget",
+        "accessibility-integration",
+        "gherkin-ui"
+      ]
+    },
+    {
+      "id": "RULE-CALC-PERFORMANCE",
+      "feature": "FEAT-CALC-001",
+      "implementations": [],
+      "controls": [],
+      "requiredEvidence": [
+        "performance"
+      ]
+    },
+    {
+      "id": "RULE-CALC-BODY-SIZE",
+      "feature": "FEAT-CALC-002",
+      "implementations": [],
+      "controls": [
+        {
+          "id": "CTRL-CALC-BODY-SIZE",
+          "target": "backend",
+          "assurance": "PROVEN"
+        }
+      ],
+      "requiredEvidence": [
+        "api-contract",
+        "security-integration",
+        "gherkin-api"
+      ]
+    },
+    {
+      "id": "RULE-CALC-RATE-LIMIT",
+      "feature": "FEAT-CALC-002",
+      "implementations": [],
+      "controls": [
+        {
+          "id": "CTRL-CALC-RATE-LIMIT",
+          "target": "edge",
+          "assurance": "ATTESTED"
+        }
+      ],
+      "requiredEvidence": [
+        "security-integration",
+        "gherkin-api",
+        "attestation-freshness"
+      ]
+    },
+    {
+      "id": "RULE-CALC-ERROR-REDACTION",
+      "feature": "FEAT-CALC-002",
+      "implementations": [],
+      "controls": [
+        {
+          "id": "CTRL-CALC-ERROR-REDACTION",
+          "target": "backend",
+          "assurance": "PROVEN"
+        },
+        {
+          "id": "CTRL-CALC-LOG-REDACTION",
+          "target": "backend",
+          "assurance": "PROVEN"
+        }
+      ],
+      "requiredEvidence": [
+        "api-contract",
+        "security-integration",
+        "logging-verification",
+        "gherkin-api"
+      ]
+    }
+  ],
+  "evidence": [
+    {
+      "requirement": "RULE-CALC-ADDITION",
+      "required": [
+        "domain-unit",
+        "flutter-widget",
+        "api-contract",
+        "gherkin-api",
+        "gherkin-ui"
+      ],
+      "status": "DECLARED"
+    },
+    {
+      "requirement": "RULE-CALC-SUBTRACTION",
+      "required": [
+        "domain-unit",
+        "flutter-widget",
+        "api-contract",
+        "gherkin-api",
+        "gherkin-ui"
+      ],
+      "status": "DECLARED"
+    },
+    {
+      "requirement": "RULE-CALC-MULTIPLICATION",
+      "required": [
+        "domain-unit",
+        "flutter-widget",
+        "api-contract",
+        "gherkin-api",
+        "gherkin-ui"
+      ],
+      "status": "DECLARED"
+    },
+    {
+      "requirement": "RULE-CALC-DIVISION",
+      "required": [
+        "domain-unit",
+        "flutter-widget",
+        "api-contract",
+        "security-integration",
+        "gherkin-api",
+        "gherkin-ui"
+      ],
+      "status": "DECLARED"
+    },
+    {
+      "requirement": "RULE-CALC-VALIDATION",
+      "required": [
+        "domain-unit",
+        "flutter-widget",
+        "api-contract",
+        "security-integration",
+        "gherkin-api",
+        "gherkin-ui"
+      ],
+      "status": "DECLARED"
+    },
+    {
+      "requirement": "RULE-CALC-ACCESSIBILITY",
+      "required": [
+        "flutter-widget",
+        "accessibility-integration",
+        "gherkin-ui"
+      ],
+      "status": "DECLARED"
+    },
+    {
+      "requirement": "RULE-CALC-PERFORMANCE",
+      "required": [
+        "performance"
+      ],
+      "status": "DECLARED"
+    },
+    {
+      "requirement": "RULE-CALC-BODY-SIZE",
+      "required": [
+        "api-contract",
+        "security-integration",
+        "gherkin-api"
+      ],
+      "status": "DECLARED"
+    },
+    {
+      "requirement": "RULE-CALC-RATE-LIMIT",
+      "required": [
+        "security-integration",
+        "gherkin-api",
+        "attestation-freshness"
+      ],
+      "status": "DECLARED"
+    },
+    {
+      "requirement": "RULE-CALC-ERROR-REDACTION",
+      "required": [
+        "api-contract",
+        "security-integration",
+        "logging-verification",
+        "gherkin-api"
+      ],
+      "status": "DECLARED"
+    }
+  ],
+  "fragments": [
+    {
+      "adapter": "specguard.dart",
+      "package": "calculator_mobile",
+      "digest": "sha256:8307626b5697c88a1fb98da24cebd356b096fdbe8d8ef2385a29391f027d247b"
+    },
+    {
+      "adapter": "specguard.dart",
+      "package": "calculator_domain",
+      "digest": "sha256:d0bffd4e1f320fddf3c4fcc2d7ca372dddb7cbae3d0657a4c2593117eac05f1b"
+    },
+    {
+      "adapter": "specguard.typescript",
+      "package": "",
+      "digest": "sha256:5ef474533d3d2baa327b0a0b24fba3b63669f2449fd993c9f7e3143be07c49d8"
+    }
+  ],
+  "previous": null,
+  "signature": {
+    "algorithm": "HMAC-SHA256",
+    "value": "698d95ad1262c86bdd330fdb6e451fa9f823227ed3f0cbe07b458ecb8060f581"
+  }
+}

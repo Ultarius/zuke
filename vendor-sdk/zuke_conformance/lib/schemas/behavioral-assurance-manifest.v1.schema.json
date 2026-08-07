@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/Ultarius/zuke/blob/main/vendor-sdk/zuke_conformance/lib/schemas/behavioral-assurance-manifest.v1.schema.json",
+  "type": "object",
+  "required": ["schemaVersion", "workspace", "observedAt", "requirements", "evidence", "fragments", "signature"],
+  "properties": {
+    "schemaVersion": {"const": "zuke.behavioral-assurance-manifest.v1"},
+    "workspace": {"type": "string", "minLength": 1},
+    "observedAt": {"type": "string", "format": "date-time"},
+    "requirements": {"type": "array", "items": {"type": "object", "required": ["id", "controls"]}},
+    "evidence": {"type": "array", "items": {"type": "object", "required": ["requirement", "status"]}},
+    "fragments": {"type": "array"},
+    "signature": {"type": "object", "required": ["algorithm", "value"]}
+  }
+}

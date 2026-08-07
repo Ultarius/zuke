@@ -1,0 +1,191 @@
+name: release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  shopping-cart-assurance:
+    uses: ./.github/workflows/flutter-example-assurance.yml
+    with:
+      profile: release
+      changed-since: ${{ github.event.before }}
+      example-root: examples/shopping_cart
+      package-name: shopping_cart
+      require-history: true
+  todo-app-assurance:
+    uses: ./.github/workflows/flutter-example-assurance.yml
+    with:
+      profile: merge
+      changed-since: ${{ github.event.before }}
+      example-root: examples/todo_app
+      package-name: todo_app
+      require-history: false
+  assurance:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    env:
+      FLUTTER_SUPPRESS_ANALYTICS: 'true'
+      ZUKE_RUN_PROCESS_INTEGRATION: 'true'
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2
+        with:
+          flutter-version: '3.38.10'
+          channel: stable
+          cache: true
+      - run: dart --suppress-analytics pub get
+      - run: dart --suppress-analytics run melos bootstrap
+      - run: dart --suppress-analytics format --output=none --set-exit-if-changed vendor-sdk examples/calculator-product
+      - run: dart --suppress-analytics run melos run docs:check
+      - run: dart --suppress-analytics run melos exec --no-flutter -- dart --suppress-analytics analyze
+      - run: flutter --suppress-analytics analyze examples/calculator-product/apps/calculator_mobile
+      - run: flutter --suppress-analytics test
+        working-directory: examples/calculator-product/apps/calculator_mobile
+      - run: dart --suppress-analytics analyze
+        working-directory: examples/calculator-product/apps/calculator_api
+      - run: dart --suppress-analytics run zuke_cli:zuke check --root examples/calculator-product --profile release --jobs 1 --format json
+      - run: dart --suppress-analytics run zuke_cli:zuke manifest verify-v2 --root examples/calculator-product
+      - name: Coverage check
+        run: dart --suppress-analytics run melos run coverage:check
+      - name: Stale-lock probe (temp fixture)
+        if: runner.os != 'Windows'
+        run: |
+          mkdir -p /tmp/stale-probe/specs/features
+          cat > /tmp/stale-probe/zuke.yaml << 'EOF'
+          schemaVersion: 2
+          workspace:
+            name: stale-probe
+            root: .
+          specifications:
+            features: [specs/features/**/*.feature]
+          targets: {}
+          EOF
+          cat > /tmp/stale-probe/specs/features/test.feature << 'EOF'
+          # spec-begin
+          # schemaVersion: 1
+          # id: FEAT-PROBE-001
+          # spec-end
+          Feature: Probe
+            Scenario: probe
+              Given a step
+          EOF
+          dart run zuke_cli:zuke lock --root /tmp/stale-probe --check && exit 1 || echo "Stale lock correctly detected"
+      - name: Stale-lock probe (temp fixture, Windows)
+        if: runner.os == 'Windows'
+        run: |
+          $dir = "$env:RUNNER_TEMP\stale-probe"
+          New-Item -ItemType Directory -Path "$dir\specs\features" -Force | Out-Null
+          Set-Content -Path "$dir\zuke.yaml" -Value @'
+          schemaVersion: 2
+          workspace:
+            name: stale-probe
+            root: .
+          specifications:
+            features: [specs/features/**/*.feature]
+          targets: {}
+          '@
+          Set-Content -Path "$dir\specs\features\test.feature" -Value @'
+          # spec-begin
+          # schemaVersion: 1
+          # id: FEAT-PROBE-001
+          # spec-end
+          Feature: Probe
+            Scenario: probe
+              Given a step
+          '@
+          dart run zuke_cli:zuke lock --root $dir --check
+          if ($LASTEXITCODE -eq 0) { exit 1 } else { echo "Stale lock correctly detected" }
+      - name: Process-tree integration test
+        if: runner.os == 'Linux' || runner.os == 'macOS'
+        run: dart test vendor-sdk/zuke_cli/test/process_supervisor_integration_test.dart
+      - name: Process-tree integration test (Windows)
+        if: runner.os == 'Windows'
+        run: dart test vendor-sdk/zuke_cli/test/process_supervisor_integration_test.dart
+      - name: Upload assurance artifacts
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: zuke-assurance-${{ matrix.os }}
+          path: |
+            examples/calculator-product/generated/
+            examples/calculator-product/zuke.lock.json
+            examples/calculator-product/assurance-history/
+            vendor-sdk/*/coverage/lcov.info
+            examples/calculator-product/**/coverage/lcov.info
+  release-sign:
+    needs: [assurance, shopping-cart-assurance, todo-app-assurance]
+    runs-on: ubuntu-latest
+    environment: release-signing
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: assurance-ubuntu-latest
+          path: .
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: shopping-cart-assurance-ubuntu-latest
+          path: .
+      - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2
+        with:
+          flutter-version: '3.38.10'
+          channel: stable
+          cache: true
+      - run: dart --suppress-analytics pub get
+      - run: dart --suppress-analytics run melos bootstrap
+      - name: Obtain short-lived Azure signer token through GitHub OIDC
+        shell: bash
+        env:
+          AZURE_CLIENT_ID: ${{ vars.AZURE_CLIENT_ID }}
+          AZURE_TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
+          ZUKE_SIGNING_PROVIDER_AUDIENCE: ${{ vars.ZUKE_SIGNING_PROVIDER_AUDIENCE }}
+          ZUKE_SIGNING_PROVIDER_URL: ${{ vars.ZUKE_SIGNING_PROVIDER_URL }}
+        run: |
+          : "${AZURE_CLIENT_ID:?release-signing AZURE_CLIENT_ID is required}"
+          : "${AZURE_TENANT_ID:?release-signing AZURE_TENANT_ID is required}"
+          : "${ZUKE_SIGNING_PROVIDER_AUDIENCE:?release-signing ZUKE_SIGNING_PROVIDER_AUDIENCE is required}"
+          : "${ZUKE_SIGNING_PROVIDER_URL:?release-signing ZUKE_SIGNING_PROVIDER_URL is required}"
+          oidc_url="${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=api://AzureADTokenExchange"
+          oidc_token="$(curl --fail-with-body -sS -H "Authorization: bearer ${ACTIONS_ID_TOKEN_REQUEST_TOKEN}" "$oidc_url" | jq -r .value)"
+          test -n "$oidc_token" && test "$oidc_token" != null
+          az login --service-principal --tenant "$AZURE_TENANT_ID" --username "$AZURE_CLIENT_ID" --federated-token "$oidc_token" --allow-no-subscriptions >/dev/null
+          signer_token="$(az account get-access-token --resource "$ZUKE_SIGNING_PROVIDER_AUDIENCE" --query accessToken --output tsv)"
+          echo "::add-mask::$signer_token"
+          echo "ZUKE_SIGNING_PROVIDER_URL=$ZUKE_SIGNING_PROVIDER_URL" >> "$GITHUB_ENV"
+          echo "ZUKE_SIGNING_PROVIDER_BEARER_TOKEN=$signer_token" >> "$GITHUB_ENV"
+      - name: Revalidate authoritative evidence
+        run: |
+          dart --suppress-analytics run zuke_cli:zuke validate --root examples/calculator-product --profile release --format json
+          dart --suppress-analytics run zuke_cli:zuke lock --root examples/calculator-product --check
+          dart --suppress-analytics run zuke_cli:zuke gate --root examples/calculator-product --profile release --format json
+          dart --suppress-analytics run zuke_cli:zuke validate --root examples/shopping_cart --profile release --format json
+          dart --suppress-analytics run zuke_cli:zuke lock --root examples/shopping_cart --profile release --check
+          dart --suppress-analytics run zuke_cli:zuke gate --root examples/shopping_cart --profile release --format json
+      - name: Create and verify signed release record
+        run: |
+          git diff --exit-code
+          git diff --cached --exit-code
+          dart --suppress-analytics run zuke_cli:zuke manifest create --root examples/calculator-product --signer-id calculator-release-signer-v1 --key-id "${{ vars.RELEASE_SIGNER_KEY_ID }}"
+          dart --suppress-analytics run zuke_cli:zuke manifest verify-v2 --root examples/calculator-product --current
+          dart --suppress-analytics run zuke_cli:zuke manifest export --root examples/calculator-product --output dist/zuke-calculator-assurance-history.v2.json
+          dart --suppress-analytics run zuke_cli:zuke manifest create --root examples/shopping_cart --profile release --signer-id shopping-cart-release-signer-v1 --key-id "${{ vars.RELEASE_SIGNER_KEY_ID }}"
+          dart --suppress-analytics run zuke_cli:zuke manifest verify-v2 --root examples/shopping_cart --current
+          dart --suppress-analytics run zuke_cli:zuke manifest export --root examples/shopping_cart --output dist/zuke-shopping-cart-assurance-history.v2.json
+      - name: Upload signed assurance history
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: zuke-signed-assurance-release
+          retention-days: 90
+          path: |
+            examples/calculator-product/assurance-history/v2/
+            dist/zuke-calculator-assurance-history.v2.json
+            examples/shopping_cart/assurance-history/v2/
+            dist/zuke-shopping-cart-assurance-history.v2.json

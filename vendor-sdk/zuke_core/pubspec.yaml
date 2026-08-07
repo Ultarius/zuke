@@ -1,0 +1,19 @@
+name: zuke_core
+description: Shared Zuke compiler, extraction, evidence, and assurance engine.
+version: 0.1.0
+environment:
+  sdk: '>=3.10.0 <4.0.0'
+resolution: workspace
+dependencies:
+  analyzer: ^8.2.0
+  crypto: ^3.0.6
+  cryptography: ^2.9.0
+dev_dependencies:
+  test: ^1.31.1
+repository: https://github.com/Ultarius/zuke
+issue_tracker: https://github.com/Ultarius/zuke/issues
+documentation: https://github.com/Ultarius/zuke/blob/main/docs/integration-guide.md
+topics:
+  - zuke
+  - gherkin
+  - bdd

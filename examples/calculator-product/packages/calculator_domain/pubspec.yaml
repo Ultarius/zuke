@@ -1,0 +1,14 @@
+name: calculator_domain
+description: Calculator domain logic with specification annotations.
+version: 1.0.0
+publish_to: none
+environment:
+  sdk: '>=3.10.0 <4.0.0'
+resolution: workspace
+dependencies:
+  calculator_contracts:
+    path: ../calculator_contracts
+  zuke_annotations:
+    path: ../../../../vendor-sdk/zuke_annotations
+dev_dependencies:
+  test: ^1.31.1

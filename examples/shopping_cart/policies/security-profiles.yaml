@@ -1,0 +1,23 @@
+schemaVersion: 1
+securityProfiles:
+  cart-validation-profile:
+    requires:
+      - kind: control
+        id: CTRL-CART-VALIDATION
+        target: flutter
+        cardinality: oneOrMore
+    requiredEvidence: [gherkin-ui]
+  promo-validation-profile:
+    requires:
+      - kind: control
+        id: CTRL-PROMO-VALIDATION
+        target: flutter
+        cardinality: oneOrMore
+    requiredEvidence: [gherkin-ui]
+  cart-accessible-profile:
+    requires:
+      - kind: control
+        id: CTRL-CART-ACCESSIBLE
+        target: flutter
+        cardinality: oneOrMore
+    requiredEvidence: [gherkin-ui]

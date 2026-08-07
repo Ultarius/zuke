@@ -1,0 +1,61 @@
+name: bootstrap-zuke-shopping-history
+
+# Temporary: run once from an zuke-assurance-bootstrap-shopping-* tag, commit the
+# uploaded v2 record, then delete this workflow and the tag.
+on:
+  push:
+    tags: ['zuke-assurance-bootstrap-shopping-*']
+
+jobs:
+  sign-genesis:
+    runs-on: ubuntu-latest
+    environment: release-signing
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2
+        with:
+          flutter-version: '3.38.10'
+          channel: stable
+          cache: true
+      - run: dart --suppress-analytics pub get
+      - run: dart --suppress-analytics run melos bootstrap
+      - name: Produce verified shopping evidence and lock
+        run: |
+          dart --suppress-analytics run zuke_cli:zuke generate --root examples/shopping_cart --check
+          dart --suppress-analytics run zuke_cli:zuke test --root examples/shopping_cart --profile release
+          dart --suppress-analytics run zuke_cli:zuke validate --root examples/shopping_cart --profile release --format json
+          dart --suppress-analytics run zuke_cli:zuke lock --root examples/shopping_cart --profile release --check
+      - name: Obtain short-lived signer token through GitHub OIDC
+        shell: bash
+        env:
+          AZURE_CLIENT_ID: ${{ vars.AZURE_CLIENT_ID }}
+          AZURE_TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
+          ZUKE_SIGNING_PROVIDER_AUDIENCE: ${{ vars.ZUKE_SIGNING_PROVIDER_AUDIENCE }}
+          ZUKE_SIGNING_PROVIDER_URL: ${{ vars.ZUKE_SIGNING_PROVIDER_URL }}
+        run: |
+          : "${AZURE_CLIENT_ID:?release-signing AZURE_CLIENT_ID is required}"
+          : "${AZURE_TENANT_ID:?release-signing AZURE_TENANT_ID is required}"
+          : "${ZUKE_SIGNING_PROVIDER_AUDIENCE:?release-signing ZUKE_SIGNING_PROVIDER_AUDIENCE is required}"
+          : "${ZUKE_SIGNING_PROVIDER_URL:?release-signing ZUKE_SIGNING_PROVIDER_URL is required}"
+          oidc_url="${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=api://AzureADTokenExchange"
+          oidc_token="$(curl --fail-with-body -sS -H "Authorization: bearer ${ACTIONS_ID_TOKEN_REQUEST_TOKEN}" "$oidc_url" | jq -r .value)"
+          az login --service-principal --tenant "$AZURE_TENANT_ID" --username "$AZURE_CLIENT_ID" --federated-token "$oidc_token" --allow-no-subscriptions >/dev/null
+          signer_token="$(az account get-access-token --resource "$ZUKE_SIGNING_PROVIDER_AUDIENCE" --query accessToken --output tsv)"
+          echo "::add-mask::$signer_token"
+          echo "ZUKE_SIGNING_PROVIDER_URL=$ZUKE_SIGNING_PROVIDER_URL" >> "$GITHUB_ENV"
+          echo "ZUKE_SIGNING_PROVIDER_BEARER_TOKEN=$signer_token" >> "$GITHUB_ENV"
+      - name: Create and verify genesis release record
+        run: |
+          dart --suppress-analytics run zuke_cli:zuke manifest create --root examples/shopping_cart --profile release --signer-id shopping-cart-release-signer-v1 --key-id "${{ vars.RELEASE_SIGNER_KEY_ID }}"
+          dart --suppress-analytics run zuke_cli:zuke manifest verify-v2 --root examples/shopping_cart --current
+          dart --suppress-analytics run zuke_cli:zuke manifest export --root examples/shopping_cart --output dist/zuke-shopping-cart-assurance-history.v2.json
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: zuke-shopping-cart-genesis-history
+          retention-days: 30
+          path: |
+            examples/shopping_cart/assurance-history/v2/
+            dist/zuke-shopping-cart-assurance-history.v2.json

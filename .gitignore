@@ -1,0 +1,40 @@
+# Dart/Flutter tool state and generated build outputs
+.dart_tool/
+**/.dart_tool/
+**/pubspec_overrides.yaml
+**/build/
+**/.flutter-plugins
+**/.flutter-plugins-dependencies
+
+# Flutter iOS ephemeral & generated build files
+**/ios/Flutter/Generated.xcconfig
+**/ios/Flutter/flutter_export_environment.sh
+**/ios/Flutter/ephemeral/
+**/ios/Runner/GeneratedPluginRegistrant.h
+**/ios/Runner/GeneratedPluginRegistrant.m
+**/ios/Runner/GeneratedPluginRegistrant.swift
+
+# Xcode user state
+*.pbxuser
+*.mode1v3
+*.mode2v3
+*.perspectivev3
+*.xcuserdata
+**/ios/*.xcuserdata/
+**/ios/**/*.xcuserdata/
+**/ios/*.xcworkspace/xcuserdata/
+
+# Local Zuke caches
+.zuke/cache/
+**/.zuke/cache/
+node_modules/
+**/node_modules/
+**/dist/
+**/generated/evidence/
+**/generated/report/
+**/.zuke/evidence/
+**/coverage/
+**/test/temp_*/
+
+.idea
+*.iml

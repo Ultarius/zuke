@@ -1,0 +1,648 @@
+import 'dart:io';
+import 'package:glob/glob.dart';
+import 'package:file/local.dart';
+import 'package:yaml/yaml.dart';
+import 'types.dart';
+import 'gherkin_parser.dart';
+import 'metadata_extractor.dart';
+
+class ZukeConfig {
+  final String? root;
+  final List<String> featurePatterns;
+  final List<String> epicPatterns;
+  final List<String> controlPatterns;
+  final List<String> registryPatterns;
+  final String? projectPolicy;
+  final String? preset;
+  final List<String> profilePatterns;
+  final Map<String, dynamic> targetsConfig;
+  final String? contractOutput;
+  final String? contractExport;
+  final String? lockFile;
+  final String? evidenceOutput;
+  final String? trustBundle;
+  final Map<String, dynamic> executionConfig;
+
+  const ZukeConfig({
+    this.root,
+    this.featurePatterns = const ['specs/features/**/*.feature'],
+    this.epicPatterns = const ['specs/epics/**/*.yaml'],
+    this.controlPatterns = const ['specs/controls/**/*.yaml'],
+    this.registryPatterns = const ['specs/registry/**/*.yaml'],
+    this.projectPolicy,
+    this.preset,
+    this.profilePatterns = const [],
+    this.targetsConfig = const {},
+    this.contractOutput,
+    this.contractExport,
+    this.lockFile,
+    this.evidenceOutput,
+    this.trustBundle,
+    this.executionConfig = const {},
+  });
+
+  static ZukeConfig fromYaml(String yamlContent, {String? root}) {
+    final doc = loadYaml(yamlContent) as Map?;
+    if (doc == null) return ZukeConfig(root: root);
+
+    final specs = doc['specifications'] as Map? ?? {};
+    final policies = doc['policies'] as Map? ?? {};
+
+    List<String>? profiles;
+    final profilesRaw = policies['profiles'];
+    if (profilesRaw is List) profiles = profilesRaw.cast<String>();
+
+    final rawTargets = doc['targets'] as Map? ?? {};
+    final targetsConfig = <String, dynamic>{};
+    for (final key in rawTargets.keys) {
+      targetsConfig[key.toString()] = rawTargets[key];
+    }
+
+    final lockSection = doc['lock'] as Map? ?? {};
+    final evidenceSection = doc['evidence'] as Map? ?? {};
+    final trustSection = doc['trust'] as Map? ?? {};
+
+    return ZukeConfig(
+      root: root,
+      featurePatterns:
+          _stringList(specs['features']) ?? ['specs/features/**/*.feature'],
+      epicPatterns: _stringList(specs['epics']) ?? ['specs/epics/**/*.yaml'],
+      controlPatterns:
+          _stringList(specs['controls']) ?? ['specs/controls/**/*.yaml'],
+      registryPatterns:
+          _stringList(specs['registries']) ?? ['specs/registry/**/*.yaml'],
+      projectPolicy: policies['project'] as String?,
+      preset: policies['preset'] as String?,
+      profilePatterns: profiles ?? [],
+      targetsConfig: targetsConfig,
+      contractOutput: rawTargets['flutter'] is Map
+          ? (rawTargets['flutter'] as Map)['contractOutput'] as String?
+          : null,
+      contractExport: rawTargets['flutter'] is Map
+          ? (rawTargets['flutter'] as Map)['contractExport'] as String?
+          : null,
+      lockFile: lockSection['file'] as String?,
+      evidenceOutput: evidenceSection['output'] as String?,
+      trustBundle: trustSection['bundle'] as String?,
+      executionConfig: doc['execution'] is Map
+          ? Map<String, dynamic>.from(doc['execution'] as Map)
+          : const {},
+    );
+  }
+
+  static List<String>? _stringList(dynamic value) {
+    if (value is List) return value.cast<String>();
+    return null;
+  }
+}
+
+class WorkspaceDiscoveryResult {
+  final ZukeConfig config;
+  final MetadataExtractorResult data;
+  final Map<String, String> inputContents;
+
+  /// Configured workspace-relative patterns that define specification inputs.
+  final List<String> inputPatterns;
+
+  /// Files matched from [inputPatterns], excluding `zuke.yaml` itself.
+  final Set<String> patternInputPaths;
+
+  const WorkspaceDiscoveryResult({
+    required this.config,
+    required this.data,
+    this.inputContents = const {},
+    this.inputPatterns = const [],
+    this.patternInputPaths = const {},
+  });
+}
+
+class WorkspaceDiscovery {
+  WorkspaceDiscoveryResult discover(String? rootPath) {
+    T measureGlob<T>(T Function() action) {
+      return action();
+    }
+
+    T measureParse<T>(T Function() action) {
+      return action();
+    }
+
+    final requestedRoot = rootPath ?? Directory.current.path;
+    late final String root;
+    try {
+      root = Directory(requestedRoot).resolveSymbolicLinksSync();
+    } catch (_) {
+      root = Directory(requestedRoot).absolute.path;
+    }
+    final workspacePrefix = root.replaceAll('\\', '/').toLowerCase();
+
+    final configPath = '$root/zuke.yaml';
+    final inputContents = <String, String>{};
+    final configFile = File(configPath);
+    ZukeConfig config;
+    try {
+      final configContent = configFile.readAsStringSync();
+      inputContents[configFile.path] = configContent;
+      config = ZukeConfig.fromYaml(configContent, root: root);
+    } catch (_) {
+      config = ZukeConfig(root: root);
+    }
+
+    final errors = <String>[];
+    final seenPhysicalPaths = <String, List<String>>{};
+
+    // Parse features
+    final parser = GherkinParser();
+    final features = <ParsedFeature>[];
+    for (final pattern in config.featurePatterns) {
+      _checkPatternSafety(pattern, errors);
+      final files = measureGlob(
+        () => _matchGlob(pattern, root, workspacePrefix: workspacePrefix),
+      );
+      if (files.isEmpty) {
+        errors.add('Feature pattern "$pattern" matched no files');
+      }
+      for (final f in files) {
+        _trackOverlap(f, pattern, seenPhysicalPaths, errors);
+        try {
+          final (content, result) = measureParse(() {
+            final fileContent = File(f).readAsStringSync();
+            final parseRes = parser.parseFile(fileContent, f);
+            return (fileContent, parseRes);
+          });
+          inputContents[File(f).path] = content;
+          features.addAll(result.features);
+          for (final e in result.errors) {
+            errors.add('${e.source.file}:${e.source.line}: ${e.message}');
+          }
+        } catch (e) {
+          errors.add('$f: parse failed: $e');
+        }
+      }
+    }
+
+    // Load YAML data
+    final epics = <String, Map<String, dynamic>>{};
+    for (final pattern in config.epicPatterns) {
+      _checkPatternSafety(pattern, errors);
+      _loadYamlMap(
+        pattern,
+        root,
+        epics,
+        errors,
+        seenPhysicalPaths,
+        measureGlob: measureGlob,
+        measureParse: measureParse,
+        workspacePrefix: workspacePrefix,
+        inputContents: inputContents,
+      );
+    }
+    final controls = <String, Map<String, dynamic>>{};
+    for (final pattern in config.controlPatterns) {
+      _checkPatternSafety(pattern, errors);
+      _loadYamlListItems(
+        pattern,
+        root,
+        'controls',
+        controls,
+        errors,
+        seenPhysicalPaths,
+        measureGlob: measureGlob,
+        measureParse: measureParse,
+        workspacePrefix: workspacePrefix,
+        inputContents: inputContents,
+      );
+    }
+    final registries = <String, Map<String, dynamic>>{};
+    for (final pattern in config.registryPatterns) {
+      _checkPatternSafety(pattern, errors);
+      _loadRegistries(
+        pattern,
+        root,
+        registries,
+        errors,
+        seenPhysicalPaths,
+        measureGlob: measureGlob,
+        measureParse: measureParse,
+        workspacePrefix: workspacePrefix,
+        inputContents: inputContents,
+      );
+    }
+    final policies = <String, Map<String, dynamic>>{};
+    if (config.projectPolicy != null) {
+      _checkPatternSafety(config.projectPolicy!, errors);
+      final files = measureGlob(
+        () => _matchGlob(
+          config.projectPolicy!,
+          root,
+          workspacePrefix: workspacePrefix,
+        ),
+      );
+      for (final f in files) {
+        _trackOverlap(f, config.projectPolicy!, seenPhysicalPaths, errors);
+        measureParse(() {
+          _loadPolicyFile(f, policies, errors, inputContents: inputContents);
+        });
+      }
+      if (files.isEmpty) {
+        errors.add('Project policy "${config.projectPolicy}" matched no files');
+      }
+    }
+    for (final pattern in config.profilePatterns) {
+      _checkPatternSafety(pattern, errors);
+      final files = measureGlob(
+        () => _matchGlob(pattern, root, workspacePrefix: workspacePrefix),
+      );
+      for (final f in files) {
+        _trackOverlap(f, pattern, seenPhysicalPaths, errors);
+        measureParse(() {
+          _loadPolicyFile(f, policies, errors, inputContents: inputContents);
+        });
+      }
+    }
+
+    final inputPatterns = <String>{
+      ...config.featurePatterns,
+      ...config.epicPatterns,
+      ...config.controlPatterns,
+      ...config.registryPatterns,
+      if (config.projectPolicy != null) config.projectPolicy!,
+      ...config.profilePatterns,
+    }.toList()..sort();
+    final patternInputPaths = inputContents.keys
+        .where((path) => path != configFile.path)
+        .toSet();
+
+    return WorkspaceDiscoveryResult(
+      config: config,
+      data: MetadataExtractorResult(
+        features: features,
+        epics: epics,
+        controls: controls,
+        registries: registries,
+        policies: policies,
+        errors: errors,
+      ),
+      inputContents: Map.unmodifiable(inputContents),
+      inputPatterns: List.unmodifiable(inputPatterns),
+      patternInputPaths: Set.unmodifiable(patternInputPaths),
+    );
+  }
+
+  /// Reject patterns that can escape the workspace root.
+  void _checkPatternSafety(String pattern, List<String> errors) {
+    final normalized = pattern.replaceAll('\\', '/');
+    if (normalized.startsWith('/') ||
+        normalized.startsWith('//') ||
+        RegExp(r'^[A-Za-z]:').hasMatch(normalized) ||
+        normalized.startsWith('../') ||
+        normalized.contains('/../') ||
+        normalized.startsWith('..\\') ||
+        normalized.contains('\\..\\')) {
+      errors.add('Path escapes workspace root: "$pattern"');
+    }
+  }
+
+  /// Track which pattern matched a file; report overlaps.
+  void _trackOverlap(
+    String filePath,
+    String pattern,
+    Map<String, List<String>> seen,
+    List<String> errors,
+  ) {
+    try {
+      final isLink = FileSystemEntity.isLinkSync(filePath);
+      final resolved = isLink
+          ? File(filePath).resolveSymbolicLinksSync()
+          : filePath;
+      final existing = seen[resolved];
+      if (existing != null && !existing.contains(pattern)) {
+        existing.add(pattern);
+        errors.add(
+          'File "$filePath" matched by multiple patterns: ${existing.join(", ")}',
+        );
+      } else if (existing == null) {
+        seen[resolved] = [pattern];
+      }
+    } catch (_) {
+      final existing = seen[filePath];
+      if (existing != null && !existing.contains(pattern)) {
+        existing.add(pattern);
+      } else if (existing == null) {
+        seen[filePath] = [pattern];
+      }
+    }
+  }
+
+  /// Match files using glob-like semantics. Supports:
+  /// - Exact file paths (no wildcards)
+  /// - `specs/**/*.ext` (recursive extension match under a base)
+  /// - `specs/*/file.ext` (single-level wildcard)
+  List<String> _matchGlob(
+    String pattern,
+    String root, {
+    String? resolvedWorkspace,
+    String? workspacePrefix,
+  }) {
+    final normalized = pattern.replaceAll('\\', '/');
+    if (normalized.startsWith('/') ||
+        normalized.startsWith('//') ||
+        RegExp(r'^[A-Za-z]:').hasMatch(normalized) ||
+        normalized.startsWith('../') ||
+        normalized.contains('/../')) {
+      return const [];
+    }
+    final workspace =
+        resolvedWorkspace ?? Directory(root).resolveSymbolicLinksSync();
+    final prefix =
+        workspacePrefix ?? workspace.replaceAll('\\', '/').toLowerCase();
+    final globPatterns = [normalized];
+    if (normalized.contains('/**/')) {
+      globPatterns.add(normalized.replaceAll('/**/', '/'));
+    }
+    final resultsSet = <String>{};
+    for (final globPattern in globPatterns) {
+      for (final entity in Glob(globPattern).listFileSystemSync(
+        const LocalFileSystem(),
+        root: root,
+        followLinks: false,
+      )) {
+        if (entity is! File) continue;
+        try {
+          final isLink = FileSystemEntity.isLinkSync(entity.path);
+          final physical = isLink
+              ? entity.resolveSymbolicLinksSync()
+              : entity.path;
+          final canonical = physical.replaceAll('\\', '/').toLowerCase();
+          if (canonical != prefix && !canonical.startsWith('$prefix/')) {
+            // A symlink that escapes the workspace is never a specification
+            // input, even if its lexical path appeared below the workspace.
+            continue;
+          }
+          resultsSet.add(entity.path);
+        } on FileSystemException {
+          // Broken links and unresolvable files are not valid inputs.
+        }
+      }
+    }
+    final results = resultsSet.toList();
+    results.sort(
+      (a, b) => a.replaceAll('\\', '/').compareTo(b.replaceAll('\\', '/')),
+    );
+    return results;
+  }
+
+  void _loadYamlMap(
+    String pattern,
+    String root,
+    Map<String, Map<String, dynamic>> out,
+    List<String> errors,
+    Map<String, List<String>> seen, {
+    T Function<T>(T Function() action)? measureGlob,
+    T Function<T>(T Function() action)? measureParse,
+    String? workspacePrefix,
+    Map<String, String>? inputContents,
+  }) {
+    final files = measureGlob != null
+        ? measureGlob(
+            () => _matchGlob(pattern, root, workspacePrefix: workspacePrefix),
+          )
+        : _matchGlob(pattern, root, workspacePrefix: workspacePrefix);
+    for (final f in files) {
+      _trackOverlap(f, pattern, seen, errors);
+      try {
+        final (content, data) = measureParse != null
+            ? measureParse(() {
+                final fileContent = File(f).readAsStringSync();
+                final yamlData = loadYaml(fileContent);
+                return (fileContent, yamlData);
+              })
+            : (() {
+                final fileContent = File(f).readAsStringSync();
+                return (fileContent, loadYaml(fileContent));
+              })();
+        inputContents?[f] = content;
+        if (data is Map && data['id'] is String) {
+          final id = data['id'] as String;
+          if (out.containsKey(id)) {
+            errors.add(
+              'Duplicate ${_kindForId(id)} ID "$id" (${out[id]!['_file'] ?? "?"}, $f)',
+            );
+          }
+          final entry = Map<String, dynamic>.from(data);
+          entry['_file'] = f;
+          out[id] = entry;
+        }
+      } catch (e) {
+        errors.add('$f: Failed to parse YAML: $e');
+      }
+    }
+  }
+
+  void _loadYamlListItems(
+    String pattern,
+    String root,
+    String listKey,
+    Map<String, Map<String, dynamic>> out,
+    List<String> errors,
+    Map<String, List<String>> seen, {
+    T Function<T>(T Function() action)? measureGlob,
+    T Function<T>(T Function() action)? measureParse,
+    String? workspacePrefix,
+    Map<String, String>? inputContents,
+  }) {
+    final files = measureGlob != null
+        ? measureGlob(
+            () => _matchGlob(pattern, root, workspacePrefix: workspacePrefix),
+          )
+        : _matchGlob(pattern, root, workspacePrefix: workspacePrefix);
+    for (final f in files) {
+      _trackOverlap(f, pattern, seen, errors);
+      try {
+        final (content, data) = measureParse != null
+            ? measureParse(() {
+                final fileContent = File(f).readAsStringSync();
+                final yamlData = loadYaml(fileContent);
+                return (fileContent, yamlData);
+              })
+            : (() {
+                final fileContent = File(f).readAsStringSync();
+                return (fileContent, loadYaml(fileContent));
+              })();
+        inputContents?[f] = content;
+        if (data is Map) {
+          final items = data[listKey];
+          if (items is List) {
+            for (final item in items) {
+              if (item is Map && item['id'] is String) {
+                final id = item['id'] as String;
+                if (out.containsKey(id)) {
+                  errors.add('Duplicate ${_kindForId(id)} ID "$id"');
+                }
+                final entry = Map<String, dynamic>.from(item);
+                entry['_file'] = f;
+                entry['_sourceList'] = listKey;
+                out[id] = entry;
+              }
+            }
+          }
+        }
+      } catch (e) {
+        errors.add('$f: Failed to parse YAML: $e');
+      }
+    }
+  }
+
+  void _loadRegistries(
+    String pattern,
+    String root,
+    Map<String, Map<String, dynamic>> out,
+    List<String> errors,
+    Map<String, List<String>> seen, {
+    T Function<T>(T Function() action)? measureGlob,
+    T Function<T>(T Function() action)? measureParse,
+    String? workspacePrefix,
+    Map<String, String>? inputContents,
+  }) {
+    final files = measureGlob != null
+        ? measureGlob(
+            () => _matchGlob(pattern, root, workspacePrefix: workspacePrefix),
+          )
+        : _matchGlob(pattern, root, workspacePrefix: workspacePrefix);
+    for (final f in files) {
+      _trackOverlap(f, pattern, seen, errors);
+      try {
+        final (content, data) = measureParse != null
+            ? measureParse(() {
+                final fileContent = File(f).readAsStringSync();
+                final yamlData = loadYaml(fileContent);
+                return (fileContent, yamlData);
+              })
+            : (() {
+                final fileContent = File(f).readAsStringSync();
+                return (fileContent, loadYaml(fileContent));
+              })();
+        inputContents?[f] = content;
+        if (data is Map) {
+          if (data.containsKey('version')) {
+            errors.add(
+              '$f: Legacy "version:" key is unsupported in registry YAML; use "schemaVersion: 1"',
+            );
+            continue;
+          }
+          final schemaVer = data['schemaVersion'];
+          if (schemaVer != 1 && schemaVer != '1') {
+            errors.add('$f: Registry YAML must specify "schemaVersion: 1"');
+            continue;
+          }
+          for (final key in [
+            'endpoints',
+            'events',
+            'featureFlags',
+            'pbis',
+            'performanceProfiles',
+            'retiredIds',
+          ]) {
+            final items = data[key];
+            if (items == null) continue;
+            if (items is! List) {
+              errors.add('$f: Registry "$key" must be a list');
+              continue;
+            }
+            if (key == 'retiredIds') {
+              for (var index = 0; index < items.length; index++) {
+                final item = items[index];
+                if (item is! String ||
+                    item.trim().isEmpty ||
+                    item != item.trim()) {
+                  errors.add(
+                    '$f: retiredIds entry at index $index must be a non-empty string without surrounding whitespace',
+                  );
+                  continue;
+                }
+                out['retired:$item'] = {
+                  'id': item,
+                  '_file': f,
+                  '_kind': 'retired',
+                };
+              }
+              continue;
+            }
+            final requiredFields = _registryRequiredFields[key] ?? const [];
+            for (var index = 0; index < items.length; index++) {
+              final item = items[index];
+              if (item is! Map) {
+                errors.add('$f: $key entry at index $index must be a mapping');
+                continue;
+              }
+              final id = item['id'];
+              if (id is! String || id.trim().isEmpty || id != id.trim()) {
+                errors.add(
+                  '$f: $key entry at index $index is missing required field "id" (must be non-empty and trimmed)',
+                );
+                continue;
+              }
+              var valid = true;
+              for (final reqField in requiredFields) {
+                final value = item[reqField];
+                if (value is! String || value.trim().isEmpty) {
+                  errors.add(
+                    '$f: $key entry "$id" is missing required field "$reqField"',
+                  );
+                  valid = false;
+                }
+              }
+              if (!valid) continue;
+              if (out.containsKey(id)) {
+                errors.add('Duplicate registry entry "$id"');
+                continue;
+              }
+              final entry = Map<String, dynamic>.from(item);
+              entry['_file'] = f;
+              entry['_sourceList'] = key;
+              out[id] = entry;
+            }
+          }
+        }
+      } catch (e) {
+        errors.add('$f: Failed to parse YAML: $e');
+      }
+    }
+  }
+
+  void _loadPolicyFile(
+    String f,
+    Map<String, Map<String, dynamic>> out,
+    List<String> errors, {
+    Map<String, String>? inputContents,
+  }) {
+    try {
+      final content = File(f).readAsStringSync();
+      inputContents?[f] = content;
+      final data = loadYaml(content);
+      if (data is Map) {
+        out[f] = Map<String, dynamic>.from(data);
+      }
+    } catch (e) {
+      errors.add('$f: Failed to parse YAML: $e');
+    }
+  }
+
+  static const _registryRequiredFields = <String, List<String>>{
+    'endpoints': ['id', 'target', 'method'],
+    'events': ['id'],
+    'featureFlags': ['id'],
+    'pbis': ['id', 'title', 'owner', 'feature', 'status'],
+    'performanceProfiles': ['id'],
+  };
+
+  String _kindForId(String id) {
+    if (id.startsWith('EPIC-')) return 'Epic';
+    if (id.startsWith('FEAT-')) return 'Feature';
+    if (id.startsWith('PBI-')) return 'PBI';
+    if (id.startsWith('RULE-')) return 'Rule';
+    if (id.startsWith('SCN-')) return 'Scenario';
+    if (id.startsWith('CTRL-')) return 'Control';
+    if (id.startsWith('PERF-')) return 'Performance';
+    return 'ID';
+  }
+}

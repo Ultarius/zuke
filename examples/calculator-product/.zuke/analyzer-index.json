@@ -1,0 +1,119 @@
+{
+  "schemaVersion": "zuke.analyzer-index.v2",
+  "inputDigest": "sha256:76722d6c127f5943a05fd983f4179138b1ddd91614f17c37b814a86a2b23dca7",
+  "generatedManifestDigest": "sha256:93a855fd8152858600fddb02f9e20ac525804cf43a8f09ecd4672fe66191824d",
+  "generatedManifestPath": "packages/calculator_contracts/.zuke-generated.json",
+  "inputs": [
+    {
+      "path": "policies/attestations.yaml",
+      "digest": "sha256:a47e1ca8baa00503d8b4dd9fc7b783a747f93a81f739c5d380ea5a7ced006c0c"
+    },
+    {
+      "path": "policies/project-policy.yaml",
+      "digest": "sha256:a8e52907df6bb2424514f16bcde9512348f2e2900bfa8f23dd2985c9fbf01ccf"
+    },
+    {
+      "path": "policies/security-profiles.yaml",
+      "digest": "sha256:89141c5f5f928422550913369c6c5c3ac9fa970b9173a504535af16e2e712486"
+    },
+    {
+      "path": "specs/controls/calculator-controls.yaml",
+      "digest": "sha256:bf3b0d5f97849ae2d18f29f80273814b3f5a1c60dff21765310f3625c8b46256"
+    },
+    {
+      "path": "specs/epics/EPIC-CALC-001.yaml",
+      "digest": "sha256:cb6c6422671bc8af83f5f16f6597ac28ceeac62761f2f2466c197d3288b53153"
+    },
+    {
+      "path": "specs/features/calculator_operations.feature",
+      "digest": "sha256:adafd4d21ca6382630c91272ac0e7c43230188c7b9abec7f4fa2b7b189e5b931"
+    },
+    {
+      "path": "specs/features/calculator_security.feature",
+      "digest": "sha256:eec068d8030cdddb60b9cebc7e930620c275e9374adad35048b20cd62433f244"
+    },
+    {
+      "path": "specs/registry/endpoints.yaml",
+      "digest": "sha256:a6e33f028e46a6fbf7b913dc57cce99c7f46edae57362fd5b89e85ad65a8ea2a"
+    },
+    {
+      "path": "specs/registry/events.yaml",
+      "digest": "sha256:aaffa5634f3baffd326ad70672e41455c34463758914be3c9cdc062f6fa33c86"
+    },
+    {
+      "path": "specs/registry/feature-flags.yaml",
+      "digest": "sha256:e108506b4c80fc7163a348e9c2943f1a7c49cc2b5a340f2561a6186e8f7c1113"
+    },
+    {
+      "path": "specs/registry/pbis.yaml",
+      "digest": "sha256:3fe31420adad887bb5d0f8d4496d89fb1176ea4975f40dc4d6f7cab6da911b05"
+    },
+    {
+      "path": "specs/registry/performance-profiles.yaml",
+      "digest": "sha256:94ebb7551a2f42354fd71105a1962e7b9e09661fdb48d65af072b36dd53f1d3f"
+    },
+    {
+      "path": "specs/registry/retired-ids.yaml",
+      "digest": "sha256:12236cee08854945126b2490d0670c0909d0900c5a335480302aa35f5915b264"
+    },
+    {
+      "path": "zuke.yaml",
+      "digest": "sha256:2a05b8011d73e96292e8594f706504eca6da05ca3eb2c86b1a1aef394139db05"
+    }
+  ],
+  "inputPatterns": [
+    "policies/attestations.yaml",
+    "policies/project-policy.yaml",
+    "policies/security-profiles.yaml",
+    "specs/controls/**/*.yaml",
+    "specs/epics/**/*.yaml",
+    "specs/features/**/*.feature",
+    "specs/registry/**/*.yaml"
+  ],
+  "patternInputs": [
+    "policies/attestations.yaml",
+    "policies/project-policy.yaml",
+    "policies/security-profiles.yaml",
+    "specs/controls/calculator-controls.yaml",
+    "specs/epics/EPIC-CALC-001.yaml",
+    "specs/features/calculator_operations.feature",
+    "specs/features/calculator_security.feature",
+    "specs/registry/endpoints.yaml",
+    "specs/registry/events.yaml",
+    "specs/registry/feature-flags.yaml",
+    "specs/registry/pbis.yaml",
+    "specs/registry/performance-profiles.yaml",
+    "specs/registry/retired-ids.yaml"
+  ],
+  "requirementIds": [
+    "FEAT-CALC-001",
+    "FEAT-CALC-002",
+    "RULE-CALC-ACCESSIBILITY",
+    "RULE-CALC-ADDITION",
+    "RULE-CALC-BODY-SIZE",
+    "RULE-CALC-DIVISION",
+    "RULE-CALC-ERROR-REDACTION",
+    "RULE-CALC-MULTIPLICATION",
+    "RULE-CALC-PERFORMANCE",
+    "RULE-CALC-RATE-LIMIT",
+    "RULE-CALC-SUBTRACTION",
+    "RULE-CALC-UI-FAILURE",
+    "RULE-CALC-UI-VALIDATION",
+    "RULE-CALC-VALIDATION"
+  ],
+  "controlIds": [
+    "CTRL-CALC-BODY-SIZE",
+    "CTRL-CALC-ERROR-REDACTION",
+    "CTRL-CALC-INPUT-VALIDATION",
+    "CTRL-CALC-LOG-REDACTION",
+    "CTRL-CALC-RATE-LIMIT"
+  ],
+  "bindingIds": [
+    "calculator.calculateAction",
+    "calculator.display",
+    "calculator.errorMessage",
+    "calculator.firstOperand",
+    "calculator.operatorSelector",
+    "calculator.secondOperand"
+  ]
+}

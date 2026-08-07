@@ -1,0 +1,24 @@
+schemaVersion: 1
+# Attestation registry for externally enforced controls.
+# Every attested provider requires an owner, scope, reference, evidence digest,
+# and expiry date. Providers listed here are NOT proven by in-repository graph
+# analysis; the engine reports them as ATTESTED.
+providers:
+  - id: provider.gateway.calculator-rate-limit
+    provides: CTRL-CALC-RATE-LIMIT
+    assurance: attested
+    target: edge
+    variant: default
+    kind: gateway-policy
+    layer: edge
+    owner: platform-edge-team
+    system: production-api-gateway
+    scope:
+      routes: [/v1/calculations/**]
+    reference: EDGE-POLICY-2841
+    attestedAt: 2026-07-21T00:00:00Z
+    expiresAt: 2026-10-01T00:00:00Z
+    evidence:
+      type: gateway-policy-export
+      digest: sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+    document: assurance-history/attestations/gateway-rate-limit.v1.json

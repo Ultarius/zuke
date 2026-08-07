@@ -1,0 +1,24 @@
+schemaVersion: 1
+id: EPIC-SHOPPING-001
+title: E-Commerce Shopping Cart & Checkout Experience
+owner: shopping-team
+strategicGoal: >-
+  Provide an advanced frontend shopping cart with discount validation, cart state management,
+  and accessibility semantics.
+businessContext: >-
+  Demonstrates zuke BDD Flutter widget testing with complex state controllers, promo codes,
+  and screen reader accessibility.
+successMetrics:
+  - id: KPI-SHOP-ZUKE-COVERAGE
+    description: All shopping rules have 100% evidence binding.
+    target: 100
+    unit: percent
+scope:
+  in:
+    - catalog item addition
+    - promo code validation
+    - empty cart checkout prevention
+    - screen reader accessibility
+  out:
+    - payment processing
+    - user authentication

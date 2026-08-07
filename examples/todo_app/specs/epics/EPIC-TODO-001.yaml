@@ -1,0 +1,23 @@
+schemaVersion: 1
+id: EPIC-TODO-001
+title: Todo List Experience
+owner: todo-team
+strategicGoal: >-
+  Provide a simple todo list application with task creation, completion tracking,
+  and list management.
+businessContext: >-
+  Demonstrates zuke BDD Flutter widget testing with state controllers and
+  task management.
+successMetrics:
+  - id: KPI-TODO-ZUKE-COVERAGE
+    description: All todo rules have 100% evidence binding.
+    target: 100
+    unit: percent
+scope:
+  in:
+    - task creation
+    - task completion
+    - clearing completed tasks
+  out:
+    - user authentication
+    - cloud sync

@@ -1,0 +1,9 @@
+schemaVersion: 1
+securityProfiles:
+  todo-validation-profile:
+    requires:
+      - kind: control
+        id: CTRL-TODO-VALIDATION
+        target: flutter
+        cardinality: oneOrMore
+    requiredEvidence: [gherkin-ui]

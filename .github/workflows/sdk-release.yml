@@ -1,0 +1,48 @@
+name: sdk-release
+
+on:
+  push:
+    tags: ['sdk-v*']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify-packages:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2
+        with:
+          flutter-version: '3.38.10'
+          channel: stable
+          cache: true
+      - run: dart --suppress-analytics pub get
+      - run: dart --suppress-analytics run melos run zuke:check
+      - name: Reject retired package identities and stale calculator roots
+        shell: bash
+        run: |
+          ! rg -n 'package:(spec_runtime|spec_runner_http|dart_inspection|spec_cli)/|vendor-sdk/spec_cli|--root calculator-product' \
+            README.md docs examples melos.yaml .github
+      - name: Check package archives
+        shell: bash
+        run: |
+          packages=(
+            vendor-sdk/zuke_core
+            vendor-sdk/zuke_annotations
+            vendor-sdk/zuke_http_runtime
+            vendor-sdk/zuke_frontend
+            vendor-sdk/zuke_runner
+            vendor-sdk/zuke_runner_flutter
+            vendor-sdk/zuke_dart_build_hook
+            vendor-sdk/zuke_cli
+          )
+          for package in "${packages[@]}"; do
+            dart --suppress-analytics pub -C "$package" publish --dry-run
+          done
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: zuke-json-schemas
+          path: vendor-sdk/zuke_conformance/lib/schemas/

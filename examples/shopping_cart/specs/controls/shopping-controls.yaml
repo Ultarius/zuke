@@ -1,0 +1,26 @@
+schemaVersion: 1
+controls:
+  - id: CTRL-CART-VALIDATION
+    title: Shopping Cart Item & Quantity Validation
+    description: Enforces non-negative item quantities and non-empty cart state for checkout actions.
+    acceptableProviderKinds:
+      - application-validator
+      - request-middleware
+    coverageSemantics: verification-backed
+    requiredLayers: [presentation]
+
+  - id: CTRL-PROMO-VALIDATION
+    title: Promo Code & Discount Eligibility Validation
+    description: Requires a non-empty cart for promo application and rejects invalid discount codes.
+    acceptableProviderKinds:
+      - application-validator
+    coverageSemantics: verification-backed
+    requiredLayers: [presentation]
+
+  - id: CTRL-CART-ACCESSIBLE
+    title: Cart Accessibility & Summary Semantics
+    description: Exposes screen reader semantics for total price calculations and result summaries.
+    acceptableProviderKinds:
+      - semantics-provider
+    coverageSemantics: verification-backed
+    requiredLayers: [presentation]

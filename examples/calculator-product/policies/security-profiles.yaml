@@ -1,0 +1,8 @@
+schemaVersion: 1
+securityProfiles:
+  calculator-public-endpoint:
+    requires:
+      - kind: control
+        id: CTRL-CALC-LOG-REDACTION
+        target: backend
+        cardinality: oneOrMore

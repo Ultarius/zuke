@@ -1,0 +1,234 @@
+{
+  "recordDigest": "2e8efd9e2ed08f6afc76569208b46b2b736214316555d2b835ff9fc155c6593c",
+  "schemaVersion": "behavioral-assurance-release.v2",
+  "signer": {
+    "signerId": "calculator-release-signer-v1",
+    "keyId": "default",
+    "algorithm": "Ed25519"
+  },
+  "body": {
+    "workspace": "calculator-product",
+    "repositoryState": "0000000000000000000000000000000000000000",
+    "engineVersion": "1.0.0",
+    "lockDigest": "06e300220d20ace551e7135f5cdd6db62bd54a43d2fcc101c691168935b500c2",
+    "policyHash": "sha256:5b73fa48623fffc473283b70a1231ec9573f4e07fc86a2ce0cb66fa374b09908",
+    "evidenceRequirementsHash": "sha256:293981441531424ccb517ee612fa832a5af1d7d96ec44d6216f2a7f25511404d",
+    "assurance": [
+      {
+        "controlId": "CTRL-CALC-ERROR-REDACTION",
+        "requirementId": "RULE-CALC-DIVISION",
+        "status": "proven",
+        "semantics": "failure-to-public-egress",
+        "target": "backend",
+        "variant": "default",
+        "providerIds": [
+          "provider:PublicCalculatorErrorMapper"
+        ],
+        "bypassPaths": [],
+        "governedGraphHash": "sha256:0c7cf30a32b037b1d3bee65c693fae51cb6121baeec7c63a7df460974a943c11",
+        "completeness": {
+          "routeRegistration": "complete",
+          "middlewareOrder": "complete",
+          "failureFlow": "complete",
+          "logFlow": "complete",
+          "dynamicRegistration": "complete",
+          "externalVisibility": "notApplicable"
+        },
+        "diagnostics": []
+      },
+      {
+        "controlId": "CTRL-CALC-ERROR-REDACTION",
+        "requirementId": "RULE-CALC-ERROR-REDACTION",
+        "status": "proven",
+        "semantics": "failure-to-public-egress",
+        "target": "backend",
+        "variant": "default",
+        "providerIds": [
+          "provider:PublicCalculatorErrorMapper"
+        ],
+        "bypassPaths": [],
+        "governedGraphHash": "sha256:0c7cf30a32b037b1d3bee65c693fae51cb6121baeec7c63a7df460974a943c11",
+        "completeness": {
+          "routeRegistration": "complete",
+          "middlewareOrder": "complete",
+          "failureFlow": "complete",
+          "logFlow": "complete",
+          "dynamicRegistration": "complete",
+          "externalVisibility": "notApplicable"
+        },
+        "diagnostics": []
+      },
+      {
+        "controlId": "CTRL-CALC-INPUT-VALIDATION",
+        "requirementId": "RULE-CALC-VALIDATION",
+        "status": "proven",
+        "semantics": "ingress-dominance",
+        "target": "backend",
+        "variant": "default",
+        "providerIds": [
+          "provider:RequestValidationMiddleware"
+        ],
+        "bypassPaths": [],
+        "governedGraphHash": "sha256:0c7cf30a32b037b1d3bee65c693fae51cb6121baeec7c63a7df460974a943c11",
+        "completeness": {
+          "routeRegistration": "complete",
+          "middlewareOrder": "complete",
+          "failureFlow": "complete",
+          "logFlow": "complete",
+          "dynamicRegistration": "complete",
+          "externalVisibility": "notApplicable"
+        },
+        "diagnostics": []
+      },
+      {
+        "controlId": "CTRL-CALC-BODY-SIZE",
+        "requirementId": "RULE-CALC-BODY-SIZE",
+        "status": "proven",
+        "semantics": "ingress-dominance",
+        "target": "backend",
+        "variant": "default",
+        "providerIds": [
+          "provider:BodyLimitMiddleware"
+        ],
+        "bypassPaths": [],
+        "governedGraphHash": "sha256:0c7cf30a32b037b1d3bee65c693fae51cb6121baeec7c63a7df460974a943c11",
+        "completeness": {
+          "routeRegistration": "complete",
+          "middlewareOrder": "complete",
+          "failureFlow": "complete",
+          "logFlow": "complete",
+          "dynamicRegistration": "complete",
+          "externalVisibility": "notApplicable"
+        },
+        "diagnostics": []
+      },
+      {
+        "controlId": "CTRL-CALC-LOG-REDACTION",
+        "requirementId": "RULE-CALC-BODY-SIZE",
+        "status": "proven",
+        "semantics": "sensitive-data-to-log-sink",
+        "target": "backend",
+        "variant": "default",
+        "providerIds": [
+          "provider:CalculatorLoggingInterceptor"
+        ],
+        "bypassPaths": [],
+        "governedGraphHash": "sha256:0c7cf30a32b037b1d3bee65c693fae51cb6121baeec7c63a7df460974a943c11",
+        "completeness": {
+          "routeRegistration": "complete",
+          "middlewareOrder": "complete",
+          "failureFlow": "complete",
+          "logFlow": "complete",
+          "dynamicRegistration": "complete",
+          "externalVisibility": "notApplicable"
+        },
+        "diagnostics": []
+      },
+      {
+        "controlId": "CTRL-CALC-LOG-REDACTION",
+        "requirementId": "RULE-CALC-RATE-LIMIT",
+        "status": "proven",
+        "semantics": "sensitive-data-to-log-sink",
+        "target": "backend",
+        "variant": "default",
+        "providerIds": [
+          "provider:CalculatorLoggingInterceptor"
+        ],
+        "bypassPaths": [],
+        "governedGraphHash": "sha256:0c7cf30a32b037b1d3bee65c693fae51cb6121baeec7c63a7df460974a943c11",
+        "completeness": {
+          "routeRegistration": "complete",
+          "middlewareOrder": "complete",
+          "failureFlow": "complete",
+          "logFlow": "complete",
+          "dynamicRegistration": "complete",
+          "externalVisibility": "notApplicable"
+        },
+        "diagnostics": []
+      },
+      {
+        "controlId": "CTRL-CALC-LOG-REDACTION",
+        "requirementId": "RULE-CALC-ERROR-REDACTION",
+        "status": "proven",
+        "semantics": "sensitive-data-to-log-sink",
+        "target": "backend",
+        "variant": "default",
+        "providerIds": [
+          "provider:CalculatorLoggingInterceptor"
+        ],
+        "bypassPaths": [],
+        "governedGraphHash": "sha256:0c7cf30a32b037b1d3bee65c693fae51cb6121baeec7c63a7df460974a943c11",
+        "completeness": {
+          "routeRegistration": "complete",
+          "middlewareOrder": "complete",
+          "failureFlow": "complete",
+          "logFlow": "complete",
+          "dynamicRegistration": "complete",
+          "externalVisibility": "notApplicable"
+        },
+        "diagnostics": []
+      },
+      {
+        "controlId": "CTRL-CALC-RATE-LIMIT",
+        "requirementId": "RULE-CALC-RATE-LIMIT",
+        "status": "attested",
+        "semantics": "external-attestation",
+        "target": "edge",
+        "variant": "default",
+        "providerIds": [
+          "provider.gateway.calculator-rate-limit"
+        ],
+        "bypassPaths": [],
+        "completeness": {},
+        "diagnostics": []
+      }
+    ],
+    "evidenceDigests": [
+      "00c296c4f6c2212b3b79cfb367b10b45631245a009ab0d5a6277a4a420a7898a",
+      "03abedec25201efaabeb975f6867e09633843c546055cbc5814969afe0e1e634",
+      "06254d353f4029b6406333f2f2ac7fe3e2f1feebc6787ba956dd19841f1f1470",
+      "0bb6721643f4ec9ee1b3d33b68b792f7f312fc24a9743a1f80b8f361b809f814",
+      "0e4b5b16650e340eec19dae3dbeaa684723bb79587cab3a20267c163a73d9356",
+      "0f56eb2509eab69d586177fd74a2e0f9c1f7717659f64df6713879376205ad39",
+      "11f854b82a479e0517609e5f3c4fdfb11342064a98beafcec5b0173b46941d1b",
+      "1293645f80a3d4a41ee3a140aa682a15de3d09317f1ac827c45ac8f15783c659",
+      "1f23a8192fa7f0037d70ad96e051f5aadd7872182d0db773156e59a3bfb973dc",
+      "1f4e4d575271e917d63faaa47a124df7db08983b5e4b4d1ff276d4a2dfb06894",
+      "264fa13dbeab9ff168a57bfba99aab933baa2ef6195d5a323ea6769d192229db",
+      "2e1b4a1d0beaae2aa086d026e761fad1124ebc90a3f53e1c2e74467441027fbf",
+      "31951191a7261d199b0850877766b63f266f308d2174dda7d6ffff0b1179f3e6",
+      "336617df92b18738d9ef1a9a60291c6a553f60d23e9c3a10667d0916d4038c9e",
+      "389524224d8a799223105c4a6d07c982150afe324d1414416a2d49a295401040",
+      "42d5d1c6b3ca67729fa029386e72607dcdf6546831d4cbcb7bbc5455737aa85b",
+      "437d7d60977c723533ea214f64ab479b9666f6498f2092a07a6238c6d2cdebfd",
+      "51c2b481ebe1376a304768fc0f7d400f9c46aaf4850731893a163a29b84b33f7",
+      "5bcbb852e3027c723bf5bbf2efc38cda4a73fef6202fa088e656ee5d437cf158",
+      "5f888449e7482dc3dcaf6d25d1ee38bc1f9efced4f0a2caa47822789e856dc92",
+      "6da540a420c151deee2957e4047d97e530b03af4d934df7ee0dcb7b8ff119167",
+      "73fc8a0b1e48bea6e58d27e18f0d0fd923b8d63b63f787136a7f160ed00e0add",
+      "77b5251c35d0c8165a18c540cfa0bbf3ade04fd8fbc321afc1ed052ea9166523",
+      "7e85b3e479e18811ecfb74dea38179132cc196894e831fe9f9861300f2d46a8a",
+      "836dc41bebea436c7205c8ec696dc040589aa9a791b46df747c336d7854b4122",
+      "847867a697c809f5d2224b8c400db5442c471c37347bcdce6cae0619fe395a94",
+      "892799ebd6eea075c79a59fcac87c7a964826eeda9de71096611985631e7397b",
+      "9fb6a671759011c920f439785a7b39a4a8ccbff4944bdfc2b69d5679e6c3fb0c",
+      "a1a757b84b602fa9bc46df30e3f4ef3146f9a802f6f93a1a1967e82fd1dcdd44",
+      "a3d80145f351446d901b933b0622951462289f9b1848627d1638357d07aca511",
+      "a58c0e7473faf9a918e2a7ef5614e352570e0a6169dbd4b468ab106667fcbce1",
+      "aa43e1b1fe13ddda5bc08de32e241da26afe11beb217eda7f1c5918726c701ae",
+      "b0bb064200156133276eba47d912370185ecef23f6d866141738f8dd809cf92c",
+      "b7210012958ba31574a5939945df6873552993cfd7d7348fcde4090f27914d7f",
+      "b89419d8d8d0e771f62133ad778dad0f0f2e4e3d3d108c63f7de66829a84c4f1",
+      "b96a7c307f808c53c19354dfc2e988f56decaf78d3a8f563223b5ad31c1d70be",
+      "c75d5ba9f0267d04db958bf3f8fae5afc67df21de1d47c7700c5e66b6d60eabd",
+      "d7c00ff13f32d9693362234e4991641cec2a99c5b337758329740e15f127dbbc",
+      "e381e43f93dad50a812a456a26f0376016478099710e81f947f8419dbade034d",
+      "e6c09a51910517d09c0be190999fdbb54f2a1ee2261a4abf577907801e1e20c4",
+      "e949926e95155bcc6f02b1250c025d7b2b6590e7a55137be9589c2f475b43922",
+      "f426d9bdf7d44c93576af29917e2d05871d718fdc98af844e16a2aeb80cb6f26",
+      "f4345a838eff870dfa341992bd1d0061a7b09f486419f08f60157473e7a2c0d1"
+    ],
+    "previousRecord": null
+  },
+  "signature": "S77/7K7uUYqz2RjzbM0MlKSCTjnHEk0O4IgXGsKU3VBwg1zKc8vgUKEAAaBQtRc54x7ciIICNhu4YOR9bGFTDw=="
+}

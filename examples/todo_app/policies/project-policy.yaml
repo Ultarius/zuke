@@ -1,0 +1,8 @@
+schemaVersion: 1
+id: todo-app-project-policy
+description: Project policy overlay for todo_app application.
+scenarioCoverage:
+  securityRulesRequireNegativeScenario: false
+  accessibilityRulesRequireFlutterEvidence: false
+documentationOnly:
+  requireReason: true

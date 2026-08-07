@@ -1,0 +1,52 @@
+name: zuke
+packages:
+  - vendor-sdk/zuke_core
+  - vendor-sdk/zuke_conformance
+  - vendor-sdk/zuke_analyzer
+  - vendor-sdk/zuke_dart_build_hook
+  - vendor-sdk/zuke_annotations
+  - vendor-sdk/zuke_frontend
+  - vendor-sdk/zuke_http_runtime
+  - vendor-sdk/zuke_runner
+  - vendor-sdk/zuke_runner_flutter
+  - vendor-sdk/zuke_test_support
+  - vendor-sdk/zuke_cli
+  - vendor-sdk/zuke_verifier
+  - examples/calculator-product/apps/*
+  - examples/calculator-product/packages/*
+  - examples/*
+command:
+  bootstrap:
+    usePubspecOverrides: false
+scripts:
+  bootstrap: dart --disable-dart-dev --suppress-analytics pub get
+  format:check: dart --disable-dart-dev --suppress-analytics run vendor-sdk/check_format.dart
+  docs:check: dart --disable-dart-dev --suppress-analytics run vendor-sdk/check_docs.dart
+  analyze:dart: dart --disable-dart-dev --suppress-analytics run vendor-sdk/workspace_tasks.dart analyze
+  analyze:flutter: dart --disable-dart-dev --suppress-analytics run melos exec --scope=calculator_mobile --scope=shopping_cart --scope=todo_app --concurrency=3 -- flutter --suppress-analytics analyze --no-pub
+  analyze:all: dart --disable-dart-dev --suppress-analytics run melos run analyze:dart && dart --disable-dart-dev --suppress-analytics run melos run analyze:flutter
+  test:dart: dart --disable-dart-dev --suppress-analytics run vendor-sdk/run_dart_tests.dart
+  test:flutter: flutter --suppress-analytics --version && dart --disable-dart-dev --suppress-analytics run melos exec --scope=calculator_mobile --scope=shopping_cart --scope=todo_app --concurrency=1 -- flutter --suppress-analytics test --no-pub
+  test:all: dart --disable-dart-dev --suppress-analytics run melos run test:dart && dart --disable-dart-dev --suppress-analytics run melos run test:flutter
+  zuke:generate: dart --disable-dart-dev --suppress-analytics run zuke_cli:zuke generate --root examples/calculator-product
+  zuke:generate:check: dart --disable-dart-dev --suppress-analytics run zuke_cli:zuke generate --root examples/calculator-product --check
+  zuke:validate: dart --disable-dart-dev --suppress-analytics run zuke_cli:zuke validate --root examples/calculator-product --profile pullRequest
+  zuke:lock:check: dart --disable-dart-dev --suppress-analytics run zuke_cli:zuke lock --root examples/calculator-product --check
+  zuke:gate: dart --disable-dart-dev --suppress-analytics run zuke_cli:zuke gate --root examples/calculator-product --profile pullRequest
+  zuke:report: dart --disable-dart-dev --suppress-analytics run zuke_cli:zuke report --root examples/calculator-product
+  zuke:watch: dart --disable-dart-dev --suppress-analytics run zuke_cli:zuke watch --root examples/calculator-product
+  zuke:shopping:generate: dart --disable-dart-dev --suppress-analytics run zuke_cli:zuke generate --root examples/shopping_cart
+  zuke:shopping:generate:check: dart --disable-dart-dev --suppress-analytics run zuke_cli:zuke generate --root examples/shopping_cart --check
+  zuke:shopping:validate: dart --disable-dart-dev --suppress-analytics run zuke_cli:zuke validate --root examples/shopping_cart --profile pullRequest
+  zuke:shopping:lock:check: dart --disable-dart-dev --suppress-analytics run zuke_cli:zuke lock --root examples/shopping_cart --profile pullRequest --check
+  zuke:shopping:report: dart --disable-dart-dev --suppress-analytics run zuke_cli:zuke report --root examples/shopping_cart
+  zuke:shopping:gate: dart --disable-dart-dev --suppress-analytics run zuke_cli:zuke gate --root examples/shopping_cart --profile pullRequest
+  zuke:todo:generate: dart --disable-dart-dev --suppress-analytics run zuke_cli:zuke generate --root examples/todo_app
+  zuke:todo:generate:check: dart --disable-dart-dev --suppress-analytics run zuke_cli:zuke generate --root examples/todo_app --check
+  zuke:todo:validate: dart --disable-dart-dev --suppress-analytics run zuke_cli:zuke validate --root examples/todo_app --profile pullRequest
+  zuke:todo:lock:check: dart --disable-dart-dev --suppress-analytics run zuke_cli:zuke lock --root examples/todo_app --profile pullRequest --check
+  zuke:todo:report: dart --disable-dart-dev --suppress-analytics run zuke_cli:zuke report --root examples/todo_app
+  zuke:todo:gate: dart --disable-dart-dev --suppress-analytics run zuke_cli:zuke gate --root examples/todo_app --profile pullRequest
+  zuke:gate:all: dart --disable-dart-dev --suppress-analytics run zuke_cli:zuke check --root examples/calculator-product --root examples/shopping_cart --root examples/todo_app --profile pullRequest --jobs 3
+  zuke:check: dart --disable-dart-dev --suppress-analytics run vendor-sdk/check_format.dart && dart --disable-dart-dev --suppress-analytics run vendor-sdk/check_docs.dart && dart --disable-dart-dev --suppress-analytics run vendor-sdk/workspace_tasks.dart analyze && dart --disable-dart-dev --suppress-analytics run vendor-sdk/workspace_tasks.dart test && dart --disable-dart-dev --suppress-analytics run melos run test:flutter && dart --disable-dart-dev --suppress-analytics run melos run zuke:gate:all
+  coverage:check: dart --disable-dart-dev --suppress-analytics run vendor-sdk/clean_coverage.dart && dart --disable-dart-dev --suppress-analytics run vendor-sdk/run_dart_tests.dart --include-runner-managed --coverage=coverage && dart --disable-dart-dev --suppress-analytics run melos exec --scope=calculator_mobile --scope=shopping_cart --scope=todo_app --scope=zuke_runner_flutter --concurrency=1 -- flutter --suppress-analytics test --no-pub --coverage && dart --disable-dart-dev --suppress-analytics run vendor-sdk/check_coverage.dart --format=json --output examples/calculator-product/generated/coverage/summary.json && dart --disable-dart-dev --suppress-analytics run vendor-sdk/check_coverage.dart --package shopping_cart --format=json --output examples/shopping_cart/generated/coverage/summary.json && dart --disable-dart-dev --suppress-analytics run vendor-sdk/check_coverage.dart --package todo_app --format=json --output examples/todo_app/generated/coverage/summary.json

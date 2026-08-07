@@ -1,0 +1,11 @@
+schemaVersion: 1
+id: calculator-project-policy
+description: >-
+  Project-level policy overlays applied on top of the secure-product-v1
+  preset. This file cannot downgrade the protected severities declared in
+  zuke.yaml.
+scenarioCoverage:
+  securityRulesRequireNegativeScenario: true
+  accessibilityRulesRequireFlutterEvidence: true
+documentationOnly:
+  requireReason: true

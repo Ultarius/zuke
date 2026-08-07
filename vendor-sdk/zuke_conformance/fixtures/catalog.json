@@ -1,0 +1,13 @@
+{
+  "schemaVersion": "zuke.conformance-catalog.v1",
+  "cases": [
+    {"id":"graph-ingress-bypass","owner":"zuke_cli/test/dominance_validator_test.dart","expected":"failed proof with bypass path","blocksRelease":true},
+    {"id":"graph-error-bypass","owner":"zuke_cli/test/dominance_validator_test.dart","expected":"failed error-flow proof","blocksRelease":true},
+    {"id":"graph-logging-bypass","owner":"zuke_cli/test/dominance_validator_test.dart","expected":"failed logging-flow proof","blocksRelease":true},
+    {"id":"graph-incomplete","owner":"zuke_cli/test/dominance_validator_test.dart","expected":"indeterminate proof","blocksRelease":true},
+    {"id":"attestation-malformed","owner":"zuke_conformance/test/conformance_test.dart","expected":"attestation rejected","blocksRelease":true},
+    {"id":"evidence-invalid-digest","owner":"zuke_conformance/test/conformance_test.dart","expected":"evidence parse failure","blocksRelease":true},
+    {"id":"release-malformed-export","owner":"zuke_verifier/test/exported_release_verifier_test.dart","expected":"invalid export verdict","blocksRelease":true},
+    {"id":"release-predecessor-order","owner":"zuke_verifier/test/exported_release_verifier_test.dart","expected":"invalid predecessor verdict","blocksRelease":true}
+  ]
+}

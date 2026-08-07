@@ -1,0 +1,33 @@
+name: zuke_workspace
+description: Zuke specification and Zuke assurance workspace tooling.
+publish_to: none
+environment:
+  sdk: '>=3.10.0 <4.0.0'
+workspace:
+  - vendor-sdk/zuke_core
+  - vendor-sdk/zuke_conformance
+  - vendor-sdk/zuke_analyzer
+  - vendor-sdk/zuke_dart_build_hook
+  - vendor-sdk/zuke_annotations
+  - vendor-sdk/zuke_frontend
+  - vendor-sdk/zuke_http_runtime
+  - vendor-sdk/zuke_runner
+  - vendor-sdk/zuke_runner_flutter
+  - vendor-sdk/zuke_test_support
+  - vendor-sdk/zuke_cli
+  - vendor-sdk/zuke_verifier
+  - examples/calculator-product/apps/calculator_api
+  - examples/calculator-product/apps/calculator_mobile
+  - examples/calculator-product/packages/calculator_contracts
+  - examples/calculator-product/packages/calculator_domain
+  - examples/shopping_cart
+  - examples/todo_app
+dev_dependencies:
+  melos: ^6.3.0
+  zuke_cli: ^0.1.0
+  zuke_analyzer: ^0.1.0
+  yaml: ^3.1.3
+dependency_overrides:
+  # Flutter 3.38 pins test_api 0.7.11; keep the workspace's Dart test runner
+  # on the matching test release while the SDK constraint remains shared.
+  test: 1.31.0

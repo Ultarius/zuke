@@ -1,0 +1,44 @@
+schemaVersion: 1
+controls:
+  - id: CTRL-CALC-INPUT-VALIDATION
+    title: Numeric and operator allowlist validation
+    owner: platform-security
+    description: >-
+      Operands must conform to the supported finite numeric grammar and
+      operators must come from the registered allowlist.
+    defaultEvidence: [domain-unit, api-contract, security-integration]
+    acceptableProviderKinds: [application-validator, request-validator]
+    prohibitedProviderTargets: [flutter]
+    coverageSemantics: ingress-dominance
+
+  - id: CTRL-CALC-ERROR-REDACTION
+    title: Public error redaction
+    owner: platform-security
+    description: >-
+      Public errors use stable codes and never expose stack traces, source
+      paths, internal exception classes, or raw headers.
+    defaultEvidence: [api-contract, security-integration]
+    acceptableProviderKinds: [public-error-mapper, error-interceptor]
+    coverageSemantics: failure-to-public-egress
+
+  - id: CTRL-CALC-BODY-SIZE
+    title: Request body-size enforcement
+    owner: platform-security
+    defaultEvidence: [security-integration]
+    acceptableProviderKinds: [gateway-policy, request-middleware]
+    coverageSemantics: ingress-dominance
+
+  - id: CTRL-CALC-RATE-LIMIT
+    title: Calculator request rate limiting
+    owner: platform-security
+    target: edge
+    defaultEvidence: [security-integration]
+    acceptableProviderKinds: [gateway-policy, request-middleware]
+    coverageSemantics: external-attestation
+
+  - id: CTRL-CALC-LOG-REDACTION
+    title: Calculator log redaction
+    owner: platform-security
+    defaultEvidence: [logging-verification]
+    acceptableProviderKinds: [logging-interceptor, structured-logger, telemetry-processor]
+    coverageSemantics: sensitive-data-to-log-sink

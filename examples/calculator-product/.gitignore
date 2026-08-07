@@ -1,0 +1,5 @@
+# Disposable, content-addressed extraction cache.
+.zuke/cache/
+
+# Explicit debug emissions are not authoritative artifacts.
+generated/trace/debug/

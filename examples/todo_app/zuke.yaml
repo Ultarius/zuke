@@ -1,0 +1,73 @@
+schemaVersion: 2
+
+workspace:
+  name: todo-app-product
+  root: .
+
+specifications:
+  features: [specs/features/**/*.feature]
+  epics: [specs/epics/**/*.yaml]
+  controls: [specs/controls/**/*.yaml]
+  registries: [specs/registry/**/*.yaml]
+
+targets:
+  flutter:
+    language: dart
+    packages:
+      - path: .
+        roots: [lib, test]
+    contractOutput: lib/src/generated
+    extractor: zuke-dart-resolved
+
+dartTooling:
+  extraction:
+    authority: cli
+    cache: .zuke/cache/dart
+    requireResolvedAnnotations: true
+    rejectIncompleteFragments: true
+  analyzerPlugin:
+    enabled: true
+  buildHooks:
+    default: disabled
+    enabledPackages: [.]
+  generation:
+    driver: zuke-cli
+    commitGeneratedSource: true
+    watchCommand: dart run zuke_cli:zuke watch --generate --validate
+
+policies:
+  preset: secure-product-v1
+  project: policies/project-policy.yaml
+  profiles: [policies/security-profiles.yaml]
+  protectedSeverities:
+    duplicateId: error
+    ambiguousBinding: error
+    missingSecurityEvidence: error
+    staleLock: error
+
+execution:
+  runners:
+    - id: todo-flutter-tests
+      kind: gherkin
+      target: flutter
+      evidenceTypes: [gherkin-ui]
+      executable: flutter
+      args: [test, --no-pub, --reporter, expanded]
+      workingDirectory: .
+      generatedStepsOutput: test/support/generated
+      timeoutSeconds: 300
+  pullRequest:
+    tagExpression: '@pr'
+  merge:
+    tagExpression: '@pr or @merge'
+  release:
+    tagExpression: '@pr or @merge or @release'
+evidence:
+  output: generated/evidence/records
+  records: generated/evidence/records
+  observations: generated/evidence/runs
+  includeSourceCode: false
+
+lock:
+  file: zuke.lock.json
+  requireCleanGeneration: true

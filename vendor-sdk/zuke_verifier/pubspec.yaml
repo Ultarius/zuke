@@ -1,0 +1,26 @@
+name: zuke_verifier
+description: Independent verifier for exported Zuke v2 assurance history.
+version: 0.1.0
+publish_to: none
+
+environment:
+  sdk: '>=3.10.0 <4.0.0'
+resolution: workspace
+
+dependencies:
+  zuke_core: ^0.1.0
+
+dev_dependencies:
+  cryptography: ^2.7.0
+  crypto: ^3.0.0
+  test: ^1.24.0
+
+executables:
+  verify: verify
+repository: https://github.com/Ultarius/zuke
+issue_tracker: https://github.com/Ultarius/zuke/issues
+documentation: https://github.com/Ultarius/zuke/blob/main/docs/integration-guide.md
+topics:
+  - zuke
+  - gherkin
+  - bdd

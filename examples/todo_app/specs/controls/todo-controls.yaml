@@ -1,0 +1,17 @@
+schemaVersion: 1
+controls:
+  - id: CTRL-TODO-VALIDATION
+    title: Todo Task Validation
+    description: Enforces non-empty task names and proper state transitions.
+    acceptableProviderKinds:
+      - application-validator
+    coverageSemantics: verification-backed
+    requiredLayers: [presentation]
+
+  - id: CTRL-TODO-ACCESSIBLE
+    title: Todo Accessibility & Task List Semantics
+    description: Exposes screen reader semantics for task count and list state.
+    acceptableProviderKinds:
+      - semantics-provider
+    coverageSemantics: verification-backed
+    requiredLayers: [presentation]

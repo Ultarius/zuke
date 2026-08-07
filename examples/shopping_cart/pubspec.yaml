@@ -1,0 +1,29 @@
+name: shopping_cart
+description: "Advanced Frontend Shopping Cart & Checkout System with Zuke BDD verification."
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.10.0 <4.0.0'
+resolution: workspace
+
+dependencies:
+  flutter:
+    sdk: flutter
+  zuke_annotations: ^0.1.0
+  zuke_dart_build_hook: ^0.1.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+  zuke_cli: ^0.1.0
+  zuke_runner_flutter: ^0.1.0
+
+flutter:
+  uses-material-design: true
+
+hooks:
+  user_defines:
+    zuke_dart_build_hook:
+      mode: error

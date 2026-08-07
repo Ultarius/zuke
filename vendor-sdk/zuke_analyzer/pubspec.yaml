@@ -1,0 +1,21 @@
+name: zuke_analyzer
+description: Zuke resolved annotation diagnostics for Dart analysis.
+version: 0.1.0
+environment:
+  sdk: '>=3.10.0 <4.0.0'
+resolution: workspace
+publish_to: none
+dependencies:
+  analysis_server_plugin: ^0.3.0
+  analyzer: ^8.2.0
+  zuke_core: ^0.1.0
+
+dev_dependencies:
+  test: ^1.24.0
+repository: https://github.com/Ultarius/zuke
+issue_tracker: https://github.com/Ultarius/zuke/issues
+documentation: https://github.com/Ultarius/zuke/blob/main/docs/integration-guide.md
+topics:
+  - zuke
+  - gherkin
+  - bdd

@@ -1,0 +1,27 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/Ultarius/zuke/blob/main/vendor-sdk/zuke_conformance/lib/schemas/ed25519-trust.v2.schema.json",
+  "type": "object",
+  "required": ["schemaVersion", "keys"],
+  "properties": {
+    "schemaVersion": {"const": "zuke.ed25519-trust.v2"},
+    "keys": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["signerId", "keyId", "algorithm", "publicKey", "fingerprint", "usages", "status"],
+        "properties": {
+          "signerId": {"type": "string", "minLength": 1},
+          "keyId": {"type": "string", "minLength": 1},
+          "algorithm": {"const": "Ed25519"},
+          "publicKey": {"type": "string", "contentEncoding": "base64"},
+          "fingerprint": {"type": "string", "pattern": "^sha256:[a-f0-9]{64}$"},
+          "usages": {"type": "array", "items": {"enum": ["release", "attestation"]}},
+          "status": {"enum": ["active", "revoked"]}
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "additionalProperties": false
+}

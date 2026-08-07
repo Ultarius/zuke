@@ -1,0 +1,25 @@
+{
+  "schemaVersion": "specguard.external-attestation.v1",
+  "signer": {
+    "signerId": "attestation-signer-v1",
+    "keyId": "default",
+    "algorithm": "Ed25519"
+  },
+  "body": {
+    "providerId": "provider.gateway.calculator-rate-limit",
+    "controlId": "CTRL-CALC-RATE-LIMIT",
+    "target": "edge",
+    "variant": "default",
+    "kind": "gateway-policy",
+    "layer": "edge",
+    "owner": "platform-edge-team",
+    "system": "production-api-gateway",
+    "reference": "EDGE-POLICY-2841",
+    "scopeHash": "sha256:e3659ea27ee3d509785d6f1e5dc51911e2a8ed53aa36b3a75ecf3ec733632a49",
+    "evidenceType": "gateway-policy-export",
+    "evidenceDigest": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "issuedAt": "2026-07-21T00:00:00.000Z",
+    "expiresAt": "2026-10-01T00:00:00.000Z"
+  },
+  "signature": "+ez04Ah/GsauDbhMKn5c1GKzY7mgZoHOV7NSbBe9LbsWKVJTixgDeHaXy5tfIttnPErsWP8eRaRN/sQlJ7mRDg=="
+}

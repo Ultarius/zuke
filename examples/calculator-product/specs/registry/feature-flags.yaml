@@ -1,0 +1,11 @@
+schemaVersion: 1
+# Canonical feature-flag registry. Feature `featureFlags:` entries and
+# Background/Scenario flag preconditions must resolve here (validation Pass 5).
+featureFlags:
+  - id: calculator_remote_engine_v1
+    owner: calculator-team
+    description: >-
+      When enabled, the backend is the authoritative calculation engine and
+      Flutter presents inputs, results, and safe errors.
+    default: false
+    targets: [flutter, backend]

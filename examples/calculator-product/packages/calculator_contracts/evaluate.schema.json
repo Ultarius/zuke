@@ -1,0 +1,65 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://calculator-product.local/contracts/calculator.evaluate.schema.json",
+  "title": "calculator.evaluate",
+  "description": "Request and response contract for POST /v1/calculations/evaluate (endpoint calculator.evaluate, owned by FEAT-CALC-001).",
+  "request": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": ["firstOperand", "operator", "secondOperand"],
+    "properties": {
+      "firstOperand": {
+        "type": "string",
+        "description": "Finite numeric operand in decimal notation."
+      },
+      "operator": {
+        "type": "string",
+        "enum": ["+", "-", "×", "÷"]
+      },
+      "secondOperand": {
+        "type": "string",
+        "description": "Finite numeric operand in decimal notation."
+      }
+    }
+  },
+  "successResponse": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": ["result"],
+    "properties": {
+      "result": {
+        "type": "string",
+        "description": "Decimal rendering of the calculation result."
+      }
+    }
+  },
+  "errorResponse": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": ["error"],
+    "properties": {
+      "error": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["code", "message"],
+        "properties": {
+          "code": {
+            "type": "string",
+            "enum": [
+              "INVALID_OPERAND",
+              "UNSUPPORTED_OPERATOR",
+              "DIVISION_BY_ZERO",
+              "REQUEST_TOO_LARGE",
+              "RATE_LIMIT_EXCEEDED",
+              "CALCULATION_FAILED"
+            ]
+          },
+          "message": {
+            "type": "string",
+            "description": "Stable public message. Never contains stack traces, source paths, exception classes, or raw request data."
+          }
+        }
+      }
+    }
+  }
+}
