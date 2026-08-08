@@ -39,6 +39,8 @@ jobs:
           channel: stable
           cache: true
       - run: dart --suppress-analytics pub get
+      - name: Prepare Flutter tool package
+        run: dart --suppress-analytics run tool/prepare_flutter_toolchain.dart
       - name: Flutter launcher integration
         run: dart --suppress-analytics test vendor-sdk/zuke_cli/test/flutter_toolchain_integration_test.dart
       - run: dart --suppress-analytics format --output=none --set-exit-if-changed lib test

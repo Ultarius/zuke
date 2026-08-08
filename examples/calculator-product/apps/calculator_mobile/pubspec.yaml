@@ -31,10 +31,8 @@ resolution: workspace
 dependencies:
   flutter:
     sdk: flutter
-  calculator_contracts:
-    path: ../../packages/calculator_contracts
-  calculator_domain:
-    path: ../../packages/calculator_domain
+  calculator_contracts: ^1.0.0
+  calculator_domain: ^1.0.0
   zuke_annotations: ^0.1.0
   zuke: ^0.1.0
 

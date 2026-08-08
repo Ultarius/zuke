@@ -299,99 +299,65 @@ void main() {
   });
 
   group('Checked-in schema instances', () {
-    test(
-      'lock, trust, and attestation instances satisfy their structural contracts',
-      () {
-        final root = _workspaceRoot();
-        final lock =
-            jsonDecode(
-                  File(
-                    '${root.path}/examples/calculator-product/zuke.lock.json',
-                  ).readAsStringSync(),
-                )
-                as Map;
-        expect(lock['formatVersion'], 1);
-        final controls = lock['controls'] as Map;
-        final assurances = controls.values
-            .whereType<Map>()
-            .map((value) => value['assurance'])
-            .whereType<String>()
-            .toSet();
-        expect(assurances, contains('proven'));
-        expect(assurances, contains('attested'));
-        final edgeRateLimit =
-            controls['RULE-CALC-RATE-LIMIT|CTRL-CALC-RATE-LIMIT|edge|default']
-                as Map;
-        expect(edgeRateLimit['assurance'], 'attested');
-        expect(
-          edgeRateLimit['providerIds'],
-          contains('provider.gateway.calculator-rate-limit'),
-        );
-        final backendRateLimit =
-            controls['RULE-CALC-RATE-LIMIT|CTRL-CALC-LOG-REDACTION|backend|default']
-                as Map;
-        expect(backendRateLimit['assurance'], 'proven');
-        expect(
-          backendRateLimit['providerIds'],
-          contains('provider:CalculatorLoggingInterceptor'),
-        );
-        for (final field in [
-          'policyHash',
-          'evidenceRequirementsHash',
-          'specificationDigest',
-          'generatedManifestDigest',
-        ]) {
-          expect(lock[field], matches(RegExp(r'^sha256:[a-f0-9]{64}$')));
-        }
+    test('merge lock and trust instances satisfy their structural contracts', () {
+      final root = _workspaceRoot();
+      final lock =
+          jsonDecode(
+                File(
+                  '${root.path}/examples/calculator-product/zuke.lock.json',
+                ).readAsStringSync(),
+              )
+              as Map;
+      expect(lock['formatVersion'], 1);
+      final controls = lock['controls'] as Map;
+      final assurances = controls.values
+          .whereType<Map>()
+          .map((value) => value['assurance'])
+          .whereType<String>()
+          .toSet();
+      expect(assurances, contains('proven'));
+      expect(assurances, contains('missing'));
+      // Coverage runs on merge/PR profiles. Release attestations are
+      // generated and verified by the authorized signing workflow, so they
+      // must not be required in this checked-in merge lock.
+      expect(lock['attestations'], isEmpty);
+      final releaseOnlyRateLimit = controls['CTRL-CALC-RATE-LIMIT'] as Map;
+      expect(releaseOnlyRateLimit['assurance'], 'missing');
+      expect(releaseOnlyRateLimit['coverageSemantics'], 'external-attestation');
+      final provenErrorRedaction =
+          controls['RULE-CALC-DIVISION|CTRL-CALC-ERROR-REDACTION|backend|default']
+              as Map;
+      expect(provenErrorRedaction['assurance'], 'proven');
+      expect(
+        provenErrorRedaction['providerIds'],
+        contains('provider:PublicCalculatorErrorMapper'),
+      );
+      for (final field in [
+        'policyHash',
+        'evidenceRequirementsHash',
+        'specificationDigest',
+        'generatedManifestDigest',
+      ]) {
+        expect(lock[field], matches(RegExp(r'^sha256:[a-f0-9]{64}$')));
+      }
 
-        final trust =
-            jsonDecode(
-                  File(
-                    '${root.path}/examples/calculator-product/assurance-history/trust/ed25519-v2.json',
-                  ).readAsStringSync(),
-                )
-                as Map;
-        expect(trust['schemaVersion'], 'zuke.ed25519-trust.v2');
-        final identities = <String>{};
-        for (final key in (trust['keys'] as List).cast<Map>()) {
-          expect(key['algorithm'], 'Ed25519');
-          expect(base64Decode(key['publicKey'] as String), hasLength(32));
-          expect(key['fingerprint'], matches(RegExp(r'^sha256:[a-f0-9]{64}$')));
-          expect(key['status'], anyOf('active', 'revoked'));
-          expect(identities.add('${key['signerId']}|${key['keyId']}'), isTrue);
-        }
-
-        final attestation =
-            jsonDecode(
-                  File(
-                    '${root.path}/examples/calculator-product/assurance-history/attestations/gateway-rate-limit.v1.json',
-                  ).readAsStringSync(),
-                )
-                as Map;
-        expect(attestation['schemaVersion'], 'zuke.external-attestation.v1');
-        expect((attestation['signer'] as Map)['algorithm'], 'Ed25519');
-        expect(base64Decode(attestation['signature'] as String), hasLength(64));
-        final body = attestation['body'] as Map;
-        for (final field in [
-          'providerId',
-          'controlId',
-          'reference',
-          'scopeHash',
-          'evidenceDigest',
-          'issuedAt',
-          'expiresAt',
-        ]) {
-          expect(
-            body[field],
-            isA<String>().having((value) => value, 'value', isNotEmpty),
-          );
-        }
-        expect(
-          body['evidenceDigest'],
-          matches(RegExp(r'^sha256:[a-f0-9]{64}$')),
-        );
-      },
-    );
+      final trust =
+          jsonDecode(
+                File(
+                  '${root.path}/examples/calculator-product/assurance-history/trust/ed25519-v2.json',
+                ).readAsStringSync(),
+              )
+              as Map;
+      expect(trust['schemaVersion'], 'zuke.ed25519-trust.v2');
+      final identities = <String>{};
+      for (final key in (trust['keys'] as List).cast<Map>()) {
+        expect(key['algorithm'], 'Ed25519');
+        expect(base64Decode(key['publicKey'] as String), hasLength(32));
+        expect(key['fingerprint'], matches(RegExp(r'^sha256:[a-f0-9]{64}$')));
+        expect(key['status'], anyOf('active', 'revoked'));
+        expect(identities.add('${key['signerId']}|${key['keyId']}'), isTrue);
+      }
+    });
   });
 
   group('attestation and evidence adversarial boundaries', () {

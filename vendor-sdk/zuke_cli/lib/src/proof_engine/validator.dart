@@ -124,6 +124,7 @@ class ValidatorEngine {
     final profileEvidence = evidenceRecords
         .where((record) => record.profile == profile)
         .toList();
+    final selectedRuleIds = _selectedRuleIds(workspace, selectedScenarioIds);
 
     _add(
       allErrors,
@@ -261,16 +262,28 @@ class ValidatorEngine {
     );
 
     _addDuplicateProfileWarnings(workspace, allWarnings);
-    final expectedProofs = _expectedProofs(workspace);
+    final expectedProofs = _expectedProofs(
+      workspace,
+      selectedRuleIds: selectedRuleIds,
+    );
+    final controlProofs = selectedRuleIds == null
+        ? allControlProofs
+        : allControlProofs
+              .where(
+                (proof) =>
+                    proof.requirementId == null ||
+                    selectedRuleIds.contains(proof.requirementId),
+              )
+              .toList();
     final actualProofKeys = {
-      for (final proof in allControlProofs)
+      for (final proof in controlProofs)
         '${proof.requirementId ?? ''}|${proof.controlId}|${proof.target}|${proof.variant}',
     };
     for (final expected in expectedProofs) {
       final key =
           '${expected.requirementId}|${expected.controlId}|${expected.target}|${expected.variant}';
       if (actualProofKeys.contains(key)) continue;
-      allControlProofs.add(
+      controlProofs.add(
         ControlProofResult(
           controlId: expected.controlId,
           requirementId: expected.requirementId,
@@ -297,51 +310,67 @@ class ValidatorEngine {
       errors: allErrors,
       warnings: allWarnings,
       infos: allInfos,
-      controlProofs: allControlProofs,
+      controlProofs: controlProofs,
       requiredEvidence: _requiredEvidence(workspace, selectedScenarioIds),
       hasExpectedProofs: expectedProofs.isNotEmpty,
     );
+  }
+
+  Set<String>? _selectedRuleIds(
+    WorkspaceDiscoveryResult workspace,
+    List<String>? selectedScenarioIds,
+  ) {
+    if (selectedScenarioIds == null) return null;
+    final selected = selectedScenarioIds.toSet();
+    final ruleIds = <String>{};
+    for (final feature in workspace.data.features) {
+      for (final rule in feature.rules) {
+        for (final scenario in rule.scenarios) {
+          final scenarioIds = <String>{
+            ...feature.tags.map((tag) => tag.name),
+            ...rule.tags.map((tag) => tag.name),
+            ...scenario.tags.map((tag) => tag.name),
+            for (final examples in scenario.examples)
+              ...examples.tags.map((tag) => tag.name),
+          };
+          if (scenarioIds.any(selected.contains) && rule.metadata.id != null) {
+            ruleIds.add(rule.metadata.id!);
+          }
+        }
+      }
+    }
+    return ruleIds;
   }
 
   List<String> _requiredEvidence(
     WorkspaceDiscoveryResult workspace,
     List<String>? selectedScenarioIds,
   ) {
-    final selectedRuleIds = <String>{};
-    if (selectedScenarioIds != null) {
-      final selected = selectedScenarioIds.toSet();
-      for (final feature in workspace.data.features) {
-        for (final rule in feature.rules) {
-          final scenarioIds = <String>{
-            for (final scenario in rule.scenarios) ...[
-              ...scenario.tags.map((tag) => tag.name),
-              for (final examples in scenario.examples)
-                ...examples.tags.map((tag) => tag.name),
-            ],
-          };
-          if (scenarioIds.any(selected.contains) && rule.metadata.id != null) {
-            selectedRuleIds.add(rule.metadata.id!);
-          }
-        }
-      }
-    }
+    final selectedRuleIds = _selectedRuleIds(workspace, selectedScenarioIds);
     return [
       for (final feature in workspace.data.features)
         for (final rule in feature.rules)
           if (selectedScenarioIds == null ||
-              selectedRuleIds.contains(rule.metadata.id))
+              selectedRuleIds!.contains(rule.metadata.id))
             for (final type
                 in rule.metadata.requiredEvidence ?? const <String>[])
               '${rule.metadata.id ?? '<unknown>'}|$type',
     ]..sort();
   }
 
-  List<_ExpectedProof> _expectedProofs(WorkspaceDiscoveryResult workspace) {
+  List<_ExpectedProof> _expectedProofs(
+    WorkspaceDiscoveryResult workspace, {
+    Set<String>? selectedRuleIds,
+  }) {
     final result = <String, _ExpectedProof>{};
     for (final feature in workspace.data.features) {
       for (final rule in feature.rules) {
         final requirementId = rule.metadata.id;
         if (requirementId == null) continue;
+        if (selectedRuleIds != null &&
+            !selectedRuleIds.contains(requirementId)) {
+          continue;
+        }
         for (final ref
             in rule.metadata.requires ?? const <ParsedControlRef>[]) {
           if (ref.kind != 'control') continue;

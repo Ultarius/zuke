@@ -16,9 +16,6 @@ packages:
   - examples/calculator-product/apps/*
   - examples/calculator-product/packages/*
   - examples/*
-command:
-  bootstrap:
-    usePubspecOverrides: false
 scripts:
   bootstrap: dart --disable-dart-dev --suppress-analytics pub get
   format:check: dart --disable-dart-dev --suppress-analytics run vendor-sdk/check_format.dart

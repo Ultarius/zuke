@@ -19,6 +19,8 @@ jobs:
           channel: stable
           cache: true
       - run: dart --suppress-analytics pub get
+      - name: Prepare Flutter tool package
+        run: dart --suppress-analytics run tool/prepare_flutter_toolchain.dart
       - run: dart --suppress-analytics run melos run zuke:check
       - name: Reject retired package identities and stale calculator roots
         shell: bash

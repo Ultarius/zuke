@@ -58,7 +58,6 @@ class ValidateCommand {
       stderr.writeln('  WARNING: $msg');
     }
 
-    final passed = result.passed && extraction.errors.isEmpty;
     final report = result.toReport(
       evidence: extraction.evidenceRecords
           .where((record) => record.profile == profile)
@@ -72,6 +71,13 @@ class ValidateCommand {
               'sha256:${output.inputDigest}',
       },
     );
+    final passed =
+        result.passed && report.eligible && extraction.errors.isEmpty;
+    if (!report.eligible) {
+      for (final reason in report.ineligibilityReasons) {
+        stderr.writeln('  ERROR: $reason');
+      }
+    }
     if (jsonMode) {
       stdout.writeln(
         const JsonEncoder.withIndent('  ').convert({

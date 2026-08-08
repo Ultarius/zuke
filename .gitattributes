@@ -1,2 +1,11 @@
 # Auto detect text files and perform LF normalization
 * text=auto
+
+# Zuke hashes generated source and specification inputs. Keep these files
+# byte-identical on Windows and Unix so generated manifests, analyzer indexes,
+# evidence digests, and locks do not change during checkout.
+*.dart text eol=lf
+*.feature text eol=lf
+*.json text eol=lf
+*.yaml text eol=lf
+*.yml text eol=lf

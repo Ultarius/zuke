@@ -2,6 +2,15 @@ name: refresh gateway attestation
 
 on:
   workflow_dispatch:
+    inputs:
+      profile:
+        description: Assurance profile used to regenerate the calculator lock
+        required: true
+        default: merge
+        type: choice
+        options:
+          - merge
+          - release
   schedule:
     - cron: '17 3 * * 1'
 
@@ -10,8 +19,9 @@ concurrency:
   cancel-in-progress: false
 
 permissions:
-  contents: read
+  contents: write
   id-token: write
+  pull-requests: write
 
 jobs:
   refresh:
@@ -33,6 +43,7 @@ jobs:
       ZUKE_SIGNING_PROVIDER_URL: ${{ vars.ZUKE_SIGNING_PROVIDER_URL }}
       ZUKE_SIGNING_PROVIDER_AUDIENCE: ${{ vars.ZUKE_SIGNING_PROVIDER_AUDIENCE }}
       ATTESTATION_SIGNER_KEY_ID: ${{ vars.ATTESTATION_SIGNER_KEY_ID }}
+      ZUKE_ASSURANCE_PROFILE: ${{ inputs.profile || 'merge' }}
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
       - name: Authenticate to Azure with the environment-bound OIDC identity
@@ -119,8 +130,46 @@ jobs:
             --evidence gateway-policy-export.json --reference "$GATEWAY_REFERENCE" \
             --signer-id attestation-signer-v1 --key-id "$ATTESTATION_SIGNER_KEY_ID" \
             --issued-at "$issued_at" --expires-at "$expires_at"
+          dart --suppress-analytics run zuke_cli:zuke generate \
+            --root examples/calculator-product --check
+          dart --suppress-analytics run zuke_cli:zuke test \
+            --root examples/calculator-product --profile "$ZUKE_ASSURANCE_PROFILE"
           dart --suppress-analytics run zuke_cli:zuke validate \
-            --root examples/calculator-product --profile release --format json
+            --root examples/calculator-product --profile "$ZUKE_ASSURANCE_PROFILE" --format json
+          dart --suppress-analytics run zuke_cli:zuke lock \
+            --root examples/calculator-product --profile "$ZUKE_ASSURANCE_PROFILE"
+      - name: Open pull request with refreshed assurance records
+        if: success()
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REFRESH_BRANCH: automation/zuke-gateway-attestation
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git checkout -B "$REFRESH_BRANCH"
+          git add \
+            examples/calculator-product/assurance-history/attestations/gateway-rate-limit.v1.json \
+            examples/calculator-product/policies/attestations.yaml \
+            examples/calculator-product/zuke.lock.json
+          if git diff --cached --quiet; then
+            echo 'No calculator assurance changes to publish.'
+            exit 0
+          fi
+          git commit -m 'chore: refresh calculator gateway assurance'
+          git push --force origin "HEAD:$REFRESH_BRANCH"
+          existing_pr="$(gh pr list --repo "$GITHUB_REPOSITORY" --head "$REFRESH_BRANCH" --state open --json number --jq '.[0].number // empty')"
+          if test -n "$existing_pr"; then
+            gh pr comment "$existing_pr" --repo "$GITHUB_REPOSITORY" \
+              --body "Updated by attestation refresh run $GITHUB_RUN_ID using profile `$ZUKE_ASSURANCE_PROFILE`."
+          else
+            gh pr create --repo "$GITHUB_REPOSITORY" \
+              --base "$DEFAULT_BRANCH" --head "$REFRESH_BRANCH" \
+              --title 'chore: refresh calculator gateway assurance' \
+              --body "This PR contains a freshly signed Zuke external attestation, the updated policy digest, and the lock generated after the configured $ZUKE_ASSURANCE_PROFILE assurance run."
+          fi
       - name: Upload evidence and proposed attestation change
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
@@ -131,3 +180,4 @@ jobs:
             gateway-policy-export.json
             examples/calculator-product/policies/attestations.yaml
             examples/calculator-product/assurance-history/attestations/
+            examples/calculator-product/zuke.lock.json

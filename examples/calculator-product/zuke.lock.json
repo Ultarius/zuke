@@ -4,14 +4,14 @@
   "workspace": "calculator-product",
   "policy": {
     "preset": "secure-product-v1",
-    "policyHash": "sha256:a8432d0bb9e91b8454d7a9c3fe059401946ef97b340ceb82d03bfacdeb12f1e8",
+    "policyHash": "sha256:37533122ac28fe6cacdb42b6649dd762bfd93028cdb95148ca05c2aca1ddf5c1",
     "evidenceRequirementsHash": "sha256:850a708646e2156241077673b6742d173382ec2eb3bf4b77ea0660d69c32675e"
   },
-  "policyHash": "sha256:a8432d0bb9e91b8454d7a9c3fe059401946ef97b340ceb82d03bfacdeb12f1e8",
+  "policyHash": "sha256:37533122ac28fe6cacdb42b6649dd762bfd93028cdb95148ca05c2aca1ddf5c1",
   "evidenceRequirementsHash": "sha256:850a708646e2156241077673b6742d173382ec2eb3bf4b77ea0660d69c32675e",
   "specificationDigestScope": "discovery-inputs-v1",
-  "specificationDigest": "sha256:d0bde27ef8768abd7d899d865912a2f63ecce6dc636dd8968f2f1f14404ff517",
-  "generatedManifestDigest": "sha256:d8c221e45817e4c24c8c5714c8a3eae2ee97d190184035bd3dff36b9133e9373",
+  "specificationDigest": "sha256:3da1e1686d735ba127495d9d5464c21054218cea5468d07426f2e3c3421bebfb",
+  "generatedManifestDigest": "sha256:93a855fd8152858600fddb02f9e20ac525804cf43a8f09ecd4672fe66191824d",
   "features": {
     "FEAT-CALC-001": {
       "sourceHash": "sha256:adafd4d21ca6382630c91272ac0e7c43230188c7b9abec7f4fa2b7b189e5b931"
@@ -26,7 +26,7 @@
       "version": "1.0.0",
       "compatibilityId": "dart-analyzer-8.2-http-topology-v2",
       "package": "calculator_api",
-      "digest": "sha256:6f2b1b8df91b3bca8f9063f5a012550105a0b206457e2d29d8539c2af3974bb9",
+      "digest": "sha256:96616ce957fd6ab16a2db61e1f5c303068fd15fad75223851426c804f29c1767",
       "completeness": {
         "annotationTargets": "complete",
         "generatedParts": "complete",
@@ -43,7 +43,7 @@
       "version": "1.0.0",
       "compatibilityId": "dart-analyzer-8.2-http-topology-v2",
       "package": "calculator_domain",
-      "digest": "sha256:1d5a873d14a6857feab0c891a4cdf28e0256436c60e3bbf9b3794b66d004e909",
+      "digest": "sha256:a78beb6dd208b23b08777495f718a245d65bec7b5eaa7efe65a755af45c66daf",
       "completeness": {
         "annotationTargets": "complete",
         "generatedParts": "complete",
@@ -60,7 +60,7 @@
       "version": "1.0.0",
       "compatibilityId": "dart-analyzer-8.2-http-topology-v2",
       "package": "calculator_mobile",
-      "digest": "sha256:b0b72242ec63fb4ae8976260915023ff3bb6738635722614bd4b116534dd4d7b",
+      "digest": "sha256:d114c6f13c72ddae6fd11e4d313907a5bcc8aa2dd4b5c5ad4f6fcc32343cb0ea",
       "completeness": {
         "annotationTargets": "complete",
         "generatedParts": "complete",
@@ -87,40 +87,9 @@
     "RULE-CALC-RATE-LIMIT",
     "RULE-CALC-ERROR-REDACTION"
   ],
-  "attestations": [
-    {
-      "providerId": "provider.gateway.calculator-rate-limit",
-      "controlId": "CTRL-CALC-RATE-LIMIT",
-      "target": "edge",
-      "variant": "default",
-      "semantics": "external-attestation",
-      "issuedAt": "2026-07-21T00:00:00Z",
-      "expiresAt": "2026-10-01T00:00:00Z",
-      "evidenceDigest": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-      "document": "assurance-history/attestations/gateway-rate-limit.v1.json"
-    }
-  ],
+  "attestations": [],
   "controls": {
     "RULE-CALC-DIVISION|CTRL-CALC-ERROR-REDACTION|backend|default": {
-      "assurance": "proven",
-      "semantics": "failure-to-public-egress",
-      "providerIds": [
-        "provider:PublicCalculatorErrorMapper"
-      ],
-      "evidenceDigests": [],
-      "coverage": "proven",
-      "graphHash": "sha256:e9380c516cf94f7235460a8292f9d75e993dbbb45b4625e9d442f0bceb247166",
-      "completeness": {
-        "routeRegistration": "complete",
-        "middlewareOrder": "complete",
-        "failureFlow": "complete",
-        "logFlow": "complete",
-        "dynamicRegistration": "complete",
-        "externalVisibility": "notApplicable"
-      },
-      "bypassPaths": []
-    },
-    "RULE-CALC-ERROR-REDACTION|CTRL-CALC-ERROR-REDACTION|backend|default": {
       "assurance": "proven",
       "semantics": "failure-to-public-egress",
       "providerIds": [
@@ -158,93 +127,20 @@
       },
       "bypassPaths": []
     },
-    "RULE-CALC-BODY-SIZE|CTRL-CALC-BODY-SIZE|backend|default": {
-      "assurance": "proven",
-      "semantics": "ingress-dominance",
-      "providerIds": [
-        "provider:BodyLimitMiddleware"
-      ],
-      "evidenceDigests": [],
-      "coverage": "proven",
-      "graphHash": "sha256:e9380c516cf94f7235460a8292f9d75e993dbbb45b4625e9d442f0bceb247166",
-      "completeness": {
-        "routeRegistration": "complete",
-        "middlewareOrder": "complete",
-        "failureFlow": "complete",
-        "logFlow": "complete",
-        "dynamicRegistration": "complete",
-        "externalVisibility": "notApplicable"
-      },
-      "bypassPaths": []
+    "CTRL-CALC-BODY-SIZE": {
+      "assurance": "missing",
+      "coverageSemantics": "ingress-dominance",
+      "providerIds": []
     },
-    "RULE-CALC-BODY-SIZE|CTRL-CALC-LOG-REDACTION|backend|default": {
-      "assurance": "proven",
-      "semantics": "sensitive-data-to-log-sink",
-      "providerIds": [
-        "provider:CalculatorLoggingInterceptor"
-      ],
-      "evidenceDigests": [],
-      "coverage": "proven",
-      "graphHash": "sha256:e9380c516cf94f7235460a8292f9d75e993dbbb45b4625e9d442f0bceb247166",
-      "completeness": {
-        "routeRegistration": "complete",
-        "middlewareOrder": "complete",
-        "failureFlow": "complete",
-        "logFlow": "complete",
-        "dynamicRegistration": "complete",
-        "externalVisibility": "notApplicable"
-      },
-      "bypassPaths": []
+    "CTRL-CALC-RATE-LIMIT": {
+      "assurance": "missing",
+      "coverageSemantics": "external-attestation",
+      "providerIds": []
     },
-    "RULE-CALC-RATE-LIMIT|CTRL-CALC-LOG-REDACTION|backend|default": {
-      "assurance": "proven",
-      "semantics": "sensitive-data-to-log-sink",
-      "providerIds": [
-        "provider:CalculatorLoggingInterceptor"
-      ],
-      "evidenceDigests": [],
-      "coverage": "proven",
-      "graphHash": "sha256:e9380c516cf94f7235460a8292f9d75e993dbbb45b4625e9d442f0bceb247166",
-      "completeness": {
-        "routeRegistration": "complete",
-        "middlewareOrder": "complete",
-        "failureFlow": "complete",
-        "logFlow": "complete",
-        "dynamicRegistration": "complete",
-        "externalVisibility": "notApplicable"
-      },
-      "bypassPaths": []
-    },
-    "RULE-CALC-ERROR-REDACTION|CTRL-CALC-LOG-REDACTION|backend|default": {
-      "assurance": "proven",
-      "semantics": "sensitive-data-to-log-sink",
-      "providerIds": [
-        "provider:CalculatorLoggingInterceptor"
-      ],
-      "evidenceDigests": [],
-      "coverage": "proven",
-      "graphHash": "sha256:e9380c516cf94f7235460a8292f9d75e993dbbb45b4625e9d442f0bceb247166",
-      "completeness": {
-        "routeRegistration": "complete",
-        "middlewareOrder": "complete",
-        "failureFlow": "complete",
-        "logFlow": "complete",
-        "dynamicRegistration": "complete",
-        "externalVisibility": "notApplicable"
-      },
-      "bypassPaths": []
-    },
-    "RULE-CALC-RATE-LIMIT|CTRL-CALC-RATE-LIMIT|edge|default": {
-      "assurance": "attested",
-      "semantics": "external-attestation",
-      "providerIds": [
-        "provider.gateway.calculator-rate-limit"
-      ],
-      "evidenceDigests": [],
-      "coverage": "attested",
-      "graphHash": null,
-      "completeness": {},
-      "bypassPaths": []
+    "CTRL-CALC-LOG-REDACTION": {
+      "assurance": "missing",
+      "coverageSemantics": "sensitive-data-to-log-sink",
+      "providerIds": []
     }
   }
 }

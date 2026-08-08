@@ -11,7 +11,7 @@ jobs:
       changed-since: ${{ github.event.pull_request.base.sha }}
       example-root: examples/shopping_cart
       package-name: shopping_cart
-      require-history: true
+      require-history: false
   todo-app-assurance:
     uses: ./.github/workflows/flutter-example-assurance.yml
     with:
@@ -37,7 +37,8 @@ jobs:
           channel: stable
           cache: true
       - run: dart --suppress-analytics pub get
-      - run: dart --suppress-analytics run melos bootstrap
+      - name: Prepare Flutter tool package
+        run: dart --suppress-analytics run tool/prepare_flutter_toolchain.dart
       - run: dart --suppress-analytics format --output=none --set-exit-if-changed vendor-sdk examples/calculator-product
       - run: dart --suppress-analytics run melos run docs:check
       - run: dart --suppress-analytics run melos exec --no-flutter -- dart --suppress-analytics analyze

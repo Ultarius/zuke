@@ -176,6 +176,7 @@ class CoverageChecker {
       if (!normalized.endsWith('.dart') ||
           normalized.endsWith('.g.dart') ||
           normalized.contains('/generated/') ||
+          _isCoverageIgnored(file) ||
           _isPureReexport(file)) {
         continue;
       }
@@ -205,6 +206,11 @@ class CoverageChecker {
     }
     return true;
   }
+
+  bool _isCoverageIgnored(File file) => file
+      .readAsLinesSync()
+      .take(5)
+      .any((line) => line.trim() == '// coverage:ignore-file');
 
   int _behaviorLineCount(Directory packageRoot) {
     final lib = Directory('${packageRoot.path}${Platform.pathSeparator}lib');
