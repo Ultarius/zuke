@@ -17,7 +17,7 @@ dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^6.0.0
-  zuke_cli: ^0.1.0
+  zuke_cli: ^0.2.0
   zuke_runner_flutter: ^0.1.0
 
 flutter:

@@ -1,7 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:calculator_domain/calculator_domain.dart';
 import 'package:calculator_contracts/calculator_contracts.dart';
-import 'package:zuke_runner/runtime.dart';
+import 'package:zuke/runtime.dart';
 
 class CalculatorState {
   final String firstOperand;

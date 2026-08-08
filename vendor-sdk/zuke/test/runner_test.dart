@@ -5,7 +5,7 @@ import 'package:crypto/crypto.dart';
 import 'package:test/test.dart';
 import 'package:zuke_annotations/zuke_annotations.dart';
 import 'package:zuke_frontend/zuke_frontend.dart';
-import 'package:zuke_runner/zuke_runner.dart';
+import 'package:zuke/runner.dart';
 
 class World extends MapScenarioWorld {}
 

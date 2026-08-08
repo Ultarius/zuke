@@ -10,8 +10,8 @@ dependencies:
     path: ../../packages/calculator_contracts
   calculator_domain:
     path: ../../packages/calculator_domain
+  zuke_annotations: ^0.1.0
   zuke_http_runtime: ^0.1.0
 dev_dependencies:
   test: ^1.26.0
-  zuke_frontend: ^0.1.0
-  zuke_runner: ^0.1.0
+  zuke: ^0.1.0

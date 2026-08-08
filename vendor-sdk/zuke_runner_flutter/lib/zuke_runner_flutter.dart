@@ -6,13 +6,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:zuke_annotations/zuke_annotations.dart';
 import 'package:zuke_frontend/zuke_frontend.dart';
-import 'package:zuke_runner/zuke_runner.dart';
+import 'package:zuke/runner.dart';
 
 import 'src/flutter_binding_key.dart';
 
 export 'package:zuke_annotations/zuke_annotations.dart';
 export 'package:zuke_frontend/zuke_frontend.dart';
-export 'package:zuke_runner/zuke_runner.dart';
+export 'package:zuke/runner.dart';
 export 'src/flutter_binding_key.dart';
 
 abstract class FlutterScenarioDriver<W extends ScenarioWorld>

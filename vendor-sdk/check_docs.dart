@@ -33,11 +33,12 @@ class DocumentationChecker {
     '--root calculator-product',
   ];
   static const _tiers = <String, String>{
+    'zuke': 'Primary Zuke pure-Dart SDK.',
     'zuke_core':
         'Supported Zuke infrastructure dependency; not a primary application package.',
     'zuke_annotations': 'Supported application-facing public API.',
     'zuke_frontend': 'Supported application-facing public API.',
-    'zuke_runner': 'Supported application-facing public API.',
+    'zuke_runner': 'Compatibility package for the primary Zuke SDK.',
     'zuke_runner_flutter': 'Supported application-facing public API.',
     'zuke_http_runtime': 'Supported application-facing public API.',
     'zuke_cli': 'Supported application-facing public API.',
@@ -49,6 +50,7 @@ class DocumentationChecker {
   };
 
   static const _publishedPackages = <String>{
+    'zuke',
     'zuke_core',
     'zuke_annotations',
     'zuke_frontend',
@@ -58,6 +60,14 @@ class DocumentationChecker {
     'zuke_dart_build_hook',
     'zuke_cli',
   };
+
+  static const _packageVersions = <String, String>{
+    'zuke_runner': '0.1.1',
+    'zuke_runner_flutter': '0.1.1',
+    'zuke_cli': '0.2.0',
+  };
+
+  static const _dependencyConstraints = <String, String>{'zuke_cli': '^0.2.0'};
 
   List<String> check() {
     final failures = <String>[];
@@ -302,11 +312,14 @@ class DocumentationChecker {
       );
       final contents = pubspec.readAsStringSync();
       final relative = _relative(pubspec);
+      final expectedVersion = _packageVersions[entry.key] ?? '0.1.0';
       if (!RegExp(
-        r'^version:\s*0\.1\.0\s*$',
+        '^version:\\s*${RegExp.escape(expectedVersion)}\\s*\$',
         multiLine: true,
       ).hasMatch(contents)) {
-        failures.add('$relative: active SDK package must be version 0.1.0');
+        failures.add(
+          '$relative: active SDK package must be version $expectedVersion',
+        );
       }
       if (!RegExp(
         r'^resolution:\s*workspace\s*$',
@@ -336,13 +349,19 @@ class DocumentationChecker {
           '$relative: active SDK package must not use a path dependency',
         );
       }
+      final packageYaml = loadYaml(contents);
       for (final internal in packages.keys) {
-        final match = RegExp(
-          '^  ${RegExp.escape(internal)}:\\s*(.+)\$',
-          multiLine: true,
-        ).firstMatch(contents);
-        if (match != null && match.group(1)!.trim() != '^0.1.0') {
-          failures.add('$relative: $internal must use ^0.1.0');
+        for (final section in ['dependencies', 'dev_dependencies']) {
+          final dependencies = packageYaml is Map ? packageYaml[section] : null;
+          if (dependencies is! Map || !dependencies.containsKey(internal)) {
+            continue;
+          }
+          final declared = dependencies[internal];
+          final expectedConstraint =
+              _dependencyConstraints[internal] ?? '^0.1.0';
+          if (declared?.toString() != expectedConstraint) {
+            failures.add('$relative: $internal must use $expectedConstraint');
+          }
         }
       }
     }

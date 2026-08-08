@@ -3,8 +3,9 @@
 `examples/todo_app` is the recommended beginner Flutter integration.
 `examples/shopping_cart` expands that setup with additional UI coverage, and
 `examples/calculator-product` is the advanced mixed Flutter, Dart HTTP,
-security-attestation, and release-history reference. The first hosted SDK
-release is planned as `0.1.0`; until it exists, use the repository workspace.
+security-attestation, and release-history reference. The existing specialized
+SDK packages are in the hosted `0.1.0` preview line; the new `zuke` facade is
+intended to be published separately as the primary pure-Dart entry point.
 
 ---
 
@@ -25,21 +26,23 @@ dependencies:
 dev_dependencies:
   flutter_test:
     sdk: flutter
-  zuke_cli: ^0.1.0
+  zuke_cli: ^0.2.0
   zuke_runner_flutter: ^0.1.0
   # Optional edit-time/build-time checks:
   # zuke_analyzer: ^0.1.0
   # zuke_dart_build_hook: ^0.1.0
 ```
 
-Application and generated code use `zuke_annotations` at runtime. Flutter test
-code should import `zuke_runner_flutter`; it is the single Flutter test facade
-and re-exports the runner, feature parser/resolution, and annotation APIs needed
-by test-side bindings and scenario metadata. `zuke_runner` remains the direct
-choice for pure-Dart and HTTP runners and for optional runtime APIs via
-`package:zuke_runner/runtime.dart`, while `zuke_frontend` is for CLI, generator,
-proof, validation, and other tooling integrations rather than a normal Flutter
-application dependency.
+Application and generated code should use `zuke_annotations` when they only
+need requirement, control, or binding metadata. Flutter test code should
+import `zuke_runner_flutter`; it supplies the `testWidgets` harness, Flutter
+binding keys, drivers, and vendor steps. Pure-Dart and backend tests should keep
+`zuke` in `dev_dependencies` when parsing and execution are test-only.
+`zuke` owns the deterministic runner and HTTP test helpers while re-exporting
+the supported frontend and annotation APIs. This does not remove the narrower
+`zuke_annotations` production boundary. `zuke_http_runtime` remains an opt-in
+normal dependency for application-side HTTP registration. `zuke_runner` is a
+source-compatible transition package for existing `0.1.x` consumers.
 
 For development from this repository, use `dart pub get` at the workspace root;
 the Pub workspace resolves these hosted constraints to the local packages.
@@ -66,7 +69,10 @@ in place makes `flutter analyze` fail before Zuke runs.
 
 | Tier | Packages | Contract |
 | --- | --- | --- |
-| Primary SDK | `zuke_annotations`, `zuke_frontend`, `zuke_runner`, `zuke_runner_flutter`, `zuke_http_runtime`, `zuke_dart_build_hook`, `zuke_cli` | Supported application-facing public APIs. |
+| Primary SDK | `zuke` | Pure-Dart parser, execution, runtime event, and HTTP scenario-test SDK. |
+| Specialized SDK | `zuke_runner_flutter`, `zuke_http_runtime`, `zuke_dart_build_hook`, `zuke_cli` | Platform, runtime, build, and workflow extensions. |
+| Narrow SDK | `zuke_annotations`, `zuke_frontend` | Directly supported for strict production/test separation and custom integrations. |
+| Compatibility | `zuke_runner` | Existing imports forward to `zuke`; new Dart execution code should use `zuke`. |
 | Shared infrastructure | `zuke_core` | Published Zuke infrastructure dependency; applications normally depend on a primary SDK package instead. |
 | Workspace tooling | `zuke_analyzer`, `zuke_conformance`, `zuke_verifier`, `zuke_test_support` | Repository-only tooling; not published to pub.dev. |
 

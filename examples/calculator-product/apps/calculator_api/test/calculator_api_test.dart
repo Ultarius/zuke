@@ -5,8 +5,7 @@ import 'package:calculator_api/calculator_api.dart';
 import 'package:calculator_domain/calculator_domain.dart';
 import 'package:calculator_contracts/calculator_contracts.dart';
 import 'package:zuke_http_runtime/zuke_http_runtime.dart';
-import 'package:zuke_annotations/zuke_annotations.dart' show ScenarioId;
-import 'package:zuke_runner/zuke_runner.dart';
+import 'package:zuke/zuke.dart';
 import 'package:test/test.dart';
 
 void _emit(

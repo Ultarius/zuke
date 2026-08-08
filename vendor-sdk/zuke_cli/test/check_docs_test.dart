@@ -95,6 +95,7 @@ void main() {
 
 void _writeBaseline(Directory root) {
   const packageNames = <String>[
+    'zuke',
     'zuke_core',
     'zuke_conformance',
     'zuke_analyzer',
@@ -114,6 +115,8 @@ void _writeBaseline(Directory root) {
       ..createSync(recursive: true);
     paths.add('  - vendor-sdk/$name');
     final tier = switch (name) {
+      'zuke' => 'Primary Zuke pure-Dart SDK.',
+      'zuke_runner' => 'Compatibility package for the primary Zuke SDK.',
       'zuke_core' =>
         'Supported Zuke infrastructure dependency; not a primary application package.',
       'zuke_analyzer' ||
@@ -130,8 +133,13 @@ void _writeBaseline(Directory root) {
       'zuke_test_support' => 'publish_to: none\n',
       _ => '',
     };
+    final version = switch (name) {
+      'zuke_runner' || 'zuke_runner_flutter' => '0.1.1',
+      'zuke_cli' => '0.2.0',
+      _ => '0.1.0',
+    };
     File('${directory.path}/pubspec.yaml').writeAsStringSync(
-      'name: $name\nversion: 0.1.0\nresolution: workspace\n$publishTo',
+      'name: $name\nversion: $version\nresolution: workspace\n$publishTo',
     );
     File('${directory.path}/README.md').writeAsStringSync('# $name\n$tier\n');
   }

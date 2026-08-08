@@ -61,25 +61,30 @@ open a new terminal before continuing.
 
 ### 1. Add Dependencies
 
-The first public release is planned as a `0.1.0` preview. Consumers will use
-hosted dependencies; contributors should use the repository Pub workspace.
+The existing specialized packages are available as hosted `0.1.0` previews.
+The new `zuke` facade is the next package to publish; contributors should use
+the repository Pub workspace until that publication succeeds.
 
 ```yaml
 dependencies:
   flutter:
     sdk: flutter
   zuke_annotations: ^0.1.0
-  zuke_runner: ^0.1.0
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
-  zuke_cli: ^0.1.0
+  zuke_cli: ^0.2.0
   zuke_runner_flutter: ^0.1.0
 ```
 
-Until publication succeeds, use this repository's examples rather than treating
-the package names above as available hosted dependencies.
+`zuke` is the primary pure-Dart execution SDK and owns the runner, runtime
+events, and HTTP scenario-test helpers. Keep `zuke_annotations` in normal
+dependencies when production code only needs metadata, then add `zuke` to
+`dev_dependencies` for Dart/backend scenario execution. Add
+`zuke_http_runtime` as a normal dependency only when the application registers
+an inspectable HTTP topology. `zuke_runner` is retained as a compatibility
+package for existing consumers.
 
 ### Publishing the Zuke Packages
 
@@ -94,7 +99,7 @@ dart run tool/publish_packages.dart --dry-run
 # Ignore only the expected dirty-worktree warning during local validation
 dart run tool/publish_packages.dart --dry-run --ignore-warnings
 
-# Publish all eight supported packages; the script asks for confirmation
+# Publish all nine supported packages; the script asks for confirmation
 dart run tool/publish_packages.dart --publish
 ```
 

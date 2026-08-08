@@ -192,10 +192,7 @@ Feature: Sample Feature
       final support = result.files.firstWhere(
         (f) => f.path.contains('feat_sample_001_steps.g.dart'),
       );
-      expect(
-        support.content,
-        contains("import 'package:zuke_runner/zuke_runner.dart';"),
-      );
+      expect(support.content, contains("import 'package:zuke/zuke.dart';"));
       expect(support.content, isNot(contains('zuke_runner_flutter')));
       expect(support.content, contains("target: 'backend'"));
     });

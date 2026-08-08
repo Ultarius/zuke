@@ -85,5 +85,5 @@ The feature uses `@FEAT-*`, `@RULE-*`, and `@SCN-*` tags as required stable iden
 | `@ZukeBinding` key wiring | `lib/src/shopping_bindings.dart` | `zuke_annotations` | `flutter analyze/test` |
 | Validation & semantics providers | `lib/src/cart_controller.dart`, `lib/src/shopping_screen.dart` | `zuke_annotations`, `zuke_cli` | `validate`, `gate` |
 | Verification-backed assurance | `specs/controls/`, `policies/` | `zuke_core` | provider + digest-backed `verified` lock proof |
-| Scenario execution & SHA-256 results | `test/shopping_cart_widget_test.dart` | `zuke_runner` | `zuke test`, `validate` |
+| Scenario execution & SHA-256 results | `test/shopping_cart_widget_test.dart` | `zuke`, through `zuke_runner_flutter` | `zuke test`, `validate` |
 | Signed release record | `assurance-history/` | `zuke_cli` | `manifest verify-v2 --require-history` |

@@ -4,7 +4,7 @@ Flutter testWidgets integration boundary for Zuke scenarios.
 
 ## Preview status
 
-This package is part of the Zuke `0.1.0` preview release line.
+This package is part of the Zuke `0.1.x` preview release line.
 
 ## Installation
 
@@ -14,10 +14,9 @@ dependencies:
 ```
 
 Flutter test code can use this package as its single Zuke facade. It
-re-exports the public APIs of `zuke_runner`, `zuke_frontend`, and
+re-exports the public runner API now owned by `zuke`, plus `zuke_frontend` and
 `zuke_annotations`, while preserving the Flutter-specific harness and driver
-APIs in this package. Pure-Dart and HTTP runners should continue to depend on
-`zuke_runner` directly.
+APIs in this package. Pure-Dart and HTTP test code should depend on `zuke`.
 
 ## Support tier
 

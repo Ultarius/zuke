@@ -7,7 +7,7 @@ import 'package:yaml/yaml.dart';
 import 'package:yaml_edit/yaml_edit.dart';
 import 'package:zuke_core/zuke_core.dart' show EvidenceStatus, canonicalJson;
 import 'package:zuke_frontend/zuke_frontend.dart';
-import 'package:zuke_runner/zuke_runner.dart';
+import 'package:zuke/runner.dart';
 import 'extraction_service.dart';
 import 'validate_command.dart';
 import 'generate_command.dart';

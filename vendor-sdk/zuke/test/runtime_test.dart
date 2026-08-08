@@ -1,4 +1,4 @@
-import 'package:zuke_runner/runtime.dart';
+import 'package:zuke/runtime.dart';
 import 'package:test/test.dart';
 
 void main() {

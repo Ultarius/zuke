@@ -648,7 +648,7 @@ class DartContractGenerator {
       ..writeln()
       ..writeln("import 'dart:async';")
       ..writeln(
-        "import '${target == 'flutter' ? 'package:zuke_runner_flutter/zuke_runner_flutter.dart' : 'package:zuke_runner/zuke_runner.dart'}';",
+        "import '${target == 'flutter' ? 'package:zuke_runner_flutter/zuke_runner_flutter.dart' : 'package:zuke/zuke.dart'}';",
       )
       ..writeln()
       ..writeln(

@@ -36,7 +36,7 @@ dependencies:
   calculator_domain:
     path: ../../packages/calculator_domain
   zuke_annotations: ^0.1.0
-  zuke_runner: ^0.1.0
+  zuke: ^0.1.0
 
 dev_dependencies:
   flutter_test:

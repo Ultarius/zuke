@@ -5,6 +5,7 @@ const _publishablePackages = <String>[
   'zuke_core',
   'zuke_annotations',
   'zuke_frontend',
+  'zuke',
   'zuke_runner',
   'zuke_runner_flutter',
   'zuke_http_runtime',

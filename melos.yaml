@@ -7,6 +7,7 @@ packages:
   - vendor-sdk/zuke_annotations
   - vendor-sdk/zuke_frontend
   - vendor-sdk/zuke_http_runtime
+  - vendor-sdk/zuke
   - vendor-sdk/zuke_runner
   - vendor-sdk/zuke_runner_flutter
   - vendor-sdk/zuke_test_support

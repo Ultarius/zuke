@@ -1,6 +1,4 @@
-import 'package:zuke_runner/http.dart';
-import 'package:zuke_runner/zuke_runner.dart';
-import 'package:zuke_frontend/zuke_frontend.dart';
+import 'package:zuke/http.dart';
 import 'package:test/test.dart';
 
 void main() {

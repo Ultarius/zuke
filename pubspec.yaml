@@ -11,6 +11,7 @@ workspace:
   - vendor-sdk/zuke_annotations
   - vendor-sdk/zuke_frontend
   - vendor-sdk/zuke_http_runtime
+  - vendor-sdk/zuke
   - vendor-sdk/zuke_runner
   - vendor-sdk/zuke_runner_flutter
   - vendor-sdk/zuke_test_support
@@ -24,10 +25,10 @@ workspace:
   - examples/todo_app
 dev_dependencies:
   melos: ^6.3.0
-  zuke_cli: ^0.1.0
+  zuke_cli: ^0.2.0
   zuke_analyzer: ^0.1.0
   yaml: ^3.1.3
 dependency_overrides:
-  # Flutter 3.38 pins test_api 0.7.11; keep the workspace's Dart test runner
+  # Flutter 3.44 pins test_api 0.7.11; keep the workspace's Dart test runner
   # on the matching test release while the SDK constraint remains shared.
   test: 1.31.0

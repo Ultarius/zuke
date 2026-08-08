@@ -4,7 +4,7 @@ import 'dart:io';
 
 import 'package:zuke_cli/zuke_cli.dart';
 import 'package:zuke_core/zuke_core.dart' show ScenarioId;
-import 'package:zuke_runner/zuke_runner.dart';
+import 'package:zuke/runner.dart';
 import 'package:test/test.dart';
 
 void main() {
