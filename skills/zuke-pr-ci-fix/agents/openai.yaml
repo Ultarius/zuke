@@ -1,0 +1,4 @@
+interface:
+  display_name: "Zuke PR CI Fix"
+  short_description: "Diagnose and repair failing Zuke pull request checks"
+  default_prompt: "Inspect the supplied GitHub pull request and fix its failing CI checks, including nested coverage failures, cross-platform parity issues, generated artifacts, and profile-specific lock issues."

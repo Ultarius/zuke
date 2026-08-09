@@ -563,6 +563,11 @@ Map<String, Object?> _normalizedOutputJson(
     ...output.toJson(),
     if (output.graph != null) 'graph': output.graph!.toJson(),
   };
+  // packageRoot is a temporary, machine-specific path rather than extracted
+  // semantics. On Windows, the same temp directory can be represented using
+  // a long user path or its 8.3 short-path spelling, so normalizing only the
+  // workspace string is not sufficient for LF/CRLF parity.
+  json.remove('packageRoot');
   return _normalizeJson(json, workspace);
 }
 
