@@ -28,6 +28,7 @@ Use this skill to turn a failing Zuke pull request into a verified, reviewable p
   - failures after an earlier failed step are symptoms until the earliest failure is fixed.
 - Capture expected and actual hashes, paths, profile names, exit codes, and whether a file was generated or merely checked. Do not rely on a generic "exit code 1" summary.
 - For test assertions, record the source file and line number. Compare the assertion's expected contract with the active configuration, generated lock, schema, or fixture before editing either side.
+- Treat a package result such as `[vendor-sdk/zuke_cli] failed (300000ms)` as a distinct diagnostic. Compare the duration with the package runner timeout and inspect the worker-budget line before blaming a test assertion. In this repository, `ZUKE_TEST_WORKERS` controls the total Dart test budget; a four-package coverage pass with budget four runs one isolate per package and can hit the five-minute package timeout on Linux or Windows while the tests themselves have passed.
 
 ### 3. Apply Zuke-specific diagnosis
 
@@ -53,6 +54,7 @@ Other recurring Zuke diagnoses:
 - Melos "Cannot override workspace packages": inspect example `pubspec.yaml` and `pubspec_overrides.yaml` together with the root workspace package list. Use workspace-compatible path/hosted dependency structure and preserve intentional example isolation.
 - Formatting failures: run the repository's exact format command locally, then inspect `git diff --check`. Do not relax a formatting gate unless the user explicitly wants policy changed.
 - Coverage-suite failures: run the failing package test directly before changing coverage thresholds. A conformance fixture that still expects a retired semantic is a stale test contract; update it to the active Zuke schema/configuration, while retaining legacy values only in deliberate negative tests.
+- Dart test worker timeouts: distinguish a real failed test from the repository runner timing out after five minutes. If the log has no failing test summary, but the package duration is approximately `300000ms`, first rerun the affected package with `dart test -j 2` and, for the coverage workflow, set a deliberate positive `ZUKE_TEST_WORKERS` override so the package receives at least two isolates. Keep the package timeout fail-closed; do not turn a timeout into a success or treat expected negative-test diagnostics as failures.
 - Cross-platform parity failures: inspect the complete expected/actual diff, not just the test name. Separate semantic fields from environment-specific metadata such as temporary roots, absolute paths, drive letters, path casing, or 8.3 Windows spellings. Normalize or omit only the non-semantic metadata in the parity fixture; never normalize away real source, graph, digest, or behavior differences.
 
 ### 4. Patch minimally and preserve boundaries
@@ -62,6 +64,7 @@ Other recurring Zuke diagnoses:
 - When a changed control or schema invalidates a conformance assertion, update the executable conformance test and run the targeted test plus the aggregate coverage command. Do not alter signed assurance JSON merely to satisfy a test.
 - Keep normal dependencies and `dev_dependencies` in their intended layers. Do not collapse specialized packages into a facade just to make a CI command pass.
 - Keep local/mock demonstrations honest: label them as local evidence and document how a production integration such as APIM would enforce the corresponding control. A GitHub Actions pipeline proves the checked-in application behavior and assurance workflow; it does not prove an external gateway that is not present.
+- For a matrix that should appear as one collapsible example in GitHub Actions, put the matrix inside a reusable workflow with an internal `verify` job, then call it from the parent workflow. Renaming direct matrix jobs does not create a collapsible group; reusable-workflow callers render as `example-assurance / verify (os)` like the other example checks.
 
 ### 5. Verify before handoff
 
@@ -74,6 +77,7 @@ Run the narrowest reproducer first, then the relevant repository gates:
 - `generate --check`, `validate`, `lock --check`, `check`, and `gate` for the affected example/profile;
 - `git diff --check` and a final generated-file status check.
 - For line-ending/path fixes, run the parity test on Windows when possible and run the same test on at least one Unix runner; a Unix pass does not prove Windows path canonicalization.
+- For worker-budget changes, verify the effective `Dart test worker budget` and `workers/package` values in the CI log, then confirm every package reports `passed` before the aggregate coverage command proceeds.
 
 For multi-OS failures, prove whether the fix is shared by checking the same command path and expected hash on each matrix job. If local Windows cannot run the Flutter launcher because its SDK cache is unwritable, report that limitation separately and use the GitHub runner result as the platform evidence; never silently claim the full local suite passed.
 
@@ -88,4 +92,3 @@ End with:
 3. verification performed and its result;
 4. any environment limitation or required signer/release workflow;
 5. whether the change has been committed or pushed (never imply either happened unless it did).
-
