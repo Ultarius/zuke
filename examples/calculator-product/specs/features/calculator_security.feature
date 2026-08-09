@@ -54,15 +54,15 @@ Feature: Protect the calculator service from malformed and abusive requests
   # requires:
   #   - kind: control
   #     id: CTRL-CALC-RATE-LIMIT
-  #     target: edge
+  #     target: backend
   #     cardinality: oneOrMore
-  #     acceptableAssurance: [proven, attested]
-  # requiredEvidence: [security-integration, gherkin-api, attestation-freshness]
+  #     acceptableAssurance: [proven]
+  # requiredEvidence: [security-integration, gherkin-api]
   # rule-spec-end
   @PBI-CALC-003 @RULE-CALC-RATE-LIMIT
   Rule: Excessive requests from one rate-limit identity are temporarily rejected
 
-    @SCN-CALC-RATE-LIMIT @negative @api @security @release
+    @SCN-CALC-RATE-LIMIT @negative @api @security @pr @merge
     Scenario: Apply rate limiting after the request budget is exhausted
       Given one API client has exhausted the calculator request budget
       When that API client requests another calculation

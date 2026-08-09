@@ -228,9 +228,15 @@ void main() {
         final workflow = File('${root.path}/.github/workflows/${entry.key}');
         expect(workflow.existsSync(), isTrue, reason: 'Missing ${entry.key}');
         final content = workflow.readAsStringSync();
+        // Workflows may invoke the profile directly, or pass it to a
+        // reusable workflow through a `with:` input. Accept both forms so
+        // workflow refactors do not weaken the profile contract.
+        final profileInvocation = RegExp(
+          r'(?:--profile\s+|\bprofile:\s*)' + RegExp.escape(entry.value),
+        );
         expect(
-          content,
-          contains('--profile ${entry.value}'),
+          profileInvocation.hasMatch(content),
+          isTrue,
           reason: '${entry.key} must invoke ${entry.value}',
         );
       }
@@ -321,9 +327,27 @@ void main() {
       // generated and verified by the authorized signing workflow, so they
       // must not be required in this checked-in merge lock.
       expect(lock['attestations'], isEmpty);
-      final releaseOnlyRateLimit = controls['CTRL-CALC-RATE-LIMIT'] as Map;
-      expect(releaseOnlyRateLimit['assurance'], 'missing');
-      expect(releaseOnlyRateLimit['coverageSemantics'], 'external-attestation');
+      // A proof-bearing lock scopes a control to its governing rule, while a
+      // missing proof remains control-scoped. Both forms must describe the
+      // active application-owned rate-limit semantic.
+      final rateLimitControls = controls.entries
+          .where(
+            (entry) =>
+                entry.key == 'CTRL-CALC-RATE-LIMIT' ||
+                entry.key.toString().contains('|CTRL-CALC-RATE-LIMIT|'),
+          )
+          .map((entry) => entry.value)
+          .whereType<Map>()
+          .toList();
+      expect(rateLimitControls, isNotEmpty);
+      expect(
+        rateLimitControls.any(
+          (control) =>
+              control['semantics'] == 'ingress-dominance' ||
+              control['coverageSemantics'] == 'ingress-dominance',
+        ),
+        isTrue,
+      );
       final provenErrorRedaction =
           controls['RULE-CALC-DIVISION|CTRL-CALC-ERROR-REDACTION|backend|default']
               as Map;

@@ -29,12 +29,14 @@ controls:
     coverageSemantics: ingress-dominance
 
   - id: CTRL-CALC-RATE-LIMIT
-    title: Calculator request rate limiting
+    title: Calculator request rate limiting at the application boundary
     owner: platform-security
-    target: edge
-    defaultEvidence: [security-integration]
-    acceptableProviderKinds: [gateway-policy, request-middleware]
-    coverageSemantics: external-attestation
+    description: >-
+      The local HTTP boundary limits requests per caller identity before the
+      calculator controller and domain service are invoked.
+    defaultEvidence: [security-integration, gherkin-api]
+    acceptableProviderKinds: [request-middleware]
+    coverageSemantics: ingress-dominance
 
   - id: CTRL-CALC-LOG-REDACTION
     title: Calculator log redaction

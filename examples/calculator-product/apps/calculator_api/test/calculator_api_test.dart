@@ -250,7 +250,9 @@ void main() {
       final body = {'firstOperand': '2', 'secondOperand': '3', 'operator': '+'};
       await _post(server, body, identity: 'limited');
       await _post(server, body, identity: 'limited');
+      final completedBeforeBlocked = server.application.events.length;
       final blocked = await _post(server, body, identity: 'limited');
+      final completedAfterBlocked = server.application.events.length;
       final allowed = await _post(server, body, identity: 'other');
       expect(blocked['status'], 429);
       expect((blocked['headers'] as Map)['retry-after'], '60');
@@ -263,6 +265,9 @@ void main() {
         'Too many requests.',
       );
       expect(allowed['status'], 200);
+      expect(completedBeforeBlocked, 2);
+      expect(completedAfterBlocked, completedBeforeBlocked);
+      expect(server.application.events.length, completedBeforeBlocked + 1);
       _emit(
         RateLimitScenarios.rateLimit.requirementId,
         'security-integration',
@@ -275,13 +280,6 @@ void main() {
         'gherkin-api',
         'backend',
         {'blocked': blocked, 'allowed': allowed},
-        scenarioId: RateLimitScenarios.rateLimit.id,
-      );
-      _emit(
-        RateLimitScenarios.rateLimit.requirementId,
-        'attestation-freshness',
-        'edge',
-        {'document': 'gateway-rate-limit.v1.json', 'status': 'present'},
         scenarioId: RateLimitScenarios.rateLimit.id,
       );
     },

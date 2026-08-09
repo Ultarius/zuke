@@ -29,10 +29,6 @@ targets:
         roots: [lib, bin, test]
     extractor: zuke-dart-http
 
-  edge:
-    language: external
-    extractor: attestation
-
 dartTooling:
   extraction:
     authority: cli
@@ -53,7 +49,7 @@ dartTooling:
 policies:
   preset: secure-product-v1
   project: policies/project-policy.yaml
-  profiles: [policies/security-profiles.yaml, policies/attestations.yaml]
+  profiles: [policies/security-profiles.yaml]
   protectedSeverities:
     duplicateId: error
     ambiguousBinding: error
@@ -75,7 +71,7 @@ execution:
     - id: calculator-api-tests
       kind: gherkin
       target: backend
-      evidenceTypes: [api-contract, gherkin-api, security-integration, logging-verification, performance, attestation-freshness]
+      evidenceTypes: [api-contract, gherkin-api, security-integration, logging-verification, performance]
       executable: dart
       args: [test, --reporter, expanded]
       workingDirectory: apps/calculator_api

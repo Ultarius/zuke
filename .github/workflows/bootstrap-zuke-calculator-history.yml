@@ -1,9 +1,8 @@
 name: bootstrap-zuke-calculator-history
 
-# Run once from a zuke-assurance-bootstrap-calculator-* tag after a fresh
-# Zuke gateway attestation is committed and the retired signed history is
-# retained outside assurance-history/v2/. Commit the uploaded genesis record,
-# then remove this workflow and tag.
+# Run once from a zuke-assurance-bootstrap-calculator-* tag after the local
+# Calculator controls have passed the release profile. Commit the uploaded
+# genesis record, then remove this workflow and tag.
 on:
   push:
     tags: ['zuke-assurance-bootstrap-calculator-*']
@@ -16,7 +15,7 @@ jobs:
       contents: read
       id-token: write
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
       - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2
         with:
           flutter-version: '3.44.8'
@@ -56,7 +55,7 @@ jobs:
           dart --suppress-analytics run zuke_cli:zuke manifest create --root examples/calculator-product --profile release --signer-id calculator-release-signer-v1 --key-id "${{ vars.RELEASE_SIGNER_KEY_ID }}"
           dart --suppress-analytics run zuke_cli:zuke manifest verify-v2 --root examples/calculator-product --current
           dart --suppress-analytics run zuke_cli:zuke manifest export --root examples/calculator-product --output dist/zuke-calculator-assurance-history.v2.json
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
           name: zuke-calculator-genesis-history
           retention-days: 30

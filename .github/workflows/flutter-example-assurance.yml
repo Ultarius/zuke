@@ -16,6 +16,7 @@ on:
         required: true
         type: string
       require-history:
+        description: Require a non-empty signed V2 history; false still validates the configured chain policy.
         required: true
         type: boolean
 
@@ -30,7 +31,7 @@ jobs:
       FLUTTER_SUPPRESS_ANALYTICS: 'true'
       ZUKE_RUN_PROCESS_INTEGRATION: 'true'
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           fetch-depth: 0
       - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2
@@ -43,6 +44,8 @@ jobs:
         run: dart --suppress-analytics run tool/prepare_flutter_toolchain.dart
       - name: Flutter launcher integration
         run: dart --suppress-analytics test vendor-sdk/zuke_cli/test/flutter_toolchain_integration_test.dart
+      - name: Process-tree integration test
+        run: dart --suppress-analytics test vendor-sdk/zuke_cli/test/process_supervisor_integration_test.dart
       - run: dart --suppress-analytics format --output=none --set-exit-if-changed lib test
         working-directory: ${{ inputs.example-root }}
       - run: flutter --suppress-analytics analyze --no-pub
@@ -53,10 +56,13 @@ jobs:
       - run: dart --suppress-analytics run zuke_cli:zuke doctor --root ${{ inputs.example-root }}
       - run: dart --suppress-analytics run zuke_cli:zuke check --root ${{ inputs.example-root }} --profile ${{ inputs.profile }} --jobs 1 --format json
       - run: dart --suppress-analytics run zuke_cli:zuke affected --root ${{ inputs.example-root }} --changed-since ${{ inputs.changed-since }}
-      - run: dart --suppress-analytics run zuke_cli:zuke manifest verify-v2 --root ${{ inputs.example-root }} --require-history
-        if: inputs.require-history
+      - name: Verify V2 assurance history policy
+        run: >-
+          dart --suppress-analytics run zuke_cli:zuke manifest verify-v2
+          --root ${{ inputs.example-root }}
+          ${{ inputs.require-history && '--require-history' || '' }}
       - run: git diff --exit-code -- ${{ inputs.example-root }}
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         if: always()
         with:
           name: ${{ inputs.package-name }}-assurance-${{ matrix.os }}
