@@ -1,4 +1,6 @@
 /// Supported application-facing Flutter scenario integration API.
+library;
+
 import 'dart:async';
 import 'dart:io';
 
@@ -17,9 +19,16 @@ export 'src/flutter_binding_key.dart';
 
 abstract class FlutterScenarioDriver<W extends ScenarioWorld>
     extends FlutterDriverFactory<W> {
+  /// Creates a Flutter scenario driver.
   const FlutterScenarioDriver();
+
+  /// Settles the widget tree for [world].
   Future<void> pumpAndSettle(W world);
+
+  /// Captures semantics for [world].
   Future<void> captureSemantics(W world);
+
+  /// Captures a named screenshot for [world].
   Future<void> captureScreenshot(W world, String name);
 }
 
@@ -30,10 +39,16 @@ typedef FlutterEvidenceBody = FutureOr<String> Function(WidgetTester tester);
 
 /// One generated scenario observed by an ordinary Flutter widget test.
 final class FlutterEvidenceCase {
+  /// Generated scenario observed by the case.
   final ZukeScenarioContract scenario;
+
+  /// Widget-test body that produces the evidence digest input.
   final FlutterEvidenceBody body;
+
+  /// Optional evidence types emitted by the case.
   final Iterable<String>? evidenceTypes;
 
+  /// Creates a Flutter evidence case.
   const FlutterEvidenceCase({
     required this.scenario,
     required this.body,
@@ -45,15 +60,31 @@ final class FlutterEvidenceCase {
 /// assertions have passed. This complements [ZukeFlutterHarness] for
 /// applications whose tests are not executed through Gherkin steps.
 final class ZukeFlutterEvidenceHarness {
+  /// Compatibility identifier for the runner.
   final String runnerCompatibilityId;
+
+  /// Target recorded in evidence.
   final String target;
+
+  /// Variant recorded in evidence.
   final String variant;
+
+  /// Evidence types used when a case does not override them.
   final Iterable<String> defaultEvidenceTypes;
+
+  /// Optional execution profile.
   final String? profile;
+
+  /// Optional runner identifier.
   final String? runnerId;
+
+  /// Optional evidence output directory.
   final String? outputDirectory;
+
+  /// Environment used for scenario selection and evidence output.
   final Map<String, String>? environment;
 
+  /// Creates an evidence harness.
   const ZukeFlutterEvidenceHarness({
     required this.runnerCompatibilityId,
     required this.defaultEvidenceTypes,
@@ -65,6 +96,7 @@ final class ZukeFlutterEvidenceHarness {
     this.environment,
   });
 
+  /// Registers all [cases] as widget tests.
   void registerAll(Iterable<FlutterEvidenceCase> cases) {
     final effectiveEnvironment = environment ?? Platform.environment;
     final selected = scenarioFilterFromEnvironment(effectiveEnvironment);
@@ -110,18 +142,40 @@ final class ZukeFlutterEvidenceHarness {
 /// every Examples row. [resultDirectory] is useful for embedding hosts and
 /// tests; when omitted, results use `ZUKE_RESULT_DIR`.
 final class ZukeFlutterHarness<W extends ScenarioWorld> {
+  /// Parsed feature containing the scenarios.
   final ParsedFeature feature;
+
+  /// Generated scenario contracts to register.
   final Iterable<ZukeScenarioContract> scenarios;
+
+  /// Creates a fresh step registry per scenario.
   final StepRegistry<W> Function() registryFactory;
+
+  /// Creates a scenario world for a widget test.
   final FutureOr<W> Function(WidgetTester tester) worldFactory;
+
+  /// Optionally disposes a created world.
   final FutureOr<void> Function(W world)? worldDisposer;
+
+  /// Logical runner identifier.
   final String runnerId;
+
+  /// Runner compatibility identifier.
   final String runnerCompatibilityId;
+
+  /// Source digests used for evidence.
   final Map<String, String> digests;
+
+  /// Evidence type emitted by the harness.
   final String evidenceType;
+
+  /// Evidence target.
   final String target;
+
+  /// Optional output directory for results.
   final String? resultDirectory;
 
+  /// Creates a generated-scenario Flutter harness.
   const ZukeFlutterHarness({
     required this.feature,
     required this.scenarios,

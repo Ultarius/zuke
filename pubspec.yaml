@@ -29,6 +29,9 @@ dev_dependencies:
   zuke_analyzer: ^0.1.0
   yaml: ^3.1.3
 dependency_overrides:
+  # The repository analyzer plugin follows the Flutter SDK's embedded
+  # analyzer, while published zuke_core resolves the current analyzer.
+  analyzer: 8.2.0
   # Flutter 3.44 pins test_api 0.7.11; keep the workspace's Dart test runner
   # on the matching test release while the SDK constraint remains shared.
   test: 1.31.0

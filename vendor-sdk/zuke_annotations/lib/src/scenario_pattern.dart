@@ -5,12 +5,22 @@ import 'scenario_contract.dart';
 sealed class ZukeScenarioPattern {
   const ZukeScenarioPattern();
 
+  /// Creates a regular-expression pattern over scenario IDs.
   factory ZukeScenarioPattern.regExp(RegExp expression) = _RegExpPattern;
+
+  /// Creates a glob pattern over scenario IDs.
   factory ZukeScenarioPattern.glob(String expression) = _GlobPattern;
+
+  /// Creates a pattern matching one scenario ID.
   factory ZukeScenarioPattern.exact(ScenarioId id) = _ExactPattern;
+
+  /// Creates a pattern matching a scenario-ID prefix.
   factory ZukeScenarioPattern.prefix(String value) = _PrefixPattern;
+
+  /// Creates a pattern matching scenarios owned by a rule.
   factory ZukeScenarioPattern.ruleId(String id) = _RulePattern;
 
+  /// Converts a string, regular expression, or pattern to a pattern object.
   factory ZukeScenarioPattern.from(Object pattern) => switch (pattern) {
     ZukeScenarioPattern() => pattern,
     RegExp() => ZukeScenarioPattern.regExp(pattern),
@@ -22,6 +32,7 @@ sealed class ZukeScenarioPattern {
     ),
   };
 
+  /// Returns whether [contract] matches this pattern.
   bool matches(ZukeScenarioContract contract);
 }
 
@@ -38,8 +49,9 @@ final class _GlobPattern extends ZukeScenarioPattern {
   _GlobPattern(String glob) : _expression = _compile(glob);
 
   static RegExp _compile(String glob) {
-    if (glob.isEmpty)
+    if (glob.isEmpty) {
       throw ArgumentError.value(glob, 'glob', 'Must not be empty');
+    }
     final buffer = StringBuffer('^');
     for (final rune in glob.runes) {
       final character = String.fromCharCode(rune);

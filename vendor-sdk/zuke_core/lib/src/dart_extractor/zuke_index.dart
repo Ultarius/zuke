@@ -161,8 +161,9 @@ class ZukeIndex {
     }
 
     final inputs = json['inputs'];
-    if (inputs is! List)
+    if (inputs is! List) {
       throw const FormatException('Analyzer index inputs missing');
+    }
     final patterns = json['inputPatterns'];
     if (patterns is! List || patterns.any((value) => value is! String)) {
       throw const FormatException('Analyzer index inputPatterns missing');
@@ -180,8 +181,9 @@ class ZukeIndex {
       ),
       inputs: List.unmodifiable(
         inputs.map((input) {
-          if (input is! Map)
+          if (input is! Map) {
             throw const FormatException('Invalid analyzer index input');
+          }
           return ZukeIndexInput.fromJson(input);
         }),
       ),

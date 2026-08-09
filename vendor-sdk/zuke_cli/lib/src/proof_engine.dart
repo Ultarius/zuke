@@ -1,4 +1,6 @@
 /// CLI-owned assurance validation implementation.
+library;
+
 export 'proof_engine/identity_validator.dart';
 export 'proof_engine/reference_resolver.dart';
 export 'proof_engine/cardinality_validator.dart';

@@ -349,8 +349,9 @@ class DominanceValidator {
       if (providers is! List) continue;
       for (final provider in providers.whereType<Map>()) {
         if (provider['provides'] != controlId ||
-            provider['assurance'] != 'attested')
+            provider['assurance'] != 'attested') {
           continue;
+        }
         for (final field in [
           'id',
           'target',
@@ -587,8 +588,9 @@ class DominanceValidator {
     for (final edge in graph.edges.where(
       (edge) => allowedKinds.contains(edge.kind),
     )) {
-      if (!ids.contains(edge.sourceId) || !ids.contains(edge.targetId))
+      if (!ids.contains(edge.sourceId) || !ids.contains(edge.targetId)) {
         continue;
+      }
       predecessors[edge.targetId]!.add(edge.sourceId);
     }
     final roots = ids.where((id) => predecessors[id]!.isEmpty).toSet();
@@ -624,8 +626,9 @@ class DominanceValidator {
     for (final edge in graph.edges) {
       if (edge.kind != EdgeKind.flowsTo &&
           edge.kind != EdgeKind.routesTo &&
-          edge.kind != EdgeKind.precedes)
+          edge.kind != EdgeKind.precedes) {
         continue;
+      }
       adjacency.putIfAbsent(edge.sourceId, () => []).add(edge.targetId);
     }
     final queue = <List<String>>[

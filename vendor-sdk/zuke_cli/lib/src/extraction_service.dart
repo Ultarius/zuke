@@ -114,8 +114,9 @@ class ExtractionService {
     }
     for (final relative in roots) {
       final dir = Directory(_join(root, relative));
-      if (dir.existsSync())
+      if (dir.existsSync()) {
         files.addAll(dir.listSync(recursive: true).whereType<File>());
+      }
     }
     files.sort((a, b) => a.path.compareTo(b.path));
     final bytes = <int>[]..addAll(utf8.encode('$adapter|compat-8.2|'));
@@ -148,12 +149,13 @@ class ExtractionService {
       files.add(candidate);
     } else {
       final directory = Directory(path);
-      if (directory.existsSync())
+      if (directory.existsSync()) {
         files.addAll(
           directory.listSync().whereType<File>().where(
             (f) => f.path.endsWith('.json'),
           ),
         );
+      }
     }
     final records = <EvidenceRecord>[];
     final errors = <String>[];
@@ -199,8 +201,9 @@ class ExtractionService {
     if (!file.existsSync()) return null;
     try {
       final value = jsonDecode(file.readAsStringSync());
-      if (value is! Map || value['schemaVersion'] != 'zuke.cache.v1')
+      if (value is! Map || value['schemaVersion'] != 'zuke.cache.v1') {
         return null;
+      }
       final adapterMap = value['adapter'];
       final expectedCompatibility = adapter == 'dart'
           ? 'dart-analyzer-8.2-http-topology-v2'

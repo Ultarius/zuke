@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:analyzer/dart/analysis/analysis_context_collection.dart';
 import 'package:analyzer/dart/analysis/results.dart';
 import 'package:analyzer/dart/ast/ast.dart';
+import 'package:analyzer/dart/ast/token.dart';
 import 'package:analyzer/dart/ast/visitor.dart';
 import 'package:analyzer/dart/constant/value.dart';
 import 'package:analyzer/dart/element/element.dart';
@@ -12,6 +13,54 @@ import 'package:analyzer/source/line_info.dart';
 import 'package:crypto/crypto.dart';
 import '../adapter_sdk.dart';
 import '../inspection.dart';
+
+Map<String, Expression> _namedArguments(Iterable<dynamic> arguments) {
+  final result = <String, Expression>{};
+  for (final argument in arguments) {
+    final name = _namedArgumentName(argument);
+    final expression = name == null ? null : _argumentExpression(argument);
+    if (name != null && expression != null) {
+      result[name] = expression;
+    }
+  }
+  return result;
+}
+
+String? _namedArgumentName(dynamic argument) {
+  dynamic name;
+  try {
+    name = argument.name;
+  } on Object {
+    return null;
+  }
+  if (name is Token) return name.lexeme;
+
+  try {
+    final dynamic label = name.label;
+    final dynamic identifier = label.name;
+    if (identifier is String) return identifier;
+    if (identifier is Token) return identifier.lexeme;
+  } on Object {
+    return null;
+  }
+  return null;
+}
+
+Expression? _argumentExpression(dynamic argument) {
+  try {
+    final dynamic expression = argument.argumentExpression;
+    if (expression is Expression) return expression;
+  } on Object {
+    // Analyzer 8 exposes the value as `expression` on NamedExpression.
+  }
+  try {
+    final dynamic expression = argument.expression;
+    if (expression is Expression) return expression;
+  } on Object {
+    return null;
+  }
+  return null;
+}
 
 /// Resolved Dart extractor shared by the CLI and future analyzer/build-hook
 /// surfaces.  It intentionally has no regex fallback: an unresolved source
@@ -412,12 +461,7 @@ class _ResolvedVisitor extends RecursiveAstVisitor<void> {
         uri == 'package:zuke_http_runtime/zuke_http_runtime.dart' &&
         isMatchingName;
     if (!isRuntimeType) return;
-    final args = <String, Expression>{};
-    for (final argument in node.argumentList.arguments) {
-      if (argument is NamedExpression) {
-        args[argument.name.label.name] = argument.expression;
-      }
-    }
+    final args = _namedArguments(node.argumentList.arguments);
     String? stringValue(Expression? expression) =>
         expression is StringLiteral ? expression.stringValue : null;
 
@@ -520,11 +564,7 @@ class _ResolvedVisitor extends RecursiveAstVisitor<void> {
       for (final route in creations(args['routes'], 'routes')) {
         final routeArgs = <String, Expression>{};
         if (route is InstanceCreationExpression) {
-          for (final argument in route.argumentList.arguments) {
-            if (argument is NamedExpression) {
-              routeArgs[argument.name.label.name] = argument.expression;
-            }
-          }
+          routeArgs.addAll(_namedArguments(route.argumentList.arguments));
         } else {
           errors.add(
             '${file}:${lineInfo.getLocation(route.offset).lineNumber}: dynamic ZukeRouteRegistration',
@@ -636,11 +676,7 @@ class _ResolvedVisitor extends RecursiveAstVisitor<void> {
     List<String> Function(Expression?) resolveTypes,
     List<Expression> Function(Expression?, String) creations,
   ) {
-    final args = <String, Expression>{};
-    for (final argument in pipeline.argumentList.arguments) {
-      if (argument is NamedExpression)
-        args[argument.name.label.name] = argument.expression;
-    }
+    final args = _namedArguments(pipeline.argumentList.arguments);
     final source = stringValue(args['sourceId']);
     if (source == null) {
       errors.add('$file: dynamic ZukeFailurePipelineRegistration source');
@@ -694,11 +730,7 @@ class _ResolvedVisitor extends RecursiveAstVisitor<void> {
     List<String> Function(Expression?) resolveTypes,
     List<Expression> Function(Expression?, String) creations,
   ) {
-    final args = <String, Expression>{};
-    for (final argument in pipeline.argumentList.arguments) {
-      if (argument is NamedExpression)
-        args[argument.name.label.name] = argument.expression;
-    }
+    final args = _namedArguments(pipeline.argumentList.arguments);
     final source = stringValue(args['sourceId']);
     if (source == null) {
       errors.add('$file: dynamic ZukeLoggingPipelineRegistration source');
@@ -740,7 +772,7 @@ class _ResolvedVisitor extends RecursiveAstVisitor<void> {
 
   @override
   void visitClassDeclaration(ClassDeclaration node) {
-    _visitDeclaration(node, node.name.lexeme, 'class');
+    _visitDeclaration(node, node.declaredFragment?.name ?? '<class>', 'class');
     super.visitClassDeclaration(node);
   }
 
@@ -768,7 +800,11 @@ class _ResolvedVisitor extends RecursiveAstVisitor<void> {
 
   @override
   void visitExtensionTypeDeclaration(ExtensionTypeDeclaration node) {
-    _visitDeclaration(node, node.name.lexeme, 'extensionType');
+    _visitDeclaration(
+      node,
+      node.declaredFragment?.name ?? '<extensionType>',
+      'extensionType',
+    );
     super.visitExtensionTypeDeclaration(node);
   }
 
@@ -780,7 +816,7 @@ class _ResolvedVisitor extends RecursiveAstVisitor<void> {
 
   @override
   void visitEnumDeclaration(EnumDeclaration node) {
-    _visitDeclaration(node, node.name.lexeme, 'enum');
+    _visitDeclaration(node, node.declaredFragment?.name ?? '<enum>', 'enum');
     super.visitEnumDeclaration(node);
   }
 

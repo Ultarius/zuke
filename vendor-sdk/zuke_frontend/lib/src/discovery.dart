@@ -6,23 +6,54 @@ import 'types.dart';
 import 'gherkin_parser.dart';
 import 'metadata_extractor.dart';
 
+/// Workspace configuration loaded from `zuke.yaml`.
 class ZukeConfig {
+  /// Workspace root override.
   final String? root;
+
+  /// Feature input glob patterns.
   final List<String> featurePatterns;
+
+  /// Epic input glob patterns.
   final List<String> epicPatterns;
+
+  /// Control input glob patterns.
   final List<String> controlPatterns;
+
+  /// Registry input glob patterns.
   final List<String> registryPatterns;
+
+  /// Project policy path.
   final String? projectPolicy;
+
+  /// Named policy preset.
   final String? preset;
+
+  /// Profile selection patterns.
   final List<String> profilePatterns;
+
+  /// Target-specific configuration.
   final Map<String, dynamic> targetsConfig;
+
+  /// Generated contract output path.
   final String? contractOutput;
+
+  /// Generated contract export path.
   final String? contractExport;
+
+  /// Specification lock path.
   final String? lockFile;
+
+  /// Evidence output path.
   final String? evidenceOutput;
+
+  /// Trust bundle path.
   final String? trustBundle;
+
+  /// Runner execution configuration.
   final Map<String, dynamic> executionConfig;
 
+  /// Creates workspace configuration.
   const ZukeConfig({
     this.root,
     this.featurePatterns = const ['specs/features/**/*.feature'],
@@ -41,6 +72,7 @@ class ZukeConfig {
     this.executionConfig = const {},
   });
 
+  /// Parses [yamlContent] into workspace configuration.
   static ZukeConfig fromYaml(String yamlContent, {String? root}) {
     final doc = loadYaml(yamlContent) as Map?;
     if (doc == null) return ZukeConfig(root: root);
@@ -96,9 +128,15 @@ class ZukeConfig {
   }
 }
 
+/// Parsed workspace data and the inputs used to produce it.
 class WorkspaceDiscoveryResult {
+  /// Effective workspace configuration.
   final ZukeConfig config;
+
+  /// Extracted metadata and registry data.
   final MetadataExtractorResult data;
+
+  /// Original contents of discovered input files.
   final Map<String, String> inputContents;
 
   /// Configured workspace-relative patterns that define specification inputs.
@@ -116,7 +154,9 @@ class WorkspaceDiscoveryResult {
   });
 }
 
+/// Discovers and parses a Zuke workspace from disk.
 class WorkspaceDiscovery {
+  /// Discovers the workspace rooted at [rootPath].
   WorkspaceDiscoveryResult discover(String? rootPath) {
     T measureGlob<T>(T Function() action) {
       return action();

@@ -627,8 +627,9 @@ class DartContractGenerator {
         ...rule.backgroundSteps,
         for (final scenario in rule.scenarios) ...scenario.steps,
       ]) {
-        if (!_isVendorStep(step.text))
+        if (!_isVendorStep(step.text)) {
           expressions.add(_snippetExpression(step.text));
+        }
       }
     }
     final items = expressions.map(_GeneratedStep.new).toList()

@@ -211,8 +211,9 @@ class _TagExpression {
   bool _parsePrimary(Set<String>? tags) {
     if (_consume('(')) {
       final value = _parseOr(tags);
-      if (!_consume(')'))
+      if (!_consume(')')) {
         throw const FormatException('expected closing parenthesis');
+      }
       return value;
     }
     if (_offset >= _tokens.length || !_tokens[_offset].startsWith('@')) {

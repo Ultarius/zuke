@@ -1,4 +1,6 @@
 /// Published inspection implementation API; not an extension contract.
+library;
+
 import 'package:analyzer/dart/constant/value.dart';
 import 'package:analyzer/dart/element/element.dart';
 

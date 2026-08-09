@@ -21,7 +21,9 @@ class ExtractDartCommand {
       '$root${Platform.pathSeparator}$packagePath',
     ).absolute.resolveSymbolicLinksSync();
     final output = await DartExtractor().extract(packageRoot);
-    for (final error in output.errors) stderr.writeln('ERROR: $error');
+    for (final error in output.errors) {
+      stderr.writeln('ERROR: $error');
+    }
     final fragment = CanonicalFragment.fromOutput(output, workspaceRoot: root);
     final json =
         const JsonEncoder.withIndent('  ').convert(fragment.toJson()) + '\n';

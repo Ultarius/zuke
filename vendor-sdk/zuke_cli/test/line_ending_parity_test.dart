@@ -41,8 +41,9 @@ void main() {
         if (entity is File) {
           final path = entity.path;
           if (path.contains('/attestations/') ||
-              path.contains(r'\attestations\'))
+              path.contains(r'\attestations\')) {
             continue;
+          }
           if (path.endsWith('.dart') ||
               path.endsWith('.feature') ||
               path.endsWith('.yaml') ||

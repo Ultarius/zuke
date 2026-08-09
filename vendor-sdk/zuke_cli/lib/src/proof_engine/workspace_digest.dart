@@ -79,7 +79,9 @@ final class WorkspaceDigest {
           ),
         );
       } else {
-        await for (final chunk in entry.file.openRead()) input.add(chunk);
+        await for (final chunk in entry.file.openRead()) {
+          input.add(chunk);
+        }
       }
       input.add(_separator);
     }
