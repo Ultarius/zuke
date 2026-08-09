@@ -21,7 +21,7 @@ jobs:
       example-root: examples/todo_app
       package-name: todo_app
       require-history: false
-  assurance:
+  calculator-product-assurance:
     strategy:
       fail-fast: false
       matrix:
@@ -114,7 +114,7 @@ jobs:
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         if: always()
         with:
-          name: zuke-assurance-${{ matrix.os }}
+          name: zuke-calculator-product-assurance-${{ matrix.os }}
           path: |
             examples/calculator-product/generated/
             examples/calculator-product/zuke.lock.json
