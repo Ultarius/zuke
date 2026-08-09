@@ -238,10 +238,19 @@ final application = ZukeHttpApplication(
           contains('route:endpoint.parity'),
           reason: 'fixture must exercise extracted route topology',
         );
+        final lfJson = _normalizedOutputJson(lfOutput, lfWorkspace);
+        final crlfJson = _normalizedOutputJson(crlfOutput, crlfWorkspace);
         expect(
-          _normalizedOutputJson(crlfOutput, crlfWorkspace),
-          equals(_normalizedOutputJson(lfOutput, lfWorkspace)),
+          lfJson['packageRoot'],
+          equals('<workspace>'),
+          reason: 'the retained package root must be workspace-relative',
         );
+        expect(
+          crlfJson['packageRoot'],
+          equals('<workspace>'),
+          reason: 'the retained package root must be workspace-relative',
+        );
+        expect(crlfJson, equals(lfJson));
       },
     );
 
@@ -564,15 +573,25 @@ Map<String, Object?> _normalizedOutputJson(
     if (output.graph != null) 'graph': output.graph!.toJson(),
   };
   // packageRoot is a temporary, machine-specific path rather than extracted
-  // semantics. Resolve it before normalization so Windows long and 8.3
-  // spellings compare the same way without dropping the field entirely.
+  // semantics. Canonicalize it and the workspace before normalizing so
+  // Windows long and 8.3 spellings compare the same way without dropping the
+  // field entirely.
+  final canonicalWorkspace = Directory(_canonicalDirectoryPath(workspace));
   final packageRoot = json['packageRoot'];
   if (packageRoot is String &&
       packageRoot.isNotEmpty &&
       Directory(packageRoot).existsSync()) {
-    json['packageRoot'] = Directory(packageRoot).resolveSymbolicLinksSync();
+    json['packageRoot'] = _canonicalDirectoryPath(Directory(packageRoot));
   }
-  return _normalizeJson(json, workspace);
+  return _normalizeJson(json, canonicalWorkspace);
+}
+
+String _canonicalDirectoryPath(Directory directory) {
+  try {
+    return directory.resolveSymbolicLinksSync();
+  } on FileSystemException {
+    return directory.absolute.path;
+  }
 }
 
 Map<String, Object?> _normalizeJson(

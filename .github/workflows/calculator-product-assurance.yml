@@ -34,7 +34,7 @@ jobs:
       # instead of reducing that per-package budget on slower hosted runners.
       ZUKE_TEST_WORKERS: '8'
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
       - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2
         with:
           flutter-version: '3.44.8'
@@ -69,7 +69,7 @@ jobs:
       - name: Coverage check
         run: dart --suppress-analytics run melos run coverage:check
       - name: Upload assurance artifacts
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         if: always()
         with:
           name: zuke-calculator-product-assurance-${{ matrix.os }}
