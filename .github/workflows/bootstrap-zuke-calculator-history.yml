@@ -1,9 +1,8 @@
 name: bootstrap-zuke-calculator-history
 
-# Run once from a zuke-assurance-bootstrap-calculator-* tag after a fresh
-# Zuke gateway attestation is committed and the retired signed history is
-# retained outside assurance-history/v2/. Commit the uploaded genesis record,
-# then remove this workflow and tag.
+# Run once from a zuke-assurance-bootstrap-calculator-* tag after the local
+# Calculator controls have passed the release profile. Commit the uploaded
+# genesis record, then remove this workflow and tag.
 on:
   push:
     tags: ['zuke-assurance-bootstrap-calculator-*']

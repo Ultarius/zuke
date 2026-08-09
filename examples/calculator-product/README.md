@@ -59,5 +59,36 @@ dart run melos run zuke:gate
 
 - **Multi-Package Workspace**: Separates UI, API server, domain logic, and generated contracts into modular Dart packages; keeps the UI driver local to the mobile test suite.
 - **Dual Testing Target**: Gherkin scenarios execute against both HTTP APIs (`calculator_api`) and Flutter Widget trees (`calculator_mobile`).
-- **Security Attestation (`@ProvidesControl`)**: Links rate-limiting, input validation, and error redaction controls to formal security policies in `policies/`.
+- **Security controls (`@ProvidesControl`)**: Links rate-limiting, input validation, and error redaction controls to executable application code and integration evidence.
 - **Release Trust History**: Manages immutable evidence digests in `assurance-history/` for release gate enforcement.
+
+---
+
+## Rate-limit demonstration
+
+This example does not require Azure API Management. The default implementation
+uses `RateLimitMiddleware` at the application's HTTP request boundary. The
+integration test sends real HTTP requests through `CalculatorServer` and proves
+that:
+
+1. two requests from one identity are accepted;
+2. the next request from that identity receives `429 RATE_LIMIT_EXCEEDED` and
+   `Retry-After: 60`;
+3. the rejected request does not invoke the calculator controller or domain;
+4. a different identity remains allowed.
+
+Run the human-readable demonstration with:
+
+```bash
+dart run bin/rate_limit_demo.dart
+```
+
+GitHub Actions runs this same demonstration and places its result table in the
+job summary. The Zuke control is therefore `proven` by source analysis and
+repeatable integration evidence, rather than being represented as a fictional
+external gateway attestation.
+
+If the service is later deployed behind Azure API Management, the same
+behavior can be enforced at the gateway instead. The APIM policy and migration
+notes are in [docs/apim-rate-limit.md](docs/apim-rate-limit.md). That deployment
+choice is intentionally separate from this local CI demonstration.

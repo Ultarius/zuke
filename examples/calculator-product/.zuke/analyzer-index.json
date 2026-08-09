@@ -1,13 +1,9 @@
 {
   "schemaVersion": "zuke.analyzer-index.v2",
-  "inputDigest": "sha256:76722d6c127f5943a05fd983f4179138b1ddd91614f17c37b814a86a2b23dca7",
+  "inputDigest": "sha256:a639d6ab9c315519fb7aa4eb84de4704174c2b8e1885c4e90d015861e7a4ba35",
   "generatedManifestDigest": "sha256:93a855fd8152858600fddb02f9e20ac525804cf43a8f09ecd4672fe66191824d",
   "generatedManifestPath": "packages/calculator_contracts/.zuke-generated.json",
   "inputs": [
-    {
-      "path": "policies/attestations.yaml",
-      "digest": "sha256:a47e1ca8baa00503d8b4dd9fc7b783a747f93a81f739c5d380ea5a7ced006c0c"
-    },
     {
       "path": "policies/project-policy.yaml",
       "digest": "sha256:a8e52907df6bb2424514f16bcde9512348f2e2900bfa8f23dd2985c9fbf01ccf"
@@ -18,7 +14,7 @@
     },
     {
       "path": "specs/controls/calculator-controls.yaml",
-      "digest": "sha256:bf3b0d5f97849ae2d18f29f80273814b3f5a1c60dff21765310f3625c8b46256"
+      "digest": "sha256:c6609f22d4b93bd8606e487fe37da1b3d4ba0ef1fcaf196dba74bbb0451171ec"
     },
     {
       "path": "specs/epics/EPIC-CALC-001.yaml",
@@ -30,7 +26,7 @@
     },
     {
       "path": "specs/features/calculator_security.feature",
-      "digest": "sha256:eec068d8030cdddb60b9cebc7e930620c275e9374adad35048b20cd62433f244"
+      "digest": "sha256:d7b8171dbfe0a3bcdac1ed79d3c86034dc79d4ea8e6c9d94ec1a6ce29cbdc737"
     },
     {
       "path": "specs/registry/endpoints.yaml",
@@ -58,11 +54,10 @@
     },
     {
       "path": "zuke.yaml",
-      "digest": "sha256:2a05b8011d73e96292e8594f706504eca6da05ca3eb2c86b1a1aef394139db05"
+      "digest": "sha256:06b029f2416f662d48d74d2280c3b9dd1ba9ba8ed201cd31330aba5e2a4b205a"
     }
   ],
   "inputPatterns": [
-    "policies/attestations.yaml",
     "policies/project-policy.yaml",
     "policies/security-profiles.yaml",
     "specs/controls/**/*.yaml",
@@ -71,7 +66,6 @@
     "specs/registry/**/*.yaml"
   ],
   "patternInputs": [
-    "policies/attestations.yaml",
     "policies/project-policy.yaml",
     "policies/security-profiles.yaml",
     "specs/controls/calculator-controls.yaml",

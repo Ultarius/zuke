@@ -4,20 +4,20 @@
   "workspace": "calculator-product",
   "policy": {
     "preset": "secure-product-v1",
-    "policyHash": "sha256:37533122ac28fe6cacdb42b6649dd762bfd93028cdb95148ca05c2aca1ddf5c1",
-    "evidenceRequirementsHash": "sha256:850a708646e2156241077673b6742d173382ec2eb3bf4b77ea0660d69c32675e"
+    "policyHash": "sha256:0e415690723d2589b09681eeb983daab39231d75e659f9754f94a51cea8556dd",
+    "evidenceRequirementsHash": "sha256:d63cef243ff1530bc5b8199c3812af46310998bf18f528bcec11d8e97c825b5f"
   },
-  "policyHash": "sha256:37533122ac28fe6cacdb42b6649dd762bfd93028cdb95148ca05c2aca1ddf5c1",
-  "evidenceRequirementsHash": "sha256:850a708646e2156241077673b6742d173382ec2eb3bf4b77ea0660d69c32675e",
+  "policyHash": "sha256:0e415690723d2589b09681eeb983daab39231d75e659f9754f94a51cea8556dd",
+  "evidenceRequirementsHash": "sha256:d63cef243ff1530bc5b8199c3812af46310998bf18f528bcec11d8e97c825b5f",
   "specificationDigestScope": "discovery-inputs-v1",
-  "specificationDigest": "sha256:3da1e1686d735ba127495d9d5464c21054218cea5468d07426f2e3c3421bebfb",
+  "specificationDigest": "sha256:65cb7adcb7fa155d07b46388abe6256099bb13ccd72624af29b70757f3db0c5b",
   "generatedManifestDigest": "sha256:93a855fd8152858600fddb02f9e20ac525804cf43a8f09ecd4672fe66191824d",
   "features": {
     "FEAT-CALC-001": {
       "sourceHash": "sha256:adafd4d21ca6382630c91272ac0e7c43230188c7b9abec7f4fa2b7b189e5b931"
     },
     "FEAT-CALC-002": {
-      "sourceHash": "sha256:eec068d8030cdddb60b9cebc7e930620c275e9374adad35048b20cd62433f244"
+      "sourceHash": "sha256:d7b8171dbfe0a3bcdac1ed79d3c86034dc79d4ea8e6c9d94ec1a6ce29cbdc737"
     }
   },
   "fragments": [
@@ -26,7 +26,7 @@
       "version": "1.0.0",
       "compatibilityId": "dart-analyzer-8.2-http-topology-v2",
       "package": "calculator_api",
-      "digest": "sha256:96616ce957fd6ab16a2db61e1f5c303068fd15fad75223851426c804f29c1767",
+      "digest": "sha256:7c9dcc87cf2ffeeb15f8520be585b8cf085133189a0721a88bb90f14887c90d4",
       "completeness": {
         "annotationTargets": "complete",
         "generatedParts": "complete",
@@ -127,19 +127,47 @@
       },
       "bypassPaths": []
     },
+    "RULE-CALC-RATE-LIMIT|CTRL-CALC-LOG-REDACTION|backend|default": {
+      "assurance": "proven",
+      "semantics": "sensitive-data-to-log-sink",
+      "providerIds": [
+        "provider:CalculatorLoggingInterceptor"
+      ],
+      "evidenceDigests": [],
+      "coverage": "proven",
+      "graphHash": "sha256:e9380c516cf94f7235460a8292f9d75e993dbbb45b4625e9d442f0bceb247166",
+      "completeness": {
+        "routeRegistration": "complete",
+        "middlewareOrder": "complete",
+        "failureFlow": "complete",
+        "logFlow": "complete",
+        "dynamicRegistration": "complete",
+        "externalVisibility": "notApplicable"
+      },
+      "bypassPaths": []
+    },
+    "RULE-CALC-RATE-LIMIT|CTRL-CALC-RATE-LIMIT|backend|default": {
+      "assurance": "proven",
+      "semantics": "ingress-dominance",
+      "providerIds": [
+        "provider:RateLimitMiddleware"
+      ],
+      "evidenceDigests": [],
+      "coverage": "proven",
+      "graphHash": "sha256:e9380c516cf94f7235460a8292f9d75e993dbbb45b4625e9d442f0bceb247166",
+      "completeness": {
+        "routeRegistration": "complete",
+        "middlewareOrder": "complete",
+        "failureFlow": "complete",
+        "logFlow": "complete",
+        "dynamicRegistration": "complete",
+        "externalVisibility": "notApplicable"
+      },
+      "bypassPaths": []
+    },
     "CTRL-CALC-BODY-SIZE": {
       "assurance": "missing",
       "coverageSemantics": "ingress-dominance",
-      "providerIds": []
-    },
-    "CTRL-CALC-RATE-LIMIT": {
-      "assurance": "missing",
-      "coverageSemantics": "external-attestation",
-      "providerIds": []
-    },
-    "CTRL-CALC-LOG-REDACTION": {
-      "assurance": "missing",
-      "coverageSemantics": "sensitive-data-to-log-sink",
       "providerIds": []
     }
   }

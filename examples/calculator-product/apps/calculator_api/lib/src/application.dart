@@ -109,9 +109,12 @@ final class CalculatorController implements ZukeController {
   };
 }
 
-/// An executable local gateway stand-in used by the reference service tests.
-/// Production edge enforcement remains independently attested; this component
-/// makes the requirement's API behavior observable in the reference product.
+/// An executable request-boundary rate limiter used by the reference service.
+///
+/// This is deliberately application-owned because the example does not deploy
+/// an external gateway. Its behavior is proven by the HTTP integration test.
+/// Deployments that put APIM in front of this service can enforce the same
+/// contract with an APIM policy; see docs/apim-rate-limit.md.
 @ProvidesControl(
   ['CTRL-CALC-RATE-LIMIT'],
   kind: ControlProviderKind.requestMiddleware,

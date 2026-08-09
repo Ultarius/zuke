@@ -48,6 +48,10 @@ jobs:
         working-directory: examples/calculator-product/apps/calculator_mobile
       - run: dart --suppress-analytics analyze
         working-directory: examples/calculator-product/apps/calculator_api
+      - name: Demonstrate local calculator rate limiting
+        shell: bash
+        working-directory: examples/calculator-product/apps/calculator_api
+        run: dart --suppress-analytics run bin/rate_limit_demo.dart >> "$GITHUB_STEP_SUMMARY"
       - run: dart --suppress-analytics run zuke_cli:zuke check --root examples/calculator-product --profile merge --jobs 1 --format json
       - run: dart --suppress-analytics run zuke_cli:zuke manifest verify-v2 --root examples/calculator-product
       - name: Coverage check
