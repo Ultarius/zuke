@@ -65,6 +65,7 @@ Other recurring Zuke diagnoses:
 - Keep normal dependencies and `dev_dependencies` in their intended layers. Do not collapse specialized packages into a facade just to make a CI command pass.
 - Keep local/mock demonstrations honest: label them as local evidence and document how a production integration such as APIM would enforce the corresponding control. A GitHub Actions pipeline proves the checked-in application behavior and assurance workflow; it does not prove an external gateway that is not present.
 - For a matrix that should appear as one collapsible example in GitHub Actions, put the matrix inside a reusable workflow with an internal `verify` job, then call it from the parent workflow. Renaming direct matrix jobs does not create a collapsible group; reusable-workflow callers render as `example-assurance / verify (os)` like the other example checks.
+- A reusable-workflow refactor can invalidate repository conformance tests even when the workflow is correct. If every OS reaches coverage and `zuke_conformance` reports one failure such as `Expected: contains '--profile pullRequest'`, inspect the test before changing the workflow: callers may pass `profile: pullRequest` through `with:` while the reusable workflow contains the eventual `--profile` command. The contract test should accept and validate both direct CLI flags and reusable-workflow inputs.
 
 ### 5. Verify before handoff
 

@@ -228,9 +228,15 @@ void main() {
         final workflow = File('${root.path}/.github/workflows/${entry.key}');
         expect(workflow.existsSync(), isTrue, reason: 'Missing ${entry.key}');
         final content = workflow.readAsStringSync();
+        // Workflows may invoke the profile directly, or pass it to a
+        // reusable workflow through a `with:` input. Accept both forms so
+        // workflow refactors do not weaken the profile contract.
+        final profileInvocation = RegExp(
+          r'(?:--profile\s+|\bprofile:\s*)' + RegExp.escape(entry.value),
+        );
         expect(
-          content,
-          contains('--profile ${entry.value}'),
+          profileInvocation.hasMatch(content),
+          isTrue,
           reason: '${entry.key} must invoke ${entry.value}',
         );
       }
