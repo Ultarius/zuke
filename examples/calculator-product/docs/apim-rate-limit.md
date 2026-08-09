@@ -5,6 +5,49 @@ repository does not deploy an external gateway. A production service deployed
 behind Azure API Management can move the same control to the APIM inbound
 policy.
 
+## What the checked-in example proves
+
+The active example has only `flutter` and `backend` targets in
+`zuke.yaml`. The request path is:
+
+```text
+HTTP client
+    |
+    v
+CalculatorServer
+    |
+    v
+RateLimitMiddleware (@ProvidesControl: CTRL-CALC-RATE-LIMIT)
+    |
+    +--> HTTP 429 + Retry-After when the identity budget is exhausted
+    |
+    v
+Calculator controller and domain service
+```
+
+The API integration test sends real requests through this path. It verifies
+the accepted requests, the rejected request, the retry header, the fact that
+the rejected request does not reach the controller, and the fact that another
+identity remains allowed. Zuke then combines the source graph with the test
+evidence and records the application-owned control as `proven`.
+
+This is why the example does not contain an `edge` target. The following
+configuration is an external-attestation extraction target, not an APIM
+deployment:
+
+```yaml
+targets:
+  edge:
+    language: external
+    extractor: attestation
+```
+
+By itself, that target would not install a gateway, route traffic, call Azure,
+or create a signed record. It is meaningful only when an external provider,
+attestation document, trust bundle, and matching control metadata are also
+configured. Keeping an unused target in this local-only example implied that
+APIM was active when it was not.
+
 ## Example policy
 
 Apply this policy to the API or operation that exposes
@@ -65,6 +108,52 @@ the APIM deployment. Run an APIM integration test against the deployed gateway
 and collect the policy export through the authorized release-signing workflow.
 The local GitHub Actions job can still run the application tests, while the
 release gate verifies the signed external evidence.
+
+## What an APIM integration adds
+
+An APIM-owned control has a different evidence path:
+
+1. APIM enforces the inbound policy before the request reaches the backend.
+2. An integration test sends requests through the deployed APIM endpoint and
+   records the observed 429 and `Retry-After` behavior.
+3. The deployment process exports the APIM policy and hashes the export and
+   route scope.
+4. The authorized signing workflow creates a
+   `zuke.external-attestation.v1` record containing the provider, target,
+   policy digest, route scope, signer, issue time, and expiry.
+5. Zuke verifies the signature against the attestation trust usage, checks the
+   document and policy scope, and includes the attestation in the release
+   lock.
+6. A release gate rejects the deployment when the attestation is missing,
+   expired, signed by an untrusted key, or no longer matches the APIM export.
+
+The deployment-only configuration has the following conceptual shape. It is
+an overlay for a real APIM workspace, not a change to this checked-in example:
+
+```yaml
+targets:
+  edge:
+    language: external
+    extractor: attestation
+
+# The exact provider file is project-specific. It must associate the APIM
+# provider with an external control and a confined attestation document.
+providers:
+  - id: calculator-apim-rate-limit
+    provides: CTRL-CALC-RATE-LIMIT-APIM
+    assurance: attested
+    target: edge
+    variant: default
+    kind: rate-limit
+    layer: edge
+    system: azure-api-management
+    document: attestations/calculator-apim-rate-limit.json
+```
+
+The provider metadata must agree with the signed document. The signed document
+must be produced from the real APIM environment by the authorized signing
+workflow; a local mock, a copied policy, or a hand-edited JSON file is not
+valid production evidence.
 
 ## How this relates to Zuke
 

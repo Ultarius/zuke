@@ -29,10 +29,6 @@ targets:
         roots: [lib, bin, test]
     extractor: zuke-dart-http
 
-  edge:
-    language: external
-    extractor: attestation
-
 dartTooling:
   extraction:
     authority: cli

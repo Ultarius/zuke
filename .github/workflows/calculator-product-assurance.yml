@@ -29,9 +29,9 @@ jobs:
     env:
       FLUTTER_SUPPRESS_ANALYTICS: 'true'
       ZUKE_RUN_PROCESS_INTEGRATION: 'true'
-      # The calculator assurance run has four Dart packages. Two test isolates
-      # per package keeps the large zuke_cli suite below the package timeout on
-      # the slower Linux and Windows hosted runners.
+      # The workspace runner caps concurrency at four packages. A budget of
+      # eight gives four-package runs two isolates each; later packages queue
+      # instead of reducing that per-package budget on slower hosted runners.
       ZUKE_TEST_WORKERS: '8'
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
@@ -67,97 +67,6 @@ jobs:
       - run: dart --suppress-analytics run zuke_cli:zuke manifest verify-v2 --root examples/calculator-product
       - name: Coverage check
         run: dart --suppress-analytics run melos run coverage:check
-      - name: Stale-lock probe (temp fixture)
-        if: runner.os != 'Windows'
-        run: |
-          mkdir -p /tmp/stale-probe/specs/features
-          cat > /tmp/stale-probe/zuke.yaml << 'EOF'
-          schemaVersion: 2
-          workspace:
-            name: stale-probe
-            root: .
-          specifications:
-            features: [specs/features/**/*.feature]
-          targets: {}
-          EOF
-          cat > /tmp/stale-probe/specs/features/test.feature << 'EOF'
-          # spec-begin
-          # schemaVersion: 1
-          # id: FEAT-PROBE-001
-          # spec-end
-          @FEAT-PROBE-001
-          Feature: Probe
-            # rule-spec-begin
-            # id: RULE-PROBE-001
-            # rule-spec-end
-            @RULE-PROBE-001
-            Rule: Probe rule
-              @SCN-PROBE-001
-              Scenario: probe
-                Given a step
-          EOF
-          set +e
-          output="$(dart run zuke_cli:zuke lock --root /tmp/stale-probe --check 2>&1)"
-          status=$?
-          set -e
-          printf '%s\n' "$output"
-          if [ "$status" -eq 0 ]; then
-            echo "Expected the missing lock probe to fail" >&2
-            exit 1
-          fi
-          if ! printf '%s\n' "$output" | grep -Fq 'Specification lock is stale or missing'; then
-            echo "Lock probe failed for a reason other than a missing lock" >&2
-            exit 1
-          fi
-          echo "Stale lock correctly detected"
-      - name: Stale-lock probe (temp fixture, Windows)
-        if: runner.os == 'Windows'
-        run: |
-          $dir = "$env:RUNNER_TEMP\stale-probe"
-          New-Item -ItemType Directory -Path "$dir\specs\features" -Force | Out-Null
-          Set-Content -Path "$dir\zuke.yaml" -Value @'
-          schemaVersion: 2
-          workspace:
-            name: stale-probe
-            root: .
-          specifications:
-            features: [specs/features/**/*.feature]
-          targets: {}
-          '@
-          Set-Content -Path "$dir\specs\features\test.feature" -Value @'
-          # spec-begin
-          # schemaVersion: 1
-          # id: FEAT-PROBE-001
-          # spec-end
-          @FEAT-PROBE-001
-          Feature: Probe
-            # rule-spec-begin
-            # id: RULE-PROBE-001
-            # rule-spec-end
-            @RULE-PROBE-001
-            Rule: Probe rule
-              @SCN-PROBE-001
-              Scenario: probe
-                Given a step
-          '@
-          $probeOutput = & dart run zuke_cli:zuke lock --root $dir --check 2>&1
-          $probeStatus = $LASTEXITCODE
-          $probeText = $probeOutput | Out-String
-          Write-Output $probeText
-          if ($probeStatus -eq 0) {
-            throw 'Expected the missing lock probe to fail'
-          }
-          if ($probeText -notmatch [regex]::Escape('Specification lock is stale or missing')) {
-            throw 'Lock probe failed for a reason other than a missing lock'
-          }
-          Write-Output 'Stale lock correctly detected'
-          exit 0
-      - name: Process-tree integration test
-        if: runner.os == 'Linux' || runner.os == 'macOS'
-        run: dart test vendor-sdk/zuke_cli/test/process_supervisor_integration_test.dart
-      - name: Process-tree integration test (Windows)
-        if: runner.os == 'Windows'
-        run: dart test vendor-sdk/zuke_cli/test/process_supervisor_integration_test.dart
       - name: Upload assurance artifacts
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         if: always()

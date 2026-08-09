@@ -10,14 +10,14 @@
   "policyHash": "sha256:0e415690723d2589b09681eeb983daab39231d75e659f9754f94a51cea8556dd",
   "evidenceRequirementsHash": "sha256:d63cef243ff1530bc5b8199c3812af46310998bf18f528bcec11d8e97c825b5f",
   "specificationDigestScope": "discovery-inputs-v1",
-  "specificationDigest": "sha256:65cb7adcb7fa155d07b46388abe6256099bb13ccd72624af29b70757f3db0c5b",
+  "specificationDigest": "sha256:a60b6edfe0859602e768d25e202de730a70a8a8f7367b0a2b38e6decd5171513",
   "generatedManifestDigest": "sha256:93a855fd8152858600fddb02f9e20ac525804cf43a8f09ecd4672fe66191824d",
   "features": {
     "FEAT-CALC-001": {
       "sourceHash": "sha256:adafd4d21ca6382630c91272ac0e7c43230188c7b9abec7f4fa2b7b189e5b931"
     },
     "FEAT-CALC-002": {
-      "sourceHash": "sha256:d7b8171dbfe0a3bcdac1ed79d3c86034dc79d4ea8e6c9d94ec1a6ce29cbdc737"
+      "sourceHash": "sha256:8925eda4b62f2c681fde96adb24880f467de89670858b8c763b6b32c3ef90c75"
     }
   },
   "fragments": [

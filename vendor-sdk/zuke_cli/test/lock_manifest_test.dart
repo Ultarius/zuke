@@ -417,6 +417,27 @@ Feature: Gateway
       expect(result.exitCode, isNot(equals(0)));
     });
 
+    test('lock --check fails when the lock file is missing', () async {
+      await createEligibleWorkspace(tempDir);
+
+      final generateResult = await runInProcessCli([
+        'generate',
+        '--root',
+        tempDir.path,
+      ]);
+      expect(generateResult.exitCode, equals(0));
+
+      final result = await runInProcessCli([
+        'lock',
+        '--root',
+        tempDir.path,
+        '--check',
+      ]);
+      expect(result.exitCode, isNot(equals(0)));
+      expect(result.stderr, contains('Specification lock is stale or missing'));
+      expect(File('${tempDir.path}/zuke.lock.json').existsSync(), isFalse);
+    });
+
     test('lock re-generated from fresh evidence passes --check', () async {
       await createEligibleWorkspace(tempDir);
 
