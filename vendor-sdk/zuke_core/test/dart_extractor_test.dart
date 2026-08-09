@@ -261,6 +261,10 @@ class UnsupportedVerification {}
         ]),
       );
     },
+    // The analyzer loads a workspace package configuration. Under coverage on
+    // the slower hosted runners that can legitimately take longer than the
+    // default per-test timeout.
+    timeout: const Timeout(Duration(minutes: 2)),
   );
 
   test('rejects invalid package roots and reports analyzer errors', () async {

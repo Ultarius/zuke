@@ -85,11 +85,31 @@ jobs:
           # schemaVersion: 1
           # id: FEAT-PROBE-001
           # spec-end
+          @FEAT-PROBE-001
           Feature: Probe
-            Scenario: probe
-              Given a step
+            # rule-spec-begin
+            # id: RULE-PROBE-001
+            # rule-spec-end
+            @RULE-PROBE-001
+            Rule: Probe rule
+              @SCN-PROBE-001
+              Scenario: probe
+                Given a step
           EOF
-          dart run zuke_cli:zuke lock --root /tmp/stale-probe --check && exit 1 || echo "Stale lock correctly detected"
+          set +e
+          output="$(dart run zuke_cli:zuke lock --root /tmp/stale-probe --check 2>&1)"
+          status=$?
+          set -e
+          printf '%s\n' "$output"
+          if [ "$status" -eq 0 ]; then
+            echo "Expected the missing lock probe to fail" >&2
+            exit 1
+          fi
+          if ! printf '%s\n' "$output" | grep -Fq 'Specification lock is stale or missing'; then
+            echo "Lock probe failed for a reason other than a missing lock" >&2
+            exit 1
+          fi
+          echo "Stale lock correctly detected"
       - name: Stale-lock probe (temp fixture, Windows)
         if: runner.os == 'Windows'
         run: |
@@ -109,12 +129,29 @@ jobs:
           # schemaVersion: 1
           # id: FEAT-PROBE-001
           # spec-end
+          @FEAT-PROBE-001
           Feature: Probe
-            Scenario: probe
-              Given a step
+            # rule-spec-begin
+            # id: RULE-PROBE-001
+            # rule-spec-end
+            @RULE-PROBE-001
+            Rule: Probe rule
+              @SCN-PROBE-001
+              Scenario: probe
+                Given a step
           '@
-          dart run zuke_cli:zuke lock --root $dir --check
-          if ($LASTEXITCODE -eq 0) { exit 1 } else { echo "Stale lock correctly detected" }
+          $probeOutput = & dart run zuke_cli:zuke lock --root $dir --check 2>&1
+          $probeStatus = $LASTEXITCODE
+          $probeText = $probeOutput | Out-String
+          Write-Output $probeText
+          if ($probeStatus -eq 0) {
+            throw 'Expected the missing lock probe to fail'
+          }
+          if ($probeText -notmatch [regex]::Escape('Specification lock is stale or missing')) {
+            throw 'Lock probe failed for a reason other than a missing lock'
+          }
+          Write-Output 'Stale lock correctly detected'
+          exit 0
       - name: Process-tree integration test
         if: runner.os == 'Linux' || runner.os == 'macOS'
         run: dart test vendor-sdk/zuke_cli/test/process_supervisor_integration_test.dart
