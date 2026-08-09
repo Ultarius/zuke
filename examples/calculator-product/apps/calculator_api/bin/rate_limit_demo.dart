@@ -63,7 +63,8 @@ Future<void> main() async {
       throw StateError('Local rate-limit demonstration did not pass.');
     }
 
-    print('''# Local rate-limit demonstration
+    final summary =
+        '''# Local rate-limit demonstration
 
 This is the Calculator Product's application-owned request-boundary control.
 It runs without APIM and is exercised through the real local HTTP server.
@@ -83,7 +84,12 @@ The third request from `client-a` is rejected by `RateLimitMiddleware` before
 the calculator controller or domain service runs. A different identity remains
 allowed. An APIM deployment can enforce the same contract at the gateway; see
 `docs/apim-rate-limit.md`.
-''');
+''';
+    stdout.write(summary);
+    final summaryPath = Platform.environment['GITHUB_STEP_SUMMARY'];
+    if (summaryPath != null && summaryPath.isNotEmpty) {
+      File(summaryPath).writeAsStringSync(summary, mode: FileMode.append);
+    }
   } finally {
     await server.stop();
   }

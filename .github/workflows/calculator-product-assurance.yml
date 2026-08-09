@@ -15,7 +15,7 @@ on:
       demonstrate_rate_limit:
         description: Add the local calculator rate-limit demonstration to the summary.
         required: false
-        default: false
+        default: true
         type: boolean
 
 jobs:
@@ -51,11 +51,12 @@ jobs:
         working-directory: examples/calculator-product/apps/calculator_mobile
       - run: dart --suppress-analytics analyze
         working-directory: examples/calculator-product/apps/calculator_api
+      - name: Missing-lock regression
+        run: dart --suppress-analytics test vendor-sdk/zuke_cli/test/lock_missing_probe_test.dart
       - name: Demonstrate local calculator rate limiting
         if: ${{ inputs.demonstrate_rate_limit }}
-        shell: bash
         working-directory: examples/calculator-product/apps/calculator_api
-        run: dart --suppress-analytics run bin/rate_limit_demo.dart >> "$GITHUB_STEP_SUMMARY"
+        run: dart --suppress-analytics run bin/rate_limit_demo.dart
       - name: Prepare ${{ inputs.profile }} assurance lock
         if: ${{ inputs.prepare_lock }}
         run: |

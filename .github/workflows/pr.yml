@@ -25,3 +25,4 @@ jobs:
     with:
       profile: pullRequest
       prepare_lock: true
+      demonstrate_rate_limit: true

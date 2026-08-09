@@ -16,6 +16,7 @@ on:
         required: true
         type: string
       require-history:
+        description: Require a non-empty signed V2 history; false still validates the configured chain policy.
         required: true
         type: boolean
 
@@ -43,6 +44,8 @@ jobs:
         run: dart --suppress-analytics run tool/prepare_flutter_toolchain.dart
       - name: Flutter launcher integration
         run: dart --suppress-analytics test vendor-sdk/zuke_cli/test/flutter_toolchain_integration_test.dart
+      - name: Process-tree integration test
+        run: dart --suppress-analytics test vendor-sdk/zuke_cli/test/process_supervisor_integration_test.dart
       - run: dart --suppress-analytics format --output=none --set-exit-if-changed lib test
         working-directory: ${{ inputs.example-root }}
       - run: flutter --suppress-analytics analyze --no-pub
@@ -53,8 +56,11 @@ jobs:
       - run: dart --suppress-analytics run zuke_cli:zuke doctor --root ${{ inputs.example-root }}
       - run: dart --suppress-analytics run zuke_cli:zuke check --root ${{ inputs.example-root }} --profile ${{ inputs.profile }} --jobs 1 --format json
       - run: dart --suppress-analytics run zuke_cli:zuke affected --root ${{ inputs.example-root }} --changed-since ${{ inputs.changed-since }}
-      - run: dart --suppress-analytics run zuke_cli:zuke manifest verify-v2 --root ${{ inputs.example-root }} --require-history
-        if: inputs.require-history
+      - name: Verify V2 assurance history policy
+        run: >-
+          dart --suppress-analytics run zuke_cli:zuke manifest verify-v2
+          --root ${{ inputs.example-root }}
+          ${{ inputs.require-history && '--require-history' || '' }}
       - run: git diff --exit-code -- ${{ inputs.example-root }}
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         if: always()

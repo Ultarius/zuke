@@ -564,10 +564,14 @@ Map<String, Object?> _normalizedOutputJson(
     if (output.graph != null) 'graph': output.graph!.toJson(),
   };
   // packageRoot is a temporary, machine-specific path rather than extracted
-  // semantics. On Windows, the same temp directory can be represented using
-  // a long user path or its 8.3 short-path spelling, so normalizing only the
-  // workspace string is not sufficient for LF/CRLF parity.
-  json.remove('packageRoot');
+  // semantics. Resolve it before normalization so Windows long and 8.3
+  // spellings compare the same way without dropping the field entirely.
+  final packageRoot = json['packageRoot'];
+  if (packageRoot is String &&
+      packageRoot.isNotEmpty &&
+      Directory(packageRoot).existsSync()) {
+    json['packageRoot'] = Directory(packageRoot).resolveSymbolicLinksSync();
+  }
   return _normalizeJson(json, workspace);
 }
 
