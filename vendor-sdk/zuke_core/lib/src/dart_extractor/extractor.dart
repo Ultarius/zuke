@@ -30,7 +30,7 @@ String? _namedArgumentName(dynamic argument) {
   dynamic name;
   try {
     name = argument.name;
-  } on Object {
+  } on NoSuchMethodError {
     return null;
   }
   if (name is Token) return name.lexeme;
@@ -40,7 +40,7 @@ String? _namedArgumentName(dynamic argument) {
     final dynamic identifier = label.name;
     if (identifier is String) return identifier;
     if (identifier is Token) return identifier.lexeme;
-  } on Object {
+  } on NoSuchMethodError {
     return null;
   }
   return null;
@@ -50,13 +50,13 @@ Expression? _argumentExpression(dynamic argument) {
   try {
     final dynamic expression = argument.argumentExpression;
     if (expression is Expression) return expression;
-  } on Object {
+  } on NoSuchMethodError {
     // Analyzer 8 exposes the value as `expression` on NamedExpression.
   }
   try {
     final dynamic expression = argument.expression;
     if (expression is Expression) return expression;
-  } on Object {
+  } on NoSuchMethodError {
     return null;
   }
   return null;
@@ -772,7 +772,7 @@ class _ResolvedVisitor extends RecursiveAstVisitor<void> {
 
   @override
   void visitClassDeclaration(ClassDeclaration node) {
-    _visitDeclaration(node, node.declaredFragment?.name ?? '<class>', 'class');
+    _visitDeclaration(node, node.declaredFragment?.name, 'class');
     super.visitClassDeclaration(node);
   }
 
@@ -800,11 +800,7 @@ class _ResolvedVisitor extends RecursiveAstVisitor<void> {
 
   @override
   void visitExtensionTypeDeclaration(ExtensionTypeDeclaration node) {
-    _visitDeclaration(
-      node,
-      node.declaredFragment?.name ?? '<extensionType>',
-      'extensionType',
-    );
+    _visitDeclaration(node, node.declaredFragment?.name, 'extensionType');
     super.visitExtensionTypeDeclaration(node);
   }
 
@@ -816,7 +812,7 @@ class _ResolvedVisitor extends RecursiveAstVisitor<void> {
 
   @override
   void visitEnumDeclaration(EnumDeclaration node) {
-    _visitDeclaration(node, node.declaredFragment?.name ?? '<enum>', 'enum');
+    _visitDeclaration(node, node.declaredFragment?.name, 'enum');
     super.visitEnumDeclaration(node);
   }
 
@@ -854,12 +850,19 @@ class _ResolvedVisitor extends RecursiveAstVisitor<void> {
     super.visitTopLevelVariableDeclaration(node);
   }
 
-  void _visitDeclaration(AnnotatedNode node, String name, String targetKind) {
+  void _visitDeclaration(AnnotatedNode node, String? name, String targetKind) {
     for (final annotation in node.metadata) {
       final elementAnnotation = annotation.elementAnnotation;
       final element = elementAnnotation?.element;
       if (element == null || !isZukeAnnotation(element)) continue;
       final annotationName = zukeAnnotationName(element)!;
+      if (name == null || name.isEmpty) {
+        final location = lineInfo.getLocation(node.offset);
+        errors.add(
+          '${file}:${location.lineNumber}: unresolved $targetKind declaration name',
+        );
+        continue;
+      }
       final offset = annotation.offset;
       final location = lineInfo.getLocation(offset);
       final source = ExtractedSourceLocation(

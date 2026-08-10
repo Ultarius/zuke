@@ -34,7 +34,6 @@ final class FlutterBindingKey extends LocalKey {
       assert(bindingId != '');
 
   /// Creates the key for one stable item in this collection binding.
-  /// Creates a physical key for one collection item.
   FlutterBindingInstanceKey instance(Object instanceId) {
     if (kind != FlutterBindingKind.collection) {
       throw StateError(
@@ -45,7 +44,6 @@ final class FlutterBindingKey extends LocalKey {
   }
 
   /// Whether [candidate] belongs to this logical binding.
-  /// Returns whether [candidate] belongs to this logical binding.
   bool matches(Key? candidate) => switch (candidate) {
     FlutterBindingKey(:final bindingId) => bindingId == this.bindingId,
     FlutterBindingInstanceKey(:final bindingId) =>
