@@ -41,6 +41,8 @@ jobs:
           channel: stable
           cache: true
       - run: dart --suppress-analytics pub get
+      - name: Verify zuke_core with published analyzer resolution
+        run: dart --suppress-analytics run tool/check_zuke_core_analyzer14.dart
       - name: Prepare Flutter tool package
         run: dart --suppress-analytics run tool/prepare_flutter_toolchain.dart
       - run: dart --suppress-analytics format --output=none --set-exit-if-changed vendor-sdk examples/calculator-product

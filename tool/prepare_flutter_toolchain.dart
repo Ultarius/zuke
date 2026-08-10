@@ -28,7 +28,9 @@ Future<void> main() async {
   );
 
   if (!File(dartExecutable).existsSync()) {
-    stderr.writeln('Flutter bundled Dart executable is missing: $dartExecutable');
+    stderr.writeln(
+      'Flutter bundled Dart executable is missing: $dartExecutable',
+    );
     exitCode = 1;
     return;
   }

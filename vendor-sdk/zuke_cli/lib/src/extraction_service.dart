@@ -50,7 +50,12 @@ class ExtractionService {
           final roots =
               (package['roots'] as List?)?.whereType<String>().toList() ??
               const ['lib'];
-          final cacheKey = _sourceDigest(packageRoot, roots, 'dart-http-v2');
+          final cacheKey = _sourceDigest(
+            packageRoot,
+            roots,
+            'dart-http-v3',
+            DartExtractor.compatibilityId,
+          );
           final cached = _loadCached(root, 'dart', cacheKey);
           AdapterOutput output;
           if (cached != null) {
@@ -99,7 +104,12 @@ class ExtractionService {
           .replaceAll('/', Platform.pathSeparator)
           .replaceAll('\\', Platform.pathSeparator);
 
-  String _sourceDigest(String root, List<String> roots, String adapter) {
+  String _sourceDigest(
+    String root,
+    List<String> roots,
+    String adapter,
+    String compatibilityId,
+  ) {
     final files = <File>[];
     for (final relative in [
       ...roots,
@@ -119,7 +129,7 @@ class ExtractionService {
       }
     }
     files.sort((a, b) => a.path.compareTo(b.path));
-    final bytes = <int>[]..addAll(utf8.encode('$adapter|compat-8.2|'));
+    final bytes = <int>[]..addAll(utf8.encode('$adapter|$compatibilityId|'));
     final normalizedRoot = Directory(
       root,
     ).absolute.path.replaceAll('\\', '/').replaceFirst(RegExp(r'/$'), '');
@@ -206,7 +216,7 @@ class ExtractionService {
       }
       final adapterMap = value['adapter'];
       final expectedCompatibility = adapter == 'dart'
-          ? 'dart-analyzer-8.2-http-topology-v2'
+          ? DartExtractor.compatibilityId
           : null;
       if (adapterMap is! Map ||
           (expectedCompatibility != null &&

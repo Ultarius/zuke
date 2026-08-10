@@ -69,11 +69,14 @@ class DartExtractor implements FrameworkAdapter {
   static const annotationLibrary =
       'package:zuke_annotations/zuke_annotations.dart';
 
+  /// Compatibility identifier for extracted Dart output and caches.
+  static const compatibilityId = 'dart-analyzer-8-14-http-topology-v3';
+
   @override
   AdapterInfo get adapterInfo => const AdapterInfo(
     id: 'zuke.dart',
     version: '1.0.0',
-    compatibilityId: 'dart-analyzer-8.2-http-topology-v2',
+    compatibilityId: compatibilityId,
   );
 
   @override

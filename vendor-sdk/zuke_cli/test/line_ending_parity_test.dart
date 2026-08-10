@@ -85,6 +85,9 @@ dependencies:
   zuke_http_runtime:
     path: '$repositoryRoot/vendor-sdk/zuke_http_runtime'
 dependency_overrides:
+  # This fixture runs in the workspace's analyzer-8 compatibility lane. The
+  # standalone analyzer-14 smoke test covers the published zuke_core graph.
+  analyzer: 8.2.0
   zuke_core:
     path: '$repositoryRoot/vendor-sdk/zuke_core'
 '''

@@ -112,7 +112,13 @@ void main() {
         );
         final cache = Directory('${tempDir.path}/.zuke/cache/dart');
         expect(cache.existsSync(), isTrue);
-        expect(cache.listSync().whereType<File>(), hasLength(1));
+        final cacheFiles = cache.listSync().whereType<File>().toList();
+        expect(cacheFiles, hasLength(1));
+        final cacheJson = jsonDecode(cacheFiles.single.readAsStringSync());
+        expect(
+          (cacheJson['adapter'] as Map)['compatibilityId'],
+          DartExtractor.compatibilityId,
+        );
       },
     );
 
