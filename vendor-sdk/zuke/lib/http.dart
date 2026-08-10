@@ -1,15 +1,27 @@
 /// Supported application-facing HTTP scenario-driver API.
+library;
+
 import 'runner.dart';
 import 'dart:convert';
 import 'dart:io';
 
 export 'zuke.dart';
 
+/// Logical HTTP request data used by a scenario driver.
 class HttpRequestSpec {
+  /// Logical endpoint identifier.
   final String endpointId;
+
+  /// HTTP method.
   final String method;
+
+  /// Optional request body.
   final Object? body;
+
+  /// Request headers.
   final Map<String, String> headers;
+
+  /// Creates a logical request.
   const HttpRequestSpec({
     required this.endpointId,
     required this.method,
@@ -18,10 +30,18 @@ class HttpRequestSpec {
   });
 }
 
+/// HTTP response data returned by a scenario driver.
 class HttpResponseSpec {
+  /// HTTP status code.
   final int statusCode;
+
+  /// Optional decoded response body.
   final Object? body;
+
+  /// Measured request latency.
   final Duration latency;
+
+  /// Creates a response specification.
   const HttpResponseSpec({
     required this.statusCode,
     this.body,
@@ -33,8 +53,10 @@ class HttpResponseSpec {
 /// A feature never receives a host URL; deployments choose it through a named
 /// environment variable such as `CALCULATOR_TEST_API_URL`.
 final class EndpointBaseUrlResolver {
+  /// Creates an endpoint URL resolver.
   const EndpointBaseUrlResolver();
 
+  /// Resolves the configured absolute HTTP(S) base URL.
   Uri resolve(
     Map<Object?, Object?> endpoint, {
     Map<String, String>? environment,
@@ -70,20 +92,31 @@ final class EndpointBaseUrlResolver {
 
 abstract class HttpScenarioDriver<W extends ScenarioWorld>
     extends HttpDriverFactory<W> {
+  /// Creates an HTTP scenario driver.
   const HttpScenarioDriver();
+
+  /// Executes a logical request.
   Future<HttpResponseSpec> request(W world, HttpRequestSpec request);
+
+  /// Resets project fixtures for the next scenario.
   Future<void> resetFixtures(W world);
 }
 
 abstract interface class HttpServerFactory {
+  /// Starts the server and returns its base URI.
   Future<Uri> start();
+
+  /// Stops the server.
   Future<void> stop();
+
+  /// Resets server fixtures.
   Future<void> resetFixtures();
 }
 
 /// A bounded, deterministic request assertion surface used by generated HTTP
 /// steps. It intentionally accepts logical endpoint IDs only.
 class HttpAssertions {
+  /// Resolves a JSON Pointer against [value].
   static Object? jsonPointer(Object? value, String pointer) {
     if (pointer.isEmpty || pointer == '/') return value;
     var current = value;
@@ -103,12 +136,14 @@ class HttpAssertions {
     return current;
   }
 
+  /// Asserts that [response] has [status].
   static void expectStatus(HttpResponseSpec response, int status) {
     if (response.statusCode != status) {
       throw StateError('Expected HTTP $status, got ${response.statusCode}');
     }
   }
 
+  /// Asserts that a JSON pointer equals [expected].
   static void expectJson(
     HttpResponseSpec response,
     String pointer,
@@ -120,6 +155,7 @@ class HttpAssertions {
     }
   }
 
+  /// Asserts that response latency does not exceed [maximum].
   static void expectLatency(HttpResponseSpec response, Duration maximum) {
     if (response.latency > maximum) {
       throw StateError('Latency ${response.latency} exceeded $maximum');
@@ -221,10 +257,16 @@ HttpResponseSpec _requireResponse(HttpResponseSpec? response) {
 /// Project-owned HTTP driver primitive. Endpoint IDs are resolved through the
 /// generated contract map; features never carry environment URLs.
 class JsonHttpDriver extends HttpScenarioDriver<MapScenarioWorld> {
+  /// Base URI used for logical endpoint requests.
   final Uri baseUri;
+
+  /// Map from logical endpoint ID to relative path.
   final Map<String, String> endpoints;
+
+  /// Client used to make requests.
   final HttpClient client;
 
+  /// Creates an HTTP driver.
   JsonHttpDriver({
     required this.baseUri,
     required this.endpoints,
@@ -247,8 +289,9 @@ class JsonHttpDriver extends HttpScenarioDriver<MapScenarioWorld> {
     HttpRequestSpec request,
   ) async {
     final path = endpoints[request.endpointId];
-    if (path == null)
+    if (path == null) {
       throw StateError('Unknown logical endpoint: ${request.endpointId}');
+    }
     final uri = baseUri.resolve(path);
     final stopwatch = Stopwatch()..start();
     final httpRequest = await client.openUrl(request.method, uri);

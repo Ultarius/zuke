@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.2.0
+
+- Raised the `zuke` and `zuke_annotations` dependency floors for the
+  analyzer-compatible SDK release.
+
 ## 0.1.1
 
 - Switched the Flutter runner to the primary `zuke` execution SDK.

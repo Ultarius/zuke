@@ -21,7 +21,7 @@
     {
       "adapter": "zuke.dart",
       "version": "1.0.0",
-      "compatibilityId": "dart-analyzer-8.2-http-topology-v2",
+      "compatibilityId": "dart-analyzer-8-14-http-topology-v3",
       "package": "todo_app",
       "digest": "sha256:55914d849f76a0ade83f8990910c1cb18b8a1ad11c667e51b5e8de5cedd02613",
       "completeness": {

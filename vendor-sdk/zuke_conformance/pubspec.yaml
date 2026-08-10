@@ -8,7 +8,7 @@ resolution: workspace
 
 publish_to: none
 dependencies:
-  zuke_core: ^0.1.0
+  zuke_core: ^0.2.0
   zuke_frontend: ^0.1.0
 
 dev_dependencies:

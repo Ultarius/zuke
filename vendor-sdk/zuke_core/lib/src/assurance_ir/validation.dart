@@ -14,7 +14,7 @@ enum ProofStatus {
 
 enum EvidenceStatus { passed, failed, skipped }
 
-/// Stable wire representation.  Do not use [CoverageSemantics.name] in a
+/// Stable wire representation.  Do not use `CoverageSemantics.name` in a
 /// persisted artifact: enum spelling is an implementation detail while these
 /// values are a public schema contract.
 extension CoverageSemanticsWire on CoverageSemantics {

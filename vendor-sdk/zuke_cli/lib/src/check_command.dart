@@ -353,7 +353,9 @@ final class _BufferStdout implements Stdout {
   void addError(Object error, [StackTrace? stackTrace]) => buffer.write(error);
   @override
   Future<void> addStream(Stream<List<int>> stream) async {
-    await for (final data in stream) add(data);
+    await for (final data in stream) {
+      add(data);
+    }
   }
 
   @override

@@ -1,4 +1,6 @@
 /// Supported application-facing deterministic scenario runner API.
+library;
+
 export 'src/runner.dart';
 export 'src/scenario_contract.dart';
 export 'src/scenario_filter.dart';

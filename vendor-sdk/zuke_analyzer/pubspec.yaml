@@ -8,7 +8,7 @@ publish_to: none
 dependencies:
   analysis_server_plugin: ^0.3.0
   analyzer: ^8.2.0
-  zuke_core: ^0.1.0
+  zuke_core: ^0.2.0
 
 dev_dependencies:
   test: ^1.24.0

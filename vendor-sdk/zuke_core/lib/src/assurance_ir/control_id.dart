@@ -4,8 +4,9 @@ final class ControlId implements Comparable<ControlId> {
   const ControlId(this.value) : assert(value != '');
 
   factory ControlId.parse(String value) {
-    if (!_isCanonical(value))
+    if (!_isCanonical(value)) {
       throw FormatException('Invalid ControlId: $value');
+    }
     return ControlId(value);
   }
   static ControlId? tryParse(String value) =>

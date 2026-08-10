@@ -6,36 +6,48 @@ import 'dart:io';
 /// the SDK from trying to persist telemetry state in a caller's profile while
 /// leaving that profile and its ACLs untouched.
 final class ToolInvocation {
+  /// Creates a prepared invocation.
   const ToolInvocation({
     required this.executable,
     required this.arguments,
     required this.environment,
   });
 
+  /// Executable launched by the process supervisor.
   final String executable;
+
+  /// Arguments passed to [executable].
   final List<String> arguments;
+
+  /// Environment passed to the child process.
   final Map<String, String> environment;
 }
 
 /// A stable, coded failure while preparing a configured tool invocation.
 final class ToolInvocationException implements Exception {
+  /// Creates a coded invocation failure.
   const ToolInvocationException({
     required this.diagnosticCode,
     required this.message,
   });
 
+  /// Stable diagnostic code.
   final String diagnosticCode;
+
+  /// Human-readable failure message.
   final String message;
 
   @override
   String toString() => '$diagnosticCode: $message';
 }
 
+/// Looks up the configured Flutter executable.
 typedef FlutterExecutableLookup = String? Function();
 
 /// Probes whether Flutter can open the cache lockfile required for a launch.
 typedef FlutterCacheAccessProbe = void Function(String lockfilePath);
 
+/// Strategy used to launch Dart and Flutter tools.
 enum ToolRunnerMode { auto, cli, directSnapshot }
 
 /// Applies SDK-safe, non-persistent environment defaults to a tool launch.
@@ -98,19 +110,24 @@ bool isFlutterTool(String executable) => _toolName(executable) == 'flutter';
 
 /// Resolves a Windows Flutter runner to a direct snapshot invocation.
 ///
-/// Bypasses [flutter.bat] and invokes [flutter_tools.snapshot] through the
+/// Bypasses `flutter.bat` and invokes `flutter_tools.snapshot` through the
 /// cached Dart SDK, avoiding batch-file argument parsing and exposing
 /// cache/bootstrap failures through captured child streams. The SDK must
 /// already be prepared and writable; Flutter's own startup lock still applies.
 final class FlutterToolchainResolver {
+  /// Creates a resolver with optional filesystem probes.
   const FlutterToolchainResolver({
     this.executableLookup,
     this.cacheAccessProbe,
   });
 
+  /// Optional lookup used to locate Flutter.
   final FlutterExecutableLookup? executableLookup;
+
+  /// Optional probe used to check Flutter cache access.
   final FlutterCacheAccessProbe? cacheAccessProbe;
 
+  /// Resolves a Flutter invocation to the cached tool snapshot.
   ToolInvocation resolve(
     String originalExecutable,
     List<String> originalArguments,

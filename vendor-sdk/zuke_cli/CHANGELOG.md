@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.3.0
+
+- Updated extraction cache compatibility for the analyzer-compatible core
+  release.
+- Raised the `zuke_core` and `zuke` dependency floors.
+
 ## 0.2.0
 
 - Generate pure-Dart step support with `package:zuke/zuke.dart`.

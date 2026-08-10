@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.2.0
+
+- Raised the `zuke` dependency floor for the analyzer-compatible SDK release.
+
 ## 0.1.1
 
 - Moved the runner implementation into the primary `zuke` package.

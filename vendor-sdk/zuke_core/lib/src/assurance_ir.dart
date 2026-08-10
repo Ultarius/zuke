@@ -1,4 +1,6 @@
 /// Supported adapter extension API: canonical stack-neutral IR.
+library;
+
 export 'assurance_ir/ir.dart';
 export 'assurance_ir/canonical_json.dart';
 export 'assurance_ir/validation.dart';

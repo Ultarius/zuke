@@ -1,4 +1,6 @@
 /// CLI-owned trace and validation reporting implementation.
+library;
+
 import 'dart:convert';
 import 'package:zuke_core/zuke_core.dart';
 
@@ -129,7 +131,9 @@ String renderValidationReport(
   final reasons = map['ineligibilityReasons'];
   if (reasons is Iterable && reasons.isNotEmpty) {
     buffer.writeln('Ineligibility:');
-    for (final reason in reasons) buffer.writeln('  $reason');
+    for (final reason in reasons) {
+      buffer.writeln('  $reason');
+    }
   }
   for (final proof in (map['controlProofs'] as List? ?? const [])) {
     buffer.writeln('Control: $proof');

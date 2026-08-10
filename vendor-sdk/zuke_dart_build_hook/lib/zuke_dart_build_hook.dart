@@ -1,4 +1,6 @@
 /// Supported application-facing build-hook entrypoint.
+library;
+
 import 'dart:io';
 
 import 'package:zuke_core/zuke_core.dart';

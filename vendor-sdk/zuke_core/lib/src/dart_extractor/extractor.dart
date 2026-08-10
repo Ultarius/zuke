@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:analyzer/dart/analysis/analysis_context_collection.dart';
 import 'package:analyzer/dart/analysis/results.dart';
 import 'package:analyzer/dart/ast/ast.dart';
+import 'package:analyzer/dart/ast/token.dart';
 import 'package:analyzer/dart/ast/visitor.dart';
 import 'package:analyzer/dart/constant/value.dart';
 import 'package:analyzer/dart/element/element.dart';
@@ -13,6 +14,54 @@ import 'package:crypto/crypto.dart';
 import '../adapter_sdk.dart';
 import '../inspection.dart';
 
+Map<String, Expression> _namedArguments(Iterable<dynamic> arguments) {
+  final result = <String, Expression>{};
+  for (final argument in arguments) {
+    final name = _namedArgumentName(argument);
+    final expression = name == null ? null : _argumentExpression(argument);
+    if (name != null && expression != null) {
+      result[name] = expression;
+    }
+  }
+  return result;
+}
+
+String? _namedArgumentName(dynamic argument) {
+  dynamic name;
+  try {
+    name = argument.name;
+  } on NoSuchMethodError {
+    return null;
+  }
+  if (name is Token) return name.lexeme;
+
+  try {
+    final dynamic label = name.label;
+    final dynamic identifier = label.name;
+    if (identifier is String) return identifier;
+    if (identifier is Token) return identifier.lexeme;
+  } on NoSuchMethodError {
+    return null;
+  }
+  return null;
+}
+
+Expression? _argumentExpression(dynamic argument) {
+  try {
+    final dynamic expression = argument.argumentExpression;
+    if (expression is Expression) return expression;
+  } on NoSuchMethodError {
+    // Analyzer 8 exposes the value as `expression` on NamedExpression.
+  }
+  try {
+    final dynamic expression = argument.expression;
+    if (expression is Expression) return expression;
+  } on NoSuchMethodError {
+    return null;
+  }
+  return null;
+}
+
 /// Resolved Dart extractor shared by the CLI and future analyzer/build-hook
 /// surfaces.  It intentionally has no regex fallback: an unresolved source
 /// fragment is unsafe evidence and is reported as an extraction error.
@@ -20,11 +69,14 @@ class DartExtractor implements FrameworkAdapter {
   static const annotationLibrary =
       'package:zuke_annotations/zuke_annotations.dart';
 
+  /// Compatibility identifier for extracted Dart output and caches.
+  static const compatibilityId = 'dart-analyzer-8-14-http-topology-v3';
+
   @override
   AdapterInfo get adapterInfo => const AdapterInfo(
     id: 'zuke.dart',
     version: '1.0.0',
-    compatibilityId: 'dart-analyzer-8.2-http-topology-v2',
+    compatibilityId: compatibilityId,
   );
 
   @override
@@ -412,12 +464,7 @@ class _ResolvedVisitor extends RecursiveAstVisitor<void> {
         uri == 'package:zuke_http_runtime/zuke_http_runtime.dart' &&
         isMatchingName;
     if (!isRuntimeType) return;
-    final args = <String, Expression>{};
-    for (final argument in node.argumentList.arguments) {
-      if (argument is NamedExpression) {
-        args[argument.name.label.name] = argument.expression;
-      }
-    }
+    final args = _namedArguments(node.argumentList.arguments);
     String? stringValue(Expression? expression) =>
         expression is StringLiteral ? expression.stringValue : null;
 
@@ -520,11 +567,7 @@ class _ResolvedVisitor extends RecursiveAstVisitor<void> {
       for (final route in creations(args['routes'], 'routes')) {
         final routeArgs = <String, Expression>{};
         if (route is InstanceCreationExpression) {
-          for (final argument in route.argumentList.arguments) {
-            if (argument is NamedExpression) {
-              routeArgs[argument.name.label.name] = argument.expression;
-            }
-          }
+          routeArgs.addAll(_namedArguments(route.argumentList.arguments));
         } else {
           errors.add(
             '${file}:${lineInfo.getLocation(route.offset).lineNumber}: dynamic ZukeRouteRegistration',
@@ -636,11 +679,7 @@ class _ResolvedVisitor extends RecursiveAstVisitor<void> {
     List<String> Function(Expression?) resolveTypes,
     List<Expression> Function(Expression?, String) creations,
   ) {
-    final args = <String, Expression>{};
-    for (final argument in pipeline.argumentList.arguments) {
-      if (argument is NamedExpression)
-        args[argument.name.label.name] = argument.expression;
-    }
+    final args = _namedArguments(pipeline.argumentList.arguments);
     final source = stringValue(args['sourceId']);
     if (source == null) {
       errors.add('$file: dynamic ZukeFailurePipelineRegistration source');
@@ -694,11 +733,7 @@ class _ResolvedVisitor extends RecursiveAstVisitor<void> {
     List<String> Function(Expression?) resolveTypes,
     List<Expression> Function(Expression?, String) creations,
   ) {
-    final args = <String, Expression>{};
-    for (final argument in pipeline.argumentList.arguments) {
-      if (argument is NamedExpression)
-        args[argument.name.label.name] = argument.expression;
-    }
+    final args = _namedArguments(pipeline.argumentList.arguments);
     final source = stringValue(args['sourceId']);
     if (source == null) {
       errors.add('$file: dynamic ZukeLoggingPipelineRegistration source');
@@ -740,7 +775,7 @@ class _ResolvedVisitor extends RecursiveAstVisitor<void> {
 
   @override
   void visitClassDeclaration(ClassDeclaration node) {
-    _visitDeclaration(node, node.name.lexeme, 'class');
+    _visitDeclaration(node, node.declaredFragment?.name, 'class');
     super.visitClassDeclaration(node);
   }
 
@@ -768,7 +803,7 @@ class _ResolvedVisitor extends RecursiveAstVisitor<void> {
 
   @override
   void visitExtensionTypeDeclaration(ExtensionTypeDeclaration node) {
-    _visitDeclaration(node, node.name.lexeme, 'extensionType');
+    _visitDeclaration(node, node.declaredFragment?.name, 'extensionType');
     super.visitExtensionTypeDeclaration(node);
   }
 
@@ -780,7 +815,7 @@ class _ResolvedVisitor extends RecursiveAstVisitor<void> {
 
   @override
   void visitEnumDeclaration(EnumDeclaration node) {
-    _visitDeclaration(node, node.name.lexeme, 'enum');
+    _visitDeclaration(node, node.declaredFragment?.name, 'enum');
     super.visitEnumDeclaration(node);
   }
 
@@ -818,12 +853,19 @@ class _ResolvedVisitor extends RecursiveAstVisitor<void> {
     super.visitTopLevelVariableDeclaration(node);
   }
 
-  void _visitDeclaration(AnnotatedNode node, String name, String targetKind) {
+  void _visitDeclaration(AnnotatedNode node, String? name, String targetKind) {
     for (final annotation in node.metadata) {
       final elementAnnotation = annotation.elementAnnotation;
       final element = elementAnnotation?.element;
       if (element == null || !isZukeAnnotation(element)) continue;
       final annotationName = zukeAnnotationName(element)!;
+      if (name == null || name.isEmpty) {
+        final location = lineInfo.getLocation(node.offset);
+        errors.add(
+          '${file}:${location.lineNumber}: unresolved $targetKind declaration name',
+        );
+        continue;
+      }
       final offset = annotation.offset;
       final location = lineInfo.getLocation(offset);
       final source = ExtractedSourceLocation(

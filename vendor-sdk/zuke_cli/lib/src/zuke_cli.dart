@@ -736,8 +736,9 @@ Future<void> main(List<String> arguments) => zuke.build(arguments);
               : file;
           if (paths.contains(relative)) {
             for (final rule in feature.rules) {
-              if (rule.metadata.id != null)
+              if (rule.metadata.id != null) {
                 affectedRules.add(rule.metadata.id!);
+              }
             }
           }
         }
@@ -812,8 +813,9 @@ Future<void> main(List<String> arguments) => zuke.build(arguments);
             '${runRoot.path}${Platform.pathSeparator}$runnerId',
           )..createSync(recursive: true);
           final configuredExecutable = runner['executable']?.toString();
-          if (configuredExecutable == null || configuredExecutable.isEmpty)
+          if (configuredExecutable == null || configuredExecutable.isEmpty) {
             return 2;
+          }
           final executable = _resolveExecutable(configuredExecutable);
           if (runner['args'] != null && runner['args'] is! List) return 2;
           final args = _runnerArguments(
@@ -932,8 +934,9 @@ Future<void> main(List<String> arguments) => zuke.build(arguments);
         final configuredExecutable = configured is Map
             ? configured['executable'] as String?
             : null;
-        if (configuredExecutable == null || configuredExecutable.isEmpty)
+        if (configuredExecutable == null || configuredExecutable.isEmpty) {
           return 2;
+        }
         final executable = _resolveExecutable(configuredExecutable);
         final configuredParts = configured is Map
             ? ((configured['args'] as List?) ?? const []).cast<String>()

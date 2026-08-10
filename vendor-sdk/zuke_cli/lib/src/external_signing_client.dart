@@ -68,8 +68,9 @@ class ExternalSigningClient {
         );
       }
       final decoded = jsonDecode(responseText);
-      if (decoded is! Map)
+      if (decoded is! Map) {
         throw const FormatException('Invalid signing response');
+      }
       final signature = decoded['signature'];
       if (decoded['signerId'] != signerId ||
           decoded['keyId'] != keyId ||

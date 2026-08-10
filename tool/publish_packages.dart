@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 
 /// The packages released to pub.dev, in dependency order.
@@ -37,6 +38,47 @@ Future<void> main(List<String> args) async {
     'Command: dart pub publish${options.publish ? '' : ' --dry-run'}$warningFlag',
   );
 
+  final root = Directory.current.absolute;
+  final targets = <_PublishTarget>[];
+  var skipped = 0;
+  final versionChecker = options.publish ? _PubDevVersionChecker() : null;
+
+  try {
+    for (final package in packages) {
+      late final _PublishTarget target;
+      try {
+        target = _readPublishTarget(root, package);
+        if (versionChecker != null &&
+            await versionChecker.contains(target.package, target.version)) {
+          stdout.writeln(
+            'Skipping ${target.package} ${target.version}: '
+            'this version already exists on pub.dev.',
+          );
+          skipped++;
+          continue;
+        }
+      } on Object catch (error) {
+        stderr.writeln('Preflight failed for $package: $error');
+        exitCode = 1;
+        return;
+      }
+      targets.add(target);
+    }
+  } finally {
+    versionChecker?.close();
+  }
+
+  if (options.publish) {
+    stdout.writeln(
+      'Publish preflight: ${targets.length} package(s) to publish; '
+      '$skipped skipped because their exact versions already exist on pub.dev.',
+    );
+    if (targets.isEmpty) {
+      stdout.writeln('All selected package versions are already published.');
+      return;
+    }
+  }
+
   if (options.publish && !options.confirmed) {
     stdout.write('Type PUBLISH to continue: ');
     if (stdin.readLineSync() != 'PUBLISH') {
@@ -45,40 +87,8 @@ Future<void> main(List<String> args) async {
     }
   }
 
-  final root = Directory.current.absolute;
-  for (final package in packages) {
-    final packageDirectory = Directory(
-      '${root.path}${Platform.pathSeparator}vendor-sdk${Platform.pathSeparator}$package',
-    );
-    final pubspec = File(
-      '${packageDirectory.path}${Platform.pathSeparator}pubspec.yaml',
-    );
-
-    if (!packageDirectory.existsSync() || !pubspec.existsSync()) {
-      stderr.writeln('Missing package directory or pubspec: $package');
-      exitCode = 1;
-      return;
-    }
-
-    final pubspecText = pubspec.readAsStringSync();
-    if (!RegExp(
-      r'^name:\s*' + RegExp.escape(package) + r'\s*$',
-      multiLine: true,
-    ).hasMatch(pubspecText)) {
-      stderr.writeln('Package name mismatch in ${pubspec.path}: $package');
-      exitCode = 1;
-      return;
-    }
-    if (RegExp(
-      r'^publish_to:\s*none\s*$',
-      multiLine: true,
-    ).hasMatch(pubspecText)) {
-      stderr.writeln('Refusing to publish repository-only package: $package');
-      exitCode = 1;
-      return;
-    }
-
-    stdout.writeln('\n==> $package');
+  for (final target in targets) {
+    stdout.writeln('\n==> ${target.package} ${target.version}');
     final command = <String>['pub', 'publish'];
     if (!options.publish) command.add('--dry-run');
     if (options.ignoreWarnings) command.add('--ignore-warnings');
@@ -86,18 +96,114 @@ Future<void> main(List<String> args) async {
     final process = await Process.start(
       Platform.resolvedExecutable,
       command,
-      workingDirectory: packageDirectory.path,
+      workingDirectory: target.directory.path,
       mode: ProcessStartMode.inheritStdio,
     );
     final result = await process.exitCode;
     if (result != 0) {
-      stderr.writeln('\nStopped after $package (exit code $result).');
+      stderr.writeln('\nStopped after ${target.package} (exit code $result).');
       exitCode = result;
       return;
     }
   }
 
   stdout.writeln('\nAll selected Zuke packages completed successfully.');
+}
+
+_PublishTarget _readPublishTarget(Directory root, String package) {
+  final packageDirectory = Directory(
+    '${root.path}${Platform.pathSeparator}vendor-sdk${Platform.pathSeparator}$package',
+  );
+  final pubspec = File(
+    '${packageDirectory.path}${Platform.pathSeparator}pubspec.yaml',
+  );
+
+  if (!packageDirectory.existsSync() || !pubspec.existsSync()) {
+    throw StateError('Missing package directory or pubspec: $package');
+  }
+
+  final pubspecText = pubspec.readAsStringSync();
+  if (!RegExp(
+    r'^name:\s*' + RegExp.escape(package) + r'\s*$',
+    multiLine: true,
+  ).hasMatch(pubspecText)) {
+    throw StateError('Package name mismatch in ${pubspec.path}: $package');
+  }
+  if (RegExp(
+    r'^publish_to:\s*none\s*$',
+    multiLine: true,
+  ).hasMatch(pubspecText)) {
+    throw StateError('Refusing to publish repository-only package: $package');
+  }
+
+  final versionMatch = RegExp(
+    r'''^version:\s*["']?([^"'\s#]+)''',
+    multiLine: true,
+  ).firstMatch(pubspecText);
+  if (versionMatch == null) {
+    throw StateError('Missing package version in ${pubspec.path}: $package');
+  }
+
+  return _PublishTarget(
+    package: package,
+    version: versionMatch.group(1)!,
+    directory: packageDirectory,
+  );
+}
+
+class _PublishTarget {
+  const _PublishTarget({
+    required this.package,
+    required this.version,
+    required this.directory,
+  });
+
+  final String package;
+  final String version;
+  final Directory directory;
+}
+
+class _PubDevVersionChecker {
+  _PubDevVersionChecker()
+    : _client = HttpClient()
+        ..userAgent =
+            'zuke-publish-script/1.0 (+https://github.com/Ultarius/zuke)';
+
+  final HttpClient _client;
+
+  Future<bool> contains(String package, String version) async {
+    final uri = Uri.https('pub.dev', '/api/packages/$package');
+    final request = await _client.getUrl(uri);
+    request.headers.set(HttpHeaders.acceptHeader, 'application/json');
+    final response = await request.close();
+    final body = await utf8.decoder.bind(response).join();
+
+    if (response.statusCode == HttpStatus.notFound) {
+      return false;
+    }
+    if (response.statusCode != HttpStatus.ok) {
+      throw HttpException(
+        'pub.dev returned HTTP ${response.statusCode} '
+        '${response.reasonPhrase} while checking $package',
+        uri: uri,
+      );
+    }
+
+    final decoded = jsonDecode(body);
+    if (decoded is! Map) {
+      throw FormatException('Unexpected pub.dev response for $package.');
+    }
+    final versions = decoded['versions'];
+    if (versions is! List) {
+      throw FormatException(
+        'pub.dev response for $package has no versions list.',
+      );
+    }
+
+    return versions.any((entry) => entry is Map && entry['version'] == version);
+  }
+
+  void close() => _client.close(force: true);
 }
 
 class _PublishOptions {

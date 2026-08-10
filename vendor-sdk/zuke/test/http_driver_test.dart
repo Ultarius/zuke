@@ -74,7 +74,9 @@ void main() {
       matchesSchema: (_, schema) => schema == 'calculator-error',
     );
     final registry = StepRegistry<MapScenarioWorld>();
-    for (final step in steps) registry.register(step);
+    for (final step in steps) {
+      registry.register(step);
+    }
     final world = MapScenarioWorld();
 
     for (final text in [

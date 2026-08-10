@@ -5,3 +5,5 @@ analyzer:
 linter:
   rules:
     avoid_print: false
+    curly_braces_in_flow_control_structures: true
+    dangling_library_doc_comments: true

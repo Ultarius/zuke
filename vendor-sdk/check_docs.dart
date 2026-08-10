@@ -264,8 +264,9 @@ class DocumentationChecker {
       }
       if (language != null) content.add(line);
     }
-    if (language != null)
+    if (language != null) {
       failures.add('docs/integration-guide.md:$start: unterminated code fence');
+    }
   }
 
   void _checkSnippet(String name, String documented, List<String> failures) {

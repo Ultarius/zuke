@@ -2,13 +2,25 @@ import 'dart:async';
 
 /// A typed transformation used by generated Gherkin step support.
 final class StepParameterType<T> {
+  /// Stable parameter type name.
   final String name;
+
+  /// Regular expressions accepted by the type.
   final List<RegExp> expressions;
+
+  /// Whether this type may be used for snippets.
   final bool useForSnippets;
+
+  /// Whether this type is preferred for regular-expression matches.
   final bool preferForRegexpMatch;
+
+  /// Ordering priority used during snippet generation.
   final int snippetPriority;
+
+  /// Converts captured text to a typed value.
   final FutureOr<T> Function(List<String?> captures) transform;
 
+  /// Creates a parameter type.
   const StepParameterType({
     required this.name,
     required this.expressions,
@@ -23,6 +35,7 @@ final class StepParameterType<T> {
 final class StepParameterTypeRegistry {
   final Map<String, StepParameterType<Object?>> _types = {};
 
+  /// Creates a registry populated with the standard parameter types.
   StepParameterTypeRegistry.standard() {
     define<String>(
       StepParameterType(
@@ -77,6 +90,7 @@ final class StepParameterTypeRegistry {
     );
   }
 
+  /// Registers [type], rejecting duplicate names.
   void define<T>(StepParameterType<T> type) {
     if (type.name.isEmpty || _types.containsKey(type.name)) {
       throw ArgumentError.value(type.name, 'name', 'Duplicate parameter type');
@@ -87,21 +101,29 @@ final class StepParameterTypeRegistry {
     _types[type.name] = type as StepParameterType<Object?>;
   }
 
+  /// Returns the registered type named [name].
   StepParameterType<T> type<T>(String name) {
     final value = _types[name];
-    if (value == null)
+    if (value == null) {
       throw ArgumentError.value(name, 'name', 'Unknown parameter type');
+    }
     return value as StepParameterType<T>;
   }
 
+  /// Registered types in declaration order.
   Iterable<StepParameterType<Object?>> get types => _types.values;
 }
 
 /// A compiled Cucumber Expression.  It deliberately keeps the feature text
 /// plain: placeholders are automation glue, not feature metadata.
 final class CucumberExpression {
+  /// Original expression text.
   final String source;
+
+  /// Compiled regular expression.
   final RegExp pattern;
+
+  /// Parameter types used by the expression.
   final List<StepParameterType<Object?>> parameterTypes;
   final List<_CaptureRange> _captureRanges;
 
@@ -112,6 +134,7 @@ final class CucumberExpression {
     required List<_CaptureRange> captureRanges,
   }) : _captureRanges = captureRanges;
 
+  /// Compiles [expression] using [registry].
   factory CucumberExpression(
     String expression,
     StepParameterTypeRegistry registry,
@@ -159,6 +182,7 @@ final class CucumberExpression {
     return RegExp(output.toString());
   }
 
+  /// Transforms [match] captures into typed parameter values.
   Future<List<Object?>> transform(RegExpMatch match) async {
     final values = <Object?>[];
     for (var i = 0; i < parameterTypes.length; i++) {
@@ -208,18 +232,33 @@ int _countCaptures(String source) {
   return count;
 }
 
+/// A Gherkin step doc string.
 final class StepDocString {
+  /// Doc string content.
   final String content;
+
+  /// Optional declared media type.
   final String? mediaType;
+
+  /// Creates a doc string value.
   const StepDocString(this.content, {this.mediaType});
 }
 
+/// A Gherkin step data table.
 final class StepDataTable {
+  /// Table rows in source order.
   final List<List<String>> rows;
+
+  /// Creates a data table.
   const StepDataTable(this.rows);
 
+  /// Flattens all cells into a list.
   List<String> asList() => [for (final row in rows) ...row];
+
+  /// Returns immutable table rows.
   List<List<String>> asLists() => rows.map(List<String>.unmodifiable).toList();
+
+  /// Converts rows after the header into maps.
   List<Map<String, String>> asMaps() {
     if (rows.isEmpty) return const [];
     final headers = rows.first;
@@ -232,6 +271,7 @@ final class StepDataTable {
     ];
   }
 
+  /// Converts two-column rows into a key-value map.
   Map<String, String> asKeyValueMap() => {
     for (final row in rows)
       if (row.length >= 2) row.first: row[1],

@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.2.0
+
+- Raised the supported `zuke_core` and `zuke_annotations` dependency floors
+  for the analyzer-compatible SDK release.
+
 ## 0.1.0
 
 - Added the canonical pure-Dart Zuke SDK.

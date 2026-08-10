@@ -21,7 +21,7 @@
     {
       "adapter": "zuke.dart",
       "version": "1.0.0",
-      "compatibilityId": "dart-analyzer-8.2-http-topology-v2",
+      "compatibilityId": "dart-analyzer-8-14-http-topology-v3",
       "package": "shopping_cart",
       "digest": "sha256:3f6551c29c7af2b67ccfb0054e9692a6cfdd33645e58c0bd73494f708154e5b3",
       "completeness": {

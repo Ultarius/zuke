@@ -1,11 +1,11 @@
 name: zuke_core
 description: Shared Zuke compiler, extraction, evidence, and assurance engine.
-version: 0.1.0
+version: 0.2.0
 environment:
   sdk: '>=3.10.0 <4.0.0'
 resolution: workspace
 dependencies:
-  analyzer: ^8.2.0
+  analyzer: ^14.1.0
   crypto: ^3.0.6
   cryptography: ^2.9.0
 dev_dependencies:

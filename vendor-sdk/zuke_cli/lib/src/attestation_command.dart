@@ -57,8 +57,9 @@ class AttestationCommand {
     }
     final trust = loadWorkspaceTrustBundle(workspace);
     final trustedKey = trust.find(signerId, keyId, 'attestation');
-    if (trustedKey == null)
+    if (trustedKey == null) {
       throw const FormatException('Signer is not active for attestation usage');
+    }
     final body = <String, Object?>{
       'providerId': providerId,
       'controlId': provider['provides']?.toString() ?? '',
@@ -174,8 +175,9 @@ class AttestationCommand {
 
   DateTime _parseTime(String value, String field) {
     final parsed = DateTime.tryParse(value)?.toUtc();
-    if (parsed == null)
+    if (parsed == null) {
       throw FormatException('$field must be an ISO-8601 timestamp');
+    }
     return parsed;
   }
 
@@ -184,8 +186,9 @@ class AttestationCommand {
       final providers = policy['providers'];
       if (providers is List) {
         for (final provider in providers.whereType<Map>()) {
-          if (provider['id'] == id && provider['assurance'] == 'attested')
+          if (provider['id'] == id && provider['assurance'] == 'attested') {
             return provider;
+          }
         }
       }
     }

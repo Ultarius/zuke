@@ -202,26 +202,33 @@ class ManifestCommand {
       final value = jsonDecode(file.readAsStringSync());
       if (value is! Map) throw StateError('Invalid v2 record: ${file.path}');
       final record = Map<String, Object?>.from(value);
-      if (!await TrustedReleaseVerifier().verify(record, loadTrustBundle(root)))
+      if (!await TrustedReleaseVerifier().verify(
+        record,
+        loadTrustBundle(root),
+      )) {
         throw StateError('Invalid v2 signature: ${file.path}');
+      }
       final digest = record['recordDigest'];
-      if (digest is! String || !file.path.endsWith('$digest.json'))
+      if (digest is! String || !file.path.endsWith('$digest.json')) {
         throw StateError('V2 filename does not match digest: ${file.path}');
+      }
       records[digest] = record;
     }
     final referenced = <String>{};
     for (final record in records.values) {
       final previous = (record['body'] as Map?)?['previousRecord'];
       if (previous is String) {
-        if (!records.containsKey(previous))
+        if (!records.containsKey(previous)) {
           throw StateError('Missing v2 predecessor: $previous');
+        }
         referenced.add(previous);
       }
     }
     final heads = records.keys.where((id) => !referenced.contains(id)).toList();
     if (heads.length > 1) throw StateError('Multiple v2 chain heads: $heads');
-    if (records.isNotEmpty && heads.isEmpty)
+    if (records.isNotEmpty && heads.isEmpty) {
       throw StateError('V2 chain has a cycle and no head');
+    }
     return heads.isEmpty ? null : heads.single;
   }
 
@@ -243,8 +250,12 @@ class ManifestCommand {
       final record = Map<String, Object?>.from(
         jsonDecode(file.readAsStringSync()) as Map,
       );
-      if (!await TrustedReleaseVerifier().verify(record, loadTrustBundle(root)))
+      if (!await TrustedReleaseVerifier().verify(
+        record,
+        loadTrustBundle(root),
+      )) {
         return false;
+      }
       currentRecord = ((record['body'] as Map?)?['previousRecord']) as String?;
     }
     if (!current) return true;

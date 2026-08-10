@@ -1,23 +1,35 @@
 import 'types.dart';
 import 'package:yaml/yaml.dart';
 
+/// Result of parsing one feature document.
 class GherkinParseResult {
+  /// Features parsed from the document.
   final List<ParsedFeature> features;
+
+  /// Errors encountered while parsing.
   final List<ParseError> errors;
 
+  /// Creates a parse result.
   const GherkinParseResult({this.features = const [], this.errors = const []});
 }
 
+/// A parser error with its source location.
 class ParseError {
+  /// Human-readable error message.
   final String message;
+
+  /// Location at which the error was detected.
   final SourceLocation source;
 
+  /// Creates a parse error.
   const ParseError({required this.message, required this.source});
 }
 
+/// Parses Zuke's metadata-aware Gherkin dialect.
 class GherkinParser {
   String? _lastFile;
 
+  /// Parses [content] as the feature at [file].
   GherkinParseResult parseFile(String content, String file) {
     _lastFile = file;
     final lines = content.split('\n');
@@ -962,8 +974,9 @@ class GherkinParser {
 
   String _yamlRequiredTextValue(Object? value) {
     final result = _yamlText(value);
-    if (result == null)
+    if (result == null) {
       throw const FormatException('list item must be a scalar');
+    }
     return result;
   }
 
@@ -982,9 +995,14 @@ class GherkinParser {
   }
 }
 
+/// A raw metadata block and its source location.
 class MetadataBlock {
+  /// YAML content inside the block.
   final String content;
+
+  /// Location of the block in the source file.
   final SourceLocation source;
 
+  /// Creates a metadata block.
   const MetadataBlock({required this.content, required this.source});
 }

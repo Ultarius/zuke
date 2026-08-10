@@ -85,8 +85,9 @@ class ZukeUnknownIndexIdRule extends AnalysisRule {
     RuleContext context,
   ) {
     final index = _indexStateFor(context.currentUnit?.file.path).index;
-    if (index != null)
+    if (index != null) {
       registry.addAnnotation(this, ZukeUnknownIdVisitor(index, reportAtNode));
+    }
   }
 }
 

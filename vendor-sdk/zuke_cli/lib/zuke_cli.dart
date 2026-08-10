@@ -1,4 +1,6 @@
 /// Supported application-facing programmatic CLI API.
+library;
+
 export 'src/validate_command.dart';
 export 'src/generate_command.dart';
 export 'src/gateway_canonicalize_command.dart';

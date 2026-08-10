@@ -1,4 +1,6 @@
 /// Published implementation dependency; not an extension contract.
+library;
+
 import 'dart:convert';
 import 'package:crypto/crypto.dart';
 import 'package:cryptography/cryptography.dart';
@@ -66,8 +68,11 @@ class Ed25519ReleaseSigner {
     final signer = (record['signer'] as Map?)?.cast<String, Object?>();
     final signatureText = record['signature'];
     final expectedDigest = record['recordDigest'];
-    if (signer == null || signatureText is! String || expectedDigest is! String)
+    if (signer == null ||
+        signatureText is! String ||
+        expectedDigest is! String) {
       return false;
+    }
     final unsigned = <String, Object?>{
       'schemaVersion': record['schemaVersion'],
       'signer': signer,
@@ -108,15 +113,17 @@ class TrustKey {
 
   factory TrustKey.fromJson(Map value) {
     final encoded = value['publicKey'];
-    if (encoded is! String)
+    if (encoded is! String) {
       throw const FormatException('Trust key publicKey missing');
+    }
     final bytes = base64Decode(encoded);
     if (bytes.length != 32 || value['algorithm'] != 'Ed25519') {
       throw const FormatException('Invalid Ed25519 trust key');
     }
     final expected = 'sha256:${sha256.convert(bytes)}';
-    if (value['fingerprint'] != expected)
+    if (value['fingerprint'] != expected) {
       throw const FormatException('Trust key fingerprint mismatch');
+    }
     final status = value['status'];
     if (status != 'active' && status != 'revoked') {
       throw const FormatException('Invalid trust key status');
@@ -161,8 +168,9 @@ class TrustBundle {
       if (key.signerId == signerId &&
           key.keyId == keyId &&
           key.active &&
-          key.usages.contains(usage))
+          key.usages.contains(usage)) {
         return key;
+      }
     }
     return null;
   }
@@ -268,8 +276,9 @@ class SignedAttestationVerifier {
       'issuedAt',
       'expiresAt',
     ]) {
-      if (body[field] is! String || (body[field] as String).isEmpty)
+      if (body[field] is! String || (body[field] as String).isEmpty) {
         return false;
+      }
     }
     if (!RegExp(
       r'^sha256:[a-f0-9]{64}$',

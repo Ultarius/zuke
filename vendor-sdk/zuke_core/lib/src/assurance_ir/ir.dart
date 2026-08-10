@@ -1,14 +1,26 @@
 /// Canonical stack-neutral assurance graph model.
+library;
 
 import 'canonical_json.dart';
 
+/// A workspace-relative source span in a Dart or specification file.
 class SourceSpan {
+  /// Workspace-relative file path.
   final String path;
+
+  /// One-based start line.
   final int startLine;
+
+  /// One-based start column.
   final int startColumn;
+
+  /// One-based end line.
   final int endLine;
+
+  /// One-based end column.
   final int endColumn;
 
+  /// Creates a source span.
   const SourceSpan({
     required this.path,
     required this.startLine,
@@ -17,6 +29,7 @@ class SourceSpan {
     required this.endColumn,
   });
 
+  /// Decodes and validates a source span.
   factory SourceSpan.fromJson(Map<String, Object?> json) {
     final path = json['path'] as String?;
     if (path == null ||
@@ -51,6 +64,7 @@ class SourceSpan {
     );
   }
 
+  /// Encodes this span as a stable JSON object.
   Map<String, Object?> toJson() {
     final normalized = path.replaceAll('\\', '/');
     if (normalized.startsWith('/') ||
@@ -68,6 +82,7 @@ class SourceSpan {
   }
 }
 
+/// Node roles in the assurance graph.
 enum NodeKind {
   requirement,
   capability,
@@ -83,6 +98,7 @@ enum NodeKind {
   release,
 }
 
+/// Relationship kinds in the assurance graph.
 enum EdgeKind {
   requires_,
   implements_,
@@ -98,6 +114,7 @@ enum EdgeKind {
   supersedes,
 }
 
+/// Proof semantics used to evaluate a control.
 enum CoverageSemantics {
   ingressDominance,
   failureToPublicEgress,
@@ -106,16 +123,30 @@ enum CoverageSemantics {
   verificationBacked,
 }
 
+/// Visibility state for a graph dimension.
 enum CompletenessValue { complete, indeterminate, notVisible, notApplicable }
 
+/// Completeness values for runtime graph dimensions.
 class GraphCompleteness {
+  /// Route-registration completeness.
   final CompletenessValue routeRegistration;
+
+  /// Middleware-order completeness.
   final CompletenessValue middlewareOrder;
+
+  /// Failure-flow completeness.
   final CompletenessValue failureFlow;
+
+  /// Logging-flow completeness.
   final CompletenessValue logFlow;
+
+  /// Dynamic-registration completeness.
   final CompletenessValue dynamicRegistration;
+
+  /// External-visibility completeness.
   final CompletenessValue externalVisibility;
 
+  /// Creates graph completeness metadata.
   const GraphCompleteness({
     this.routeRegistration = CompletenessValue.notApplicable,
     this.middlewareOrder = CompletenessValue.notApplicable,
@@ -125,6 +156,7 @@ class GraphCompleteness {
     this.externalVisibility = CompletenessValue.notApplicable,
   });
 
+  /// Returns the stable wire value for [value].
   String value(CompletenessValue value) => switch (value) {
     CompletenessValue.complete => 'complete',
     CompletenessValue.indeterminate => 'indeterminate',
@@ -132,6 +164,7 @@ class GraphCompleteness {
     CompletenessValue.notApplicable => 'notApplicable',
   };
 
+  /// Encodes completeness metadata.
   Map<String, String> toJson() => {
     'routeRegistration': value(routeRegistration),
     'middlewareOrder': value(middlewareOrder),
@@ -142,16 +175,33 @@ class GraphCompleteness {
   };
 }
 
+/// A node in the canonical assurance graph.
 class IrNode {
+  /// Stable node identifier.
   final String id;
+
+  /// Semantic node kind.
   final NodeKind kind;
+
+  /// Optional execution target.
   final String? target;
+
+  /// Optional semantic role.
   final String? role;
+
+  /// Optional variant.
   final String? variant;
+
+  /// Optional binding slot.
   final String? slot;
+
+  /// Additional node properties.
   final Map<String, Object?> properties;
+
+  /// Source location for the node.
   final SourceSpan? source;
 
+  /// Creates a graph node.
   const IrNode({
     required this.id,
     required this.kind,
@@ -163,6 +213,7 @@ class IrNode {
     this.source,
   });
 
+  /// Decodes a graph node.
   factory IrNode.fromJson(Map<String, Object?> json) => IrNode(
     id: json['id'] as String,
     kind: NodeKind.values.byName(json['kind'] as String),
@@ -177,6 +228,7 @@ class IrNode {
         : null,
   );
 
+  /// Encodes this graph node.
   Map<String, Object?> toJson() => {
     'id': id,
     'kind': kind.name,
@@ -189,13 +241,24 @@ class IrNode {
   };
 }
 
+/// A directed relationship between two graph nodes.
 class IrEdge {
+  /// Source node identifier.
   final String sourceId;
+
+  /// Target node identifier.
   final String targetId;
+
+  /// Semantic edge kind.
   final EdgeKind kind;
+
+  /// Additional edge properties.
   final Map<String, Object?> properties;
+
+  /// Source location for the edge.
   final SourceSpan? source;
 
+  /// Creates a graph edge.
   const IrEdge({
     required this.sourceId,
     required this.targetId,
@@ -204,6 +267,7 @@ class IrEdge {
     this.source,
   });
 
+  /// Decodes a graph edge.
   factory IrEdge.fromJson(Map<String, Object?> json) => IrEdge(
     sourceId: json['source'] as String,
     targetId: json['target'] as String,
@@ -215,6 +279,7 @@ class IrEdge {
         : null,
   );
 
+  /// Encodes this graph edge.
   Map<String, Object?> toJson() => {
     'source': sourceId,
     'target': targetId,
@@ -224,17 +289,25 @@ class IrEdge {
   };
 }
 
+/// Canonical assurance graph with deterministic validation and encoding.
 class IrGraph {
+  /// Graph nodes.
   final List<IrNode> nodes;
+
+  /// Graph edges.
   final List<IrEdge> edges;
+
+  /// Graph completeness metadata.
   final GraphCompleteness completeness;
 
+  /// Creates an assurance graph.
   const IrGraph({
     this.nodes = const [],
     this.edges = const [],
     this.completeness = const GraphCompleteness(),
   });
 
+  /// Decodes and validates an assurance graph.
   factory IrGraph.fromJson(Map<String, Object?> json) {
     final nodes = ((json['nodes'] as List?) ?? const [])
         .map((node) => IrNode.fromJson((node as Map).cast<String, Object?>()))
@@ -268,8 +341,10 @@ class IrGraph {
     return graph;
   }
 
+  /// Stable identifiers of all graph nodes.
   Set<String> get nodeIds => nodes.map((node) => node.id).toSet();
 
+  /// Returns validation diagnostics for this graph.
   List<String> validate() {
     final diagnostics = <String>[];
     final seen = <String>{};
@@ -282,8 +357,9 @@ class IrGraph {
         if (control is String) {
           final key =
               '$control|${node.target ?? 'backend'}|${node.variant ?? 'default'}|${node.slot ?? 'primary'}';
-          if (!identityKeys.add(key))
+          if (!identityKeys.add(key)) {
             diagnostics.add('Duplicate provider identity: $key');
+          }
         }
       }
       if (node.kind == NodeKind.implementation) {
@@ -292,8 +368,9 @@ class IrGraph {
           for (final requirement in requirements.whereType<String>()) {
             final key =
                 '$requirement|${node.target ?? 'backend'}|${node.role ?? 'implementation'}|${node.variant ?? 'default'}|${node.slot ?? 'primary'}';
-            if (!identityKeys.add(key))
+            if (!identityKeys.add(key)) {
               diagnostics.add('Duplicate implementation identity: $key');
+            }
           }
         }
       }
@@ -312,6 +389,7 @@ class IrGraph {
     return diagnostics;
   }
 
+  /// Finds cycles in runtime flow edges.
   List<List<String>> flowCycles() {
     final adjacency = <String, List<String>>{};
     for (final edge in edges) {
@@ -332,15 +410,20 @@ class IrGraph {
       if (!visited.add(node)) return;
       visiting.add(node);
       path.add(node);
-      for (final target in adjacency[node] ?? const <String>[]) visit(target);
+      for (final target in adjacency[node] ?? const <String>[]) {
+        visit(target);
+      }
       path.removeLast();
       visiting.remove(node);
     }
 
-    for (final node in adjacency.keys.toList()..sort()) visit(node);
+    for (final node in adjacency.keys.toList()..sort()) {
+      visit(node);
+    }
     return cycles;
   }
 
+  /// Returns edge descriptions that reference missing nodes.
   List<String> danglingEdges() => edges
       .where(
         (edge) =>
@@ -350,6 +433,7 @@ class IrGraph {
       .map((edge) => '${edge.sourceId}->${edge.targetId}')
       .toList(growable: false);
 
+  /// Encodes this graph in deterministic JSON-compatible form.
   Map<String, Object?> toJson() => {
     'nodes': (nodes.map((node) => node.toJson()).toList()
       ..sort((a, b) => '${a['id']}'.compareTo('${b['id']}'))),
@@ -362,18 +446,29 @@ class IrGraph {
     'completeness': completeness.toJson(),
   };
 
+  /// Returns canonical JSON suitable for hashing.
   String canonicalDigestInput() => canonicalJson(toJson());
 }
 
+/// A stable provider cardinality value.
 class Cardinality {
+  /// Serialized cardinality value.
   final String value;
   const Cardinality._(this.value);
 
+  /// Exactly one provider is required.
   static const exactlyOne = Cardinality._('exactlyOne');
+
+  /// Zero or one provider is allowed.
   static const zeroOrOne = Cardinality._('zeroOrOne');
+
+  /// At least one provider is required.
   static const oneOrMore = Cardinality._('oneOrMore');
+
+  /// Multiple providers are allowed.
   static const many = Cardinality._('many');
 
+  /// Parses a supported cardinality spelling.
   static Cardinality parse(String s) => switch (s) {
     'exactlyOne' => exactlyOne,
     'zeroOrOne' => zeroOrOne,

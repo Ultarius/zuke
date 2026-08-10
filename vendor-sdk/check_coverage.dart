@@ -354,12 +354,14 @@ class CoverageChecker {
     if (source.startsWith(libPrefix)) {
       return 'package:${owner.name}/${source.substring(libPrefix.length)}';
     }
-    if (source.startsWith('lib/'))
+    if (source.startsWith('lib/')) {
       return 'package:${owner.name}/${source.substring(4)}';
+    }
     final marker = '/${owner.name}/lib/';
     final index = source.lastIndexOf(marker);
-    if (index >= 0)
+    if (index >= 0) {
       return 'package:${owner.name}/${source.substring(index + marker.length)}';
+    }
     return null;
   }
 
