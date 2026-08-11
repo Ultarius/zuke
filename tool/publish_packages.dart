@@ -1,21 +1,43 @@
 import 'dart:convert';
 import 'dart:io';
 
-/// The packages released to pub.dev, in dependency order.
-const _publishablePackages = <String>[
-  'zuke_core',
-  'zuke_annotations',
-  'zuke_frontend',
-  'zuke',
-  'zuke_runner',
-  'zuke_runner_flutter',
-  'zuke_http_runtime',
-  'zuke_dart_build_hook',
-  'zuke_cli',
-];
+import 'package:yaml/yaml.dart';
+
+import '../vendor-sdk/check_docs.dart';
 
 Future<void> main(List<String> args) async {
-  final options = _PublishOptions.parse(args);
+  final root = Directory.current.absolute;
+  late final _ReleaseMatrix matrix;
+  try {
+    matrix = _readReleaseMatrix(root);
+  } on Object catch (error) {
+    stderr.writeln('Release matrix preflight failed: $error');
+    exitCode = 1;
+    return;
+  }
+  final documentationFailures = DocumentationChecker(root).check();
+  if (documentationFailures.isNotEmpty) {
+    stderr.writeln('Publication boundary preflight failed:');
+    for (final failure in documentationFailures) {
+      stderr.writeln('- $failure');
+    }
+    exitCode = 1;
+    return;
+  }
+  final generatedContractCheck = Process.runSync(
+    Platform.resolvedExecutable,
+    ['run', 'tool/generate_release_contract.dart', '--check'],
+    workingDirectory: root.path,
+    runInShell: Platform.isWindows,
+  );
+  if (generatedContractCheck.exitCode != 0) {
+    stderr.writeln('Generated release contract preflight failed:');
+    stderr.write(generatedContractCheck.stdout);
+    stderr.write(generatedContractCheck.stderr);
+    exitCode = 1;
+    return;
+  }
+  final options = _PublishOptions.parse(args, matrix.publicationOrder);
   if (options.error != null) {
     stderr.writeln(options.error);
     _printUsage();
@@ -38,7 +60,6 @@ Future<void> main(List<String> args) async {
     'Command: dart pub publish${options.publish ? '' : ' --dry-run'}$warningFlag',
   );
 
-  final root = Directory.current.absolute;
   final targets = <_PublishTarget>[];
   var skipped = 0;
   final versionChecker = options.publish ? _PubDevVersionChecker() : null;
@@ -47,7 +68,7 @@ Future<void> main(List<String> args) async {
     for (final package in packages) {
       late final _PublishTarget target;
       try {
-        target = _readPublishTarget(root, package);
+        target = _readPublishTarget(root, package, matrix);
         if (versionChecker != null &&
             await versionChecker.contains(target.package, target.version)) {
           stdout.writeln(
@@ -110,7 +131,11 @@ Future<void> main(List<String> args) async {
   stdout.writeln('\nAll selected Zuke packages completed successfully.');
 }
 
-_PublishTarget _readPublishTarget(Directory root, String package) {
+_PublishTarget _readPublishTarget(
+  Directory root,
+  String package,
+  _ReleaseMatrix matrix,
+) {
   final packageDirectory = Directory(
     '${root.path}${Platform.pathSeparator}vendor-sdk${Platform.pathSeparator}$package',
   );
@@ -144,9 +169,20 @@ _PublishTarget _readPublishTarget(Directory root, String package) {
     throw StateError('Missing package version in ${pubspec.path}: $package');
   }
 
+  final actualVersion = versionMatch.group(1)!;
+  final expectedVersion = matrix.versions[package];
+  if (expectedVersion == null) {
+    throw StateError('$package is absent from the release matrix');
+  }
+  if (actualVersion != expectedVersion) {
+    throw StateError(
+      '$package is $actualVersion but the release matrix requires $expectedVersion',
+    );
+  }
+
   return _PublishTarget(
     package: package,
-    version: versionMatch.group(1)!,
+    version: actualVersion,
     directory: packageDirectory,
   );
 }
@@ -223,7 +259,10 @@ class _PublishOptions {
   final List<String> packages;
   final String? error;
 
-  factory _PublishOptions.parse(List<String> args) {
+  factory _PublishOptions.parse(
+    List<String> args,
+    List<String> publishablePackages,
+  ) {
     var help = false;
     var publish = false;
     var dryRun = false;
@@ -267,17 +306,17 @@ class _PublishOptions {
     if (ignoreWarnings && publish) {
       error = '--ignore-warnings is only valid with --dry-run.';
     }
-    if (selected.any((package) => !_publishablePackages.contains(package))) {
+    if (selected.any((package) => !publishablePackages.contains(package))) {
       final invalid = selected
-          .where((package) => !_publishablePackages.contains(package))
+          .where((package) => !publishablePackages.contains(package))
           .join(', ');
       error = 'Not a publishable Zuke package: $invalid';
     }
 
     final selectedSet = selected.toSet();
     final packages = selected.isEmpty
-        ? _publishablePackages
-        : _publishablePackages
+        ? publishablePackages
+        : publishablePackages
               .where(selectedSet.contains)
               .toList(growable: false);
     return _PublishOptions(
@@ -289,6 +328,60 @@ class _PublishOptions {
       error: error,
     );
   }
+}
+
+class _ReleaseMatrix {
+  const _ReleaseMatrix({required this.publicationOrder, required this.versions});
+
+  final List<String> publicationOrder;
+  final Map<String, String> versions;
+}
+
+_ReleaseMatrix _readReleaseMatrix(Directory root) {
+  final file = File('${root.path}${Platform.pathSeparator}docs${Platform.pathSeparator}release-matrix.yaml');
+  if (!file.existsSync()) throw StateError('Missing docs/release-matrix.yaml');
+  final decoded = loadYaml(file.readAsStringSync());
+  if (decoded is! Map || decoded['schemaVersion'] != 2) {
+    throw const FormatException('release matrix schemaVersion must be 2');
+  }
+  final rawPackages = decoded['packages'];
+  if (rawPackages is! Map) {
+    throw const FormatException('release matrix packages must be a mapping');
+  }
+  final versions = <String, String>{};
+  final publishable = <String>{};
+  for (final entry in rawPackages.entries) {
+    final name = entry.key.toString();
+    final value = entry.value;
+    if (value is! Map) throw FormatException('$name release entry must be a mapping');
+    final version = value['version'];
+    final action = value['releaseAction'];
+    final publish = value['publish'];
+    if (version is! String || version.isEmpty) {
+      throw FormatException('$name has no non-empty version');
+    }
+    if (action is! String || !const {'publish', 'reuse', 'internal'}.contains(action)) {
+      throw FormatException('$name has an invalid releaseAction');
+    }
+    if (publish is! bool || (publish != (action == 'publish' || action == 'reuse'))) {
+      throw FormatException('$name publish/releaseAction disagree');
+    }
+    versions[name] = version;
+    if (action == 'publish') publishable.add(name);
+  }
+  final rawOrder = decoded['publicationOrder'];
+  if (rawOrder is! List || rawOrder.any((item) => item is! String)) {
+    throw const FormatException('publicationOrder must be a string list');
+  }
+  final order = rawOrder.cast<String>();
+  if (order.toSet().length != order.length ||
+      order.length != publishable.length ||
+      !publishable.containsAll(order)) {
+    throw const FormatException(
+      'publicationOrder must contain each publish-action package exactly once',
+    );
+  }
+  return _ReleaseMatrix(publicationOrder: order, versions: versions);
 }
 
 void _printUsage() {

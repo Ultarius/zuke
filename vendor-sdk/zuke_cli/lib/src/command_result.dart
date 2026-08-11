@@ -1,7 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:assurance_ir/assurance_ir.dart';
+import 'package:zuke_core/v2.dart';
 
 DiagnosticV2 gateDiagnostic({
   required String stage,

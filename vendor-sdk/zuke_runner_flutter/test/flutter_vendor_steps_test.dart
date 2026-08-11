@@ -3,8 +3,15 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:zuke/assurance.dart';
 import 'package:zuke_runner_flutter/zuke_runner_flutter.dart';
-import 'package:zuke_test_support/zuke_test_support.dart';
+import 'support/temporary_directory.dart';
+
+const _testSourceIdentity = ExecutionSourceIdentity(
+  sourcePackage: 'zuke-runner-flutter-test',
+  sourceAdapter: 'flutter-test',
+  sourceCompatibilityId: 'flutter-test-v1',
+);
 
 class _World extends ScenarioWorld {
   final WidgetTester tester;
@@ -108,6 +115,7 @@ void main() {
     runnerCompatibilityId: 'runner-compatibility-v1',
     defaultEvidenceTypes: const ['flutter-widget', 'gherkin-ui'],
     outputDirectory: evidenceDirectory.path,
+    sourceIdentity: _testSourceIdentity,
     environment: const {
       'ZUKE_PROFILE': 'merge',
       'ZUKE_RUNNER_ID': 'flutter-harness-test',
@@ -140,6 +148,7 @@ void main() {
     runnerCompatibilityId: 'runner-compatibility-v1',
     defaultEvidenceTypes: const ['flutter-widget'],
     outputDirectory: filteredEvidenceDirectory.path,
+    sourceIdentity: _testSourceIdentity,
     environment: const {
       'ZUKE_SCENARIO_FILTER': 'SCN-EVIDENCE-SELECTED',
       'ZUKE_RUNNER_ID': 'filtered-harness-test',
@@ -219,6 +228,7 @@ void main() {
       defaultEvidenceTypes: const [],
       outputDirectory: filteredEvidenceDirectory.path,
       environment: const {},
+      sourceIdentity: _testSourceIdentity,
     );
     expect(
       () => emptyHarness.registerAll([
@@ -599,6 +609,7 @@ Feature: Harness Feature
     runnerId: 'test-runner',
     runnerCompatibilityId: 'test-runner-v1',
     resultDirectory: harnessResultDirectory.path,
+    sourceIdentity: _testSourceIdentity,
   ).registerAll();
 
   tearDownAll(() async {

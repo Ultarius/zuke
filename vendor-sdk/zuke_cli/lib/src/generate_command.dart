@@ -1,7 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 import 'package:args/args.dart';
-import 'package:zuke_core/inspection.dart';
+import 'package:zuke_cli/tooling.dart';
 import 'package:zuke_frontend/zuke_frontend.dart';
 
 import 'generator.dart';

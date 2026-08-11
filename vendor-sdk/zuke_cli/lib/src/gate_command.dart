@@ -2,7 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:args/args.dart';
-import 'package:assurance_ir/assurance_ir.dart';
+import 'package:zuke_core/v2.dart';
 import 'package:zuke_frontend/zuke_frontend.dart';
 
 import 'generate_command.dart';
@@ -49,7 +49,7 @@ class GateCommand {
         command: 'gate',
         stage: 'gate',
         exitCode: exitCode,
-        status: exitCode == 0 ? 'passed' : 'failed',
+        status: exitCode == 0 ? CommandStatus.passed : CommandStatus.failed,
         eligible: exitCode == 0,
         diagnostics: diagnostics,
       );
@@ -87,7 +87,6 @@ class GateCommand {
     final doctorResult = _doctor(root);
     stages['doctor'] = doctorResult == 0 ? 'passed' : 'failed';
     reportStage('doctor', stages['doctor']!);
-    if (doctorResult != 0) return finish(doctorResult);
 
     reportStage('generate-check', 'running');
     final generatedResult = await GenerateCommand(
@@ -100,7 +99,6 @@ class GateCommand {
     ).execute();
     stages['generate-check'] = generatedResult == 0 ? 'passed' : 'failed';
     reportStage('generate-check', stages['generate-check']!);
-    if (generatedResult != 0) return finish(generatedResult);
     if (testRunner != null) {
       final testParser = ArgParser()
         ..addOption('root')
@@ -129,13 +127,11 @@ class GateCommand {
       );
       stages['test'] = testResult == 0 ? 'passed' : 'failed';
       reportStage('test', stages['test']!);
-      if (testResult != 0) return finish(testResult);
     }
     reportStage('input-stability', 'running');
     final stable = _inputStable(root);
     stages['input-stability'] = stable ? 'passed' : 'failed';
     reportStage('input-stability', stages['input-stability']!);
-    if (!stable) return finish(1);
     reportStage('validate', 'running');
     final validateResult = await ValidateCommand(
       validateParser.parse([
@@ -152,7 +148,6 @@ class GateCommand {
     ).execute();
     stages['validate'] = validateResult == 0 ? 'passed' : 'failed';
     reportStage('validate', stages['validate']!);
-    if (validateResult != 0) return finish(validateResult);
     reportStage('lock', 'running');
     final lockResult = await LockCommand(
       lockParser.parse([
@@ -168,15 +163,14 @@ class GateCommand {
     ).execute();
     stages['lock'] = lockResult == 0 ? 'passed' : 'failed';
     reportStage('lock', stages['lock']!);
-    if (lockResult != 0) return finish(lockResult);
     if (profile == 'release') {
       reportStage('trust', 'running');
       final trustResult = _checkTrustEligibility(root);
       stages['trust'] = trustResult == 0 ? 'passed' : 'failed';
       reportStage('trust', stages['trust']!);
-      if (trustResult != 0) return finish(trustResult);
     }
-    return finish(0);
+    final failed = stages.values.any((status) => status == 'failed');
+    return finish(failed ? 1 : 0);
   }
 
   int _doctor(String root) {
@@ -216,7 +210,7 @@ class GateCommand {
       );
       if (!trustFile.existsSync()) {
         stderr.writeln(
-          'ZUKE-TRUST-001: No trust metadata found at ${trustFile.path}',
+          'ZUKE-TRUST-001: Ed25519 attestation trust bundle is missing at ${trustFile.path}',
         );
         stderr.writeln(
           '  Run `zuke manifest create --signer-id <id>` to initialize the Ed25519 trust bundle.',

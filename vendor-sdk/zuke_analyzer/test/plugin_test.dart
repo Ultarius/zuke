@@ -5,8 +5,7 @@ import 'package:analyzer/dart/analysis/results.dart';
 import 'package:analyzer/dart/ast/ast.dart';
 import 'package:analysis_server_plugin/registry.dart';
 import 'package:test/test.dart';
-import 'package:zuke_core/inspection.dart';
-import 'package:zuke_core/zuke_core.dart';
+import 'package:zuke_cli/tooling.dart';
 import 'package:zuke_analyzer/main.dart' as analyzer_plugin;
 import 'package:zuke_analyzer/src/plugin_visitors.dart';
 import 'package:zuke_analyzer/zuke_analyzer.dart';
@@ -282,22 +281,32 @@ class Methods {
 }
 
 /// System-temporary fixtures do not inherit this package's `.dart_tool`
-/// directory.  Give the analyzer the one annotation package used by the
-/// fixture sources so resolved annotation visitors exercise real elements.
+/// directory. Give the analyzer the workspace package graph so resolved
+/// annotation visitors exercise real elements after the extractor moved into
+/// zuke_cli. A one-package config is insufficient because zuke_annotations
+/// re-exports ScenarioId from zuke_core and the analyzer fails closed on any
+/// unresolved import.
 void _writePackageConfig(Directory root) {
-  final annotations = Directory('../zuke_annotations').absolute;
+  final workspaceConfig = File(
+    '${Directory.current.path}${Platform.pathSeparator}.dart_tool'
+    '${Platform.pathSeparator}package_config.json',
+  );
+  final decoded = jsonDecode(workspaceConfig.readAsStringSync()) as Map;
+  final packageConfigDirectory = workspaceConfig.parent.uri;
+  final packages = (decoded['packages'] as List).whereType<Map>().map((entry) {
+    final copy = Map<String, Object?>.from(entry);
+    final rootUri = Uri.parse(copy['rootUri'] as String);
+    copy['rootUri'] = (rootUri.isAbsolute
+            ? rootUri
+            : packageConfigDirectory.resolveUri(rootUri))
+        .toString();
+    return copy;
+  }).toList();
   final config = Directory('${root.path}/.dart_tool')..createSync();
   File('${config.path}/package_config.json').writeAsStringSync(
     jsonEncode({
       'configVersion': 2,
-      'packages': [
-        {
-          'name': 'zuke_annotations',
-          'rootUri': Uri.directory(annotations.path).toString(),
-          'packageUri': 'lib/',
-          'languageVersion': '3.10',
-        },
-      ],
+      'packages': packages,
     }),
   );
 }

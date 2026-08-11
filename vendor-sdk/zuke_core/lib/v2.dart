@@ -1,8 +1,8 @@
-/// Stable V2 contracts exposed through the zuke_core compatibility facade.
-///
-/// Consumers that only need assurance identities, structured diagnostics, or
-/// target-aware evidence can import this library without importing the
-/// analyzer-dependent legacy implementation surface.
+/// Stable analyzer-free V2 contracts for Zuke tooling and adapter authors.
 library;
 
-export 'package:assurance_ir/assurance_ir.dart';
+export 'src/v2/adapter.dart';
+export 'src/v2/diagnostics.dart';
+export 'src/v2/digest.dart';
+export 'src/v2/evidence.dart';
+export 'src/v2/identity.dart';

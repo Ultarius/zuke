@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.4.0
+
+- Consolidated analyzer-backed tooling, typed V2 contracts, profile locks,
+  structured diagnostics, and first-party Dart Frog topology extraction.
+
 ## 0.3.1
 
 - Expanded the package description so pub.dev recognizes the pubspec as valid.

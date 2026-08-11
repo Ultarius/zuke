@@ -82,6 +82,9 @@ class ValidateCommand {
       stdout.writeln(
         const JsonEncoder.withIndent('  ').convert({
           ...report.toJson(),
+          'topologyOutputs': extraction.topologyOutputs
+              .map((output) => output.toJson())
+              .toList(),
           'status': passed ? 'passed' : 'failed',
           'errors': [
             ...extraction.errors,

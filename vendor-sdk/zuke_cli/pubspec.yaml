@@ -10,10 +10,9 @@ dependencies:
   yaml_edit: ^2.2.4
   glob: ^2.1.2
   crypto: ^3.0.6
-  assurance_ir: ^0.2.0
-  adapter_sdk: ^0.2.0
-  zuke_adapter_dart_frog: ^0.1.0
-  dart_extractor: ^0.2.0
+  analyzer: '>=8.2.0 <15.0.0'
+  dart_frog_gen: ^2.1.0
+  path: ^1.9.1
   zuke_core: ^0.3.0
   zuke_frontend: ^0.2.0
   zuke: ^0.3.0
@@ -23,7 +22,6 @@ dev_dependencies:
   test: ^1.24.0
   cryptography: ^2.7.0
   zuke_http_runtime: ^0.1.1
-  zuke_test_support: ^0.1.0
 
 executables:
   zuke: zuke

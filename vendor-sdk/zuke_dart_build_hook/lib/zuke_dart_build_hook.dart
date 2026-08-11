@@ -3,8 +3,7 @@ library;
 
 import 'dart:io';
 
-import 'package:zuke_core/zuke_core.dart';
-import 'package:zuke_core/inspection.dart';
+import 'package:zuke_cli/tooling.dart';
 import 'package:hooks/hooks.dart' as hooks;
 
 /// Official hooks protocol entry point. The hook only declares the package

@@ -28,7 +28,7 @@ The package also contains negative and reference fixtures for adapter authors.
 
 ## Support tier
 
-Repository-only tooling; not published to pub.dev. Its schemas and reference
+Repository-only conformance tooling; not published to pub.dev. Its schemas and reference
 fixtures are maintained with the Zuke workspace.
 
 ## License

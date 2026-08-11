@@ -5,9 +5,19 @@ import 'package:crypto/crypto.dart';
 import 'package:test/test.dart';
 import 'package:zuke_annotations/zuke_annotations.dart';
 import 'package:zuke_frontend/zuke_frontend.dart';
+import 'package:zuke_core/v2.dart';
 import 'package:zuke/runner.dart';
 
 class World extends MapScenarioWorld {}
+
+const _testSourcePackage = 'test-package';
+const _testSourceAdapter = 'dart-test';
+const _testSourceCompatibilityId = 'dart-test-v2';
+const _testIdentity = ExecutionSourceIdentity(
+  sourcePackage: _testSourcePackage,
+  sourceAdapter: _testSourceAdapter,
+  sourceCompatibilityId: _testSourceCompatibilityId,
+);
 
 enum _Contract implements ZukeScenarioContract {
   correct(ScenarioId('SCN-CONTRACT-ONE'), 'RULE-CONTRACT-001', 'Correct title'),
@@ -409,6 +419,9 @@ Feature: Run
       profile: 'pullRequest',
       runnerId: 'runner',
       runnerCompatibilityId: 'runner-v1',
+      sourcePackage: _testSourcePackage,
+      sourceAdapter: _testSourceAdapter,
+      sourceCompatibilityId: _testSourceCompatibilityId,
       scenarioIds: [ScenarioId('SCN-RUN-001')],
     );
     final decoded = ScenarioResult.fromJson(result.toJson());
@@ -509,6 +522,9 @@ Feature: Failures
       profile: 'pullRequest',
       runnerId: 'runner',
       runnerCompatibilityId: 'runner-v1',
+      sourcePackage: _testSourcePackage,
+      sourceAdapter: _testSourceAdapter,
+      sourceCompatibilityId: _testSourceCompatibilityId,
     ).toJson();
     final suite = const SuiteResult(
       executionId: 'suite',
@@ -520,6 +536,9 @@ Feature: Failures
       profile: 'pullRequest',
       runnerId: 'runner',
       runnerCompatibilityId: 'runner-v1',
+      sourcePackage: _testSourcePackage,
+      sourceAdapter: _testSourceAdapter,
+      sourceCompatibilityId: _testSourceCompatibilityId,
       resultDigest: 'sha256:result',
     ).toJson();
 
@@ -541,6 +560,35 @@ Feature: Failures
     );
     expect(
       () => SuiteResult.fromJson({...suite, 'status': 'unknown'}),
+      throwsFormatException,
+    );
+    expect(
+      () => ScenarioResult.fromJson({...scenario, 'schemaVersion': 'zuke.scenario-result.v1'}),
+      throwsFormatException,
+    );
+    expect(
+      () => SuiteResult.fromJson({...suite, 'schemaVersion': 'zuke.suite-result.v1'}),
+      throwsFormatException,
+    );
+    expect(
+      () => const ScenarioResult(
+        executionId: 'missing-identity',
+        status: ScenarioStatus.passed,
+        requirementId: 'RULE-1',
+        evidenceType: 'domain-unit',
+        target: 'backend',
+        candidateId: 'candidate',
+        profile: 'pullRequest',
+        runnerId: 'runner',
+        runnerCompatibilityId: 'runner-v1',
+      ).toJson(),
+      throwsFormatException,
+    );
+    expect(
+      () => ExecutionResultWriter.fromEnvironment({
+        'ZUKE_SOURCE_PACKAGE': 'package',
+        'ZUKE_SOURCE_ADAPTER': 'adapter',
+      }),
       throwsFormatException,
     );
   });
@@ -567,6 +615,9 @@ Feature: Failures
       candidateId: 'candidate',
       runnerId: 'runner',
       runnerCompatibilityId: 'runner-v1',
+      sourcePackage: _testSourcePackage,
+      sourceAdapter: _testSourceAdapter,
+      sourceCompatibilityId: _testSourceCompatibilityId,
     );
     const scenario = ScenarioResult(
       executionId: 'execution',
@@ -578,6 +629,9 @@ Feature: Failures
       profile: 'pullRequest',
       runnerId: 'runner',
       runnerCompatibilityId: 'runner-v1',
+      sourcePackage: _testSourcePackage,
+      sourceAdapter: _testSourceAdapter,
+      sourceCompatibilityId: _testSourceCompatibilityId,
     );
     const suite = SuiteResult(
       executionId: 'suite',
@@ -589,6 +643,9 @@ Feature: Failures
       profile: 'pullRequest',
       runnerId: 'runner',
       runnerCompatibilityId: 'runner-v1',
+      sourcePackage: _testSourcePackage,
+      sourceAdapter: _testSourceAdapter,
+      sourceCompatibilityId: _testSourceCompatibilityId,
       resultDigest: 'sha256:result',
     );
 
@@ -597,11 +654,15 @@ Feature: Failures
     const EvidenceWriter().write('${root.path}/envelopes/results.json', [
       evidence,
     ], buildId: 'build-1');
-    final scenarioFile = const ExecutionResultWriter().writeScenario(
+    final scenarioFile = const ExecutionResultWriter(
+      identity: _testIdentity,
+    ).writeScenario(
       '${root.path}/results',
       scenario,
     );
-    final suiteFile = const ExecutionResultWriter().writeSuite(
+    final suiteFile = const ExecutionResultWriter(
+      identity: _testIdentity,
+    ).writeSuite(
       '${root.path}/results',
       suite,
     );
@@ -630,6 +691,7 @@ Feature: Failures
       outputDirectory: root.path,
       profile: 'test',
       runnerId: 'runner',
+      sourceIdentity: _testIdentity,
     );
 
     expect(files, hasLength(2));

@@ -3,19 +3,21 @@ import 'dart:async';
 import 'dart:io';
 import 'package:crypto/crypto.dart';
 
-import 'package:dart_extractor/dart_extractor.dart';
+import 'dart_extractor.dart';
 import 'package:zuke_core/zuke_core.dart';
 import 'package:zuke_frontend/zuke_frontend.dart';
-import 'package:adapter_sdk/adapter_sdk.dart';
-import 'package:zuke_adapter_dart_frog/zuke_adapter_dart_frog.dart';
+import 'package:zuke_core/v2.dart' as v2;
+import 'dart_frog_adapter.dart';
 
 class WorkspaceExtraction {
   final List<AdapterOutput> outputs;
+  final List<v2.AdapterOutputV2> topologyOutputs;
   final List<EvidenceRecord> evidenceRecords;
   final List<String> errors;
 
   const WorkspaceExtraction({
     this.outputs = const [],
+    this.topologyOutputs = const [],
     this.evidenceRecords = const [],
     this.errors = const [],
   });
@@ -35,6 +37,7 @@ class ExtractionService {
   }) async {
     final root = workspace.config.root!;
     final outputs = <AdapterOutput>[];
+    final topologyOutputs = <v2.AdapterOutputV2>[];
     final errors = <String>[];
     for (final target in workspace.config.targetsConfig.entries) {
       final targetConfig = target.value;
@@ -47,17 +50,21 @@ class ExtractionService {
         for (final package in packages) {
           if (package is! Map || package['path'] is! String) continue;
           final packageId = package['id'] as String? ?? package['path'] as String;
-          final packageRoot = _join(root, package['path'] as String);
-          if (!Directory(packageRoot).existsSync()) {
+          final packageDirectory = Directory(
+            _join(root, package['path'] as String),
+          );
+          if (!packageDirectory.existsSync()) {
+            final packageRoot = packageDirectory.absolute.path;
             errors.add('target package not found: $packageRoot');
             continue;
           }
+          final packageRoot = packageDirectory.resolveSymbolicLinksSync();
           final roots =
               (package['roots'] as List?)?.whereType<String>().toList() ??
               const ['lib'];
           if (framework == 'dart-frog') {
             final topology = await const DartFrogAdapter().extract(
-              AdapterRequest(
+              v2.AdapterRequest(
                 workspaceRoot: root,
                 targetId: target.key,
                 packageId: packageId,
@@ -65,9 +72,18 @@ class ExtractionService {
                 configuredRoots: roots,
               ),
             );
-            errors.addAll(topology.diagnostics.map(
-              (diagnostic) => '${diagnostic.code}: ${diagnostic.message}',
-            ));
+            topologyOutputs.add(topology);
+            // The V2 adapter output is retained for V2 reporting and also
+            // projected into the canonical IR consumed by the proof engine.
+            // Keeping this bridge here prevents a successful adapter run from
+            // becoming diagnostics-only evidence.
+            outputs.add(_topologyAdapterOutput(topology, packageRoot));
+            errors.addAll(topology.diagnostics
+                .where((diagnostic) =>
+                    diagnostic.severity == v2.DiagnosticSeverity.error)
+                .map(
+                  (diagnostic) => '${diagnostic.code}: ${diagnostic.message}',
+                ));
           }
           final cacheKey = _sourceDigest(
             packageRoot,
@@ -115,6 +131,7 @@ class ExtractionService {
     final evidence = evidenceLoad.records;
     return WorkspaceExtraction(
       outputs: outputs,
+      topologyOutputs: topologyOutputs,
       evidenceRecords: evidence,
       errors: errors,
     );
@@ -165,6 +182,128 @@ class ExtractionService {
       bytes.add(0);
     }
     return sha256.convert(bytes).toString();
+  }
+
+  AdapterOutput _topologyAdapterOutput(
+    v2.AdapterOutputV2 output,
+    String packageRoot,
+  ) {
+    CompletenessValue completeness(v2.CompletenessStatus status) => switch (
+      status
+    ) {
+      v2.CompletenessStatus.complete => CompletenessValue.complete,
+      v2.CompletenessStatus.indeterminate => CompletenessValue.indeterminate,
+      v2.CompletenessStatus.incomplete => CompletenessValue.notVisible,
+    };
+
+    final nodes = <IrNode>[];
+    final edges = <IrEdge>[];
+    for (final node in output.nodes) {
+      final isMiddleware = node.kind == 'middleware';
+      final kind = isMiddleware ? NodeKind.provider : NodeKind.entryPoint;
+      nodes.add(
+        IrNode(
+          id: node.id,
+          kind: kind,
+          target: output.targetId,
+          role: isMiddleware ? 'provider' : 'ingress',
+          properties: {
+            ...node.attributes,
+            'topologyKind': node.kind,
+            'sourceAdapter': output.sourceAdapter,
+            'sourceCompatibilityId': output.compatibilityId,
+            if (isMiddleware && node.attributes['controlId'] is String)
+              'controlId': node.attributes['controlId'],
+          },
+        ),
+      );
+    }
+    final routeNodes = output.nodes
+        .where((node) => node.kind == 'route' || node.kind == 'websocket-route')
+        .toList();
+    final middlewareNodes = output.nodes
+        .where((node) => node.kind == 'middleware')
+        .toList()
+      ..sort((left, right) =>
+          ((left.attributes['incomingOrder'] as int?) ?? 0).compareTo(
+            (right.attributes['incomingOrder'] as int?) ?? 0,
+          ));
+    for (final alias in output.nodes.where((node) => node.kind == 'route-alias')) {
+      final target = alias.attributes['target'];
+      if (target is String) {
+        edges.add(IrEdge(
+          sourceId: alias.id,
+          targetId: target,
+          kind: EdgeKind.routesTo,
+        ));
+      }
+    }
+    if (middlewareNodes.isNotEmpty) {
+      for (final route in routeNodes) {
+        edges.add(IrEdge(
+          sourceId: route.id,
+          targetId: middlewareNodes.first.id,
+          kind: EdgeKind.precedes,
+        ));
+      }
+      for (var index = 1; index < middlewareNodes.length; index++) {
+        edges.add(IrEdge(
+          sourceId: middlewareNodes[index - 1].id,
+          targetId: middlewareNodes[index].id,
+          kind: EdgeKind.precedes,
+        ));
+      }
+    }
+    return AdapterOutput(
+      adapter: AdapterDescriptor(
+        id: output.sourceAdapter,
+        version: '2',
+        compatibilityId: output.compatibilityId,
+      ),
+      completeness: AdapterCompleteness(
+        graph: GraphCompleteness(
+          routeRegistration: completeness(output.completeness.routeRegistration),
+          middlewareOrder: completeness(output.completeness.middlewareOrder),
+          failureFlow: completeness(output.completeness.failureFlow),
+          logFlow: completeness(output.completeness.logFlow),
+          dynamicRegistration: completeness(
+            output.completeness.dynamicRegistration,
+          ),
+          externalVisibility: completeness(output.completeness.externalVisibility),
+        ),
+      ),
+      symbols: const [],
+      inputDigest: output.compatibilityId,
+      diagnostics: output.diagnostics
+          .map(
+            (diagnostic) => Diagnostic(
+              code: diagnostic.code,
+              message: diagnostic.message,
+              severity: switch (diagnostic.severity) {
+                v2.DiagnosticSeverity.error => DiagnosticSeverity.error,
+                v2.DiagnosticSeverity.warning => DiagnosticSeverity.warning,
+                v2.DiagnosticSeverity.info => DiagnosticSeverity.info,
+              },
+            ),
+          )
+          .toList(),
+      packageName: output.packageId,
+      packageRoot: packageRoot,
+      graph: IrGraph(
+        nodes: nodes,
+        edges: edges,
+        completeness: GraphCompleteness(
+          routeRegistration: completeness(output.completeness.routeRegistration),
+          middlewareOrder: completeness(output.completeness.middlewareOrder),
+          failureFlow: completeness(output.completeness.failureFlow),
+          logFlow: completeness(output.completeness.logFlow),
+          dynamicRegistration: completeness(
+            output.completeness.dynamicRegistration,
+          ),
+          externalVisibility: completeness(output.completeness.externalVisibility),
+        ),
+      ),
+    );
   }
 
   String _cachePath(String root, String adapter, String key) =>

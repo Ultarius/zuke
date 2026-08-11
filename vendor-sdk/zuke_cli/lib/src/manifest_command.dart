@@ -43,10 +43,9 @@ class ManifestCommand {
         'Signer is not active in assurance-history/trust/ed25519-v2.json',
       );
     }
-    final configuredLock = File('${workspaceRoot.path}/zuke.lock.json');
-    final lock = configuredLock.existsSync()
-        ? configuredLock
-        : File('${workspaceRoot.path}/zuke.lock');
+    final lock = File(
+      resolveProfileLockPath(workspaceRoot.path, workspace, profile),
+    );
     if (!lock.existsSync()) {
       throw const FormatException('A current zuke lock is required');
     }
@@ -266,7 +265,10 @@ class ManifestCommand {
       );
       final body = Map<String, Object?>.from(record['body'] as Map);
       if (body['repositoryState'] != _gitState(root)) return false;
-      final lock = File('$root/zuke.lock.json');
+      final workspace = WorkspaceDiscovery().discover(root);
+      final lock = File(
+        resolveProfileLockPath(root, workspace, 'release'),
+      );
       if (!lock.existsSync() ||
           body['lockDigest'] !=
               sha256.convert(lock.readAsBytesSync()).toString()) {
@@ -277,7 +279,6 @@ class ManifestCommand {
               await _computeHash(root, 'evidence')) {
         return false;
       }
-      final workspace = WorkspaceDiscovery().discover(root);
       final extraction = await ExtractionService().extract(workspace);
       final selection = const ScenarioSelector().resolve(workspace, 'release');
       final validation = ValidatorEngine().validate(

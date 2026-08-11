@@ -8,6 +8,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:zuke_annotations/zuke_annotations.dart';
 import 'package:zuke_frontend/zuke_frontend.dart';
+import 'package:zuke_core/v2.dart';
 import 'package:zuke/runner.dart';
 
 import 'src/flutter_binding_key.dart';
@@ -84,6 +85,10 @@ final class ZukeFlutterEvidenceHarness {
   /// Environment used for scenario selection and evidence output.
   final Map<String, String>? environment;
 
+  /// Source identity required by V2 evidence records. When omitted it is
+  /// loaded from the effective environment at test registration time.
+  final ExecutionSourceIdentity? sourceIdentity;
+
   /// Creates an evidence harness.
   const ZukeFlutterEvidenceHarness({
     required this.runnerCompatibilityId,
@@ -94,6 +99,7 @@ final class ZukeFlutterEvidenceHarness {
     this.runnerId,
     this.outputDirectory,
     this.environment,
+    this.sourceIdentity,
   });
 
   /// Registers all [cases] as widget tests.
@@ -126,6 +132,8 @@ final class ZukeFlutterEvidenceHarness {
             runnerCompatibilityId: runnerCompatibilityId,
             outputDirectory: outputDirectory,
             digestInput: digestInput,
+            sourceIdentity: sourceIdentity ??
+                ExecutionSourceIdentity.fromEnvironment(effectiveEnvironment),
           );
         },
         skip: !shouldRunScenario(evidenceCase.scenario.id.value, selected),
@@ -175,6 +183,9 @@ final class ZukeFlutterHarness<W extends ScenarioWorld> {
   /// Optional output directory for results.
   final String? resultDirectory;
 
+  /// Source identity required by V2 scenario results.
+  final ExecutionSourceIdentity? sourceIdentity;
+
   /// Creates a generated-scenario Flutter harness.
   const ZukeFlutterHarness({
     required this.feature,
@@ -188,6 +199,7 @@ final class ZukeFlutterHarness<W extends ScenarioWorld> {
     this.evidenceType = 'gherkin-ui',
     this.target = 'flutter',
     this.resultDirectory,
+    this.sourceIdentity,
   });
 
   void registerAll() {
@@ -231,6 +243,8 @@ final class ZukeFlutterHarness<W extends ScenarioWorld> {
         controlIds: contract.controlIds,
         runnerId: runnerId,
         runnerCompatibilityId: runnerCompatibilityId,
+        sourceIdentity: sourceIdentity ??
+            ExecutionSourceIdentity.fromEnvironment(Platform.environment),
         digests: digests,
       );
       final result = await executor.executeScenario(
@@ -246,7 +260,9 @@ final class ZukeFlutterHarness<W extends ScenarioWorld> {
         print(result.toJson());
       }
       expect(result.status, ScenarioStatus.passed);
-      const writer = ExecutionResultWriter();
+      final identity = sourceIdentity ??
+          ExecutionSourceIdentity.fromEnvironment(Platform.environment);
+      final writer = ExecutionResultWriter(identity: identity);
       final directory = resultDirectory;
       if (directory == null) {
         writer.writeScenarioToEnvironment(result);

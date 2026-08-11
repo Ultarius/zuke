@@ -4,7 +4,7 @@ import 'dart:io';
 import 'package:args/args.dart';
 import 'package:zuke_cli/zuke_cli.dart';
 import 'package:test/test.dart';
-import 'package:zuke_core/inspection.dart';
+import 'package:zuke_cli/tooling.dart';
 import 'cli_test_helper.dart';
 
 void main() {

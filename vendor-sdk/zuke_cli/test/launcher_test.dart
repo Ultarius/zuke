@@ -4,8 +4,15 @@ import 'dart:io';
 
 import 'package:zuke_cli/zuke_cli.dart';
 import 'package:zuke_core/zuke_core.dart' show ScenarioId;
+import 'package:zuke_core/v2.dart';
 import 'package:zuke/runner.dart';
 import 'package:test/test.dart';
+
+const _runnerIdentity = ExecutionSourceIdentity(
+  sourcePackage: 'fake-supervisor',
+  sourceAdapter: 'dart-test-runner',
+  sourceCompatibilityId: 'fake-supervisor-runner-v2',
+);
 
 void main() {
   group('configured runner supervision', () {
@@ -457,7 +464,7 @@ final class _EvidenceSupervisor implements ProcessSupervisor {
   @override
   Future<ProcessResult> run(ProcessRunRequest request) async {
     final directory = request.environment['ZUKE_RESULT_DIR']!;
-    ExecutionResultWriter().writeScenario(
+    const ExecutionResultWriter(identity: _runnerIdentity).writeScenario(
       directory,
       const ScenarioResult(
         executionId: 'evidence-run',
@@ -500,8 +507,12 @@ final class _ResultSupervisor implements ProcessSupervisor {
     final directory = request.environment['ZUKE_RESULT_DIR']!;
     for (var index = 0; index < artifacts.length; index++) {
       final json = switch (artifacts[index]) {
-        ScenarioResult value => value.toJson(),
-        SuiteResult value => value.toJson(),
+        ScenarioResult value => value
+            .withSourceIdentity(_runnerIdentity)
+            .toJson(),
+        SuiteResult value => value
+            .withSourceIdentity(_runnerIdentity)
+            .toJson(),
         _ => throw StateError('Unsupported test artifact'),
       };
       File(

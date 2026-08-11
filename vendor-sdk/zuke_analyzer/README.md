@@ -15,7 +15,7 @@ dependencies:
 
 ## Support tier
 
-Repository-only tooling; not published to pub.dev. This analyzer integration
+Repository-only analyzer plugin; not published to pub.dev. This analyzer integration
 is exercised and released with the Zuke workspace.
 
 ## License

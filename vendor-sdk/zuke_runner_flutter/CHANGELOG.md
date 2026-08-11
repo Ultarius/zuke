@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.3.0
+
+- Added the analyzer-free core dependency and V2 source identity emission for
+  Flutter result artifacts.
+
 ## 0.2.1
 
 - Allow Flutter's pinned SDK metadata to select the analyzer-8 lane from the

@@ -29,7 +29,7 @@ scripts:
   zuke:generate: dart --disable-dart-dev --suppress-analytics run zuke_cli:zuke generate --root examples/calculator-product
   zuke:generate:check: dart --disable-dart-dev --suppress-analytics run zuke_cli:zuke generate --root examples/calculator-product --check
   zuke:validate: dart --disable-dart-dev --suppress-analytics run zuke_cli:zuke validate --root examples/calculator-product --profile pullRequest
-  zuke:lock:check: dart --disable-dart-dev --suppress-analytics run zuke_cli:zuke lock --root examples/calculator-product --check
+  zuke:lock:check: dart --disable-dart-dev --suppress-analytics run zuke_cli:zuke lock --root examples/calculator-product --profile pullRequest --check
   zuke:gate: dart --disable-dart-dev --suppress-analytics run zuke_cli:zuke gate --root examples/calculator-product --profile pullRequest
   zuke:report: dart --disable-dart-dev --suppress-analytics run zuke_cli:zuke report --root examples/calculator-product
   zuke:watch: dart --disable-dart-dev --suppress-analytics run zuke_cli:zuke watch --root examples/calculator-product

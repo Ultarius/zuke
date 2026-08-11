@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:zuke_runner_flutter/zuke_runner_flutter.dart';
+import 'package:zuke/assurance.dart';
 
 import 'vendor_steps.dart';
 import 'world.dart';
@@ -32,7 +33,13 @@ Future<void> executeGuideScenario(
   );
   expect(result.status, ScenarioStatus.passed);
 
-  const writer = ExecutionResultWriter();
+  const writer = ExecutionResultWriter(
+    identity: ExecutionSourceIdentity(
+      sourcePackage: 'shopping-cart',
+      sourceAdapter: 'flutter-test',
+      sourceCompatibilityId: 'flutter-test-v1',
+    ),
+  );
   writer.writeScenarioToEnvironment(result);
   // guide-snippet:executor:end
 }

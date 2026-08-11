@@ -286,6 +286,9 @@ class LockCommand {
           entry.key: {'sourceHash': entry.value},
       },
       'fragments': fragments,
+      'topologyOutputs': extraction.topologyOutputs
+          .map((output) => output.toJson())
+          .toList(),
       'requirements': workspace.data.features
           .expand((feature) => feature.rules)
           .where((rule) => rule.metadata.id != null)
@@ -302,20 +305,7 @@ class LockCommand {
     WorkspaceDiscoveryResult workspace,
     String profile,
   ) {
-    final configured = workspace.config.lockFile;
-    final configFile = File('$root/zuke.yaml');
-    if (configFile.existsSync()) {
-      final content = configFile.readAsStringSync();
-      if (content.contains('schemaVersion: 3') ||
-          content.contains('directory: assurance/locks')) {
-        final directory = RegExp(r'(?m)^\s*directory:\s*([^\s#]+)')
-            .firstMatch(content)
-            ?.group(1) ??
-            'assurance/locks';
-        return '$root/${directory.replaceAll('\\', '/')}/$profile.lock.json';
-      }
-    }
-    return '$root/${configured ?? 'zuke.lock.json'}';
+    return resolveProfileLockPath(root, workspace, profile);
   }
 
   List<Map<String, Object?>> _attestations(
@@ -379,4 +369,24 @@ class LockCommand {
     }
     return result;
   }
+}
+
+/// Resolves the only supported V2 lock location for [profile].
+String resolveProfileLockPath(
+  String root,
+  WorkspaceDiscoveryResult workspace,
+  String profile,
+) {
+  final directory = workspace.config.lockDirectory;
+  if (directory != null && directory.isNotEmpty) {
+    return '$root/${directory.replaceAll('\\', '/')}/$profile.lock.json';
+  }
+  final configured = workspace.config.lockFile;
+  if (configured != null &&
+      configured.isNotEmpty &&
+      !configured.endsWith('zuke.lock') &&
+      !configured.endsWith('zuke.lock.json')) {
+    return '$root/${configured.replaceAll('\\', '/')}';
+  }
+  return '$root/assurance/locks/$profile.lock.json';
 }

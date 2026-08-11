@@ -1,7 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:dart_extractor/dart_extractor.dart';
+import 'package:zuke_cli/src/dart_extractor.dart';
 import 'package:zuke_core/zuke_core.dart';
 import 'package:test/test.dart';
 import 'package:zuke_frontend/zuke_frontend.dart';
@@ -169,6 +169,63 @@ void main() {
         expect(
           replacementExtraction.errors,
           isNot(anyElement(contains('evidence'))),
+        );
+      },
+    );
+
+    test(
+      'feeds native Dart Frog topology into the proof extraction outputs',
+      () async {
+        final routes = Directory('${tempDir.path}/routes')
+          ..createSync(recursive: true);
+        File('${routes.path}/_middleware.dart').writeAsStringSync('''
+typedef Handler = Object Function(Object);
+Handler middleware(Handler handler) => handler;
+''');
+        File('${routes.path}/index.dart').writeAsStringSync(
+          'Object onRequest(Object request) => Object();',
+        );
+        File('${tempDir.path}/pubspec.yaml').writeAsStringSync(
+          'name: dart_frog_fixture\\nenvironment:\\n  sdk: \">=3.10.0 <3.11.0\"\\n',
+        );
+        final workspace = WorkspaceDiscoveryResult(
+          config: ZukeConfig(
+            root: tempDir.path,
+            targetsConfig: {
+              'backend': {
+                'language': 'dart',
+                'framework': 'dart-frog',
+                'packages': [
+                  {'id': 'backend', 'path': '.', 'roots': ['routes']},
+                ],
+              },
+            },
+          ),
+          data: const MetadataExtractorResult(),
+        );
+
+        final result = await ExtractionService().extract(
+          workspace,
+          includeEvidence: false,
+        );
+
+        expect(result.topologyOutputs, hasLength(1));
+        expect(
+          result.topologyOutputs.single.nodes.any(
+            (node) => node.kind == 'route',
+          ),
+          isTrue,
+        );
+        final topologyProjection = result.outputs.firstWhere(
+          (output) => output.graph!.nodes.any(
+            (node) => node.properties['topologyKind'] == 'route',
+          ),
+        );
+        expect(
+          topologyProjection.graph!.nodes.any(
+            (node) => node.properties['topologyKind'] == 'route',
+          ),
+          isTrue,
         );
       },
     );

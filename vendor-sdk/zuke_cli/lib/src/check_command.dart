@@ -3,7 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:args/args.dart';
-import 'package:assurance_ir/assurance_ir.dart';
+import 'package:zuke_core/v2.dart';
 import 'package:zuke_frontend/zuke_frontend.dart';
 
 import 'generate_command.dart';
@@ -53,7 +53,7 @@ class CheckCommand {
         command: 'check',
         stage: 'check',
         exitCode: succeeded ? 0 : 1,
-        status: succeeded ? 'passed' : 'failed',
+        status: succeeded ? CommandStatus.passed : CommandStatus.failed,
         eligible: succeeded,
         diagnostics: [
           for (final workspace in results)

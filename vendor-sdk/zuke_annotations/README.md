@@ -15,7 +15,7 @@ dependencies:
 
 ## Support tier
 
-User-facing SDK. **Support contract:** Supported application-facing public API. APIs exported by this package are supported for application use during the `0.1.x` preview. See the [integration guide](https://github.com/Ultarius/zuke/blob/main/docs/integration-guide.md).
+Supported application-facing annotation API. See the [integration guide](https://github.com/Ultarius/zuke/blob/main/docs/integration-guide.md).
 
 ## License
 

@@ -8,10 +8,17 @@ import 'package:zuke_core/zuke_core.dart';
 /// or evidence validation pass.
 final class WorkspaceDigest {
   WorkspaceDigest({
-    String lockFile = 'zuke.lock.json',
+    String? lockFile,
     Iterable<String> generatedPaths = const [],
   }) : _excludedFiles = {
-         _normalizeRelative(lockFile),
+         for (final profile in const [
+           'pullRequest',
+           'merge',
+           'release',
+           'nightly',
+         ])
+           _normalizeRelative('assurance/locks/$profile.lock.json'),
+         if (lockFile != null) _normalizeRelative(lockFile),
          for (final path in generatedPaths) _normalizeRelative(path),
        };
 

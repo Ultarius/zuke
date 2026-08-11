@@ -2,7 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'package:args/args.dart';
-import 'package:assurance_ir/assurance_ir.dart';
+import 'package:zuke_core/v2.dart';
 import 'package:crypto/crypto.dart';
 import 'package:yaml/yaml.dart';
 import 'package:yaml_edit/yaml_edit.dart';
@@ -370,7 +370,7 @@ Usage:
   zuke extract dart Extract resolved Dart annotations
   zuke trace RULE-ID Show requirement trace
   zuke report       Emit compiled spec model JSON (zuke-model.json)
-  zuke lock         Write or check the specification lock
+  zuke lock --profile <name>|--all-profiles  Write or check profile locks
   zuke gate         Run validate, generation, and lock gates
   zuke check        Verify one or more workspaces with isolated stage output
   zuke manifest create|verify-v2|export  Manage trusted Ed25519 history
@@ -395,7 +395,7 @@ Usage:
         command: 'doctor',
         stage: 'doctor',
         exitCode: code,
-        status: code == 0 ? 'passed' : 'failed',
+        status: code == 0 ? CommandStatus.passed : CommandStatus.failed,
         eligible: code == 0,
         diagnostics: diagnostics,
       );
@@ -1281,8 +1281,8 @@ Future<void> main(List<String> arguments) => zuke.build(arguments);
       }
       final json = Map<String, Object?>.from(decoded);
       final ExecutionResult artifact = switch (json['schemaVersion']) {
-        'zuke.scenario-result.v1' => ScenarioResult.fromJson(json),
-        'zuke.suite-result.v1' => SuiteResult.fromJson(json),
+        'zuke.scenario-result.v2' => ScenarioResult.fromJson(json),
+        'zuke.suite-result.v2' => SuiteResult.fromJson(json),
         _ => throw StateError(
           'Unsupported result artifact schema in ${file.path}',
         ),

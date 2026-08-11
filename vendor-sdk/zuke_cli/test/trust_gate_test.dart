@@ -31,9 +31,10 @@ void main() {
       );
     });
 
-    test('reads the trust bundle path from schema-v2 configuration', () {
+    test('reads the trust bundle path from schema-v3 configuration', () {
       File('${tempDir.path}/zuke.yaml').writeAsStringSync('''
-schemaVersion: 2
+schemaVersion: 3
+targets: {}
 trust:
   bundle: trust/custom-ed25519.json
 ''');
@@ -61,21 +62,38 @@ trust:
           ? ''
           : '\n${runnerArgs.map((a) => '        - $a').join('\n')}';
 
-      File('${tempDir.path}/zuke.yaml').writeAsStringSync('''schemaVersion: 2
-workspace:
-  name: test-workspace
-  root: .
+      File('${tempDir.path}/zuke.yaml').writeAsStringSync('''schemaVersion: 3
 specifications:
   features: [specs/features/**/*.feature]
-targets: {}
+targets:
+  backend:
+    language: dart
+    framework: dart
+    packages:
+      - id: backend
+        path: .
+        roots: [lib]
+lock:
+  directory: assurance/locks
+  profiles: [pullRequest, merge, release, nightly]
 execution:
   runners:
     - id: trivial
       target: backend
+      sourcePackage: backend
+      sourceAdapter: dart-test
+      sourceCompatibilityId: dart-test-v2
       executable: '$runnerExec'
       args:$yamlArgs
       timeoutSeconds: 30
 ''');
+
+      File('${tempDir.path}/pubspec.yaml').writeAsStringSync('''
+name: trust_gate_fixture
+environment:
+  sdk: ">=3.10.0 <4.0.0"
+''');
+      Directory('${tempDir.path}/lib').createSync(recursive: true);
 
       final featureDir = Directory('${tempDir.path}/specs/features')
         ..createSync(recursive: true);
@@ -191,15 +209,13 @@ Feature: Dummy
 
       expect(result.exitCode, equals(0));
       final decoded = jsonDecode(result.stdout) as Map<String, dynamic>;
-      expect(decoded['schemaVersion'], equals('zuke.gate.v1'));
+      expect(decoded['schemaVersion'], equals('zuke.command-result.v2'));
+      expect(decoded['command'], equals('gate'));
+      expect(decoded['stage'], equals('gate'));
       expect(decoded['status'], equals('passed'));
-      expect(decoded['stages'], {
-        'generate': 'passed',
-        'test': 'passed',
-        'validate': 'passed',
-        'lock': 'passed',
-        'trust': 'skipped',
-      });
+      expect(decoded['exitCode'], equals(0));
+      expect(decoded['eligible'], isTrue);
+      expect(decoded['diagnostics'], isA<List>());
     });
   });
 }

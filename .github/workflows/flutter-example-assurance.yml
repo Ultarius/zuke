@@ -68,6 +68,6 @@ jobs:
           name: ${{ inputs.package-name }}-assurance-${{ matrix.os }}
           path: |
             ${{ inputs.example-root }}/generated/
-            ${{ inputs.example-root }}/zuke.lock.json
+            ${{ inputs.example-root }}/assurance/locks/${{ inputs.profile }}.lock.json
             ${{ inputs.example-root }}/assurance-history/
             ${{ inputs.example-root }}/generated/coverage/

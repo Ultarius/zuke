@@ -29,8 +29,7 @@ specialized runner role in a future breaking release.
 
 ## Support tier
 
-Compatibility package for the primary Zuke SDK. The forwarded APIs remain
-supported during the `0.1.x` transition. See the [integration guide](https://github.com/Ultarius/zuke/blob/main/docs/integration-guide.md).
+Compatibility package for the primary Zuke SDK. See the [integration guide](https://github.com/Ultarius/zuke/blob/main/docs/integration-guide.md).
 
 ## License
 

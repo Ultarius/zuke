@@ -2,7 +2,7 @@ import 'dart:io';
 
 import 'package:zuke_cli/src/generator.dart';
 import 'package:zuke_frontend/zuke_frontend.dart';
-import 'package:zuke_test_support/zuke_test_support.dart';
+import 'support/temporary_directory.dart';
 import 'package:test/test.dart';
 
 void main() {

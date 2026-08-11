@@ -29,9 +29,8 @@ dev_dependencies:
     sdk: flutter
   zuke_cli: ^0.4.0
   zuke_runner_flutter: ^0.3.0
-  # Optional edit-time/build-time checks:
-  # zuke_analyzer: ^0.1.0
-  # zuke_dart_build_hook: ^0.1.0
+  # Optional hosted build-time check:
+  # zuke_dart_build_hook: ^0.3.0
 ```
 
 Application and generated code should use `zuke_annotations` when they only
@@ -42,8 +41,9 @@ binding keys, drivers, and vendor steps. Pure-Dart and backend tests should keep
 `zuke` owns the deterministic runner and HTTP test helpers while re-exporting
 the supported frontend and annotation APIs. This does not remove the narrower
 `zuke_annotations` production boundary. `zuke_http_runtime` remains an opt-in
-normal dependency for application-side HTTP registration. `zuke_runner` is a
-source-compatible transition package for existing `0.1.x` consumers.
+normal dependency for application-side HTTP registration. `zuke` is the V2
+primary SDK; `zuke_runner` remains a source-compatible transition package for
+older consumers.
 
 For development from this repository, use `dart pub get` at the workspace root;
 the Pub workspace resolves these hosted constraints to the local packages.
@@ -169,6 +169,8 @@ execution:
       kind: gherkin
       target: flutter
       sourcePackage: my-app
+      sourceAdapter: flutter
+      sourceCompatibilityId: flutter-runner-v2
       evidenceTypes: [gherkin-ui]
       executable: flutter
       args: [test, --no-pub, --reporter, expanded]
@@ -592,7 +594,13 @@ final result = await executor.executeScenario(
 );
 expect(result.status, ScenarioStatus.passed);
 
-const writer = ExecutionResultWriter();
+const writer = ExecutionResultWriter(
+  identity: ExecutionSourceIdentity(
+    sourcePackage: 'shopping-cart',
+    sourceAdapter: 'flutter-test',
+    sourceCompatibilityId: 'flutter-test-v1',
+  ),
+);
 writer.writeScenarioToEnvironment(result);
 ```
 

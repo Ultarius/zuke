@@ -15,7 +15,7 @@ dependencies:
 
 ## Support tier
 
-Repository-only tooling; not published to pub.dev. Release-history verification
+Repository-only verification tooling; not published to pub.dev. Release-history verification
 is exercised by the Zuke workspace and release workflow.
 
 ## License

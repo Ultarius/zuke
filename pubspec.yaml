@@ -4,14 +4,6 @@ publish_to: none
 environment:
   sdk: '>=3.10.0 <4.0.0'
 workspace:
-  - vendor-sdk/assurance_ir
-  - vendor-sdk/adapter_sdk
-  - vendor-sdk/evidence_ledger
-  - vendor-sdk/dart_extractor
-  - vendor-sdk/zuke_generator
-  - vendor-sdk/proof_engine
-  - vendor-sdk/zuke_reporter
-  - vendor-sdk/zuke_adapter_dart_frog
   - vendor-sdk/zuke_core
   - vendor-sdk/zuke_conformance
   - vendor-sdk/zuke_analyzer

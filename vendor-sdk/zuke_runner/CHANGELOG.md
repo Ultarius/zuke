@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.3.0
+
+- Coordinated the compatibility facade with the V2 result identity contract.
+
 ## 0.2.0
 
 - Raised the `zuke` dependency floor for the analyzer-compatible SDK release.

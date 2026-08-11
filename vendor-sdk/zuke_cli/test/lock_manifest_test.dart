@@ -3,7 +3,7 @@ import 'dart:io';
 import 'package:test/test.dart';
 import 'package:zuke_cli/zuke_cli.dart';
 import 'package:zuke_cli/src/manifest_command.dart';
-import 'package:dart_extractor/dart_extractor.dart';
+import 'package:zuke_cli/src/dart_extractor.dart';
 import 'helpers/eligible_workspace.dart';
 import 'cli_test_helper.dart';
 
@@ -299,7 +299,8 @@ class MyApp {
       final result = await runInProcessCli(['lock', '--root', tempDir.path]);
       expect(result.exitCode, equals(0));
 
-      final lockPath = '${tempDir.path}/zuke.lock.json';
+      final lockPath =
+          '${tempDir.path}/assurance/locks/pullRequest.lock.json';
       final lockFile = File(lockPath);
       expect(lockFile.existsSync(), isTrue);
 
@@ -345,7 +346,11 @@ class MyApp {
       var result = await runInProcessCli(['lock', '--root', tempDir.path]);
       expect(result.exitCode, 0, reason: result.stderr);
       final first =
-          jsonDecode(File('${tempDir.path}/zuke.lock.json').readAsStringSync())
+          jsonDecode(
+                File(
+                  '${tempDir.path}/assurance/locks/pullRequest.lock.json',
+                ).readAsStringSync(),
+              )
               as Map;
 
       control.writeAsStringSync(
@@ -354,7 +359,11 @@ class MyApp {
       result = await runInProcessCli(['lock', '--root', tempDir.path]);
       expect(result.exitCode, 0, reason: result.stderr);
       final second =
-          jsonDecode(File('${tempDir.path}/zuke.lock.json').readAsStringSync())
+          jsonDecode(
+                File(
+                  '${tempDir.path}/assurance/locks/pullRequest.lock.json',
+                ).readAsStringSync(),
+              )
               as Map;
       expect(second['policyHash'], isNot(first['policyHash']));
     });
@@ -435,7 +444,12 @@ Feature: Gateway
       ]);
       expect(result.exitCode, isNot(equals(0)));
       expect(result.stderr, contains('Specification lock is stale or missing'));
-      expect(File('${tempDir.path}/zuke.lock.json').existsSync(), isFalse);
+      expect(
+        File(
+          '${tempDir.path}/assurance/locks/pullRequest.lock.json',
+        ).existsSync(),
+        isFalse,
+      );
     });
 
     test('lock re-generated from fresh evidence passes --check', () async {
@@ -490,6 +504,8 @@ Feature: Gateway
         'lock',
         '--root',
         tempDir.path,
+        '--profile',
+        'release',
       ]);
       expect(lockResult.exitCode, equals(0));
 
@@ -524,7 +540,6 @@ Feature: Gateway
         '-m',
         'change source without lock',
       ], workingDirectory: tempDir.path);
-
       await expectLater(
         ManifestCommand.createV2(
           root: tempDir.path,

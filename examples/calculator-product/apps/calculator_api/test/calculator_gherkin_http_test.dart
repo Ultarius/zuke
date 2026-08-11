@@ -150,7 +150,13 @@ void main() {
         MapScenarioWorld.new,
       );
       expect(results.status, ScenarioStatus.passed);
-      const ExecutionResultWriter().writeScenarioToEnvironment(results);
+      const ExecutionResultWriter(
+        identity: ExecutionSourceIdentity(
+          sourcePackage: 'calculator-api',
+          sourceAdapter: 'dart-source',
+          sourceCompatibilityId: 'dart-source-package-v1',
+        ),
+      ).writeScenarioToEnvironment(results);
       // The test produces a raw scenario result only. Zuke CLI binds it
       // to current workspace digests before publishing semantic evidence.
       await driver.dispose(MapScenarioWorld());

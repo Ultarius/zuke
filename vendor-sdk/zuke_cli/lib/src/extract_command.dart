@@ -2,7 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:args/args.dart';
-import 'package:dart_extractor/dart_extractor.dart';
+import 'dart_extractor.dart';
 import 'package:zuke_core/zuke_core.dart';
 
 class ExtractDartCommand {

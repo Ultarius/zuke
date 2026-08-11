@@ -61,5 +61,5 @@ jobs:
           retention-days: 30
           path: |
             examples/calculator-product/assurance-history/v2/
-            examples/calculator-product/zuke.lock.json
+            examples/calculator-product/assurance/locks/release.lock.json
             dist/zuke-calculator-assurance-history.v2.json

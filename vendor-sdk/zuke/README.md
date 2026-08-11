@@ -95,8 +95,8 @@ existing `0.1.x` consumers. New pure-Dart execution code should import `zuke`.
 
 ## Support tier
 
-Primary Zuke pure-Dart SDK. Its runner implementation and exported APIs are
-supported for application and test use during the `0.1.x` preview. Use
+Primary pure-Dart Zuke SDK and supported V2 facade. Its runner implementation
+and exported APIs are supported for application and test use. Use
 `zuke_annotations` directly when production code only needs metadata and the
 execution SDK belongs in `dev_dependencies`.
 
@@ -118,7 +118,7 @@ zuke or zuke_runner_flutter
 Structured scenario results
         |
         v
-zuke validate -> zuke lock -> zuke gate
+zuke validate -> zuke lock --profile <name> -> zuke gate
 ```
 
 The generated source is owned by `zuke_cli`; application code supplies the

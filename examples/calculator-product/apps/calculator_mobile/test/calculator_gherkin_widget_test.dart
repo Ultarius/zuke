@@ -7,6 +7,7 @@ import 'package:calculator_contracts/calculator_contracts.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:zuke_runner_flutter/zuke_runner_flutter.dart';
+import 'package:zuke/assurance.dart';
 
 class _Bindings {
   final first = const Key('test.firstOperand');
@@ -131,7 +132,13 @@ void main() {
       print(result.toJson());
     }
     expect(result.status, ScenarioStatus.passed);
-    const ExecutionResultWriter().writeScenarioToEnvironment(result);
+    const ExecutionResultWriter(
+      identity: ExecutionSourceIdentity(
+        sourcePackage: 'calculator-mobile',
+        sourceAdapter: 'flutter-test',
+        sourceCompatibilityId: 'flutter-test-v1',
+      ),
+    ).writeScenarioToEnvironment(result);
     // The test produces a raw scenario result only. Zuke CLI binds it to
     // current workspace digests before publishing semantic evidence.
     await driver.dispose(world);

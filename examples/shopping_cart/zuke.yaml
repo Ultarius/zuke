@@ -1,4 +1,4 @@
-schemaVersion: 2
+schemaVersion: 3
 
 workspace:
   name: shopping-cart-product
@@ -13,8 +13,10 @@ specifications:
 targets:
   flutter:
     language: dart
+    framework: flutter
     packages:
-      - path: .
+      - id: shopping-cart
+        path: .
         roots: [lib, test]
     contractOutput: lib/src/generated
     extractor: zuke-dart-resolved
@@ -50,6 +52,9 @@ execution:
     - id: shopping-flutter-tests
       kind: gherkin
       target: flutter
+      sourcePackage: shopping-cart
+      sourceAdapter: flutter-test
+      sourceCompatibilityId: flutter-test-v1
       evidenceTypes: [gherkin-ui]
       executable: flutter
       args: [test, --no-pub, --reporter, expanded]
@@ -74,5 +79,6 @@ trust:
   algorithm: ed25519
 
 lock:
-  file: zuke.lock.json
+  directory: assurance/locks
+  profiles: [pullRequest, merge, release, nightly]
   requireCleanGeneration: true

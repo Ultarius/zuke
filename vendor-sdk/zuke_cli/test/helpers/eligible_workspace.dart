@@ -64,7 +64,7 @@ Future<Directory> createEligibleWorkspace(
       ? ''
       : '\n${runnerArgs.map((a) => '        - $a').join('\n')}';
 
-  File('${tempDir.path}/zuke.yaml').writeAsStringSync('''schemaVersion: 2
+  File('${tempDir.path}/zuke.yaml').writeAsStringSync('''schemaVersion: 3
 workspace:
   name: test-workspace
   root: .
@@ -75,16 +75,52 @@ specifications:
 targets:
   backend:
     language: dart
+    framework: dart
+    packages:
+      - id: backend
+        path: .
+        roots: [lib]
+lock:
+  directory: assurance/locks
+  profiles: [pullRequest, merge, release, nightly]
 policies:
   project: specs/policies/project.yaml
 execution:
   runners:
     - id: trivial
       target: backend
+      sourcePackage: backend
+      sourceAdapter: dart-test
+      sourceCompatibilityId: dart-test-v2
       executable: '$runnerExec'
       args:$yamlArgs
       timeoutSeconds: 30
 ''');
+  final packageConfig = _workspacePackageConfig();
+  final repositoryRoot = packageConfig.parent.parent.path.replaceAll('\\', '/');
+  File('${tempDir.path}/pubspec.yaml').writeAsStringSync('''
+name: test_workspace
+environment:
+  sdk: ">=3.10.0 <4.0.0"
+dependencies:
+  zuke_core:
+    path: '$repositoryRoot/vendor-sdk/zuke_core'
+  zuke_annotations:
+    path: '$repositoryRoot/vendor-sdk/zuke_annotations'
+  zuke_http_runtime:
+    path: '$repositoryRoot/vendor-sdk/zuke_http_runtime'
+dependency_overrides:
+  zuke_core:
+    path: '$repositoryRoot/vendor-sdk/zuke_core'
+''');
+  final pubGet = await Process.run(
+    Platform.resolvedExecutable,
+    ['--suppress-analytics', 'pub', 'get', '--offline'],
+    workingDirectory: tempDir.path,
+  );
+  if (pubGet.exitCode != 0) {
+    throw StateError('Fixture pub get failed: ${pubGet.stdout}\n${pubGet.stderr}');
+  }
 
   // 4. Feature file
   final featureDir = Directory('${tempDir.path}/specs/features')
@@ -99,11 +135,6 @@ Feature: Gateway
   # rule-spec-begin
   # id: RULE-GATEWAY-RATE-LIMIT
   # requiredEvidence: []
-  # requires:
-  #   - kind: control
-  #     id: CTRL-GATEWAY-RATE-LIMIT
-  #     target: backend
-  #     variant: default
   # rule-spec-end
   @RULE-GATEWAY-RATE-LIMIT
   Rule: Gateway rate-limit
@@ -212,4 +243,23 @@ providers:
   );
 
   return tempDir;
+}
+
+File _workspacePackageConfig() {
+  var directory = Directory.current.absolute;
+  while (true) {
+    final packageConfig = File(
+      '${directory.path}${Platform.pathSeparator}.dart_tool${Platform.pathSeparator}package_config.json',
+    );
+    if (packageConfig.existsSync() &&
+        File('${directory.path}${Platform.pathSeparator}melos.yaml')
+            .existsSync()) {
+      return packageConfig;
+    }
+    final parent = directory.parent;
+    if (parent.path == directory.path) {
+      throw StateError('Could not locate the workspace package config.');
+    }
+    directory = parent;
+  }
 }

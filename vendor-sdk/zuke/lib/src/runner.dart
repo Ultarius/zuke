@@ -5,6 +5,7 @@ import 'dart:io';
 import 'package:crypto/crypto.dart';
 import 'package:zuke_frontend/zuke_frontend.dart';
 import 'package:zuke_core/zuke_core.dart';
+import 'package:zuke_core/v2.dart';
 import 'step_arguments.dart';
 
 abstract class ScenarioWorld {
@@ -274,6 +275,28 @@ abstract interface class ExecutionResult {
   Map<String, Object?> toJson();
 }
 
+ExecutionSourceIdentity _sourceIdentity({
+  required String? sourcePackage,
+  required String? sourceAdapter,
+  required String? sourceCompatibilityId,
+}) {
+  String requiredValue(String name, String? value) {
+    if (value == null || value.isEmpty) {
+      throw FormatException('Execution result requires non-empty $name');
+    }
+    return value;
+  }
+
+  return ExecutionSourceIdentity(
+    sourcePackage: requiredValue('sourcePackage', sourcePackage),
+    sourceAdapter: requiredValue('sourceAdapter', sourceAdapter),
+    sourceCompatibilityId: requiredValue(
+      'sourceCompatibilityId',
+      sourceCompatibilityId,
+    ),
+  );
+}
+
 class ScenarioResult implements ExecutionResult {
   @override
   final String executionId;
@@ -334,13 +357,36 @@ class ScenarioResult implements ExecutionResult {
     this.error,
   });
 
-  Map<String, Object?> toJson() => {
-    'schemaVersion':
-        sourcePackage == null &&
-                sourceAdapter == null &&
-                sourceCompatibilityId == null
-            ? 'zuke.scenario-result.v1'
-            : 'zuke.scenario-result.v2',
+  ScenarioResult withSourceIdentity(ExecutionSourceIdentity identity) =>
+      ScenarioResult(
+        executionId: executionId,
+        status: status,
+        steps: steps,
+        requirementId: requirementId,
+        evidenceType: evidenceType,
+        target: target,
+        variant: variant,
+        candidateId: candidateId,
+        profile: profile,
+        runnerId: runnerId,
+        runnerCompatibilityId: runnerCompatibilityId,
+        sourcePackage: identity.sourcePackage,
+        sourceAdapter: identity.sourceAdapter,
+        sourceCompatibilityId: identity.sourceCompatibilityId,
+        scenarioIds: scenarioIds,
+        controlIds: controlIds,
+        attachmentDigests: attachmentDigests,
+        error: error,
+      );
+
+  Map<String, Object?> toJson() {
+    final identity = _sourceIdentity(
+      sourcePackage: sourcePackage,
+      sourceAdapter: sourceAdapter,
+      sourceCompatibilityId: sourceCompatibilityId,
+    );
+    return {
+    'schemaVersion': 'zuke.scenario-result.v2',
     'executionId': executionId,
     'status': status.name,
     'requirementId': requirementId,
@@ -351,20 +397,17 @@ class ScenarioResult implements ExecutionResult {
     'profile': profile,
     'runnerId': runnerId,
     'runnerCompatibilityId': runnerCompatibilityId,
-    if (sourcePackage != null) 'sourcePackage': sourcePackage,
-    if (sourceAdapter != null) 'sourceAdapter': sourceAdapter,
-    if (sourceCompatibilityId != null)
-      'sourceCompatibilityId': sourceCompatibilityId,
+    ...identity.toJson(),
     'scenarioIds': scenarioIds.map((id) => id.value).toList()..sort(),
     'controlIds': [...controlIds]..sort(),
     'attachmentDigests': [...attachmentDigests]..sort(),
     'steps': steps.map((s) => s.toJson()).toList(),
     if (error != null) 'error': error,
   };
+  }
 
   factory ScenarioResult.fromJson(Map<String, Object?> json) {
-    if (json['schemaVersion'] != 'zuke.scenario-result.v1' &&
-        json['schemaVersion'] != 'zuke.scenario-result.v2') {
+    if (json['schemaVersion'] != 'zuke.scenario-result.v2') {
       throw const FormatException('Unsupported scenario result schema');
     }
     String required(String key) {
@@ -387,15 +430,6 @@ class ScenarioResult implements ExecutionResult {
       return value.cast<String>();
     }
 
-    String? optionalString(String key) {
-      final value = json[key];
-      if (value == null) return null;
-      if (value is! String || value.isEmpty) {
-        throw FormatException('Scenario result $key must be a non-empty string');
-      }
-      return value;
-    }
-
     final status = switch (required('status')) {
       'passed' => ScenarioStatus.passed,
       'failed' => ScenarioStatus.failed,
@@ -414,9 +448,9 @@ class ScenarioResult implements ExecutionResult {
       profile: required('profile'),
       runnerId: required('runnerId'),
       runnerCompatibilityId: required('runnerCompatibilityId'),
-      sourcePackage: optionalString('sourcePackage'),
-      sourceAdapter: optionalString('sourceAdapter'),
-      sourceCompatibilityId: optionalString('sourceCompatibilityId'),
+      sourcePackage: required('sourcePackage'),
+      sourceAdapter: required('sourceAdapter'),
+      sourceCompatibilityId: required('sourceCompatibilityId'),
       scenarioIds: [
         for (final id in strings('scenarioIds')) ScenarioId.parse(id),
       ],
@@ -498,13 +532,36 @@ class SuiteResult implements ExecutionResult {
     this.error,
   });
 
-  Map<String, Object?> toJson() => {
-    'schemaVersion':
-        sourcePackage == null &&
-                sourceAdapter == null &&
-                sourceCompatibilityId == null
-            ? 'zuke.suite-result.v1'
-            : 'zuke.suite-result.v2',
+  SuiteResult withSourceIdentity(ExecutionSourceIdentity identity) =>
+      SuiteResult(
+        executionId: executionId,
+        status: status,
+        requirementId: requirementId,
+        evidenceType: evidenceType,
+        target: target,
+        variant: variant,
+        candidateId: candidateId,
+        profile: profile,
+        runnerId: runnerId,
+        runnerCompatibilityId: runnerCompatibilityId,
+        sourcePackage: identity.sourcePackage,
+        sourceAdapter: identity.sourceAdapter,
+        sourceCompatibilityId: identity.sourceCompatibilityId,
+        resultDigest: resultDigest,
+        scenarioIds: scenarioIds,
+        controlIds: controlIds,
+        attachmentDigests: attachmentDigests,
+        error: error,
+      );
+
+  Map<String, Object?> toJson() {
+    final identity = _sourceIdentity(
+      sourcePackage: sourcePackage,
+      sourceAdapter: sourceAdapter,
+      sourceCompatibilityId: sourceCompatibilityId,
+    );
+    return {
+    'schemaVersion': 'zuke.suite-result.v2',
     'executionId': executionId,
     'status': status.name,
     'requirementId': requirementId,
@@ -515,20 +572,17 @@ class SuiteResult implements ExecutionResult {
     'profile': profile,
     'runnerId': runnerId,
     'runnerCompatibilityId': runnerCompatibilityId,
-    if (sourcePackage != null) 'sourcePackage': sourcePackage,
-    if (sourceAdapter != null) 'sourceAdapter': sourceAdapter,
-    if (sourceCompatibilityId != null)
-      'sourceCompatibilityId': sourceCompatibilityId,
+    ...identity.toJson(),
     'resultDigest': resultDigest,
     'scenarioIds': scenarioIds.map((id) => id.value).toList()..sort(),
     'controlIds': [...controlIds]..sort(),
     'attachmentDigests': [...attachmentDigests]..sort(),
     if (error != null) 'error': error,
   };
+  }
 
   factory SuiteResult.fromJson(Map<String, Object?> json) {
-    if (json['schemaVersion'] != 'zuke.suite-result.v1' &&
-        json['schemaVersion'] != 'zuke.suite-result.v2') {
+    if (json['schemaVersion'] != 'zuke.suite-result.v2') {
       throw const FormatException('Unsupported suite result schema');
     }
     String required(String key) {
@@ -547,15 +601,6 @@ class SuiteResult implements ExecutionResult {
       return value.cast<String>();
     }
 
-    String? optionalString(String key) {
-      final value = json[key];
-      if (value == null) return null;
-      if (value is! String || value.isEmpty) {
-        throw FormatException('Suite result $key must be a non-empty string');
-      }
-      return value;
-    }
-
     return SuiteResult(
       executionId: required('executionId'),
       status: switch (required('status')) {
@@ -572,9 +617,9 @@ class SuiteResult implements ExecutionResult {
       profile: required('profile'),
       runnerId: required('runnerId'),
       runnerCompatibilityId: required('runnerCompatibilityId'),
-      sourcePackage: optionalString('sourcePackage'),
-      sourceAdapter: optionalString('sourceAdapter'),
-      sourceCompatibilityId: optionalString('sourceCompatibilityId'),
+      sourcePackage: required('sourcePackage'),
+      sourceAdapter: required('sourceAdapter'),
+      sourceCompatibilityId: required('sourceCompatibilityId'),
       resultDigest: required('resultDigest'),
       scenarioIds: [
         for (final id in strings('scenarioIds')) ScenarioId.parse(id),
@@ -587,16 +632,30 @@ class SuiteResult implements ExecutionResult {
 }
 
 class ExecutionResultWriter {
-  const ExecutionResultWriter();
+  final ExecutionSourceIdentity identity;
+
+  const ExecutionResultWriter({required this.identity});
+
+  factory ExecutionResultWriter.fromEnvironment([
+    Map<String, String>? environment,
+  ]) => ExecutionResultWriter(
+    identity: ExecutionSourceIdentity.fromEnvironment(
+      environment ?? Platform.environment,
+    ),
+  );
 
   File writeScenario(String directory, ScenarioResult result) => _writeAtomic(
     directory,
     'scenario-${result.executionId}',
-    result.toJson(),
+    result.withSourceIdentity(identity).toJson(),
   );
 
   File writeSuite(String directory, SuiteResult result) =>
-      _writeAtomic(directory, 'suite-${result.executionId}', result.toJson());
+      _writeAtomic(
+        directory,
+        'suite-${result.executionId}',
+        result.withSourceIdentity(identity).toJson(),
+      );
 
   File? writeScenarioToEnvironment(ScenarioResult result) {
     final directory = Platform.environment['ZUKE_RESULT_DIR'];
@@ -615,40 +674,11 @@ class ExecutionResultWriter {
     final destination = File('${root.path}${Platform.pathSeparator}$stem.json');
     final temporary = File('${destination.path}.tmp');
     temporary.writeAsStringSync(
-      const JsonEncoder.withIndent('  ').convert(_withEnvironmentIdentity(json)) +
-          '\n',
+      const JsonEncoder.withIndent('  ').convert(json) + '\n',
       flush: true,
     );
     if (destination.existsSync()) destination.deleteSync();
     return temporary.renameSync(destination.path);
-  }
-
-  Map<String, Object?> _withEnvironmentIdentity(Map<String, Object?> json) {
-    final sourcePackage = Platform.environment['ZUKE_SOURCE_PACKAGE'];
-    final sourceAdapter = Platform.environment['ZUKE_SOURCE_ADAPTER'];
-    final sourceCompatibilityId =
-        Platform.environment['ZUKE_SOURCE_COMPATIBILITY_ID'];
-    if ([sourcePackage, sourceAdapter, sourceCompatibilityId]
-        .every((value) => value == null || value.isEmpty)) {
-      return json;
-    }
-    final result = Map<String, Object?>.from(json);
-    final schema = result['schemaVersion']?.toString() ?? '';
-    if (schema == 'zuke.scenario-result.v1') {
-      result['schemaVersion'] = 'zuke.scenario-result.v2';
-    } else if (schema == 'zuke.suite-result.v1') {
-      result['schemaVersion'] = 'zuke.suite-result.v2';
-    }
-    if (sourcePackage != null && sourcePackage.isNotEmpty) {
-      result['sourcePackage'] = sourcePackage;
-    }
-    if (sourceAdapter != null && sourceAdapter.isNotEmpty) {
-      result['sourceAdapter'] = sourceAdapter;
-    }
-    if (sourceCompatibilityId != null && sourceCompatibilityId.isNotEmpty) {
-      result['sourceCompatibilityId'] = sourceCompatibilityId;
-    }
-    return result;
   }
 }
 
@@ -670,13 +700,17 @@ final class SuiteEvidenceEmitter {
     String? outputDirectory,
     String? profile,
     String? runnerId,
+    ExecutionSourceIdentity? sourceIdentity,
   }) {
     final effectiveProfile =
         profile ?? Platform.environment['ZUKE_PROFILE'] ?? 'pullRequest';
     final effectiveRunnerId =
         runnerId ?? Platform.environment['ZUKE_RUNNER_ID'] ?? 'zuke-runner';
     final digest = 'sha256:${sha256.convert(utf8.encode(digestInput))}';
-    final writer = const ExecutionResultWriter();
+    final identity =
+        sourceIdentity ??
+        ExecutionSourceIdentity.fromEnvironment(Platform.environment);
+    final writer = ExecutionResultWriter(identity: identity);
     final files = <File>[];
     for (final evidenceType in evidenceTypes.toSet()) {
       final result = SuiteResult(
@@ -690,6 +724,9 @@ final class SuiteEvidenceEmitter {
         profile: effectiveProfile,
         runnerId: effectiveRunnerId,
         runnerCompatibilityId: runnerCompatibilityId,
+        sourcePackage: identity.sourcePackage,
+        sourceAdapter: identity.sourceAdapter,
+        sourceCompatibilityId: identity.sourceCompatibilityId,
         resultDigest: digest,
         scenarioIds: [scenarioId],
       );
@@ -821,6 +858,7 @@ class ScenarioExecutor<W extends ScenarioWorld> {
 
   /// Controls exercised by every result emitted by this executor.
   final Set<String> controlIds;
+  final ExecutionSourceIdentity? sourceIdentity;
 
   const ScenarioExecutor({
     required this.registry,
@@ -833,6 +871,7 @@ class ScenarioExecutor<W extends ScenarioWorld> {
     this.runnerId,
     this.runnerCompatibilityId,
     this.controlIds = const {},
+    this.sourceIdentity,
   });
 
   Future<List<ScenarioResult>> executeRule(
@@ -904,6 +943,9 @@ class ScenarioExecutor<W extends ScenarioWorld> {
       profile: profile,
       runnerId: runnerId ?? 'zuke-runner',
       runnerCompatibilityId: runnerCompatibilityId ?? 'zuke-runner-scenario-v1',
+      sourcePackage: sourceIdentity?.sourcePackage,
+      sourceAdapter: sourceIdentity?.sourceAdapter,
+      sourceCompatibilityId: sourceIdentity?.sourceCompatibilityId,
       scenarioIds: scenarioIds,
       controlIds: controlIds.toList(),
       error: error,

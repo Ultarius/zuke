@@ -1,7 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:zuke_test_support/zuke_test_support.dart';
+import 'support/temporary_directory.dart';
 import 'package:test/test.dart';
 import 'helpers/eligible_workspace.dart';
 import 'cli_test_helper.dart';
@@ -31,7 +31,9 @@ void main() {
         ]);
         expect(writeResult.exitCode, 0);
 
-        final lockFile = File('${root.path}/zuke.lock.json');
+        final lockFile = File(
+          '${root.path}/assurance/locks/pullRequest.lock.json',
+        );
         expect(lockFile.existsSync(), isTrue);
 
         final json =
@@ -79,7 +81,9 @@ void main() {
         ]);
         expect(writeResult.exitCode, 0);
 
-        final lockFile = File('${root.path}/zuke.lock.json');
+        final lockFile = File(
+          '${root.path}/assurance/locks/pullRequest.lock.json',
+        );
         final originalContent = lockFile.readAsStringSync();
 
         // 2. Run check command — must pass and NOT modify the lock file

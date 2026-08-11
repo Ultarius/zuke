@@ -77,7 +77,7 @@ jobs:
           name: zuke-calculator-product-assurance-${{ matrix.os }}
           path: |
             examples/calculator-product/generated/
-            examples/calculator-product/zuke.lock.json
+            examples/calculator-product/assurance/locks/${{ inputs.profile }}.lock.json
             examples/calculator-product/assurance-history/
             vendor-sdk/*/coverage/lcov.info
             examples/calculator-product/**/coverage/lcov.info

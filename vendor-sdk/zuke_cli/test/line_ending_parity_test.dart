@@ -64,15 +64,7 @@ void main() {
       final zukeText = zuke
           .readAsStringSync()
           .replaceAll('\r\n', '\n')
-          .replaceAll('\r', '\n')
-          .replaceFirst(
-            '  backend:\n    language: dart\n',
-            '  backend:\n'
-                '    language: dart\n'
-                '    packages:\n'
-                '      - path: .\n'
-                '        roots: [lib]\n',
-          );
+          .replaceAll('\r', '\n');
       zuke.writeAsStringSync(zukeText.replaceAll('\n', lineEnding));
       final repositoryRoot = _repositoryRoot().path.replaceAll('\\', '/');
       File('${dir.path}/pubspec.yaml').writeAsStringSync(
@@ -175,13 +167,15 @@ final application = ZukeHttpApplication(
 
         final lfLock =
             jsonDecode(
-                  File('${lfWorkspace.path}/zuke.lock.json').readAsStringSync(),
+                  File(
+                    '${lfWorkspace.path}/assurance/locks/pullRequest.lock.json',
+                  ).readAsStringSync(),
                 )
                 as Map<String, dynamic>;
         final crlfLock =
             jsonDecode(
                   File(
-                    '${crlfWorkspace.path}/zuke.lock.json',
+                    '${crlfWorkspace.path}/assurance/locks/pullRequest.lock.json',
                   ).readAsStringSync(),
                 )
                 as Map<String, dynamic>;
@@ -333,6 +327,19 @@ final application = ZukeHttpApplication(
       'signed attestation verification tolerates JSON line endings',
       () async {
         await populate(lfWorkspace, '\n');
+        final feature = File(
+          '${lfWorkspace.path}/specs/features/gateway.feature',
+        );
+        feature.writeAsStringSync(
+          feature.readAsStringSync().replaceFirst(
+            '# requiredEvidence: []',
+            '# requires:\n'
+                '#   - kind: control\n'
+                '#     id: CTRL-GATEWAY-RATE-LIMIT\n'
+                '#     target: backend\n'
+                '#     variant: default',
+          ),
+        );
         final attestation = File(
           '${lfWorkspace.path}/attestations/gateway.json',
         );

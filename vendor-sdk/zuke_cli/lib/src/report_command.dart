@@ -5,6 +5,7 @@ import 'package:args/args.dart';
 import 'package:zuke_frontend/zuke_frontend.dart';
 
 import 'extraction_service.dart';
+import 'lock_command.dart';
 import 'proof_engine.dart';
 import 'reporter.dart';
 
@@ -180,7 +181,9 @@ class ReportCommand {
     final registriesMap = Map<String, Object?>.from(workspace.data.registries);
 
     Map<String, Object?> lockDigests = {};
-    final lockFile = File('$root/zuke.lock.json');
+    final lockFile = File(
+      resolveProfileLockPath(root, workspace, 'pullRequest'),
+    );
     if (lockFile.existsSync()) {
       try {
         final lockJson = jsonDecode(lockFile.readAsStringSync());

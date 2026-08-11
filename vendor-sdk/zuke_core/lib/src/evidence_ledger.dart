@@ -81,10 +81,12 @@ class Ed25519ReleaseSigner {
     final bytes = utf8.encode('$_domain${canonicalJson(unsigned)}');
     if (sha256.convert(bytes).toString() != expectedDigest) return false;
     if (trustedPublicKey == null) return false;
-    final publicKeyBytes = trustedPublicKey;
     final signature = Signature(
       base64Decode(signatureText),
-      publicKey: SimplePublicKey(publicKeyBytes, type: KeyPairType.ed25519),
+      publicKey: SimplePublicKey(
+        trustedPublicKey,
+        type: KeyPairType.ed25519,
+      ),
     );
     return algorithm.verify(bytes, signature: signature);
   }
@@ -220,15 +222,16 @@ class TrustedReleaseVerifier {
       return false;
     }
     if (!RegExp(r'^[a-f0-9]{64}$').hasMatch(body['lockDigest'] as String) ||
-        !RegExp(
-          r'^sha256:[a-f0-9]{64}$',
-        ).hasMatch(body['policyHash'] as String) ||
-        !RegExp(
-          r'^sha256:[a-f0-9]{64}$',
-        ).hasMatch(body['evidenceRequirementsHash'] as String)) {
+        !RegExp(r'^sha256:[a-f0-9]{64}$').hasMatch(
+          body['policyHash'] as String,
+        ) ||
+        !RegExp(r'^sha256:[a-f0-9]{64}$').hasMatch(
+          body['evidenceRequirementsHash'] as String,
+        )) {
       return false;
     }
-    if (body['repositoryState'] == '0000000000000000000000000000000000000000') {
+    if (body['repositoryState'] ==
+        '0000000000000000000000000000000000000000') {
       return false;
     }
     final key = trust.find(signerId, keyId, 'release');
@@ -237,9 +240,7 @@ class TrustedReleaseVerifier {
   }
 }
 
-/// Verifies a separately signed external-control attestation.  Attestations
-/// deliberately use a different domain separator and trust usage from release
-/// records so a release key cannot be repurposed accidentally.
+/// Verifies a separately signed external-control attestation.
 class SignedAttestationVerifier {
   static const _domain = 'Zuke external control attestation v1\u0000';
   final Ed25519 algorithm;
@@ -280,9 +281,9 @@ class SignedAttestationVerifier {
         return false;
       }
     }
-    if (!RegExp(
-      r'^sha256:[a-f0-9]{64}$',
-    ).hasMatch(body['evidenceDigest'] as String)) {
+    if (!RegExp(r'^sha256:[a-f0-9]{64}$').hasMatch(
+      body['evidenceDigest'] as String,
+    )) {
       return false;
     }
     final signerId = signer['signerId'];
