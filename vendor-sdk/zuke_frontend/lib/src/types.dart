@@ -69,6 +69,9 @@ class ParsedMetadata {
   /// Required evidence types.
   final List<String>? requiredEvidence;
 
+  /// V3 exact evidence slots. Each map is validated by the proof engine.
+  final List<Map<String, String>>? evidenceRequirements;
+
   /// Security profile name.
   final String? securityProfile;
 
@@ -97,6 +100,7 @@ class ParsedMetadata {
     this.performance,
     this.requires,
     this.requiredEvidence,
+    this.evidenceRequirements,
     this.securityProfile,
     this.extensions = const {},
     this.errors = const [],

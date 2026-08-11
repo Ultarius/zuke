@@ -3,8 +3,11 @@ import 'dart:async';
 import 'dart:io';
 import 'package:crypto/crypto.dart';
 
+import 'package:dart_extractor/dart_extractor.dart';
 import 'package:zuke_core/zuke_core.dart';
 import 'package:zuke_frontend/zuke_frontend.dart';
+import 'package:adapter_sdk/adapter_sdk.dart';
+import 'package:zuke_adapter_dart_frog/zuke_adapter_dart_frog.dart';
 
 class WorkspaceExtraction {
   final List<AdapterOutput> outputs;
@@ -38,10 +41,12 @@ class ExtractionService {
       if (targetConfig is! Map) continue;
       final language = targetConfig['language'];
       if (language == 'dart') {
+        final framework = targetConfig['framework'] as String?;
         final packages = targetConfig['packages'];
         if (packages is! List) continue;
         for (final package in packages) {
           if (package is! Map || package['path'] is! String) continue;
+          final packageId = package['id'] as String? ?? package['path'] as String;
           final packageRoot = _join(root, package['path'] as String);
           if (!Directory(packageRoot).existsSync()) {
             errors.add('target package not found: $packageRoot');
@@ -50,11 +55,27 @@ class ExtractionService {
           final roots =
               (package['roots'] as List?)?.whereType<String>().toList() ??
               const ['lib'];
+          if (framework == 'dart-frog') {
+            final topology = await const DartFrogAdapter().extract(
+              AdapterRequest(
+                workspaceRoot: root,
+                targetId: target.key,
+                packageId: packageId,
+                packageRoot: packageRoot,
+                configuredRoots: roots,
+              ),
+            );
+            errors.addAll(topology.diagnostics.map(
+              (diagnostic) => '${diagnostic.code}: ${diagnostic.message}',
+            ));
+          }
           final cacheKey = _sourceDigest(
             packageRoot,
             roots,
-            'dart-http-v3',
-            DartExtractor.compatibilityId,
+            framework == 'dart-frog' ? 'dart-frog' : 'dart-http-v3',
+            framework == 'dart-frog'
+                ? dartFrogCompatibilityId
+                : DartExtractor.compatibilityId,
           );
           final cached = _loadCached(root, 'dart', cacheKey);
           AdapterOutput output;

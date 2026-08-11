@@ -1,13 +1,13 @@
 name: evidence_ledger
 description: Hash-linked assurance evidence ledger primitives.
-version: 0.1.0
+version: 0.2.0
 environment:
   sdk: '>=3.10.0 <4.0.0'
 resolution: workspace
 dependencies:
   crypto: ^3.0.3
   cryptography: ^2.9.0
-  assurance_ir: ^0.1.0
+  assurance_ir: ^0.2.0
 dev_dependencies:
   test: ^1.26.0
 repository: https://github.com/Ultarius/zuke

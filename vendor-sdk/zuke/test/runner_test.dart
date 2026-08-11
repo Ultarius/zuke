@@ -417,6 +417,31 @@ Feature: Run
     expect(decoded.candidateId, 'SCN-RUN-001');
   });
 
+  test('V2 result artifacts preserve target source identity', () {
+    const result = SuiteResult(
+      executionId: 'execution-v2',
+      status: SuiteStatus.passed,
+      requirementId: 'RULE-RUN-002',
+      evidenceType: 'websocket-contract',
+      target: 'contract',
+      candidateId: 'SCN-RUN-002',
+      profile: 'pullRequest',
+      runnerId: 'contract-runner',
+      runnerCompatibilityId: 'runner-v2',
+      sourcePackage: 'secret-society-contract',
+      sourceAdapter: 'dart',
+      sourceCompatibilityId: 'dart-contract-runner-v2',
+      resultDigest: 'sha256:result',
+    );
+
+    final json = result.toJson();
+    expect(json['schemaVersion'], 'zuke.suite-result.v2');
+    final decoded = SuiteResult.fromJson(json);
+    expect(decoded.sourcePackage, 'secret-society-contract');
+    expect(decoded.sourceAdapter, 'dart');
+    expect(decoded.sourceCompatibilityId, 'dart-contract-runner-v2');
+  });
+
   test('scenario execution reports ambiguity and action failures', () async {
     const source = '''
 # spec-begin

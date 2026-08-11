@@ -32,7 +32,7 @@ void main() {
         'pullRequest',
       ]);
 
-      expect(result.stdout, contains('Gate [generate]:'));
+      expect(result.stdout, contains('Gate [generate-check]:'));
     });
 
     test('GateCommand emits JSON format envelope when --format json', () async {
@@ -47,7 +47,7 @@ void main() {
         'json',
       ]);
       expect(result.exitCode, 0);
-      expect(result.stdout, contains('"schemaVersion":"zuke.gate.v1"'));
+      expect(result.stdout, contains('"schemaVersion":"zuke.command-result.v2"'));
     });
 
     test(

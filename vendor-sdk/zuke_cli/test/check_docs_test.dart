@@ -108,6 +108,14 @@ void _writeBaseline(Directory root) {
     'zuke_cli',
     'zuke_verifier',
     'zuke_test_support',
+    'assurance_ir',
+    'adapter_sdk',
+    'evidence_ledger',
+    'dart_extractor',
+    'zuke_generator',
+    'proof_engine',
+    'zuke_reporter',
+    'zuke_adapter_dart_frog',
   ];
   final paths = <String>[];
   for (final name in packageNames) {
@@ -124,6 +132,13 @@ void _writeBaseline(Directory root) {
       'zuke_verifier' ||
       'zuke_test_support' =>
         'Repository-only tooling; not published to pub.dev.',
+      'assurance_ir' || 'adapter_sdk' => 'Adapter-author surface.',
+      'evidence_ledger' ||
+      'dart_extractor' ||
+      'zuke_generator' ||
+      'proof_engine' ||
+      'zuke_reporter' => 'Published implementation dependency.',
+      'zuke_adapter_dart_frog' => 'Supported adapter extension API.',
       _ => 'Supported application-facing public API.',
     };
     final publishTo = switch (name) {
@@ -134,8 +149,22 @@ void _writeBaseline(Directory root) {
       _ => '',
     };
     final version = switch (name) {
-      'zuke_runner' || 'zuke_runner_flutter' => '0.1.1',
-      'zuke_cli' => '0.2.0',
+      'zuke_runner' || 'zuke_runner_flutter' => '0.3.0',
+      'zuke_cli' => '0.4.0',
+      'zuke_core' => '0.3.0',
+      'zuke_annotations' => '0.3.0',
+      'zuke_frontend' => '0.2.0',
+      'zuke' => '0.3.0',
+      'zuke_dart_build_hook' => '0.3.0',
+      'zuke_http_runtime' => '0.1.1',
+      'assurance_ir' ||
+      'adapter_sdk' ||
+      'evidence_ledger' ||
+      'dart_extractor' ||
+      'zuke_generator' ||
+      'proof_engine' ||
+      'zuke_reporter' => '0.2.0',
+      'zuke_adapter_dart_frog' => '0.1.0',
       _ => '0.1.0',
     };
     File('${directory.path}/pubspec.yaml').writeAsStringSync(
@@ -148,6 +177,26 @@ void _writeBaseline(Directory root) {
     ..writeAsStringSync('workspace:\n${paths.join('\n')}\n');
   File('${root.path}/README.md').writeAsStringSync('# root\n');
   Directory('${root.path}/docs').createSync(recursive: true);
+  File('${root.path}/docs/release-matrix.yaml').writeAsStringSync('''
+packages:
+  zuke: 0.3.0
+  zuke_core: 0.3.0
+  zuke_annotations: 0.3.0
+  zuke_frontend: 0.2.0
+  zuke_runner: 0.3.0
+  zuke_runner_flutter: 0.3.0
+  zuke_http_runtime: 0.1.1
+  zuke_dart_build_hook: 0.3.0
+  zuke_cli: 0.4.0
+  assurance_ir: 0.2.0
+  adapter_sdk: 0.2.0
+  evidence_ledger: 0.2.0
+  dart_extractor: 0.2.0
+  zuke_generator: 0.2.0
+  proof_engine: 0.2.0
+  zuke_reporter: 0.2.0
+  zuke_adapter_dart_frog: 0.1.0
+''');
   File('${root.path}/docs/integration-guide.md').writeAsStringSync('# guide\n');
   Directory('${root.path}/examples').createSync(recursive: true);
   Directory('${root.path}/.github').createSync(recursive: true);

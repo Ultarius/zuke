@@ -1,6 +1,23 @@
 {
-  "schemaVersion": "zuke.diagnostic-registry.v1",
+  "schemaVersion": "zuke.diagnostic-registry.v2",
+  "defaults": {
+    "owner": "unknown",
+    "remediation": "Use the diagnostic code and command context to determine the owning repository."
+  },
   "diagnostics": [
+    {"code": "ZK-DART-FROG-001", "severity": "error", "summary": "Dart Frog route configuration could not be built.", "owner": "zuke", "remediation": "Fix the Dart Frog topology or mark the affected dimension indeterminate."},
+    {"code": "ZK-DART-FROG-002", "severity": "error", "summary": "Dart Frog route registrations conflict.", "owner": "zuke", "remediation": "Resolve the conflicting route files before relying on topology evidence."},
+    {"code": "ZK-DART-FROG-003", "severity": "error", "summary": "A Dart Frog route handler could not be resolved.", "owner": "zuke", "remediation": "Restore the generated route handler or report an incomplete graph."},
+    {"code": "ZK-DART-FROG-004", "severity": "error", "summary": "A Dart Frog route is outside the generated topology.", "owner": "zuke", "remediation": "Remove the rogue route or make its registration statically resolvable."},
+    {"code": "ZK-DART-FROG-005", "severity": "error", "summary": "A Dart Frog middleware file could not be resolved.", "owner": "zuke", "remediation": "Resolve the middleware path from the configured package root."},
+    {"code": "ZK-DART-FROG-006", "severity": "error", "summary": "A Dart Frog middleware chain contains an unresolved use call.", "owner": "zuke", "remediation": "Use statically resolvable middleware calls or keep middleware completeness indeterminate."},
+    {"code": "ZK-DART-SOURCE-001", "severity": "error", "summary": "A Dart source package could not be resolved.", "owner": "environment", "remediation": "Check the configured package root and workspace dependency state."},
+    {"code": "ZK-DOCTOR-001", "severity": "error", "summary": "The V2 workspace doctor found an invalid project setup.", "owner": "project", "remediation": "Resolve the structured doctor diagnostic before running assurance."},
+    {"code": "ZK-DOCTOR-002", "severity": "error", "summary": "A required V2 workspace identity is missing.", "owner": "project", "remediation": "Declare the target, package, runner, and evidence identities explicitly."},
+    {"code": "ZK-EVIDENCE-AMBIGUOUS-SOURCE", "severity": "error", "summary": "Evidence matched multiple source identities.", "owner": "zuke", "remediation": "Declare an exact target, package, adapter, and variant slot."},
+    {"code": "ZK-EVIDENCE-MISSING-SOURCE", "severity": "error", "summary": "Evidence has no matching source identity.", "owner": "zuke", "remediation": "Regenerate the record from the configured V2 runner."},
+    {"code": "ZK-RESULT-MISSING", "severity": "error", "summary": "Zuke did not emit a structured command result.", "owner": "unknown", "remediation": "Treat the run as blocked and attach only sanitized command context."},
+    {"code": "ZK-TEST-001", "severity": "error", "summary": "A configured test runner did not produce an acceptable result.", "owner": "project", "remediation": "Run the direct suite and inspect its structured result artifact."},
     {"code": "ZUKE-ANNOTATION-001", "severity": "error", "summary": "A specification annotation is invalid."},
     {"code": "ZUKE-ATTEST-EXPIRING", "severity": "warning", "summary": "An external attestation is approaching expiry."},
     {"code": "ZUKE-BATCH-UNSAFE-ARGUMENT", "severity": "error", "summary": "A batch command argument is unsafe."},

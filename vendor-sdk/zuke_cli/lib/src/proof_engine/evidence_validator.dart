@@ -62,7 +62,7 @@ class EvidenceValidator {
         : null;
 
     // B2: Build valid mappings to check for unmapped records
-    final validMappings = <String>{}; // Contains "ruleId|evidenceType|target"
+    final validMappings = <String>{};
     final ruleById = <String, ParsedRule>{};
     final featureByRuleId = <String, ParsedFeature>{};
     for (final feature in workspace.data.features) {
@@ -73,9 +73,33 @@ class EvidenceValidator {
         featureByRuleId[id] = feature;
         final requiredEvidence = rule.metadata.requiredEvidence ?? const [];
         for (final type in requiredEvidence) {
-          final expectedTarget = _evidenceTargets[type];
-          if (expectedTarget == null) continue;
-          validMappings.add('$id|$type|$expectedTarget');
+          final slots = rule.metadata.evidenceRequirements
+              ?.where((slot) =>
+                  slot['type'] == type || slot['evidenceType'] == type)
+              .toList();
+          if (slots != null && slots.isNotEmpty) {
+            for (final slot in slots) {
+              final expectedTarget = slot['target'];
+              if (expectedTarget == null) continue;
+              validMappings.add(
+                workspace.config.schemaVersion >= 3
+                    ? _v3MappingKey(
+                        id,
+                        type,
+                        expectedTarget,
+                        slot['variant'] ?? 'default',
+                        slot['sourcePackage'],
+                        slot['sourceAdapter'],
+                      )
+                    : '$id|$type|$expectedTarget',
+              );
+            }
+          } else {
+            final expectedTarget = _targetForEvidence(workspace, type);
+            if (expectedTarget != null && workspace.config.schemaVersion < 3) {
+              validMappings.add('$id|$type|$expectedTarget');
+            }
+          }
         }
       }
     }
@@ -87,7 +111,16 @@ class EvidenceValidator {
       final target = record.target;
 
       // ZUKE-EVIDENCE-005: Reject unmapped records
-      final mappingKey = '$id|$type|$target';
+      final mappingKey = workspace.config.schemaVersion >= 3
+          ? _v3MappingKey(
+              id,
+              type,
+              target,
+              record.variant,
+              record.sourcePackage,
+              record.sourceAdapter,
+            )
+          : '$id|$type|$target';
       if (!validMappings.contains(mappingKey)) {
         errors.add(
           ValidationMessage(
@@ -358,6 +391,16 @@ class EvidenceValidator {
   ) {
     final id = record.requirementId;
 
+    if (workspace.config.schemaVersion >= 3) {
+      final slot = _slotForRequirement(workspace, id, record.evidenceType);
+      if (slot != null &&
+          (record.variant != (slot['variant'] ?? 'default') ||
+              record.sourcePackage != slot['sourcePackage'] ||
+              record.sourceAdapter != slot['sourceAdapter'])) {
+        return true;
+      }
+    }
+
     if (record.digests.containsKey('contract') &&
         record.digests['contract'] != contractDigest) {
       return true;
@@ -418,20 +461,73 @@ class EvidenceValidator {
           ),
         )
         .toList();
+    final configuredTarget = _targetForRule(rule, type, workspace);
+    final slot = _slotForRule(rule, type);
+    final variant = slot?['variant'] ?? 'default';
+    final sourcePackage = slot?['sourcePackage'];
+    final sourceAdapter = slot?['sourceAdapter'];
     switch (type) {
       case 'domain-unit':
-        return _hasPassedEvidence(executionEvidence, id, type, 'backend');
+        return _hasPassedEvidence(
+          executionEvidence,
+          id,
+          type,
+          configuredTarget ?? 'backend',
+          variant: variant,
+          sourcePackage: sourcePackage,
+          sourceAdapter: sourceAdapter,
+        );
       case 'flutter-widget':
       case 'accessibility-integration':
-        return _hasPassedEvidence(executionEvidence, id, type, 'flutter');
+        return _hasPassedEvidence(
+          executionEvidence,
+          id,
+          type,
+          configuredTarget ?? 'flutter',
+          variant: variant,
+          sourcePackage: sourcePackage,
+          sourceAdapter: sourceAdapter,
+        );
       case 'api-contract':
-        return _hasPassedEvidence(executionEvidence, id, type, 'backend');
+        return _hasPassedEvidence(
+          executionEvidence,
+          id,
+          type,
+          configuredTarget ?? 'backend',
+          variant: variant,
+          sourcePackage: sourcePackage,
+          sourceAdapter: sourceAdapter,
+        );
       case 'performance':
-        return _hasPassedEvidence(executionEvidence, id, type, 'backend');
+        return _hasPassedEvidence(
+          executionEvidence,
+          id,
+          type,
+          configuredTarget ?? 'backend',
+          variant: variant,
+          sourcePackage: sourcePackage,
+          sourceAdapter: sourceAdapter,
+        );
       case 'gherkin-api':
-        return _hasExecutedEvidence(rule, executionEvidence, 'gherkin-api');
+        return _hasExecutedEvidence(
+          rule,
+          executionEvidence,
+          'gherkin-api',
+          target: configuredTarget,
+          variant: variant,
+          sourcePackage: sourcePackage,
+          sourceAdapter: sourceAdapter,
+        );
       case 'gherkin-ui':
-        return _hasExecutedEvidence(rule, executionEvidence, 'gherkin-ui');
+        return _hasExecutedEvidence(
+          rule,
+          executionEvidence,
+          'gherkin-ui',
+          target: configuredTarget,
+          variant: variant,
+          sourcePackage: sourcePackage,
+          sourceAdapter: sourceAdapter,
+        );
       case 'security-integration':
         return (rule.metadata.requires ?? const <ParsedControlRef>[]).every(
               (control) => controlProofs.any(
@@ -446,12 +542,20 @@ class EvidenceValidator {
               rule,
               executionEvidence,
               'security-integration',
+              target: configuredTarget,
+              variant: variant,
+              sourcePackage: sourcePackage,
+              sourceAdapter: sourceAdapter,
             );
       case 'logging-verification':
         return _hasExecutedEvidence(
           rule,
           executionEvidence,
           'logging-verification',
+          target: configuredTarget,
+          variant: variant,
+          sourcePackage: sourcePackage,
+          sourceAdapter: sourceAdapter,
         );
       case 'attestation-freshness':
         return (rule.metadata.requires ?? const <ParsedControlRef>[]).any(
@@ -469,14 +573,23 @@ class EvidenceValidator {
   bool _hasExecutedEvidence(
     ParsedRule rule,
     List<EvidenceRecord> records,
-    String evidenceType,
+    String evidenceType, {
+    String? target,
+    String variant = 'default',
+    String? sourcePackage,
+    String? sourceAdapter,
+  }
   ) {
     final id = rule.metadata.id;
     if (id == null) return false;
     return records.any((record) {
       return record.requirementId == id &&
           record.evidenceType == evidenceType &&
-          record.status == EvidenceStatus.passed;
+          record.status == EvidenceStatus.passed &&
+          (target == null || record.target == target) &&
+          record.variant == variant &&
+          (sourcePackage == null || record.sourcePackage == sourcePackage) &&
+          (sourceAdapter == null || record.sourceAdapter == sourceAdapter);
     });
   }
 
@@ -484,14 +597,82 @@ class EvidenceValidator {
     Iterable<EvidenceRecord> records,
     String? requirementId,
     String evidenceType,
-    String target,
+    String target, {
+    String variant = 'default',
+    String? sourcePackage,
+    String? sourceAdapter,
+  }
   ) => records.any(
     (record) =>
         record.requirementId == requirementId &&
         record.evidenceType == evidenceType &&
         record.target == target &&
-        record.status == EvidenceStatus.passed,
+        record.status == EvidenceStatus.passed &&
+        record.variant == variant &&
+        (sourcePackage == null || record.sourcePackage == sourcePackage) &&
+        (sourceAdapter == null || record.sourceAdapter == sourceAdapter),
   );
+
+  Map<String, String>? _slotForRule(ParsedRule rule, String evidenceType) {
+    for (final slot in rule.metadata.evidenceRequirements ?? const []) {
+      final type = slot['type'] ?? slot['evidenceType'];
+      if (type == evidenceType) return slot;
+    }
+    return null;
+  }
+
+  Map<String, String>? _slotForRequirement(
+    WorkspaceDiscoveryResult workspace,
+    String requirementId,
+    String evidenceType,
+  ) {
+    for (final feature in workspace.data.features) {
+      for (final rule in feature.rules) {
+        if (rule.metadata.id != requirementId) continue;
+        return _slotForRule(rule, evidenceType);
+      }
+    }
+    return null;
+  }
+
+  String _v3MappingKey(
+    String requirementId,
+    String evidenceType,
+    String target,
+    String variant,
+    String? sourcePackage,
+    String? sourceAdapter,
+  ) =>
+      '$requirementId|$evidenceType|$target|$variant|'
+      '${sourcePackage ?? '(missing)'}|${sourceAdapter ?? '(missing)'}';
+
+  String? _targetForRule(
+    ParsedRule rule,
+    String evidenceType,
+    WorkspaceDiscoveryResult workspace,
+  ) {
+    for (final slot in rule.metadata.evidenceRequirements ?? const []) {
+      final type = slot['type'] ?? slot['evidenceType'];
+      if (type == evidenceType && slot['target'] is String) {
+        return slot['target'];
+      }
+    }
+    return _targetForEvidence(workspace, evidenceType);
+  }
+
+  String? _targetForEvidence(
+    WorkspaceDiscoveryResult workspace,
+    String evidenceType,
+  ) {
+    // V3 evidence types are registered by semantic mode, not hard-coded to a
+    // framework. Their target is supplied by the exact rule slot. Legacy
+    // workspaces retain the compatibility mapping until regenerated.
+    if (workspace.config.schemaVersion >= 3 &&
+        workspace.config.evidenceTypes.containsKey(evidenceType)) {
+      return null;
+    }
+    return _evidenceTargets[evidenceType];
+  }
 
   Map<String, ParsedRule> _scenarioRules(WorkspaceDiscoveryResult workspace) {
     final result = <String, ParsedRule>{};

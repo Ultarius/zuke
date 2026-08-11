@@ -7,6 +7,6 @@ environment:
 resolution: workspace
 dependencies:
   calculator_contracts: ^1.0.0
-  zuke_annotations: ^0.2.0
+  zuke_annotations: ^0.3.0
 dev_dependencies:
   test: ^1.31.1

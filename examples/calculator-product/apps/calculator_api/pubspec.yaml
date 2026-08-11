@@ -8,8 +8,8 @@ resolution: workspace
 dependencies:
   calculator_contracts: ^1.0.0
   calculator_domain: ^1.0.0
-  zuke_annotations: ^0.2.0
+  zuke_annotations: ^0.3.0
   zuke_http_runtime: ^0.1.0
 dev_dependencies:
   test: ^1.26.0
-  zuke: ^0.2.0
+  zuke: ^0.3.0

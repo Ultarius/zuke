@@ -34,6 +34,34 @@ class LockCommand {
   LockCommand(this.args);
 
   Future<int> execute() async {
+    final allProfiles = args.options.contains('all-profiles') &&
+        (args['all-profiles'] as bool? ?? false);
+    if (allProfiles) {
+      var result = 0;
+      for (final profile in const [
+        'pullRequest',
+        'merge',
+        'release',
+        'nightly',
+      ]) {
+        final profileArgs = ArgParser()
+          ..addOption('root')
+          ..addOption('profile')
+          ..addFlag('check')
+          ..addFlag('quiet');
+        final values = <String>[
+          '--root',
+          args['root'] as String? ?? Directory.current.path,
+          '--profile',
+          profile,
+          if (args['check'] as bool? ?? false) '--check',
+          if (args.options.contains('quiet') && (args['quiet'] as bool? ?? false))
+            '--quiet',
+        ];
+        result |= await LockCommand(profileArgs.parse(values)).execute();
+      }
+      return result;
+    }
     final root = Directory(
       Directory(
         args['root'] as String? ?? Directory.current.path,
@@ -84,8 +112,7 @@ class LockCommand {
       extraction: extraction,
     );
     final lockContent = await buildLock(context, validation, profile: profile);
-    final path =
-        '${root.path}/${workspace.config.lockFile ?? 'zuke.lock.json'}';
+    final path = _lockPath(root.path, workspace, profile);
     final file = File(path);
     final check = args['check'] as bool? ?? false;
     final quiet =
@@ -121,6 +148,7 @@ class LockCommand {
     final root = context.root;
     final workspace = context.workspace;
     final extraction = context.extraction;
+    final selection = const ScenarioSelector().resolve(workspace, profile);
     final workspaceName = root.uri.pathSegments
         .where((segment) => segment.isNotEmpty)
         .last;
@@ -235,7 +263,11 @@ class LockCommand {
         'sha256:${sha256.convert(utf8.encode(const JsonEncoder().convert(evidenceRequirements)))}';
 
     final data = <String, dynamic>{
-      'formatVersion': 1,
+      'schemaVersion': 'zuke.lock.v2',
+      'formatVersion': 2,
+      'profile': profile,
+      'selectedScenarioIds': selection.scenarioIds,
+      'selectionDigest': selection.digest,
       'engineVersion': report.engineVersion,
       'workspace': workspaceName,
       'policy': {
@@ -263,6 +295,27 @@ class LockCommand {
       'controls': controlAssurance,
     };
     return const JsonEncoder.withIndent('  ').convert(data) + '\n';
+  }
+
+  String _lockPath(
+    String root,
+    WorkspaceDiscoveryResult workspace,
+    String profile,
+  ) {
+    final configured = workspace.config.lockFile;
+    final configFile = File('$root/zuke.yaml');
+    if (configFile.existsSync()) {
+      final content = configFile.readAsStringSync();
+      if (content.contains('schemaVersion: 3') ||
+          content.contains('directory: assurance/locks')) {
+        final directory = RegExp(r'(?m)^\s*directory:\s*([^\s#]+)')
+            .firstMatch(content)
+            ?.group(1) ??
+            'assurance/locks';
+        return '$root/${directory.replaceAll('\\', '/')}/$profile.lock.json';
+      }
+    }
+    return '$root/${configured ?? 'zuke.lock.json'}';
   }
 
   List<Map<String, Object?>> _attestations(

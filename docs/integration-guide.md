@@ -4,8 +4,9 @@
 `examples/shopping_cart` expands that setup with additional UI coverage, and
 `examples/calculator-product` is the advanced mixed Flutter, Dart HTTP,
 security-attestation, and release-history reference. The existing specialized
-SDK packages are in the hosted `0.1.0` preview line; the new `zuke` facade is
-intended to be published separately as the primary pure-Dart entry point.
+SDK packages are coordinated by the V2 release matrix in
+`docs/release-matrix.yaml`; analyzer-dependent extraction is isolated from the
+analyzer-free IR and adapter contracts.
 
 ---
 
@@ -21,13 +22,13 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  zuke_annotations: ^0.1.0
+  zuke_annotations: ^0.3.0
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
-  zuke_cli: ^0.2.0
-  zuke_runner_flutter: ^0.1.0
+  zuke_cli: ^0.4.0
+  zuke_runner_flutter: ^0.3.0
   # Optional edit-time/build-time checks:
   # zuke_analyzer: ^0.1.0
   # zuke_dart_build_hook: ^0.1.0
@@ -113,7 +114,7 @@ Zuke expects a structured workspace layout. The standard project layout is:
 Create `zuke.yaml` at the root of your project:
 
 ```yaml
-schemaVersion: 2
+schemaVersion: 3
 
 workspace:
   name: my-app-product
@@ -128,8 +129,10 @@ specifications:
 targets:
   flutter:
     language: dart
+    framework: flutter
     packages:
-      - path: .
+      - id: my-app
+        path: .
         roots: [lib, test]
     contractOutput: lib/src/generated
     extractor: zuke-dart-resolved
@@ -165,6 +168,7 @@ execution:
     - id: my-app-flutter-tests
       kind: gherkin
       target: flutter
+      sourcePackage: my-app
       evidenceTypes: [gherkin-ui]
       executable: flutter
       args: [test, --no-pub, --reporter, expanded]
@@ -190,7 +194,8 @@ trust:
   algorithm: ed25519
 
 lock:
-  file: zuke.lock.json
+  directory: assurance/locks
+  profiles: [pullRequest, merge, release, nightly]
   requireCleanGeneration: true
 ```
 
@@ -739,7 +744,9 @@ dart run zuke_cli:zuke check --root examples/calculator-product --root examples/
 - **`generate`**: Writes typed contracts and `.zuke/analyzer-index.json`. Use `generate --check` in CI to ensure generated output is up to date.
 - **`test`**: Sets `ZUKE_SCENARIO_FILTER`, runs configured test runners, and prints the evidence-record count plus output and observation paths after publication.
 - **`validate`**: Validates requirement graphs, binding cardinality, and security evidence policies.
-- **`lock`**: Updates `zuke.lock.json` proof record (`lock --check` verifies no drift).
+- **`lock`**: Updates the selected `assurance/locks/<profile>.lock.json`
+  proof record (`lock --profile <name> --check` verifies no drift; use
+  `--all-profiles` for the official four-profile set).
 - **`gate`**: Combines validation, clean generation checks, test execution if evidence is missing, lock checking, and release trust checks into a single command.
 - **`check`**: Runs generation, configured runners, validation, lock synchronization, and an observational report for each supplied root. Roots can run concurrently; `--format json` emits exactly one `zuke.check.v1` document.
 

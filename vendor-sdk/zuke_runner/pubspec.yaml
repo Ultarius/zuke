@@ -1,11 +1,11 @@
 name: zuke_runner
 description: Compatibility package for the deterministic runner now provided by zuke.
-version: 0.2.0
+version: 0.3.0
 environment:
   sdk: '>=3.10.0 <4.0.0'
 resolution: workspace
 dependencies:
-  zuke: ^0.2.0
+  zuke: ^0.3.0
 dev_dependencies:
   test: ^1.24.0
 repository: https://github.com/Ultarius/zuke

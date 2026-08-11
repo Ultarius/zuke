@@ -8,7 +8,7 @@ environment:
 resolution: workspace
 
 dependencies:
-  zuke_core: ^0.2.0
+  zuke_core: ^0.3.0
 
 dev_dependencies:
   cryptography: ^2.7.0

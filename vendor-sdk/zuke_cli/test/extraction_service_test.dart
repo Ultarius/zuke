@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:dart_extractor/dart_extractor.dart';
 import 'package:zuke_core/zuke_core.dart';
 import 'package:test/test.dart';
 import 'package:zuke_frontend/zuke_frontend.dart';

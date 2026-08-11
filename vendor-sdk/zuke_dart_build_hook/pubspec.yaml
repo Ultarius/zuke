@@ -1,12 +1,12 @@
 name: zuke_dart_build_hook
 description: Optional package-owned Zuke build-time validation hook.
-version: 0.2.0
+version: 0.3.0
 environment:
   sdk: '>=3.10.0 <4.0.0'
 resolution: workspace
 dependencies:
   hooks: ^2.0.0
-  zuke_core: ^0.2.0
+  zuke_core: ^0.3.0
 
 dev_dependencies:
   test: ^1.24.0

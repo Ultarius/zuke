@@ -2,12 +2,14 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:args/args.dart';
+import 'package:assurance_ir/assurance_ir.dart';
 import 'package:zuke_frontend/zuke_frontend.dart';
 
 import 'generate_command.dart';
 import 'lock_command.dart';
 import 'trust_bundle.dart';
 import 'validate_command.dart';
+import 'command_result.dart';
 
 class GateCommand {
   final ArgResults args;
@@ -18,12 +20,15 @@ class GateCommand {
     final root = args['root'] as String? ?? Directory.current.path;
     final format = args['format'] as String? ?? 'text';
     final jsonMode = format == 'json';
+    final profile = args['profile'] as String? ?? 'pullRequest';
     final stages = <String, String>{
-      'generate': 'pending',
+      'doctor': 'pending',
+      'generate-check': 'pending',
       'test': testRunner == null ? 'skipped' : 'pending',
+      'input-stability': 'pending',
       'validate': 'pending',
       'lock': 'pending',
-      'trust': args['profile'] == 'release' ? 'pending' : 'skipped',
+      'trust': profile == 'release' ? 'pending' : 'skipped',
     };
 
     void reportStage(String stage, String status) {
@@ -31,16 +36,34 @@ class GateCommand {
     }
 
     int finish(int exitCode) {
+      final diagnostics = [
+        for (final entry in stages.entries)
+          if (entry.value == 'failed')
+            gateDiagnostic(
+              stage: entry.key,
+              message: 'Gate stage ${entry.key} failed.',
+              profile: profile,
+            ),
+      ];
+      final result = CommandResultV2(
+        command: 'gate',
+        stage: 'gate',
+        exitCode: exitCode,
+        status: exitCode == 0 ? 'passed' : 'failed',
+        eligible: exitCode == 0,
+        diagnostics: diagnostics,
+      );
       if (jsonMode) {
         stdout.writeln(
           const JsonEncoder().convert({
-            'schemaVersion': 'zuke.gate.v1',
-            'status': exitCode == 0 ? 'passed' : 'failed',
-            'profile': args['profile'] as String? ?? 'pullRequest',
+            ...result.toJson(),
+            'profile': profile,
             'stages': stages,
           }),
         );
       }
+      writeCommandSummary(args['summary-file'] as String?, result);
+      _writeArtifactSummary(args['artifact-dir'] as String?, result);
       return exitCode;
     }
 
@@ -60,7 +83,13 @@ class GateCommand {
       ..addFlag('check')
       // Internal option: gate JSON must retain stdout for its one envelope.
       ..addFlag('quiet', defaultsTo: false);
-    reportStage('generate', 'running');
+    reportStage('doctor', 'running');
+    final doctorResult = _doctor(root);
+    stages['doctor'] = doctorResult == 0 ? 'passed' : 'failed';
+    reportStage('doctor', stages['doctor']!);
+    if (doctorResult != 0) return finish(doctorResult);
+
+    reportStage('generate-check', 'running');
     final generatedResult = await GenerateCommand(
       generateParser.parse([
         '--root',
@@ -69,8 +98,8 @@ class GateCommand {
         if (jsonMode) '--quiet',
       ]),
     ).execute();
-    stages['generate'] = generatedResult == 0 ? 'passed' : 'failed';
-    reportStage('generate', stages['generate']!);
+    stages['generate-check'] = generatedResult == 0 ? 'passed' : 'failed';
+    reportStage('generate-check', stages['generate-check']!);
     if (generatedResult != 0) return finish(generatedResult);
     if (testRunner != null) {
       final testParser = ArgParser()
@@ -102,6 +131,11 @@ class GateCommand {
       reportStage('test', stages['test']!);
       if (testResult != 0) return finish(testResult);
     }
+    reportStage('input-stability', 'running');
+    final stable = _inputStable(root);
+    stages['input-stability'] = stable ? 'passed' : 'failed';
+    reportStage('input-stability', stages['input-stability']!);
+    if (!stable) return finish(1);
     reportStage('validate', 'running');
     final validateResult = await ValidateCommand(
       validateParser.parse([
@@ -135,7 +169,7 @@ class GateCommand {
     stages['lock'] = lockResult == 0 ? 'passed' : 'failed';
     reportStage('lock', stages['lock']!);
     if (lockResult != 0) return finish(lockResult);
-    if (args['profile'] == 'release') {
+    if (profile == 'release') {
       reportStage('trust', 'running');
       final trustResult = _checkTrustEligibility(root);
       stages['trust'] = trustResult == 0 ? 'passed' : 'failed';
@@ -143,6 +177,34 @@ class GateCommand {
       if (trustResult != 0) return finish(trustResult);
     }
     return finish(0);
+  }
+
+  int _doctor(String root) {
+    if (!File('$root/zuke.yaml').existsSync()) return 1;
+    if (!Directory('$root/specs/features').existsSync()) return 1;
+    return 0;
+  }
+
+  bool _inputStable(String root) {
+    try {
+      final first = WorkspaceDiscovery().discover(root).inputContents;
+      final second = WorkspaceDiscovery().discover(root).inputContents;
+      if (first.length != second.length) return false;
+      for (final entry in first.entries) {
+        if (second[entry.key] != entry.value) return false;
+      }
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  void _writeArtifactSummary(String? directory, CommandResultV2 result) {
+    if (directory == null || directory.isEmpty) return;
+    final dir = Directory(directory)..createSync(recursive: true);
+    File('${dir.path}/command-result.json').writeAsStringSync(
+      const JsonEncoder.withIndent('  ').convert(result.toJson()) + '\n',
+    );
   }
 
   int _checkTrustEligibility(String root) {

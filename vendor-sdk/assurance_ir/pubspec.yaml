@@ -1,12 +1,12 @@
 name: assurance_ir
 description: Stack-neutral assurance graph model used by Zuke adapters and proof engine.
-version: 0.1.0
+version: 0.2.0
 environment:
   sdk: '>=3.10.0 <4.0.0'
 resolution: workspace
 dependencies: {}
 dev_dependencies:
-  test: ^1.25.0
+  test: ^1.31.1
 repository: https://github.com/Ultarius/zuke
 issue_tracker: https://github.com/Ultarius/zuke/issues
 documentation: https://github.com/Ultarius/zuke/blob/main/docs/integration-guide.md

@@ -1,6 +1,6 @@
 import 'dart:io';
 
-import 'package:zuke_core/zuke_core.dart';
+import 'package:zuke_core/src/dart_extractor.dart';
 import 'package:test/test.dart';
 
 void main() {

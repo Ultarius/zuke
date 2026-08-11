@@ -169,6 +169,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "2.9.0"
+  dart_frog_gen:
+    dependency: transitive
+    description:
+      name: dart_frog_gen
+      sha256: f706052ef3423f48e946dd3d794f522fd79d73874b8cf6fed0631ed4ffe69a89
+      url: "https://pub.dev"
+    source: hosted
+    version: "2.1.0"
   dart_style:
     dependency: transitive
     description:
@@ -177,6 +185,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "3.1.3"
+  equatable:
+    dependency: transitive
+    description:
+      name: equatable
+      sha256: "3bce007a596ff8b3119c45d68aaef631272537c03d30e5d4534dd24bf4c5eaa2"
+      url: "https://pub.dev"
+    source: hosted
+    version: "2.1.0"
   fake_async:
     dependency: transitive
     description:

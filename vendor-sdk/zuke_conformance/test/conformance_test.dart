@@ -251,10 +251,13 @@ void main() {
       );
       expect(registryFile.existsSync(), isTrue);
       final registry = jsonDecode(registryFile.readAsStringSync()) as Map;
-      expect(registry['schemaVersion'], 'zuke.diagnostic-registry.v1');
+      expect(registry['schemaVersion'], 'zuke.diagnostic-registry.v2');
+      final defaults = registry['defaults'] as Map;
+      expect(defaults['owner'], 'unknown');
+      expect((defaults['remediation'] as String).trim(), isNotEmpty);
       final entries = (registry['diagnostics'] as List).cast<Map>();
       final codes = <String>{};
-      final codePattern = RegExp(r'^ZUKE-[A-Z0-9]+(?:-[A-Z0-9]+)*$');
+      final codePattern = RegExp(r'^(?:ZUKE|ZK)-[A-Z0-9]+(?:-[A-Z0-9]+)*$');
       for (final entry in entries) {
         final code = entry['code'];
         expect(code, isA<String>());
@@ -272,7 +275,7 @@ void main() {
         }
         emitted.addAll(
           RegExp(
-            r'ZUKE-[A-Z0-9]+(?:-[A-Z0-9]+)+',
+            r'(?:ZUKE|ZK)-[A-Z0-9]+(?:-[A-Z0-9]+)+',
           ).allMatches(file.readAsStringSync()).map((match) => match.group(0)!),
         );
       }

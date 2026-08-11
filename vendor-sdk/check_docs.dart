@@ -43,6 +43,14 @@ class DocumentationChecker {
     'zuke_http_runtime': 'Supported application-facing public API.',
     'zuke_cli': 'Supported application-facing public API.',
     'zuke_dart_build_hook': 'Supported application-facing public API.',
+    'assurance_ir': 'Adapter-author surface.',
+    'adapter_sdk': 'Adapter-author surface.',
+    'evidence_ledger': 'Published implementation dependency.',
+    'dart_extractor': 'Published implementation dependency.',
+    'zuke_generator': 'Published implementation dependency.',
+    'proof_engine': 'Published implementation dependency.',
+    'zuke_reporter': 'Published implementation dependency.',
+    'zuke_adapter_dart_frog': 'Supported adapter extension API.',
     'zuke_analyzer': 'Repository-only tooling; not published to pub.dev.',
     'zuke_conformance': 'Repository-only tooling; not published to pub.dev.',
     'zuke_verifier': 'Repository-only tooling; not published to pub.dev.',
@@ -59,15 +67,15 @@ class DocumentationChecker {
     'zuke_http_runtime',
     'zuke_dart_build_hook',
     'zuke_cli',
+    'assurance_ir',
+    'adapter_sdk',
+    'evidence_ledger',
+    'dart_extractor',
+    'zuke_generator',
+    'proof_engine',
+    'zuke_reporter',
+    'zuke_adapter_dart_frog',
   };
-
-  static const _packageVersions = <String, String>{
-    'zuke_runner': '0.1.1',
-    'zuke_runner_flutter': '0.1.1',
-    'zuke_cli': '0.2.0',
-  };
-
-  static const _dependencyConstraints = <String, String>{'zuke_cli': '^0.2.0'};
 
   List<String> check() {
     final failures = <String>[];
@@ -76,9 +84,23 @@ class DocumentationChecker {
     _checkRetiredIdentities(failures);
     _checkRawScenarioIds(failures);
     _checkGuideFences(failures);
-    _checkActivePubspecs(activePackages, failures);
+    _checkActivePubspecs(activePackages, _releaseMatrix(), failures);
     _checkReadmeTiers(activePackages, failures);
     return failures;
+  }
+
+  Map<String, String> _releaseMatrix() {
+    final file = File(
+      '${root.path}${Platform.pathSeparator}docs${Platform.pathSeparator}release-matrix.yaml',
+    );
+    if (!file.existsSync()) return const {};
+    final decoded = loadYaml(file.readAsStringSync());
+    final packages = decoded is Map ? decoded['packages'] : null;
+    if (packages is! Map) return const {};
+    return {
+      for (final entry in packages.entries)
+        entry.key.toString(): entry.value.toString(),
+    };
   }
 
   Map<String, Directory> _activePackages(List<String> failures) {
@@ -305,6 +327,7 @@ class DocumentationChecker {
 
   void _checkActivePubspecs(
     Map<String, Directory> packages,
+    Map<String, String> matrix,
     List<String> failures,
   ) {
     for (final entry in packages.entries) {
@@ -313,7 +336,7 @@ class DocumentationChecker {
       );
       final contents = pubspec.readAsStringSync();
       final relative = _relative(pubspec);
-      final expectedVersion = _packageVersions[entry.key] ?? '0.1.0';
+      final expectedVersion = matrix[entry.key] ?? '0.1.0';
       if (!RegExp(
         '^version:\\s*${RegExp.escape(expectedVersion)}\\s*\$',
         multiLine: true,
@@ -345,12 +368,19 @@ class DocumentationChecker {
           '$relative: repository-only SDK package must declare publish_to: none',
         );
       }
-      if (RegExp(r'path\s*:').hasMatch(contents)) {
-        failures.add(
-          '$relative: active SDK package must not use a path dependency',
-        );
-      }
       final packageYaml = loadYaml(contents);
+      for (final section in ['dependencies', 'dev_dependencies']) {
+        final dependencies = packageYaml is Map ? packageYaml[section] : null;
+        if (dependencies is! Map) continue;
+        for (final dependency in dependencies.entries) {
+          if (dependency.value is Map &&
+              (dependency.value as Map).containsKey('path')) {
+            failures.add(
+              '$relative: active SDK package must not use a path dependency for ${dependency.key}',
+            );
+          }
+        }
+      }
       for (final internal in packages.keys) {
         for (final section in ['dependencies', 'dev_dependencies']) {
           final dependencies = packageYaml is Map ? packageYaml[section] : null;
@@ -358,8 +388,9 @@ class DocumentationChecker {
             continue;
           }
           final declared = dependencies[internal];
-          final expectedConstraint =
-              _dependencyConstraints[internal] ?? '^0.1.0';
+          final expectedConstraint = matrix.containsKey(internal)
+              ? '^${matrix[internal]}'
+              : '^0.1.0';
           if (declared?.toString() != expectedConstraint) {
             failures.add('$relative: $internal must use $expectedConstraint');
           }

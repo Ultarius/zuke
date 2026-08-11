@@ -3,12 +3,14 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:args/args.dart';
+import 'package:assurance_ir/assurance_ir.dart';
 import 'package:zuke_frontend/zuke_frontend.dart';
 
 import 'generate_command.dart';
 import 'lock_command.dart';
 import 'report_command.dart';
 import 'validate_command.dart';
+import 'command_result.dart';
 
 /// Runs the complete verification pipeline for one or more workspaces.
 ///
@@ -32,6 +34,7 @@ class CheckCommand {
     final jobs = _jobs(args['jobs'] as String? ?? '');
     final profile = args['profile'] as String? ?? 'pullRequest';
     final json = (args['format'] as String? ?? 'text') == 'json';
+    final summaryFile = args['summary-file'] as String?;
     final results = await _runBounded(
       roots,
       jobs: jobs < roots.length ? jobs : roots.length,
@@ -46,14 +49,31 @@ class CheckCommand {
     );
     final succeeded = results.every((result) => result.status == 'passed');
     if (json) {
-      stdout.writeln(
-        jsonEncode({
-          'schemaVersion': 'zuke.check.v1',
-          'status': succeeded ? 'passed' : 'failed',
-          'profile': profile,
-          'workspaces': results.map((result) => result.toJson()).toList(),
-        }),
+      final commandResult = CommandResultV2(
+        command: 'check',
+        stage: 'check',
+        exitCode: succeeded ? 0 : 1,
+        status: succeeded ? 'passed' : 'failed',
+        eligible: succeeded,
+        diagnostics: [
+          for (final workspace in results)
+            for (final stage in workspace.stages)
+              if (stage.status == 'failed')
+                gateDiagnostic(
+                  stage: stage.name,
+                  message: 'Check stage ${stage.name} failed for ${workspace.root}.',
+                  profile: profile,
+                ),
+        ],
       );
+      final payload = {
+        ...commandResult.toJson(),
+        'profile': profile,
+        'workspaces': results.map(_safeWorkspaceJson).toList(),
+      };
+      final encoded = jsonEncode(payload);
+      stdout.writeln(encoded);
+      writeCommandSummary(summaryFile, commandResult);
     } else {
       for (final result in results) {
         stdout.writeln('\nCheck [${result.root}]: ${result.status}');
@@ -70,6 +90,15 @@ class CheckCommand {
     }
     return succeeded ? 0 : 1;
   }
+
+  Map<String, Object?> _safeWorkspaceJson(_WorkspaceResult result) => {
+        'root': result.root,
+        'status': result.status,
+        'stages': {
+          for (final stage in result.stages)
+            stage.name: {'status': stage.status},
+        },
+      };
 
   Future<_WorkspaceResult> _verify(
     String root, {

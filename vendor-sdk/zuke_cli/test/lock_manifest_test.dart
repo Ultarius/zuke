@@ -3,7 +3,7 @@ import 'dart:io';
 import 'package:test/test.dart';
 import 'package:zuke_cli/zuke_cli.dart';
 import 'package:zuke_cli/src/manifest_command.dart';
-import 'package:zuke_core/zuke_core.dart';
+import 'package:dart_extractor/dart_extractor.dart';
 import 'helpers/eligible_workspace.dart';
 import 'cli_test_helper.dart';
 

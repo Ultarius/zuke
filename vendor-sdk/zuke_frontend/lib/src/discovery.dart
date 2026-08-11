@@ -8,6 +8,8 @@ import 'metadata_extractor.dart';
 
 /// Workspace configuration loaded from `zuke.yaml`.
 class ZukeConfig {
+  /// Configuration schema. V2 consumers should use schema 3.
+  final int schemaVersion;
   /// Workspace root override.
   final String? root;
 
@@ -53,8 +55,22 @@ class ZukeConfig {
   /// Runner execution configuration.
   final Map<String, dynamic> executionConfig;
 
+  /// V3 stable package identities grouped by target.
+  final Map<String, List<Map<String, dynamic>>> targetPackages;
+
+  /// V3 framework selection grouped by target.
+  final Map<String, String> targetFrameworks;
+
+  /// V3 registered evidence types and their satisfaction modes.
+  final Map<String, String> evidenceTypes;
+
+  /// V3 lock directory and official profile names.
+  final String? lockDirectory;
+  final List<String> lockProfiles;
+
   /// Creates workspace configuration.
   const ZukeConfig({
+    this.schemaVersion = 2,
     this.root,
     this.featurePatterns = const ['specs/features/**/*.feature'],
     this.epicPatterns = const ['specs/epics/**/*.yaml'],
@@ -70,12 +86,26 @@ class ZukeConfig {
     this.evidenceOutput,
     this.trustBundle,
     this.executionConfig = const {},
+    this.targetPackages = const {},
+    this.targetFrameworks = const {},
+    this.evidenceTypes = const {},
+    this.lockDirectory,
+    this.lockProfiles = const [],
   });
 
   /// Parses [yamlContent] into workspace configuration.
   static ZukeConfig fromYaml(String yamlContent, {String? root}) {
     final doc = loadYaml(yamlContent) as Map?;
     if (doc == null) return ZukeConfig(root: root);
+
+    final schemaVersion = doc['schemaVersion'] is int
+        ? doc['schemaVersion'] as int
+        : int.tryParse('${doc['schemaVersion']}') ?? 2;
+    if (schemaVersion < 2) {
+      throw const FormatException(
+        'Zuke V1 configuration is not supported; migrate to schemaVersion 3.',
+      );
+    }
 
     final specs = doc['specifications'] as Map? ?? {};
     final policies = doc['policies'] as Map? ?? {};
@@ -93,8 +123,44 @@ class ZukeConfig {
     final lockSection = doc['lock'] as Map? ?? {};
     final evidenceSection = doc['evidence'] as Map? ?? {};
     final trustSection = doc['trust'] as Map? ?? {};
+    final rawExecution = doc['execution'] is Map
+        ? Map<String, dynamic>.from(doc['execution'] as Map)
+        : const <String, dynamic>{};
+    final targetPackages = <String, List<Map<String, dynamic>>>{};
+    final targetFrameworks = <String, String>{};
+    for (final entry in targetsConfig.entries) {
+      final value = entry.value;
+      if (value is Map) {
+        final framework = value['framework'];
+        if (framework is String && framework.isNotEmpty) {
+          targetFrameworks[entry.key] = framework;
+        }
+        final packages = value['packages'];
+        if (packages is List) {
+          targetPackages[entry.key] = packages
+              .whereType<Map>()
+              .map((package) => Map<String, dynamic>.from(package))
+              .toList();
+        }
+      }
+    }
+    final evidenceTypes = <String, String>{};
+    final rawEvidenceTypes = evidenceSection['types'];
+    if (rawEvidenceTypes is Map) {
+      for (final entry in rawEvidenceTypes.entries) {
+        final value = entry.value;
+        final mode = value is Map ? value['mode'] : null;
+        if (entry.key is String && mode is String) {
+          evidenceTypes[entry.key as String] = mode;
+        }
+      }
+    }
+    final lockProfiles = (lockSection['profiles'] is List)
+        ? (lockSection['profiles'] as List).whereType<String>().toList()
+        : const <String>[];
 
     return ZukeConfig(
+      schemaVersion: schemaVersion,
       root: root,
       featurePatterns:
           _stringList(specs['features']) ?? ['specs/features/**/*.feature'],
@@ -116,9 +182,12 @@ class ZukeConfig {
       lockFile: lockSection['file'] as String?,
       evidenceOutput: evidenceSection['output'] as String?,
       trustBundle: trustSection['bundle'] as String?,
-      executionConfig: doc['execution'] is Map
-          ? Map<String, dynamic>.from(doc['execution'] as Map)
-          : const {},
+      executionConfig: rawExecution,
+      targetPackages: targetPackages,
+      targetFrameworks: targetFrameworks,
+      evidenceTypes: evidenceTypes,
+      lockDirectory: lockSection['directory'] as String?,
+      lockProfiles: lockProfiles,
     );
   }
 
@@ -300,6 +369,10 @@ class WorkspaceDiscovery {
       }
     }
 
+    if (config.schemaVersion >= 3) {
+      _validateV3EvidenceRequirements(config, features, errors);
+    }
+
     final inputPatterns = <String>{
       ...config.featurePatterns,
       ...config.epicPatterns,
@@ -326,6 +399,73 @@ class WorkspaceDiscovery {
       inputPatterns: List.unmodifiable(inputPatterns),
       patternInputPaths: Set.unmodifiable(patternInputPaths),
     );
+  }
+
+  void _validateV3EvidenceRequirements(
+    ZukeConfig config,
+    List<ParsedFeature> features,
+    List<String> errors,
+  ) {
+    final runners = (config.executionConfig['runners'] as List? ?? const [])
+        .whereType<Map>()
+        .toList();
+    for (final feature in features) {
+      for (final rule in feature.rules) {
+        final declared = rule.metadata.requiredEvidence ?? const <String>[];
+        final slots = rule.metadata.evidenceRequirements ?? const [];
+        if (declared.length != slots.length) {
+          errors.add(
+            '${rule.metadata.id ?? rule.ruleElement.title}: V3 requiredEvidence entries '
+            'must be typed maps with target, sourcePackage, sourceAdapter, '
+            'and variant',
+          );
+          continue;
+        }
+        for (final slot in slots) {
+          final type = slot['type'] ?? slot['evidenceType'];
+          final target = slot['target'];
+          final sourcePackage = slot['sourcePackage'];
+          final sourceAdapter = slot['sourceAdapter'];
+          final variant = slot['variant'];
+          if ([type, target, sourcePackage, sourceAdapter, variant]
+              .any((value) => value == null || value.isEmpty)) {
+            errors.add(
+              '${rule.metadata.id ?? rule.ruleElement.title}: incomplete V3 evidence slot',
+            );
+            continue;
+          }
+          if (!config.evidenceTypes.containsKey(type)) {
+            errors.add(
+              '${rule.metadata.id ?? rule.ruleElement.title}: unknown evidence type $type',
+            );
+          }
+          final packageConfigured = config.targetPackages[target]?.any(
+                (package) => package['id'] == sourcePackage,
+              ) ??
+              false;
+          if (!packageConfigured) {
+            errors.add(
+              '${rule.metadata.id ?? rule.ruleElement.title}: source package '
+              '$sourcePackage is not configured for target $target',
+            );
+          }
+          final runnerConfigured = runners.any((runner) {
+            final types = (runner['evidenceTypes'] as List? ?? const [])
+                .whereType<String>();
+            return runner['target'] == target &&
+                runner['sourcePackage'] == sourcePackage &&
+                runner['sourceAdapter'] == sourceAdapter &&
+                types.contains(type);
+          });
+          if (!runnerConfigured) {
+            errors.add(
+              '${rule.metadata.id ?? rule.ruleElement.title}: no runner is configured '
+              'for evidence slot $type/$target/$sourcePackage/$sourceAdapter',
+            );
+          }
+        }
+      }
+    }
   }
 
   /// Reject patterns that can escape the workspace root.

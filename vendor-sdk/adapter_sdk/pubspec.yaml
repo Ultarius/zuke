@@ -1,12 +1,11 @@
 name: adapter_sdk
 description: Stable compiler interface for framework adapters.
-version: 0.1.0
+version: 0.2.0
 environment:
   sdk: '>=3.10.0 <4.0.0'
 resolution: workspace
 dependencies:
-  assurance_ir: ^0.1.0
-  zuke_annotations: ^0.2.0
+  assurance_ir: ^0.2.0
 dev_dependencies:
   test: ^1.31.1
 repository: https://github.com/Ultarius/zuke

@@ -97,6 +97,9 @@ class EvidenceRecord {
   final String profile;
   final String? runnerId;
   final String? runnerCompatibilityId;
+  final String? sourcePackage;
+  final String? sourceAdapter;
+  final String? sourceCompatibilityId;
   final List<String> attachmentDigests;
 
   const EvidenceRecord({
@@ -113,11 +116,19 @@ class EvidenceRecord {
     this.profile = 'pullRequest',
     this.runnerId,
     this.runnerCompatibilityId,
+    this.sourcePackage,
+    this.sourceAdapter,
+    this.sourceCompatibilityId,
     this.attachmentDigests = const [],
   });
 
   Map<String, Object?> toJson() => {
-    'schemaVersion': 'zuke.evidence-record.v1',
+    'schemaVersion':
+        sourcePackage == null &&
+                sourceAdapter == null &&
+                sourceCompatibilityId == null
+            ? 'zuke.evidence-record.v1'
+            : 'zuke.evidence-record.v2',
     'requirementId': requirementId,
     'evidenceType': evidenceType,
     'target': target,
@@ -132,6 +143,10 @@ class EvidenceRecord {
     if (runnerId != null) 'runnerId': runnerId,
     if (runnerCompatibilityId != null)
       'runnerCompatibilityId': runnerCompatibilityId,
+    if (sourcePackage != null) 'sourcePackage': sourcePackage,
+    if (sourceAdapter != null) 'sourceAdapter': sourceAdapter,
+    if (sourceCompatibilityId != null)
+      'sourceCompatibilityId': sourceCompatibilityId,
     if (attachmentDigests.isNotEmpty)
       'attachmentDigests': [...attachmentDigests]..sort(),
   };
@@ -140,11 +155,21 @@ class EvidenceRecord {
   /// which merely resembles evidence must not silently acquire defaults that
   /// allow it to satisfy a required-evidence slot.
   factory EvidenceRecord.fromJson(Map<String, Object?> json) {
-    if (json['schemaVersion'] != 'zuke.evidence-record.v1') {
+    if (json['schemaVersion'] != 'zuke.evidence-record.v1' &&
+        json['schemaVersion'] != 'zuke.evidence-record.v2') {
       throw const FormatException('Unsupported evidence record schema');
     }
     String required(String key) {
       final value = json[key];
+      if (value is! String || value.isEmpty) {
+        throw FormatException('Evidence record requires non-empty $key');
+      }
+      return value;
+    }
+
+    String? optional(String key) {
+      final value = json[key];
+      if (value == null) return null;
       if (value is! String || value.isEmpty) {
         throw FormatException('Evidence record requires non-empty $key');
       }
@@ -190,6 +215,12 @@ class EvidenceRecord {
       return value.cast<String>();
     }
 
+    final isV2 = json['schemaVersion'] == 'zuke.evidence-record.v2';
+    final sourcePackage = isV2 ? required('sourcePackage') : optional('sourcePackage');
+    final sourceAdapter = isV2 ? required('sourceAdapter') : optional('sourceAdapter');
+    final sourceCompatibilityId = isV2
+        ? required('sourceCompatibilityId')
+        : optional('sourceCompatibilityId');
     return EvidenceRecord(
       requirementId: required('requirementId'),
       evidenceType: required('evidenceType'),
@@ -206,6 +237,9 @@ class EvidenceRecord {
       profile: required('profile'),
       runnerId: required('runnerId'),
       runnerCompatibilityId: required('runnerCompatibilityId'),
+      sourcePackage: sourcePackage,
+      sourceAdapter: sourceAdapter,
+      sourceCompatibilityId: sourceCompatibilityId,
       attachmentDigests: strings('attachmentDigests'),
     );
   }
