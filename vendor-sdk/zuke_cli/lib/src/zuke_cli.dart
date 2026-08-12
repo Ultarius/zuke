@@ -24,12 +24,15 @@ import 'generator.dart';
 import 'proof_engine.dart';
 import 'report_command.dart';
 import 'clean_command.dart';
+import 'coverage_command.dart';
+import 'configuration_preflight.dart';
 import 'process_supervisor.dart';
 import 'tool_invocation.dart';
 import 'watch_coordinator.dart';
 import 'test_run_summary.dart';
 import 'command_result.dart';
 import 'ir.dart';
+import 'generated/release_contract.dart';
 
 const _runnerModeNames = ['auto', 'cli', 'directSnapshot'];
 
@@ -183,6 +186,7 @@ class ZukeCli {
         ArgParser()
           ..addOption('root', abbr: 'r')
           ..addOption('profile')
+          ..addFlag('all-profiles')
           ..addOption('format', allowed: ['text', 'json'], defaultsTo: 'text')
           ..addOption('summary-file')
           ..addOption('artifact-dir')
@@ -322,6 +326,18 @@ class ZukeCli {
           ..addOption('format', allowed: ['text', 'json'], defaultsTo: 'text')
           ..addOption('runner-mode', allowed: _runnerModeNames),
       );
+    parser.addCommand(
+      'coverage',
+      ArgParser()
+        ..addOption('root', abbr: 'r')
+        ..addOption('input')
+        ..addOption('changed-since')
+        ..addOption('minimum')
+        ..addOption('changed-line-minimum')
+        ..addOption('baseline')
+        ..addOption('output')
+        ..addOption('format', allowed: ['text', 'json'], defaultsTo: 'text'),
+    );
   }
 
   Future<int> run(List<String> args) async {
@@ -430,6 +446,8 @@ class ZukeCli {
           return _runAffected(command);
         case 'test':
           return _runTests(command);
+        case 'coverage':
+          return await CoverageCommand(command).execute();
         default:
           _printHelp();
           return 0;
@@ -468,6 +486,7 @@ Usage:
   zuke watch        Run generation and validation once
   zuke affected     List requirements affected by a git change
   zuke test         Run configured verification suites
+  zuke coverage     Evaluate LCOV as an independent quality gate
   zuke --help       Show this help
   zuke --version    Show version
 ''');
@@ -477,6 +496,13 @@ Usage:
     final root = cmd['root'] as String? ?? Directory.current.path;
     final jsonMode = (cmd['format'] as String? ?? 'text') == 'json';
     final diagnostics = <Diagnostic>[];
+    final releaseDetails = <String, Object?>{
+      'publicPackageVersions':
+          Map<String, String>.from(releasePublicPackageVersions),
+      'retiredPackages': releaseRetiredPackages.toList()..sort(),
+      'operatingSystems': releaseSupportedOperatingSystems,
+      'compatibilityIds': Map<String, String>.from(releaseCompatibilityIds),
+    };
     int finish(int code) {
       final result = CommandResult(
         command: 'doctor',
@@ -485,6 +511,7 @@ Usage:
         status: code == 0 ? CommandStatus.passed : CommandStatus.failed,
         eligible: code == 0,
         diagnostics: diagnostics,
+        details: {'release': releaseDetails},
       );
       if (jsonMode) {
         stdout.writeln(jsonEncode(result.toJson()));
@@ -493,37 +520,44 @@ Usage:
       return code;
     }
 
-    void issue(String code, String message) {
-      diagnostics.add(
-        Diagnostic(
-          code: code,
-          stage: 'doctor',
-          severity: DiagnosticSeverity.error,
-          owner: DiagnosticOwner.unknown,
-          message: message,
-          remediation:
-              'Correct the workspace or environment and run doctor again.',
-        ),
-      );
-    }
-
     if (jsonMode) {
       // Keep JSON mode free of human-readable preamble output.
     } else {
       print('Checking project setup...');
     }
 
-    final configFile = File('$root/zuke.yaml');
-    if (!configFile.existsSync()) {
-      issue('ZK-DOCTOR-001', 'zuke.yaml not found');
-      if (!jsonMode) stderr.writeln('  ERROR: zuke.yaml not found');
+    final configurationDiagnostics = const ConfigurationPreflight().diagnose(
+      root,
+    );
+    diagnostics.addAll(configurationDiagnostics);
+    if (configurationDiagnostics.any(
+      (diagnostic) => diagnostic.severity == DiagnosticSeverity.error,
+    )) {
+      if (!jsonMode) {
+        for (final diagnostic in configurationDiagnostics) {
+          stderr.writeln('  ERROR [${diagnostic.code}]: ${diagnostic.message}');
+          if (diagnostic.remediation.isNotEmpty) {
+            stderr.writeln('  Remediation: ${diagnostic.remediation}');
+          }
+        }
+      }
       return finish(1);
     }
     if (!jsonMode) print('  zuke.yaml: found');
 
     final featuresDir = Directory('$root/specs/features');
     if (!featuresDir.existsSync()) {
-      issue('ZK-DOCTOR-002', 'specs/features/ directory not found');
+      diagnostics.add(
+        const Diagnostic(
+          code: 'ZK-DOCTOR-002',
+          stage: 'doctor',
+          severity: DiagnosticSeverity.error,
+          owner: DiagnosticOwner.project,
+          message: 'specs/features/ directory not found',
+          remediation:
+              'Add the current specification feature directory before running Zuke.',
+        ),
+      );
       if (!jsonMode) {
         stderr.writeln('  ERROR: specs/features/ directory not found');
       }
@@ -957,6 +991,8 @@ Future<void> main(List<String> arguments) => zuke.build(arguments);
           final runnerSourceAdapter = runner['sourceAdapter']?.toString();
           final runnerSourceCompatibilityId = runner['sourceCompatibilityId']
               ?.toString();
+          final runnerCompatibilityId = runner['runnerCompatibilityId']
+              ?.toString();
           if (runnerTarget == null ||
               runnerTarget.isEmpty ||
               runnerSourcePackage == null ||
@@ -964,10 +1000,13 @@ Future<void> main(List<String> arguments) => zuke.build(arguments);
               runnerSourceAdapter == null ||
               runnerSourceAdapter.isEmpty ||
               runnerSourceCompatibilityId == null ||
-              runnerSourceCompatibilityId.isEmpty) {
+              runnerSourceCompatibilityId.isEmpty ||
+              runnerCompatibilityId == null ||
+              runnerCompatibilityId.isEmpty) {
             throw StateError(
               'Runner $runnerId must declare target, sourcePackage, '
-              'sourceAdapter, and sourceCompatibilityId',
+              'sourceAdapter, sourceCompatibilityId, and '
+              'runnerCompatibilityId',
             );
           }
           if (!_targetContainsPackage(
@@ -1032,6 +1071,7 @@ Future<void> main(List<String> arguments) => zuke.build(arguments);
                   'ZUKE_SOURCE_PACKAGE': runnerSourcePackage,
                   'ZUKE_SOURCE_ADAPTER': runnerSourceAdapter,
                   'ZUKE_SOURCE_COMPATIBILITY_ID': runnerSourceCompatibilityId,
+                  'ZUKE_RUNNER_COMPATIBILITY_ID': runnerCompatibilityId,
                   if (scenarioFilter.isNotEmpty)
                     'ZUKE_SCENARIO_FILTER': scenarioFilter.join(','),
                   'ZUKE_SELECTION_DIGEST': selection.digest,

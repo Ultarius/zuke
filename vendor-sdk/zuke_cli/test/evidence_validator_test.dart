@@ -912,4 +912,71 @@ void main() {
       },
     );
   });
+
+  test('registered record evidence mode satisfies a custom target slot', () {
+    const slot = <String, String>{
+      'type': 'dashboard-behavior',
+      'target': 'dashboard',
+      'sourcePackage': 'dashboard',
+      'sourceAdapter': 'jaspr',
+      'variant': 'default',
+    };
+    final workspace = WorkspaceDiscoveryResult(
+      config: const ZukeConfig(
+        evidenceTypes: {'dashboard-behavior': 'record'},
+      ),
+      data: MetadataExtractorResult(
+        features: [
+          ParsedFeature(
+            tags: const [],
+            featureElement: const GherkinElement(
+              keyword: GherkinKeyword.feature,
+              title: 'Dashboard',
+              source: SourceLocation(file: 'dashboard.feature', line: 1),
+            ),
+            metadata: const ParsedMetadata(
+              id: 'FEAT-DASHBOARD',
+              source: SourceLocation(file: 'dashboard.feature', line: 1),
+            ),
+            rules: [
+              ParsedRule(
+                tags: const [],
+                ruleElement: const GherkinElement(
+                  keyword: GherkinKeyword.rule,
+                  title: 'Dashboard behavior',
+                  source: SourceLocation(file: 'dashboard.feature', line: 5),
+                ),
+                metadata: const ParsedMetadata(
+                  id: 'RULE-DASHBOARD-BEHAVIOR',
+                  requiredEvidence: ['dashboard-behavior'],
+                  evidenceRequirements: [slot],
+                  source: SourceLocation(file: 'dashboard.feature', line: 5),
+                ),
+                scenarios: const [],
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+    final result = EvidenceValidator().validate(
+      workspace,
+      records: [
+        const SemanticEvidenceRecord(
+          requirementId: 'RULE-DASHBOARD-BEHAVIOR',
+          evidenceType: 'dashboard-behavior',
+          target: 'dashboard',
+          variant: 'default',
+          sourcePackage: 'dashboard',
+          sourceAdapter: 'jaspr',
+          executionId: 'dashboard-exec',
+          status: EvidenceStatus.passed,
+        ),
+      ],
+    );
+    expect(
+      result.errors.any((error) => error.code == 'ZUKE-EVID-003'),
+      isFalse,
+    );
+  });
 }

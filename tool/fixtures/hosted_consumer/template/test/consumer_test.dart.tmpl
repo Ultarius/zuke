@@ -1,0 +1,13 @@
+import 'package:test/test.dart';
+import 'package:zuke_hosted_consumer_fixture/calculator.dart';
+import 'package:zuke_hosted_consumer_fixture/hosted_consumer.dart' as generated;
+import 'package:zuke_runner/zuke_runner.dart';
+
+void main() {
+  zukeTest(
+    'adds two values',
+    () => expect(add(2, 3), 5),
+    scenario: generated.FeatHosted001Scenarios.all.single,
+    evidenceTypes: const ['domain-unit'],
+  );
+}

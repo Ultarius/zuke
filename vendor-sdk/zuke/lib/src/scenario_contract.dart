@@ -75,10 +75,10 @@ ResolvedScenarioContract resolveScenarioContract(
     );
   }
   final match = matches.single;
-  if (match.rule.metadata.id != contract.requirementId) {
+  if (match.rule.metadata.id != contract.requirementId.value) {
     throw StateError(
       'Generated scenario ${contract.id.value} belongs to ${match.rule.metadata.id}, '
-      'not ${contract.requirementId}',
+      'not ${contract.requirementId.value}',
     );
   }
   if (match.scenario.scenarioElement.title != contract.title) {

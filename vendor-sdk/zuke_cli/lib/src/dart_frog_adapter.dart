@@ -9,6 +9,7 @@ import 'package:path/path.dart' as path;
 import 'package:zuke_core/zuke_core.dart';
 
 import 'generated/release_contract.dart';
+import 'tooling/analyzer_sdk.dart';
 import 'tooling/inspection.dart';
 
 /// Compatibility identity for the public Dart Frog route configuration API.
@@ -39,117 +40,147 @@ final class DartFrogAdapter implements FrameworkAdapter {
       );
     }
 
-    var routeComplete = configuration.rogueRoutes.isEmpty;
-    for (final entry
-        in configuration.endpoints.entries.toList()
-          ..sort((a, b) => a.key.compareTo(b.key))) {
-      if (entry.value.length != 1) {
-        routeComplete = false;
-        diagnostics.add(
-          _error(
-            'ZK-DART-FROG-002',
-            'Conflicting Dart Frog route registration for ${entry.key}',
-          ),
-        );
-      }
-      for (final routeFile in entry.value) {
-        final resolved = _resolveRoutePath(request.packageRoot, routeFile.path);
-        if (resolved == null) {
-          routeComplete = false;
-          diagnostics.add(
-            _error(
-              'ZK-DART-FROG-PATH-001',
-              'Unsupported Dart Frog route path: ${routeFile.path}',
-            ),
-          );
-          continue;
-        }
-        final source = File(resolved);
-        final exists = source.existsSync();
-        if (!exists) {
-          routeComplete = false;
-          diagnostics.add(
-            _error(
-              'ZK-DART-FROG-003',
-              'Dart Frog route handler could not be resolved: ${routeFile.path}',
-            ),
-          );
-        }
-        final transport = exists
-            ? await _classifyTransport(resolved, request)
-            : const _TransportResult(kind: 'route', complete: false);
-        diagnostics.addAll(transport.diagnostics);
-        final nodeId = _nodeId(request, 'route', entry.key);
-        nodes.add(
-          TopologyNode(
-            id: nodeId,
-            kind: transport.kind == 'websocket' ? 'websocket-route' : 'route',
-            name: routeFile.name,
-            path: routeFile.path,
-            attributes: {
-              'route': entry.key,
-              'parameters': routeFile.params,
-              'wildcard': routeFile.wildcard,
-              'alias': routeFile.name,
-              'handlerResolved': exists,
-              'transport': transport.kind,
-              'transportResolved': transport.complete,
-            },
-          ),
-        );
-        nodes.add(
-          TopologyNode(
-            id: _nodeId(
-              request,
-              'route-alias',
-              '${entry.key}|${routeFile.path}',
-            ),
-            kind: 'route-alias',
-            name: routeFile.name,
-            path: routeFile.path,
-            attributes: {'route': entry.key, 'target': nodeId},
-          ),
-        );
-      }
-    }
-    for (final route in configuration.rogueRoutes) {
-      routeComplete = false;
-      diagnostics.add(
-        _error(
-          'ZK-DART-FROG-004',
-          'Rogue Dart Frog route is not part of the generated topology: ${route.path}',
-        ),
+    final normalizedRoot = path.normalize(
+      Directory(request.packageRoot).absolute.path,
+    );
+    late final AnalysisContextCollection collection;
+    try {
+      collection = AnalysisContextCollection(
+        includedPaths: [normalizedRoot],
+        sdkPath: resolveAnalyzerSdkPath(),
+      );
+    } catch (error) {
+      return _failed(
+        request,
+        diagnostics,
+        'ZK-DART-FROG-ANALYZER-001',
+        'Unable to initialize the Dart analyzer for topology extraction: $error',
       );
     }
 
-    final middleware = await _extractMiddleware(request, configuration, nodes);
-    diagnostics.addAll(middleware.diagnostics);
-    final customEntrypoint =
-        configuration.invokeCustomEntrypoint || configuration.invokeCustomInit;
-    return AdapterOutput(
-      targetId: request.targetId,
-      packageId: request.packageId,
-      sourceAdapter: id,
-      compatibilityId: compatibilityId,
-      completeness: AdapterCompleteness(
-        routeRegistration: routeComplete
-            ? CompletenessStatus.complete
-            : CompletenessStatus.incomplete,
-        middlewareOrder: middleware.complete
-            ? CompletenessStatus.complete
-            : CompletenessStatus.indeterminate,
-        dynamicRegistration: customEntrypoint
-            ? CompletenessStatus.indeterminate
-            : CompletenessStatus.complete,
-        externalVisibility: customEntrypoint
-            ? CompletenessStatus.indeterminate
-            : CompletenessStatus.complete,
-        failureFlow: CompletenessStatus.indeterminate,
-        logFlow: CompletenessStatus.indeterminate,
-      ),
-      nodes: nodes,
-      diagnostics: diagnostics,
-    );
+    try {
+      var routeComplete = configuration.rogueRoutes.isEmpty;
+      for (final entry
+          in configuration.endpoints.entries.toList()
+            ..sort((a, b) => a.key.compareTo(b.key))) {
+        if (entry.value.length != 1) {
+          routeComplete = false;
+          diagnostics.add(
+            _error(
+              'ZK-DART-FROG-002',
+              'Conflicting Dart Frog route registration for ${entry.key}',
+            ),
+          );
+        }
+        for (final routeFile in entry.value) {
+          final resolved = _resolveRoutePath(
+            request.packageRoot,
+            routeFile.path,
+          );
+          if (resolved == null) {
+            routeComplete = false;
+            diagnostics.add(
+              _error(
+                'ZK-DART-FROG-PATH-001',
+                'Unsupported Dart Frog route path: ${routeFile.path}',
+              ),
+            );
+            continue;
+          }
+          final source = File(resolved);
+          final exists = source.existsSync();
+          if (!exists) {
+            routeComplete = false;
+            diagnostics.add(
+              _error(
+                'ZK-DART-FROG-003',
+                'Dart Frog route handler could not be resolved: ${routeFile.path}',
+              ),
+            );
+          }
+          final transport = exists
+              ? await _classifyTransport(resolved, request, collection)
+              : const _TransportResult(kind: 'route', complete: false);
+          diagnostics.addAll(transport.diagnostics);
+          final nodeId = _nodeId(request, 'route', entry.key);
+          nodes.add(
+            TopologyNode(
+              id: nodeId,
+              kind: transport.kind == 'websocket' ? 'websocket-route' : 'route',
+              name: routeFile.name,
+              path: routeFile.path,
+              attributes: {
+                'route': entry.key,
+                'parameters': routeFile.params,
+                'wildcard': routeFile.wildcard,
+                'alias': routeFile.name,
+                'handlerResolved': exists,
+                'transport': transport.kind,
+                'transportResolved': transport.complete,
+              },
+            ),
+          );
+          nodes.add(
+            TopologyNode(
+              id: _nodeId(
+                request,
+                'route-alias',
+                '${entry.key}|${routeFile.path}',
+              ),
+              kind: 'route-alias',
+              name: routeFile.name,
+              path: routeFile.path,
+              attributes: {'route': entry.key, 'target': nodeId},
+            ),
+          );
+        }
+      }
+      for (final route in configuration.rogueRoutes) {
+        routeComplete = false;
+        diagnostics.add(
+          _error(
+            'ZK-DART-FROG-004',
+            'Rogue Dart Frog route is not part of the generated topology: ${route.path}',
+          ),
+        );
+      }
+
+      final middleware = await _extractMiddleware(
+        request,
+        configuration,
+        nodes,
+        collection,
+      );
+      diagnostics.addAll(middleware.diagnostics);
+      final customEntrypoint =
+          configuration.invokeCustomEntrypoint || configuration.invokeCustomInit;
+      return AdapterOutput(
+        targetId: request.targetId,
+        packageId: request.packageId,
+        sourceAdapter: id,
+        compatibilityId: compatibilityId,
+        completeness: AdapterCompleteness(
+          routeRegistration: routeComplete
+              ? CompletenessStatus.complete
+              : CompletenessStatus.incomplete,
+          middlewareOrder: middleware.complete
+              ? CompletenessStatus.complete
+              : CompletenessStatus.indeterminate,
+          dynamicRegistration: customEntrypoint
+              ? CompletenessStatus.indeterminate
+              : CompletenessStatus.complete,
+          externalVisibility: customEntrypoint
+              ? CompletenessStatus.indeterminate
+              : CompletenessStatus.complete,
+          failureFlow: CompletenessStatus.indeterminate,
+          logFlow: CompletenessStatus.indeterminate,
+        ),
+        nodes: nodes,
+        diagnostics: diagnostics,
+      );
+    } finally {
+      await collection.dispose();
+    }
   }
 
   AdapterOutput _failed(
@@ -179,6 +210,7 @@ final class DartFrogAdapter implements FrameworkAdapter {
     AdapterRequest request,
     RouteConfiguration configuration,
     List<TopologyNode> nodes,
+    AnalysisContextCollection collection,
   ) async {
     final diagnostics = <Diagnostic>[];
     final files = <String>{
@@ -204,6 +236,7 @@ final class DartFrogAdapter implements FrameworkAdapter {
       final inspection = await _inspectMiddleware(
         filePath,
         request.packageRoot,
+        collection,
       );
       complete = complete && inspection.complete;
       diagnostics.addAll(inspection.diagnostics);
@@ -235,8 +268,9 @@ final class DartFrogAdapter implements FrameworkAdapter {
   Future<_TransportResult> _classifyTransport(
     String filePath,
     AdapterRequest request,
+    AnalysisContextCollection collection,
   ) async {
-    final resolved = await _resolveUnit(filePath, request.packageRoot);
+    final resolved = await _resolveUnit(filePath, collection);
     if (resolved == null) {
       return _TransportResult(
         kind: 'indeterminate',
@@ -275,7 +309,8 @@ final class DartFrogAdapter implements FrameworkAdapter {
           };
           final uri = element?.library?.firstFragment.source.uri.toString();
           if (uri == 'package:dart_frog/dart_frog.dart' ||
-              (uri?.startsWith('package:dart_frog/') ?? false)) {
+              (uri?.startsWith('package:dart_frog/') ?? false) ||
+              (uri?.startsWith('package:dart_frog_web_socket/') ?? false)) {
             resolvedWebSocket = true;
           } else {
             unresolvedCandidate = true;
@@ -304,8 +339,9 @@ final class DartFrogAdapter implements FrameworkAdapter {
   Future<_MiddlewareInspection> _inspectMiddleware(
     String filePath,
     String packageRoot,
+    AnalysisContextCollection collection,
   ) async {
-    final resolved = await _resolveUnit(filePath, packageRoot);
+    final resolved = await _resolveUnit(filePath, collection);
     if (resolved == null) {
       return _MiddlewareInspection(
         complete: false,
@@ -427,24 +463,14 @@ final class DartFrogAdapter implements FrameworkAdapter {
 
   Future<ResolvedUnitResult?> _resolveUnit(
     String filePath,
-    String includedRoot,
+    AnalysisContextCollection collection,
   ) async {
-    final normalizedRoot = path.normalize(
-      Directory(includedRoot).absolute.path,
-    );
     final normalizedFile = path.normalize(File(filePath).absolute.path);
-    final collection = AnalysisContextCollection(
-      includedPaths: [normalizedRoot],
-    );
-    try {
-      final result = await collection
-          .contextFor(normalizedFile)
-          .currentSession
-          .getResolvedUnit(filePath);
-      return result is ResolvedUnitResult ? result : null;
-    } finally {
-      await collection.dispose();
-    }
+    final result = await collection
+        .contextFor(normalizedFile)
+        .currentSession
+        .getResolvedUnit(normalizedFile);
+    return result is ResolvedUnitResult ? result : null;
   }
 
   String? _resolveRoutePath(String packageRoot, String generatedPath) {

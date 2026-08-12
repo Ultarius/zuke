@@ -20,19 +20,19 @@ const _testIdentity = ExecutionSourceIdentity(
 );
 
 enum _Contract implements ZukeScenarioContract {
-  correct(ScenarioId('SCN-CONTRACT-ONE'), 'RULE-CONTRACT-001', 'Correct title'),
-  missing(ScenarioId('SCN-CONTRACT-TWO'), 'RULE-CONTRACT-001', 'Correct title'),
-  drifted(ScenarioId('SCN-CONTRACT-ONE'), 'RULE-OTHER', 'Drifted title');
+  correct(ScenarioId('SCN-CONTRACT-ONE'), RuleId('RULE-CONTRACT-001'), 'Correct title'),
+  missing(ScenarioId('SCN-CONTRACT-TWO'), RuleId('RULE-CONTRACT-001'), 'Correct title'),
+  drifted(ScenarioId('SCN-CONTRACT-ONE'), RuleId('RULE-OTHER'), 'Drifted title');
 
   const _Contract(this.id, this.requirementId, this.title);
   @override
   final ScenarioId id;
   @override
-  final String requirementId;
+  final RuleId requirementId;
   @override
   final String title;
   @override
-  Set<String> get controlIds => const {};
+  Set<ControlId> get controlIds => const {};
 }
 
 void main() {
@@ -60,7 +60,7 @@ Feature: Contracts
 
       final resolved = resolveScenarioContract(feature, contract);
 
-      expect(resolved.rule.metadata.id, contract.requirementId);
+      expect(resolved.rule.metadata.id, contract.requirementId.value);
       expect(resolved.scenario.scenarioElement.title, contract.title);
     });
 
@@ -231,7 +231,7 @@ Feature: Run
     expect(first.status, ScenarioStatus.passed);
     expect(first.executionId, second.executionId);
     expect(first.evidenceType, 'gherkin-api');
-    expect(first.requirementId, 'RULE-RUN-001');
+    expect(first.requirementId, RuleId('RULE-RUN-001').value);
     expect(seen, ['one', 'two', 'one', 'two']);
 
     final releaseExecutor = ScenarioExecutor<World>(
@@ -706,5 +706,30 @@ Feature: Failures
     expect(results.map((result) => result.resultDigest).toSet(), {
       'sha256:${sha256.convert(utf8.encode('observed result'))}',
     });
+  });
+
+  test('suite evidence emitter preserves explicitly proved controls', () {
+    final root = Directory.systemTemp.createTempSync('zuke-runner-controls-');
+    addTearDown(() => root.deleteSync(recursive: true));
+
+    final files = const SuiteEvidenceEmitter().emitPassing(
+      requirementId: 'RULE-EMITTER-002',
+      scenarioId: const ScenarioId('SCN-EMITTER-TWO'),
+      evidenceTypes: const ['malformed-input-security'],
+      target: 'backend',
+      runnerCompatibilityId: 'runner-v1',
+      digestInput: 'control-backed result',
+      controlIds: const ['CTL-A', 'CTL-A', 'CTL-B'],
+      outputDirectory: root.path,
+      profile: 'test',
+      runnerId: 'runner',
+      sourceIdentity: _testIdentity,
+    );
+
+    expect(files, hasLength(1));
+    final result = SuiteResult.fromJson(
+      jsonDecode(files.single.readAsStringSync()),
+    );
+    expect(result.controlIds, ['CTL-A', 'CTL-B']);
   });
 }

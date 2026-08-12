@@ -4,6 +4,8 @@
 
 - Added the analyzer-free core dependency and current source identity emission for
   Flutter result artifacts.
+- Declared the direct digest dependency and aligned the managed widget-test
+  `skip` option with Flutter's boolean test API.
 
 ## 0.2.1
 

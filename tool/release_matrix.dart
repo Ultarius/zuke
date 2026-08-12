@@ -9,22 +9,44 @@ import 'package:yaml/yaml.dart';
 /// the two entry points from silently accepting different matrices.
 final class ReleaseMatrix {
   const ReleaseMatrix({
+    required this.schemaVersion,
+    required this.sdk,
+    required this.operatingSystems,
+    required this.compatibilityIds,
+    required this.contracts,
     required this.packages,
     required this.publicationOrder,
     required this.retiredPackages,
   });
 
   const ReleaseMatrix.empty()
-    : packages = const {},
+    : schemaVersion = 0,
+      sdk = const {},
+      operatingSystems = const [],
+      compatibilityIds = const {},
+      contracts = const {},
+      packages = const {},
       publicationOrder = const [],
       retiredPackages = const {};
 
+  final int schemaVersion;
+  final Map<String, Object?> sdk;
+  final List<String> operatingSystems;
+  final Map<String, String> compatibilityIds;
+  final Map<String, String> contracts;
   final Map<String, PackageRelease> packages;
   final List<String> publicationOrder;
   final Set<String> retiredPackages;
 
   Map<String, String> get versions => {
     for (final entry in packages.entries) entry.key: entry.value.version,
+  };
+
+  Map<String, String> get publicPackageVersions => {
+    for (final entry in packages.entries)
+      if (entry.value.releaseAction == 'publish' ||
+          entry.value.releaseAction == 'reuse')
+        entry.key: entry.value.version,
   };
 }
 
@@ -192,7 +214,58 @@ ReleaseMatrix readReleaseMatrix(Directory root) {
     );
   }
 
+  final rawCompatibilityIds = decoded['compatibilityIds'];
+  if (rawCompatibilityIds is! Map) {
+    throw const FormatException(
+      'release matrix compatibilityIds must be a mapping',
+    );
+  }
+  final compatibilityIds = <String, String>{};
+  for (final entry in rawCompatibilityIds.entries) {
+    if (entry.key is! String ||
+        entry.value is! String ||
+        (entry.value as String).trim().isEmpty) {
+      throw const FormatException(
+        'release matrix compatibilityIds must contain non-empty strings',
+      );
+    }
+    compatibilityIds[entry.key as String] = entry.value as String;
+  }
+
+  final rawContracts = decoded['contracts'];
+  if (rawContracts is! Map) {
+    throw const FormatException('release matrix contracts must be a mapping');
+  }
+  final contracts = <String, String>{};
+  for (final entry in rawContracts.entries) {
+    if (entry.key is! String ||
+        entry.value is! String ||
+        (entry.value as String).trim().isEmpty) {
+      throw const FormatException(
+        'release matrix contracts must contain non-empty strings',
+      );
+    }
+    contracts[entry.key as String] = entry.value as String;
+  }
+
+  final rawSdk = decoded['sdk'];
+  if (rawSdk is! Map) {
+    throw const FormatException('release matrix sdk must be a mapping');
+  }
+  final operatingSystems = decoded['operatingSystems'];
+  if (operatingSystems is! List ||
+      operatingSystems.any((value) => value is! String || value.isEmpty)) {
+    throw const FormatException(
+      'release matrix operatingSystems must be a non-empty string list',
+    );
+  }
+
   return ReleaseMatrix(
+    schemaVersion: decoded['schemaVersion'] as int,
+    sdk: Map<String, Object?>.from(rawSdk),
+    operatingSystems: List<String>.from(operatingSystems),
+    compatibilityIds: Map.unmodifiable(compatibilityIds),
+    contracts: Map.unmodifiable(contracts),
     packages: Map.unmodifiable(packages),
     publicationOrder: List.unmodifiable(order),
     retiredPackages: Set.unmodifiable(retiredPackages),

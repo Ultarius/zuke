@@ -73,6 +73,7 @@ execution:
       sourcePackage: backend
       sourceAdapter: dart-frog
       sourceCompatibilityId: dart-frog-gen-2-route-topology-v1
+      runnerCompatibilityId: backend-runner-v1
 ```
 
 Schema 2 and older configurations fail closed with a structured diagnostic
@@ -91,6 +92,10 @@ for profile in pullRequest merge release nightly; do
   dart run zuke_cli:zuke lock --root . --profile "$profile" --check
 done
 dart run zuke_cli:zuke gate --root . --profile pullRequest
+# Release/nightly verification can cover every configured profile:
+dart run zuke_cli:zuke gate --root . --all-profiles --format json
+# Coverage is a separate quality gate:
+dart run zuke_cli:zuke coverage --root . --format json --output coverage/report.json
 ```
 
 The profile test must immediately precede its lock operation because the
@@ -134,6 +139,13 @@ The current manifest command is:
 dart run zuke_cli:zuke manifest verify --root .
 ```
 
+For ordinary Dart and Flutter tests that should publish evidence, use the
+managed registration helpers from `zuke_runner` and
+`zuke_runner_flutter` (`zukeTest` and `zukeTestWidgets`). They remain ordinary
+tests when no managed runner context is present and publish nothing when the
+assertions fail. Existing low-level emitters can remain during migration until
+the hosted Linux and Windows consumer proof is green.
+
 ## 6. Update CI
 
 CI should run direct project tests independently of Zuke, then run the current
@@ -143,6 +155,26 @@ application and framework workspaces with no path dependencies or overrides.
 
 Run the exact package tuple on every supported operating-system lane before
 closing the migration.
+
+The framework repository owns the clean-room hosted check. Run it from the
+repository root after the coordinated versions are available:
+
+```bash
+dart run tool/check_hosted_consumer.dart --platform linux
+dart run tool/check_hosted_consumer.dart --platform windows
+```
+
+The check creates its fixture outside the repository, reads exact package
+versions from `docs/release-matrix.yaml`, rejects path dependencies and
+overrides, and removes the fixture after the run unless `--keep-fixture` is
+provided for diagnosis. When the matrix contains Flutter-bound packages, the
+checker requires Flutter on the machine, uses `flutter pub get`/`flutter test`,
+and reports the Flutter package lane separately. It fails closed rather than
+silently claiming the complete hosted tuple was verified with Dart alone.
+
+The framework repository also provides `.github/workflows/hosted-consumer.yml`.
+It runs the same checker on Linux and Windows after a published release, and
+can be started manually when a hosted package tuple is ready for verification.
 
 ## 7. If you are not ready yet
 

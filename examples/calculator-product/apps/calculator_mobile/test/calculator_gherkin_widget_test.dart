@@ -29,7 +29,7 @@ void main() {
   );
   final feature = parsed.features.single;
   final rule = feature.rules.firstWhere(
-    (r) => r.metadata.id == AdditionScenarios.addIntegersUi.requirementId,
+    (r) => r.metadata.id == AdditionScenarios.addIntegersUi.requirementId.value,
   );
   final scenario = rule.scenarios.firstWhere(
     (s) => s.scenarioElement.title == 'Add two positive integers in the UI',

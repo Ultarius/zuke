@@ -234,51 +234,57 @@ abstract interface class FeatTodo001FlutterDriver<W> {
 
 abstract final class FeatTodo001RequirementIds {
   static const addItem = 'RULE-TODO-ADD-ITEM';
+  static const addItemId = RuleId('RULE-TODO-ADD-ITEM');
   static const completeItem = 'RULE-TODO-COMPLETE-ITEM';
+  static const completeItemId = RuleId('RULE-TODO-COMPLETE-ITEM');
+}
+
+abstract final class FeatTodo001ControlIds {
+  static const validation = ControlId('CTRL-TODO-VALIDATION');
 }
 
 enum FeatTodo001Scenario implements ZukeScenarioContract {
   addItem(
     ScenarioId('SCN-TODO-ADD-ITEM'),
-    'RULE-TODO-ADD-ITEM',
+    RuleId('RULE-TODO-ADD-ITEM'),
     'Add a new task to the todo list',
-    <String>{'CTRL-TODO-VALIDATION'},
+    <ControlId>{ControlId('CTRL-TODO-VALIDATION')},
   ),
   addEmpty(
     ScenarioId('SCN-TODO-ADD-EMPTY'),
-    'RULE-TODO-ADD-ITEM',
+    RuleId('RULE-TODO-ADD-ITEM'),
     'Reject adding an empty task',
-    <String>{'CTRL-TODO-VALIDATION'},
+    <ControlId>{ControlId('CTRL-TODO-VALIDATION')},
   ),
   addWhitespace(
     ScenarioId('SCN-TODO-ADD-WHITESPACE'),
-    'RULE-TODO-ADD-ITEM',
+    RuleId('RULE-TODO-ADD-ITEM'),
     'Reject adding a whitespace-only task',
-    <String>{'CTRL-TODO-VALIDATION'},
+    <ControlId>{ControlId('CTRL-TODO-VALIDATION')},
   ),
   multiTasks(
     ScenarioId('SCN-TODO-MULTI-TASKS'),
-    'RULE-TODO-ADD-ITEM',
+    RuleId('RULE-TODO-ADD-ITEM'),
     'Track counts across multiple tasks',
-    <String>{'CTRL-TODO-VALIDATION'},
+    <ControlId>{ControlId('CTRL-TODO-VALIDATION')},
   ),
   completeItem(
     ScenarioId('SCN-TODO-COMPLETE-ITEM'),
-    'RULE-TODO-COMPLETE-ITEM',
+    RuleId('RULE-TODO-COMPLETE-ITEM'),
     'Mark a task as complete',
-    <String>{'CTRL-TODO-VALIDATION'},
+    <ControlId>{ControlId('CTRL-TODO-VALIDATION')},
   ),
   toggleBack(
     ScenarioId('SCN-TODO-TOGGLE-BACK'),
-    'RULE-TODO-COMPLETE-ITEM',
+    RuleId('RULE-TODO-COMPLETE-ITEM'),
     'Reopen a completed task',
-    <String>{'CTRL-TODO-VALIDATION'},
+    <ControlId>{ControlId('CTRL-TODO-VALIDATION')},
   ),
   clearCompleted(
     ScenarioId('SCN-TODO-CLEAR-COMPLETED'),
-    'RULE-TODO-COMPLETE-ITEM',
+    RuleId('RULE-TODO-COMPLETE-ITEM'),
     'Clear all completed tasks',
-    <String>{'CTRL-TODO-VALIDATION'},
+    <ControlId>{ControlId('CTRL-TODO-VALIDATION')},
   );
 
   const FeatTodo001Scenario(
@@ -290,11 +296,11 @@ enum FeatTodo001Scenario implements ZukeScenarioContract {
   @override
   final ScenarioId id;
   @override
-  final String requirementId;
+  final RuleId requirementId;
   @override
   final String title;
   @override
-  final Set<String> controlIds;
+  final Set<ControlId> controlIds;
 }
 
 abstract final class FeatTodo001Scenarios {

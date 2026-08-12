@@ -55,6 +55,7 @@ execution:
       sourcePackage: shopping-cart
       sourceAdapter: flutter-test
       sourceCompatibilityId: flutter-test-v1
+      runnerCompatibilityId: shopping-cart-flutter-runner-v1
       evidenceTypes: [gherkin-ui]
       executable: flutter
       args: [test, --no-pub, --reporter, expanded]

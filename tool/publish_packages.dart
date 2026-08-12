@@ -25,7 +25,12 @@ Future<void> main(List<String> args) async {
   }
   final generatedContractCheck = Process.runSync(
     Platform.resolvedExecutable,
-    ['tool/generate_release_contract.dart', '--check'],
+    const [
+      '--suppress-analytics',
+      'run',
+      'tool/generate_release_contract.dart',
+      '--check',
+    ],
     workingDirectory: root.path,
     runInShell: Platform.isWindows,
   );
@@ -33,6 +38,23 @@ Future<void> main(List<String> args) async {
     stderr.writeln('Generated release contract preflight failed:');
     stderr.write(generatedContractCheck.stdout);
     stderr.write(generatedContractCheck.stderr);
+    exitCode = 1;
+    return;
+  }
+  final boundaryCheck = Process.runSync(
+    Platform.resolvedExecutable,
+    const [
+      '--suppress-analytics',
+      'run',
+      'tool/check_framework_boundaries.dart',
+    ],
+    workingDirectory: root.path,
+    runInShell: Platform.isWindows,
+  );
+  if (boundaryCheck.exitCode != 0) {
+    stderr.writeln('Framework boundary preflight failed:');
+    stderr.write(boundaryCheck.stdout);
+    stderr.write(boundaryCheck.stderr);
     exitCode = 1;
     return;
   }
@@ -109,7 +131,7 @@ Future<void> main(List<String> args) async {
 
   for (final target in targets) {
     stdout.writeln('\n==> ${target.package} ${target.version}');
-    final command = <String>['pub', 'publish'];
+    final command = <String>['--suppress-analytics', 'pub', 'publish'];
     if (!options.publish) command.add('--dry-run');
     if (options.ignoreWarnings) command.add('--ignore-warnings');
 

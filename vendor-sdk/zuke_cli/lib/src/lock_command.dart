@@ -35,17 +35,14 @@ class LockCommand {
   LockCommand(this.args);
 
   Future<int> execute() async {
+    final requestedRoot = args['root'] as String? ?? Directory.current.path;
     final allProfiles =
         args.options.contains('all-profiles') &&
         (args['all-profiles'] as bool? ?? false);
     if (allProfiles) {
       var result = 0;
-      for (final profile in const [
-        'pullRequest',
-        'merge',
-        'release',
-        'nightly',
-      ]) {
+      final profiles = _configuredProfiles(requestedRoot);
+      for (final profile in profiles) {
         final profileArgs = ArgParser()
           ..addOption('root')
           ..addOption('profile')
@@ -53,7 +50,7 @@ class LockCommand {
           ..addFlag('quiet');
         final values = <String>[
           '--root',
-          args['root'] as String? ?? Directory.current.path,
+          requestedRoot,
           '--profile',
           profile,
           if (args['check'] as bool? ?? false) '--check',
@@ -176,6 +173,16 @@ class LockCommand {
     file.writeAsStringSync(lockContent);
     if (!quiet) stdout.writeln('Wrote $path');
     return 0;
+  }
+
+  List<String> _configuredProfiles(String root) {
+    try {
+      final profiles = WorkspaceDiscovery().discover(root).config.lockProfiles;
+      if (profiles.isNotEmpty) return profiles;
+    } on Object {
+      // Let the normal single-profile path report the configuration failure.
+    }
+    return const ['pullRequest', 'merge', 'release', 'nightly'];
   }
 
   Future<String> buildLock(

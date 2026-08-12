@@ -483,6 +483,22 @@ class EvidenceValidator {
     final variant = slot?['variant'] ?? 'default';
     final sourcePackage = slot?['sourcePackage'];
     final sourceAdapter = slot?['sourceAdapter'];
+    final configuredMode = workspace.config.evidenceTypes[type];
+    if (configuredMode != null &&
+        !_builtInEvidenceTypes.contains(type)) {
+      return _isConfiguredEvidenceSatisfied(
+        mode: configuredMode,
+        rule: rule,
+        records: executionEvidence,
+        controlProofs: controlProofs,
+        requirementId: id,
+        evidenceType: type,
+        target: configuredTarget,
+        variant: variant,
+        sourcePackage: sourcePackage,
+        sourceAdapter: sourceAdapter,
+      );
+    }
     switch (type) {
       case 'domain-unit':
         return _hasPassedEvidence(
@@ -585,6 +601,69 @@ class EvidenceValidator {
       default:
         return false;
     }
+  }
+
+  bool _isConfiguredEvidenceSatisfied({
+    required String mode,
+    required ParsedRule rule,
+    required List<SemanticEvidenceRecord> records,
+    required List<ControlProofResult> controlProofs,
+    required String? requirementId,
+    required String evidenceType,
+    required String? target,
+    required String variant,
+    required String? sourcePackage,
+    required String? sourceAdapter,
+  }) {
+    final record = switch (mode) {
+      'record' => _hasPassedEvidence(
+          records,
+          requirementId,
+          evidenceType,
+          target ?? 'backend',
+          variant: variant,
+          sourcePackage: sourcePackage,
+          sourceAdapter: sourceAdapter,
+        ),
+      'scenario-record' => _hasExecutedEvidence(
+          rule,
+          records,
+          evidenceType,
+          target: target,
+          variant: variant,
+          sourcePackage: sourcePackage,
+          sourceAdapter: sourceAdapter,
+        ),
+      'control-backed' => _hasExecutedEvidence(
+          rule,
+          records,
+          evidenceType,
+          target: target,
+          variant: variant,
+          sourcePackage: sourcePackage,
+          sourceAdapter: sourceAdapter,
+        ) &&
+          (rule.metadata.requires?.isNotEmpty ?? false) &&
+          rule.metadata.requires!.every(
+            (control) => controlProofs.any(
+              (proof) =>
+                  proof.controlId == control.id &&
+                  (proof.status == ProofStatus.proven ||
+                      proof.status == ProofStatus.verified ||
+                      proof.status == ProofStatus.attested),
+            ),
+          ),
+      'attestation' => (rule.metadata.requires?.isNotEmpty ?? false) &&
+          rule.metadata.requires!.every(
+            (control) => controlProofs.any(
+              (proof) =>
+                  proof.controlId == control.id &&
+                  proof.status == ProofStatus.attested,
+            ),
+          ),
+      _ => false,
+    };
+    return record;
   }
 
   bool _hasExecutedEvidence(
@@ -725,3 +804,16 @@ class EvidenceValidator {
     );
   }
 }
+
+const _builtInEvidenceTypes = <String>{
+  'domain-unit',
+  'flutter-widget',
+  'accessibility-integration',
+  'api-contract',
+  'performance',
+  'gherkin-api',
+  'gherkin-ui',
+  'security-integration',
+  'logging-verification',
+  'attestation-freshness',
+};

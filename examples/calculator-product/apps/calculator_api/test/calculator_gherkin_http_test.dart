@@ -21,7 +21,9 @@ void main() {
           .features
           .single;
       final rule = feature.rules.firstWhere(
-        (r) => r.metadata.id == AdditionScenarios.addIntegersApi.requirementId,
+        (r) =>
+            r.metadata.id ==
+            AdditionScenarios.addIntegersApi.requirementId.value,
       );
       final scenario = rule.scenarios.firstWhere(
         (s) =>

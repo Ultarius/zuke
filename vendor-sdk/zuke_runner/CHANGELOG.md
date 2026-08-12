@@ -3,6 +3,8 @@
 ## 0.3.0
 
 - Coordinated the compatibility facade with the current result identity contract.
+- Declared the annotation and core contracts used by the managed test wrapper as
+  direct hosted dependencies.
 
 ## 0.2.0
 

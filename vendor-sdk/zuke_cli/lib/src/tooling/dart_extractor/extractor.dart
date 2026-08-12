@@ -14,6 +14,7 @@ import 'package:crypto/crypto.dart';
 import 'package:zuke_cli/src/ir.dart';
 import '../inspection.dart';
 import '../../generated/release_contract.dart';
+import '../analyzer_sdk.dart';
 
 Map<String, Expression> _namedArguments(Iterable<dynamic> arguments) {
   final result = <String, Expression>{};
@@ -139,7 +140,10 @@ class DartExtractor implements DartSourceExtractor {
             .toList()
           ..sort();
 
-    final collection = AnalysisContextCollection(includedPaths: [root]);
+    final collection = AnalysisContextCollection(
+      includedPaths: [root],
+      sdkPath: resolveAnalyzerSdkPath(),
+    );
     try {
       for (final file in dartFiles) {
         try {

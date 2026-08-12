@@ -2,16 +2,16 @@
   "files": [
     {
       "path": "packages/calculator_contracts/lib/src/generated/feat_calc_001_contracts.g.dart",
-      "contentHash": "fc5ef1aa606d0123cbf1b29f667b5758a342dcf31fae9cf24422cbfae6ea0b8a"
+      "contentHash": "20bb4d3a76a81ad45869cd840e7b9085d32c561126e22e9210f9f7d510136d50"
     },
     {
       "path": "packages/calculator_contracts/lib/src/generated/feat_calc_002_contracts.g.dart",
-      "contentHash": "d03e834eeefba2f4b377a20532d961ecb276f53bc8f06a88cc971bf37024d93c"
+      "contentHash": "98001965ab0d7d05e423aba152e967f0b3cf2d97b52dfbf37a8465eb1d9875da"
     },
     {
       "path": "packages/calculator_contracts/lib/calculator_contracts.dart",
       "contentHash": "f08585f92771165a90aa9a454570fe5dba42c540f7b7798a92b5e2ea9d065e42"
     }
   ],
-  "hash": "d5ca30f2d674b223ddc206d0511722688241057a7dc837469c5362c8c7c8bd6d"
+  "hash": "c77d25a8ebd3ea1fa338a9d4127043bc89d5c377c20b91c8bb4c6d6ee3c7e8a4"
 }

@@ -53,6 +53,7 @@ void main() {
       sourcePackage: fake-supervisor
       sourceAdapter: dart-test-runner
       sourceCompatibilityId: fake-supervisor-runner-v2
+      runnerCompatibilityId: fake-supervisor-v1
       executable: flutter
       runnerMode: cli
       args: [test, test]
@@ -239,6 +240,7 @@ void main() {
       sourcePackage: fake-supervisor
       sourceAdapter: dart-test-runner
       sourceCompatibilityId: fake-supervisor-runner-v2
+      runnerCompatibilityId: fake-supervisor-v1
       executable: dart
       evidenceTypes: [domain-unit]
 ''',
@@ -266,6 +268,7 @@ void main() {
       sourcePackage: fake-supervisor
       sourceAdapter: dart-test-runner
       sourceCompatibilityId: fake-supervisor-runner-v2
+      runnerCompatibilityId: fake-supervisor-v1
       executable: dart
 ''',
           );
@@ -295,6 +298,7 @@ void main() {
       sourcePackage: fake-supervisor
       sourceAdapter: dart-test-runner
       sourceCompatibilityId: fake-supervisor-runner-v2
+      runnerCompatibilityId: fake-supervisor-v1
       executable: dart
 ''',
           );
@@ -400,6 +404,7 @@ void main() {
       sourcePackage: fake-supervisor
       sourceAdapter: dart-test-runner
       sourceCompatibilityId: fake-supervisor-runner-v2
+      runnerCompatibilityId: fake-supervisor-v1
       executable: dart
       evidenceTypes: [suite]
 ''',
@@ -446,6 +451,7 @@ Directory _workspace({
       sourcePackage: fake-supervisor
       sourceAdapter: dart-test-runner
       sourceCompatibilityId: fake-supervisor-runner-v2
+      runnerCompatibilityId: fake-supervisor-v1
       executable: dart
       args: [test, test]
       timeoutSeconds: 7

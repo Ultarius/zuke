@@ -26,6 +26,17 @@ void main() {
         throwsFormatException,
       );
     }
+    expect(
+      () => Diagnostic.fromJson({
+        'code': 'ZK-TEST-003',
+        'stage': 'test',
+        'severity': 'error',
+        'owner': 'unknown',
+        'message': 'failure',
+        'remediation': 42,
+      }),
+      throwsFormatException,
+    );
   });
 
   test('command result requires identity fields and consistent status', () {
@@ -46,6 +57,145 @@ void main() {
       () => CommandResult.fromJson({...result.toJson(), 'status': 'passed'}),
       throwsFormatException,
     );
+    for (final fields in const [
+      {'exitCode': 0, 'eligible': false},
+      {'exitCode': 1, 'eligible': true},
+    ]) {
+      expect(
+        () => CommandResult.fromJson({
+          ...result.toJson(),
+          ...fields,
+        }),
+        throwsFormatException,
+      );
+    }
+  });
+
+  test('nested profile stages and diagnostics are validated', () {
+    const result = CommandResult(
+      command: 'gate',
+      stage: 'gate',
+      exitCode: 0,
+      status: CommandStatus.passed,
+      eligible: true,
+      details: {
+        'profiles': [
+          {
+            'profile': 'pullRequest',
+            'status': 'passed',
+            'exitCode': 0,
+            'eligible': true,
+            'diagnostics': <Object?>[],
+            'stages': [
+              {
+                'name': 'lock',
+                'status': 'passed',
+                'exitCode': 0,
+                'eligible': true,
+                'diagnostics': <Object?>[],
+              },
+            ],
+          },
+        ],
+      },
+    );
+    expect(CommandResult.fromJson(result.toJson()).succeeded, isTrue);
+    final malformed = {
+      ...result.toJson(),
+      'profiles': [
+        {
+          'profile': 'pullRequest',
+          'diagnostics': <Object?>[],
+          'stages': [
+            {
+              'name': 'lock',
+              'status': 'passed',
+              'exitCode': 1,
+              'eligible': false,
+              'diagnostics': <Object?>[],
+            },
+          ],
+        },
+      ],
+    };
+    expect(() => CommandResult.fromJson(malformed), throwsFormatException);
+    expect(
+      () => CommandResult.fromJson({
+        ...result.toJson(),
+        'profiles': [
+          {
+            'profile': 'pullRequest',
+            'status': 'passed',
+            'exitCode': 1,
+            'eligible': false,
+            'diagnostics': <Object?>[],
+            'stages': <Object?>[],
+          },
+        ],
+      }),
+      throwsFormatException,
+    );
+  });
+
+  test('command-result details cannot overwrite envelope fields', () {
+    const result = CommandResult(
+      command: 'gate',
+      stage: 'gate',
+      exitCode: 0,
+      status: CommandStatus.passed,
+      eligible: true,
+      details: {'status': 'failed'},
+    );
+    expect(() => result.toJson(), throwsStateError);
+  });
+
+  test('nested failed and skipped stages fail closed on contradictions', () {
+    const result = CommandResult(
+      command: 'gate',
+      stage: 'gate',
+      exitCode: 0,
+      status: CommandStatus.passed,
+      eligible: true,
+    );
+    for (final stage in const [
+      {
+        'name': 'failed-with-zero-exit',
+        'status': 'failed',
+        'exitCode': 0,
+        'eligible': false,
+        'diagnostics': <Object?>[],
+      },
+      {
+        'name': 'failed-but-eligible',
+        'status': 'failed',
+        'exitCode': 1,
+        'eligible': true,
+        'diagnostics': <Object?>[],
+      },
+      {
+        'name': 'skipped-with-error',
+        'status': 'skipped',
+        'exitCode': 1,
+        'eligible': false,
+        'diagnostics': <Object?>[],
+      },
+      {
+        'name': 'skipped-and-eligible',
+        'status': 'skipped',
+        'exitCode': 0,
+        'eligible': true,
+        'diagnostics': <Object?>[],
+      },
+    ]) {
+      expect(
+        () => CommandResult.fromJson({
+          ...result.toJson(),
+          'stages': [stage],
+        }),
+        throwsFormatException,
+        reason: '${stage['name']}',
+      );
+    }
   });
 
   test('execution identity requires all environment variables together', () {
@@ -62,6 +212,41 @@ void main() {
       }),
       throwsFormatException,
     );
+  });
+
+  test('runner execution context is absent when unmanaged', () {
+    expect(RunnerExecutionContext.fromEnvironment(const {}), isNull);
+  });
+
+  test('runner execution context rejects partial managed environments', () {
+    expect(
+      () => RunnerExecutionContext.fromEnvironment(const {
+        'ZUKE_RESULT_DIR': '/tmp/results',
+      }),
+      throwsFormatException,
+    );
+    expect(
+      () => RunnerExecutionContext.fromEnvironment(const {
+        'ZUKE_RESULT_DIR': '',
+      }),
+      throwsFormatException,
+    );
+  });
+
+  test('runner execution context round trips all managed identities', () {
+    const context = {
+      'ZUKE_RESULT_DIR': '/tmp/results',
+      'ZUKE_PROFILE': 'pullRequest',
+      'ZUKE_TARGET': 'backend',
+      'ZUKE_RUNNER_ID': 'backend-tests',
+      'ZUKE_RUNNER_COMPATIBILITY_ID': 'backend-runner-v1',
+      'ZUKE_SOURCE_PACKAGE': 'backend',
+      'ZUKE_SOURCE_ADAPTER': 'dart-frog',
+      'ZUKE_SOURCE_COMPATIBILITY_ID': 'dart-frog-gen-v1',
+    };
+    final parsed = RunnerExecutionContext.fromEnvironment(context);
+    expect(parsed, isNotNull);
+    expect(parsed!.toEnvironment(), context);
   });
 
   test('sha256 digest accepts only canonical lowercase values', () {

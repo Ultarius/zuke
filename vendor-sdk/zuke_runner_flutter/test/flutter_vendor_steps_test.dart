@@ -86,7 +86,7 @@ final class _Scenario implements ZukeScenarioContract {
   final ScenarioId id;
 
   @override
-  final String requirementId;
+  final RuleId requirementId;
 
   @override
   final String title;
@@ -98,7 +98,7 @@ final class _Scenario implements ZukeScenarioContract {
   });
 
   @override
-  Set<String> get controlIds => const {};
+  Set<ControlId> get controlIds => const {};
 }
 
 void main() {
@@ -116,16 +116,22 @@ void main() {
     defaultEvidenceTypes: const ['flutter-widget', 'gherkin-ui'],
     outputDirectory: evidenceDirectory.path,
     sourceIdentity: _testSourceIdentity,
-    environment: const {
+    environment: {
+      'ZUKE_RESULT_DIR': evidenceDirectory.path,
       'ZUKE_PROFILE': 'merge',
+      'ZUKE_TARGET': 'flutter',
       'ZUKE_RUNNER_ID': 'flutter-harness-test',
+      'ZUKE_RUNNER_COMPATIBILITY_ID': 'runner-compatibility-v1',
+      'ZUKE_SOURCE_PACKAGE': _testSourceIdentity.sourcePackage,
+      'ZUKE_SOURCE_ADAPTER': _testSourceIdentity.sourceAdapter,
+      'ZUKE_SOURCE_COMPATIBILITY_ID': _testSourceIdentity.sourceCompatibilityId,
     },
   );
   evidenceHarness.registerAll([
     FlutterEvidenceCase(
       scenario: const _Scenario(
         id: ScenarioId('SCN-EVIDENCE-DEFAULT'),
-        requirementId: 'RULE-EVIDENCE-001',
+        requirementId: RuleId('RULE-EVIDENCE-001'),
         title: 'Publishes default evidence',
       ),
       body: (_) => 'default observation',
@@ -133,7 +139,7 @@ void main() {
     FlutterEvidenceCase(
       scenario: const _Scenario(
         id: ScenarioId('SCN-EVIDENCE-OVERRIDE'),
-        requirementId: 'RULE-EVIDENCE-001',
+        requirementId: RuleId('RULE-EVIDENCE-001'),
         title: 'Publishes overridden evidence',
       ),
       evidenceTypes: const [
@@ -149,15 +155,22 @@ void main() {
     defaultEvidenceTypes: const ['flutter-widget'],
     outputDirectory: filteredEvidenceDirectory.path,
     sourceIdentity: _testSourceIdentity,
-    environment: const {
+    environment: {
+      'ZUKE_RESULT_DIR': filteredEvidenceDirectory.path,
+      'ZUKE_PROFILE': 'merge',
+      'ZUKE_TARGET': 'flutter',
       'ZUKE_SCENARIO_FILTER': 'SCN-EVIDENCE-SELECTED',
       'ZUKE_RUNNER_ID': 'filtered-harness-test',
+      'ZUKE_RUNNER_COMPATIBILITY_ID': 'runner-compatibility-v1',
+      'ZUKE_SOURCE_PACKAGE': _testSourceIdentity.sourcePackage,
+      'ZUKE_SOURCE_ADAPTER': _testSourceIdentity.sourceAdapter,
+      'ZUKE_SOURCE_COMPATIBILITY_ID': _testSourceIdentity.sourceCompatibilityId,
     },
   ).registerAll([
     FlutterEvidenceCase(
       scenario: const _Scenario(
         id: ScenarioId('SCN-EVIDENCE-SELECTED'),
-        requirementId: 'RULE-EVIDENCE-001',
+        requirementId: RuleId('RULE-EVIDENCE-001'),
         title: 'Selected evidence',
       ),
       body: (_) => 'selected observation',
@@ -165,7 +178,7 @@ void main() {
     FlutterEvidenceCase(
       scenario: const _Scenario(
         id: ScenarioId('SCN-EVIDENCE-EXCLUDED'),
-        requirementId: 'RULE-EVIDENCE-001',
+        requirementId: RuleId('RULE-EVIDENCE-001'),
         title: 'Excluded evidence',
       ),
       body: (_) => 'excluded observation',
@@ -235,7 +248,7 @@ void main() {
         FlutterEvidenceCase(
           scenario: const _Scenario(
             id: ScenarioId('SCN-EVIDENCE-EMPTY'),
-            requirementId: 'RULE-EVIDENCE-001',
+            requirementId: RuleId('RULE-EVIDENCE-001'),
             title: 'Empty evidence types',
           ),
           body: (_) => 'never emitted',
@@ -583,12 +596,12 @@ Feature: Harness Feature
 
   ZukeFlutterHarness<_World>(
     feature: harnessFeature,
-    scenarios: const [
+    scenarios: [
       _TestScenarioContract(
         id: ScenarioId('SCN-H-001'),
         title: 'Harness Scenario',
-        requirementId: 'RULE-H-001',
-        controlIds: {'CTRL-H-001'},
+        requirementId: RuleId('RULE-H-001'),
+        controlIds: {ControlId('CTRL-H-001')},
       ),
     ],
     registryFactory: () => StepRegistry<_World>()
@@ -644,9 +657,9 @@ final class _TestScenarioContract implements ZukeScenarioContract {
   @override
   final String title;
   @override
-  final String requirementId;
+  final RuleId requirementId;
   @override
-  final Set<String> controlIds;
+  final Set<ControlId> controlIds;
 
   const _TestScenarioContract({
     required this.id,

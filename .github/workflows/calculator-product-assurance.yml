@@ -29,9 +29,6 @@ jobs:
     env:
       FLUTTER_SUPPRESS_ANALYTICS: 'true'
       ZUKE_RUN_PROCESS_INTEGRATION: 'true'
-      ZUKE_SOURCE_PACKAGE: calculator-mobile
-      ZUKE_SOURCE_ADAPTER: flutter-test
-      ZUKE_SOURCE_COMPATIBILITY_ID: flutter-test-v1
       # The workspace runner caps concurrency at four packages. A budget of
       # eight gives four-package runs two isolates each; later packages queue
       # instead of reducing that per-package budget on slower hosted runners.
@@ -84,3 +81,6 @@ jobs:
             examples/calculator-product/assurance-history/
             vendor-sdk/*/coverage/lcov.info
             examples/calculator-product/**/coverage/lcov.info
+      - name: Clean Zuke test temporary directories
+        if: always()
+        run: dart --suppress-analytics run zuke_cli:zuke clean --root .

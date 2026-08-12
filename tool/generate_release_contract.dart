@@ -1,6 +1,6 @@
 import 'dart:io';
 
-import 'package:yaml/yaml.dart';
+import 'release_matrix.dart';
 
 const _output = 'vendor-sdk/zuke_cli/lib/src/generated/release_contract.dart';
 
@@ -20,29 +20,19 @@ Future<void> main(List<String> args) async {
     exitCode = 1;
     return;
   }
-  final decoded = loadYaml(matrixFile.readAsStringSync());
-  if (decoded is! Map || decoded['schemaVersion'] != 2) {
-    stderr.writeln('release matrix schemaVersion must be 2');
-    exitCode = 1;
-    return;
+  final matrix = readReleaseMatrix(root);
+  final dartFrog = matrix.compatibilityIds['dart-frog'];
+  final dartSource = matrix.compatibilityIds['dart-source'];
+  if (dartFrog == null || dartSource == null) {
+    throw const FormatException(
+      'release matrix compatibilityIds must define dart-frog and dart-source',
+    );
   }
-  final rawIds = decoded['compatibilityIds'];
-  if (rawIds is! Map) {
-    stderr.writeln('release matrix compatibilityIds must be a mapping');
-    exitCode = 1;
-    return;
-  }
-
-  String required(String key) {
-    final value = rawIds[key];
-    if (value is! String || value.trim().isEmpty) {
-      throw FormatException('compatibilityIds.$key must be non-empty');
-    }
-    return value;
-  }
-
-  final dartFrog = required('dart-frog');
-  final dartSource = required('dart-source');
+  final publicVersions = matrix.publicPackageVersions;
+  final retiredPackages = matrix.retiredPackages.toList()..sort();
+  final operatingSystems = [...matrix.operatingSystems]..sort();
+  final compatibilityIds = matrix.compatibilityIds.entries.toList()
+    ..sort((a, b) => a.key.compareTo(b.key));
   final content = '''// GENERATED CODE - DO NOT EDIT BY HAND.
 // Source: docs/release-matrix.yaml
 
@@ -51,6 +41,26 @@ const releaseDartFrogCompatibilityId = '${_quote(dartFrog)}';
 
 /// Compatibility identity for resolved Dart source extraction.
 const releaseDartSourceCompatibilityId = '${_quote(dartSource)}';
+
+/// Exact versions for the currently supported hosted public packages.
+const releasePublicPackageVersions = <String, String>{
+${_dartMap(publicVersions)}
+};
+
+/// Packages retained only as historical names and never published by current Zuke.
+const releaseRetiredPackages = <String>{
+${retiredPackages.map((value) => "  '${_quote(value)}',").join('\n')}
+};
+
+/// Operating systems covered by the release certification lanes.
+const releaseSupportedOperatingSystems = <String>[
+${operatingSystems.map((value) => "  '${_quote(value)}',").join('\n')}
+];
+
+/// Compatibility identities selected by the release matrix.
+const releaseCompatibilityIds = <String, String>{
+${_dartMap({for (final entry in compatibilityIds) entry.key: entry.value})}
+};
 ''';
   final output = File('${root.path}/$_output');
   if (check) {
@@ -66,3 +76,7 @@ const releaseDartSourceCompatibilityId = '${_quote(dartSource)}';
 }
 
 String _quote(String value) => value.replaceAll(r'\', r'\\').replaceAll("'", r"\'");
+
+String _dartMap(Map<String, String> values) => values.entries
+    .map((entry) => "  '${_quote(entry.key)}': '${_quote(entry.value)}',")
+    .join('\n');

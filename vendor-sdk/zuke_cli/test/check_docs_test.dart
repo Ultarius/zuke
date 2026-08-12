@@ -208,7 +208,12 @@ void _writeBaseline(Directory root) {
     },
   };
   final paths = <String>[];
-  final matrix = StringBuffer('schemaVersion: 2\npackages:\n');
+  final matrix = StringBuffer('''schemaVersion: 2
+sdk:
+  dart: '>=3.10.0 <4.0.0'
+operatingSystems: [linux, windows]
+packages:
+''');
   final publicationOrder = <String>[];
   for (final entry in packages.entries) {
     final directory = Directory('${root.path}/vendor-sdk/${entry.key}')
@@ -242,7 +247,16 @@ void _writeBaseline(Directory root) {
   File('${root.path}/README.md').writeAsStringSync('# root\n');
   Directory('${root.path}/docs').createSync(recursive: true);
   File('${root.path}/docs/release-matrix.yaml').writeAsStringSync(
-    '${matrix}retiredPackages: {}\npublicationOrder:\n'
+    '${matrix}retiredPackages: {}\n'
+    'compatibilityIds:\n'
+    '  dart-frog: dart-frog-gen-2-route-topology-v1\n'
+    '  dart-source: dart-source-package-v1\n'
+    'contracts:\n'
+    '  diagnostic: zuke.diagnostic-registry\n'
+    '  commandResult: zuke.command-result\n'
+    '  evidenceRecord: zuke.evidence-record\n'
+    '  lock: zuke.lock\n'
+    'publicationOrder:\n'
     '${publicationOrder.map((name) => '  - $name').join('\n')}\n',
   );
   File('${root.path}/docs/integration-guide.md').writeAsStringSync('# guide\n');

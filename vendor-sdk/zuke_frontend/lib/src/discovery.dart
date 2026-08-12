@@ -66,6 +66,9 @@ class ZukeConfig {
   final String? lockDirectory;
   final List<String> lockProfiles;
 
+  /// Independent product coverage policy configuration.
+  final Map<String, dynamic> coverageConfig;
+
   /// Creates workspace configuration.
   const ZukeConfig({
     this.schemaVersion = 3,
@@ -88,6 +91,7 @@ class ZukeConfig {
     this.evidenceTypes = const {},
     this.lockDirectory,
     this.lockProfiles = const [],
+    this.coverageConfig = const {},
   });
 
   /// Parses [yamlContent] into workspace configuration.
@@ -126,6 +130,10 @@ class ZukeConfig {
     }
 
     final lockSection = doc['lock'] as Map? ?? {};
+    final rawCoverage = doc['coverage'];
+    if (rawCoverage != null && rawCoverage is! Map) {
+      throw const FormatException('coverage must be a mapping');
+    }
     final evidenceSection = doc['evidence'] as Map? ?? {};
     final trustSection = doc['trust'] as Map? ?? {};
     final rawExecutionValue = doc['execution'];
@@ -206,6 +214,9 @@ class ZukeConfig {
       evidenceTypes: evidenceTypes,
       lockDirectory: lockSection['directory'] as String?,
       lockProfiles: lockProfiles,
+      coverageConfig: rawCoverage is Map
+          ? Map<String, dynamic>.from(rawCoverage)
+          : const {},
     );
   }
 
@@ -293,6 +304,7 @@ class ZukeConfig {
           'sourcePackage',
           'sourceAdapter',
           'sourceCompatibilityId',
+          'runnerCompatibilityId',
         ]) {
           final value = item[key];
           if (value is! String || value.trim().isEmpty) {

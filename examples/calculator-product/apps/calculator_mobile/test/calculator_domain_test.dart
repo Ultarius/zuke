@@ -8,7 +8,7 @@ import 'package:zuke_runner_flutter/zuke_runner_flutter.dart';
 
 void _emit(ZukeScenarioContract contract, Object result) {
   const SuiteEvidenceEmitter().emitPassing(
-    requirementId: contract.requirementId,
+    requirementId: contract.requirementId.value,
     scenarioId: contract.id,
     evidenceTypes: const ['domain-unit'],
     target: 'flutter',

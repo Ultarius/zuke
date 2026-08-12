@@ -31,6 +31,7 @@ execution:
       sourcePackage: missing
       sourceAdapter: dart-frog
       sourceCompatibilityId: dart-frog-gen-2-route-topology-v1
+      runnerCompatibilityId: backend-runner-v1
 lock:
   directory: assurance/locks
   profiles: [pullRequest]
@@ -67,6 +68,7 @@ execution:
       sourcePackage: backend
       sourceAdapter: dart-frog
       sourceCompatibilityId: dart-frog-gen-2-route-topology-v1
+      runnerCompatibilityId: backend-runner-v1
       evidenceTypes: [topology]
 evidence:
   types:

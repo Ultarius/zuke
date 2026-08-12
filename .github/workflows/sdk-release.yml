@@ -19,6 +19,8 @@ jobs:
           channel: stable
           cache: true
       - run: dart --suppress-analytics pub get
+      - name: Check consolidated framework boundaries
+        run: dart --suppress-analytics run tool/check_framework_boundaries.dart
       - name: Verify zuke_core with published analyzer resolution
         run: dart --suppress-analytics run tool/check_zuke_core_analyzer14.dart
       - name: Prepare Flutter tool package
@@ -46,6 +48,9 @@ jobs:
           for package in "${packages[@]}"; do
             dart --suppress-analytics pub -C "$package" publish --dry-run
           done
+      - name: Clean Zuke test temporary directories
+        if: always()
+        run: dart --suppress-analytics run zuke_cli:zuke clean --root .
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         if: always()
         with:

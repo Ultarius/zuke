@@ -19,9 +19,19 @@ Future<void> main() async {
 
     final testDirectory = Directory('${temporaryRoot.path}/test')
       ..createSync(recursive: true);
-    File(
-      '${repositoryRoot.path}/vendor-sdk/zuke_cli/test/tooling/dart_extractor_test.dart',
-    ).copySync('${testDirectory.path}/dart_extractor_test.dart');
+    final extractorTest = File(
+      '${repositoryRoot.path}${Platform.pathSeparator}vendor-sdk'
+      '${Platform.pathSeparator}zuke_cli${Platform.pathSeparator}test'
+      '${Platform.pathSeparator}tooling${Platform.pathSeparator}dart_extractor_test.dart',
+    );
+    if (!extractorTest.existsSync()) {
+      throw StateError(
+        'Required analyzer compatibility fixture is missing: '
+        '${extractorTest.path}. The extractor fixture belongs to '
+        'zuke_cli/test/tooling, not zuke_core/test.',
+      );
+    }
+    extractorTest.copySync('${testDirectory.path}/dart_extractor_test.dart');
 
     final pubGet = await Process.run(Platform.resolvedExecutable, [
       '--suppress-analytics',

@@ -92,6 +92,7 @@ execution:
       sourcePackage: backend
       sourceAdapter: dart-test
       sourceCompatibilityId: dart-test-v2
+      runnerCompatibilityId: dart-runner-v1
       executable: '$runnerExec'
       args:$yamlArgs
       timeoutSeconds: 30

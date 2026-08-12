@@ -1,7 +1,7 @@
 {
   "kind": "zuke.analyzer-index",
-  "inputDigest": "sha256:9b9c79400f453d6d9c221d57d60a31886d17a03a336957843d55db105e61ba65",
-  "generatedManifestDigest": "sha256:a7183987cc26a508437be66fc9aa2beb48896abb46733de6b14ea59300ceb8e1",
+  "inputDigest": "sha256:95d60dcdb468fa477c7c539ffb1ef1215178a98232a4ef3bc2c5fa97ef31d4e5",
+  "generatedManifestDigest": "sha256:2f239e4d481e650d93d3180b876ddddc3e4d61e429f4f0d4c7b32c5e9f5df0f2",
   "generatedManifestPath": "lib/src/.zuke-generated.json",
   "inputs": [
     {
@@ -34,7 +34,7 @@
     },
     {
       "path": "zuke.yaml",
-      "digest": "sha256:2deeb5d98deba0956a3fae26f28b90424e54e62fe9a5911a44f6e626e2cd52ef"
+      "digest": "sha256:b438820a5ca18c60b3ab41904160b8bcd99266eea9eb529d80f0144188d9df57"
     }
   ],
   "inputPatterns": [

@@ -1,7 +1,8 @@
 /// A canonical governed control identifier.
-final class ControlId implements Comparable<ControlId> {
-  final String value;
-  const ControlId(this.value) : assert(value != '');
+///
+/// This is an extension type so generated constant control sets remain valid
+/// compile-time Dart values while retaining the distinct typed API.
+extension type const ControlId(String value) {
 
   factory ControlId.parse(String value) {
     if (!_isCanonical(value)) {
@@ -15,12 +16,5 @@ final class ControlId implements Comparable<ControlId> {
   static final RegExp _pattern = RegExp(
     r'^CTRL-[A-Z0-9]+-[A-Z0-9]+(?:-[A-Z0-9]+)*$',
   );
-  @override
   int compareTo(ControlId other) => value.compareTo(other.value);
-  @override
-  bool operator ==(Object other) => other is ControlId && other.value == value;
-  @override
-  int get hashCode => value.hashCode;
-  @override
-  String toString() => value;
 }

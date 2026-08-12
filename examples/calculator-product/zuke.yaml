@@ -72,6 +72,7 @@ execution:
       sourcePackage: calculator-api
       sourceAdapter: dart-source
       sourceCompatibilityId: dart-source-package-v1
+      runnerCompatibilityId: calculator-api-runner-v1
       executable: dart
       args: [analyze]
       workingDirectory: apps/calculator_api
@@ -82,6 +83,7 @@ execution:
       sourcePackage: calculator-api
       sourceAdapter: dart-source
       sourceCompatibilityId: dart-source-package-v1
+      runnerCompatibilityId: calculator-api-gherkin-runner-v1
       evidenceTypes: [api-contract, gherkin-api, security-integration, logging-verification, performance]
       executable: dart
       args: [test, --reporter, expanded]
@@ -93,6 +95,7 @@ execution:
       sourcePackage: calculator-mobile
       sourceAdapter: flutter-test
       sourceCompatibilityId: flutter-test-v1
+      runnerCompatibilityId: calculator-mobile-runner-v1
       evidenceTypes: [domain-unit, flutter-widget, gherkin-ui, accessibility-integration]
       executable: flutter
       args: [test, --no-pub, --reporter, expanded]

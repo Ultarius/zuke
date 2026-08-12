@@ -21,7 +21,5 @@ void writeCommandSummary(String? path, CommandResult result) {
   if (path == null || path.isEmpty) return;
   final file = File(path);
   file.parent.createSync(recursive: true);
-  file.writeAsStringSync(
-    const JsonEncoder.withIndent('  ').convert(result.toJson()) + '\n',
-  );
+  file.writeAsStringSync(jsonEncode(result.toJson()) + '\n');
 }

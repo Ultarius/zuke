@@ -23,7 +23,7 @@ drivers, static control attestation graphs, and automated CI/CD release gates.
 - 📐 **Strongly-Typed Contract Generation**: Automatically compile Gherkin UI element requirements into Dart abstract interfaces and keys (`zuke generate`).
 - 🛡️ **Security Control Attestation**: Link application features to controls (e.g. rate-limiting, authentication) using Dart annotations (`@ProvidesControl`) and YAML policies.
 - 🔐 **Cryptographic Evidence Verification**: Capture SHA-256 test execution digests and verify that all specified requirements are covered by evidence.
-- 🚦 **Release Gate Enforcement**: Fail CI/CD builds if test suites fail, evidence is stale/missing, or line coverage falls below thresholds (`zuke gate`).
+- 🚦 **Release Gate Enforcement**: Fail CI/CD builds if test suites fail or evidence is stale/missing (`zuke gate`). Line coverage remains a separate protected quality gate (`zuke coverage`).
 
 ---
 

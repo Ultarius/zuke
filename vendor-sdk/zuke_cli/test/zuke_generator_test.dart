@@ -65,6 +65,7 @@ execution:
       sourcePackage: test-app
       sourceAdapter: flutter-test
       sourceCompatibilityId: flutter-test-v1
+      runnerCompatibilityId: flutter-runner-v1
       generatedStepsOutput: test/support/generated
 ''');
 
@@ -172,6 +173,7 @@ execution:
       sourcePackage: test-app
       sourceAdapter: dart-test
       sourceCompatibilityId: dart-source-package-v1
+      runnerCompatibilityId: dart-runner-v1
       generatedStepsOutput: test/support/generated
 ''');
 
@@ -264,6 +266,67 @@ Feature: Bad Feature
 
       expect(result.errors, isNotEmpty);
       expect(result.errors.first, contains('generated invalid Dart'));
+    });
+
+    test('names colliding control constants without duplicate members', () {
+      File('${tempDir.path}/zuke.yaml').writeAsStringSync('''
+schemaVersion: 3
+workspace:
+  name: test-app
+  root: .
+specifications:
+  features: [specs/features/**/*.feature]
+targets:
+  backend:
+    language: dart
+    framework: dart
+    packages:
+      - id: test-app
+        path: .
+        roots: [lib, test]
+    contractOutput: lib/src/generated
+''');
+
+      Directory('${tempDir.path}/specs/features').createSync(recursive: true);
+      File(
+        '${tempDir.path}/specs/features/collision.feature',
+      ).writeAsStringSync('''
+# spec-begin
+# schemaVersion: 1
+# id: FEAT-COLLISION-001
+# targets:
+#   - backend
+# spec-end
+
+@FEAT-COLLISION-001
+Feature: Control name collision
+  # rule-spec-begin
+  # id: RULE-COLLISION-001
+  # requires:
+  #   - kind: control
+  #     id: CTRL-CART-VALIDATION
+  #   - kind: control
+  #     id: CTRL-PROMO-VALIDATION
+  # rule-spec-end
+  @RULE-COLLISION-001
+  Rule: Control names remain unique
+    @SCN-COLLISION-001
+    Scenario: The generated constants compile
+      Given the API is healthy
+''');
+
+      final discovery = WorkspaceDiscovery().discover(tempDir.path);
+      final result = DartContractGenerator().generate(
+        workspace: discovery,
+        outputDir: '${tempDir.path}/lib/src/generated',
+      );
+
+      expect(result.errors, isEmpty);
+      final contracts = result.files.firstWhere(
+        (file) => file.path.contains('feat_collision_001_contracts.g.dart'),
+      );
+      expect(contracts.content, contains('static const validation ='));
+      expect(contracts.content, contains('static const promoValidation ='));
     });
   });
 }

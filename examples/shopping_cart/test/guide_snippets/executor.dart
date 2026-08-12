@@ -20,7 +20,7 @@ Future<void> executeGuideScenario(
     target: 'flutter',
     profile: profile,
     candidateId: contract.id,
-    controlIds: contract.controlIds,
+    controlIds: contract.controlIds.map((control) => control.value).toSet(),
     runnerId: 'my-app-flutter-tests',
     runnerCompatibilityId: 'my-app-flutter-tests-v1',
     digests: const {'runner': 'zuke-runner-flutter-v1'},

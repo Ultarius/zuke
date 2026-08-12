@@ -9,14 +9,14 @@ import 'package:zuke/zuke.dart';
 import 'package:test/test.dart';
 
 void _emit(
-  String ruleId,
+  RuleId ruleId,
   String evidenceType,
   String target,
   Object result, {
   required ScenarioId scenarioId,
 }) {
   const SuiteEvidenceEmitter().emitPassing(
-    requirementId: ruleId,
+    requirementId: ruleId.value,
     scenarioId: scenarioId,
     evidenceTypes: [evidenceType],
     target: target,
@@ -63,13 +63,13 @@ Future<CalculatorServer> _server({Calculator? calculator}) async {
 }
 
 void _emitApiScenario(
-  String ruleId,
+  RuleId ruleId,
   ScenarioId scenarioId,
   Object result, {
   bool security = false,
 }) {
   const SuiteEvidenceEmitter().emitPassing(
-    requirementId: ruleId,
+    requirementId: ruleId.value,
     scenarioId: scenarioId,
     evidenceTypes: security
         ? const ['api-contract', 'gherkin-api', 'security-integration']
@@ -89,7 +89,7 @@ void main() {
   for (final testCase
       in <
         ({
-          String rule,
+          RuleId rule,
           ScenarioId scenario,
           String operator,
           String first,
@@ -157,7 +157,7 @@ void main() {
         });
         expect(response['status'], 200);
         expect((response['body'] as Map)['result'], testCase.result);
-        expect(server.application.events.single['ruleId'], testCase.rule);
+        expect(server.application.events.single['ruleId'], testCase.rule.value);
         _emitApiScenario(
           testCase.rule,
           testCase.scenario,

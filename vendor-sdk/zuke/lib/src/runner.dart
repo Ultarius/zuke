@@ -698,17 +698,30 @@ final class SuiteEvidenceEmitter {
     required String target,
     required String runnerCompatibilityId,
     required String digestInput,
+    Iterable<String> controlIds = const [],
     String variant = 'default',
     String? outputDirectory,
     String? profile,
     String? runnerId,
     ExecutionSourceIdentity? sourceIdentity,
   }) {
+    final managedContext = RunnerExecutionContext.fromEnvironment(
+      Platform.environment,
+    );
+    if (sourceIdentity == null &&
+        outputDirectory == null &&
+        managedContext == null) {
+      // Preserve ordinary direct-test behavior during migration. Managed
+      // wrappers use the explicit context and still fail closed on partial
+      // identity rather than silently publishing an incomplete record.
+      return const [];
+    }
     final effectiveProfile =
-        profile ?? Platform.environment['ZUKE_PROFILE'] ?? 'pullRequest';
+        profile ?? managedContext?.profile ?? 'pullRequest';
     final effectiveRunnerId =
-        runnerId ?? Platform.environment['ZUKE_RUNNER_ID'] ?? 'zuke-runner';
+        runnerId ?? managedContext?.runnerId ?? 'zuke-runner';
     final digest = 'sha256:${sha256.convert(utf8.encode(digestInput))}';
+    final sortedControlIds = [...controlIds.toSet()]..sort();
     final identity =
         sourceIdentity ??
         ExecutionSourceIdentity.fromEnvironment(Platform.environment);
@@ -731,6 +744,7 @@ final class SuiteEvidenceEmitter {
         sourceCompatibilityId: identity.sourceCompatibilityId,
         resultDigest: digest,
         scenarioIds: [scenarioId],
+        controlIds: sortedControlIds,
       );
       final file = outputDirectory == null
           ? writer.writeSuiteToEnvironment(result)
