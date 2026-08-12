@@ -19,6 +19,8 @@ Future<void> main() async {
 
     final testDirectory = Directory('${temporaryRoot.path}/test')
       ..createSync(recursive: true);
+    final supportDirectory = Directory('${temporaryRoot.path}/support')
+      ..createSync(recursive: true);
     final extractorTest = File(
       '${repositoryRoot.path}${Platform.pathSeparator}vendor-sdk'
       '${Platform.pathSeparator}zuke_cli${Platform.pathSeparator}test'
@@ -32,6 +34,20 @@ Future<void> main() async {
       );
     }
     extractorTest.copySync('${testDirectory.path}/dart_extractor_test.dart');
+    final temporaryDirectoryHelper = File(
+      '${sourceRoot.path}${Platform.pathSeparator}zuke_test_support'
+      '${Platform.pathSeparator}lib${Platform.pathSeparator}src'
+      '${Platform.pathSeparator}temporary_directory.dart',
+    );
+    if (!temporaryDirectoryHelper.existsSync()) {
+      throw StateError(
+        'Required analyzer compatibility support is missing: '
+        '${temporaryDirectoryHelper.path}.',
+      );
+    }
+    temporaryDirectoryHelper.copySync(
+      '${supportDirectory.path}${Platform.pathSeparator}temporary_directory.dart',
+    );
 
     final pubGet = await Process.run(Platform.resolvedExecutable, [
       '--suppress-analytics',

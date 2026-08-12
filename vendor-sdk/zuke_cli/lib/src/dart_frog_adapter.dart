@@ -153,7 +153,8 @@ final class DartFrogAdapter implements FrameworkAdapter {
       );
       diagnostics.addAll(middleware.diagnostics);
       final customEntrypoint =
-          configuration.invokeCustomEntrypoint || configuration.invokeCustomInit;
+          configuration.invokeCustomEntrypoint ||
+          configuration.invokeCustomInit;
       return AdapterOutput(
         targetId: request.targetId,
         packageId: request.packageId,

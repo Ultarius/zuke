@@ -5,6 +5,8 @@ import 'package:crypto/crypto.dart';
 import 'package:test/test.dart';
 import 'package:zuke_cli/tooling.dart';
 
+import '../../../zuke_test_support/lib/src/temporary_directory.dart';
+
 void main() {
   test('unresolved elements are never treated as matching', () {
     expect(isResolvedLibrary(null, 'package:example/example.dart'), isFalse);
@@ -15,7 +17,7 @@ void main() {
     'index rejects generated output changed behind an unchanged manifest',
     () {
       final root = Directory.systemTemp.createTempSync('zuke-index-');
-      addTearDown(() => _deleteDirectoryWithRetry(root));
+      addTearDown(() => deleteTemporaryDirectory(root));
       final input = File('${root.path}/zuke.yaml')..writeAsStringSync('v: 1\n');
       final output = File('${root.path}/generated.dart')
         ..writeAsStringSync('one\n');
@@ -133,7 +135,7 @@ void main() {
     'freshness issues distinguish malformed manifests and missing files',
     () {
       final root = Directory.systemTemp.createTempSync('zuke-index-issues-');
-      addTearDown(() => _deleteDirectoryWithRetry(root));
+      addTearDown(() => deleteTemporaryDirectory(root));
       final input = File('${root.path}/zuke.yaml')
         ..writeAsStringSync('schemaVersion: 3\n');
       final manifest = File('${root.path}/manifest.json')
@@ -210,28 +212,4 @@ void main() {
       expect(() => ZukeIndex.fromJson(json), throwsFormatException);
     }
   });
-}
-
-Future<void> _deleteDirectoryWithRetry(Directory directory) async {
-  final deadline = DateTime.now().add(const Duration(seconds: 5));
-  var attempts = 0;
-  var delay = const Duration(milliseconds: 25);
-  while (DateTime.now().isBefore(deadline)) {
-    attempts++;
-    if (!directory.existsSync()) return;
-    try {
-      await directory.delete(recursive: true);
-      return;
-    } on FileSystemException {
-      await Future<void>.delayed(delay);
-      delay = delay * 2;
-      if (delay > const Duration(milliseconds: 500)) {
-        delay = const Duration(milliseconds: 500);
-      }
-    }
-  }
-  throw StateError(
-    'Unable to remove index fixture after $attempts attempt(s): '
-    '${directory.path}',
-  );
 }

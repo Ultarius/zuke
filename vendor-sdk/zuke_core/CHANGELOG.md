@@ -1,13 +1,12 @@
+# Changelog
+
 ## 0.3.0
 
 - Consolidated analyzer-free identities, diagnostics, evidence, digest, and
   adapter contracts into the public core package.
 - Removed analyzer and extractor dependencies from the runtime package.
-
-## 0.2.1
-
-- Broadened the analyzer constraint so Flutter SDKs can select analyzer 8
-  while Dart-only consumers select analyzer 14.
+- Coordinated package-family analyzer compatibility so Flutter SDKs can select
+  analyzer 8 while Dart-only consumers select analyzer 14.
 
 ## 0.2.0
 

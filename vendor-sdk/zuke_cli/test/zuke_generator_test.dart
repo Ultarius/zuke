@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:zuke_cli/src/generator.dart';
 import 'package:zuke_frontend/zuke_frontend.dart';
+import 'helpers/schema3_workspace.dart';
 import 'support/temporary_directory.dart';
 import 'package:test/test.dart';
 
@@ -41,33 +42,19 @@ void main() {
     test(
       'generates Dart contracts and step support for a Flutter workspace',
       () {
-        File('${tempDir.path}/zuke.yaml').writeAsStringSync('''
-schemaVersion: 3
-workspace:
-  name: test-app
-  root: .
-specifications:
-  features: [specs/features/**/*.feature]
-targets:
-  flutter:
-    language: dart
-    framework: flutter
-    packages:
-      - id: test-app
-        path: .
-        roots: [lib, test]
-    contractOutput: lib/src/generated
-execution:
-  runners:
-    - id: sample-tests
-      kind: gherkin
-      target: flutter
-      sourcePackage: test-app
-      sourceAdapter: flutter-test
-      sourceCompatibilityId: flutter-test-v1
-      runnerCompatibilityId: flutter-runner-v1
-      generatedStepsOutput: test/support/generated
-''');
+        writeSchema3Workspace(
+          tempDir,
+          name: 'test-app',
+          target: 'flutter',
+          packageId: 'test-app',
+          framework: 'flutter',
+          roots: const ['lib', 'test'],
+          sourceAdapter: 'flutter-test',
+          sourceCompatibilityId: 'flutter-test-v1',
+          runnerCompatibilityId: 'flutter-runner-v1',
+          contractOutput: 'lib/src/generated',
+          generatedStepsOutput: 'test/support/generated',
+        );
 
         Directory('${tempDir.path}/specs/features').createSync(recursive: true);
         File('${tempDir.path}/specs/features/sample.feature').writeAsStringSync(
@@ -149,33 +136,20 @@ Feature: Sample Feature
     );
 
     test('generates pure-Dart step support for a non-Flutter runner', () {
-      File('${tempDir.path}/zuke.yaml').writeAsStringSync('''
-schemaVersion: 3
-workspace:
-  name: test-app
-  root: .
-specifications:
-  features: [specs/features/**/*.feature]
-targets:
-  backend:
-    language: dart
-    framework: dart
-    packages:
-      - id: test-app
-        path: .
-        roots: [lib, test]
-    contractOutput: lib/src/generated
-execution:
-  runners:
-    - id: sample-api-tests
-      kind: gherkin
-      target: backend
-      sourcePackage: test-app
-      sourceAdapter: dart-test
-      sourceCompatibilityId: dart-source-package-v1
-      runnerCompatibilityId: dart-runner-v1
-      generatedStepsOutput: test/support/generated
-''');
+      writeSchema3Workspace(
+        tempDir,
+        name: 'test-app',
+        target: 'backend',
+        packageId: 'test-app',
+        framework: 'dart',
+        roots: const ['lib', 'test'],
+        sourceAdapter: 'dart-test',
+        sourceCompatibilityId: 'dart-source-package-v1',
+        runnerCompatibilityId: 'dart-runner-v1',
+        runnerId: 'sample-api-tests',
+        contractOutput: 'lib/src/generated',
+        generatedStepsOutput: 'test/support/generated',
+      );
 
       Directory('${tempDir.path}/specs/features').createSync(recursive: true);
       File('${tempDir.path}/specs/features/sample.feature').writeAsStringSync(
@@ -216,22 +190,14 @@ Feature: Sample Feature
     });
 
     test('detects colliding member names and reports generation errors', () {
-      File('${tempDir.path}/zuke.yaml').writeAsStringSync('''
-schemaVersion: 3
-workspace:
-  name: test-app
-  root: .
-specifications:
-  features: [specs/features/**/*.feature]
-targets:
-  flutter:
-    language: dart
-    framework: flutter
-    packages:
-      - id: test-app
-        path: .
-        roots: [lib, test]
-''');
+      writeSchema3Workspace(
+        tempDir,
+        name: 'test-app',
+        target: 'flutter',
+        packageId: 'test-app',
+        framework: 'flutter',
+        roots: const ['lib', 'test'],
+      );
 
       Directory('${tempDir.path}/specs/features').createSync(recursive: true);
       File('${tempDir.path}/specs/features/bad.feature').writeAsStringSync('''
@@ -269,23 +235,15 @@ Feature: Bad Feature
     });
 
     test('names colliding control constants without duplicate members', () {
-      File('${tempDir.path}/zuke.yaml').writeAsStringSync('''
-schemaVersion: 3
-workspace:
-  name: test-app
-  root: .
-specifications:
-  features: [specs/features/**/*.feature]
-targets:
-  backend:
-    language: dart
-    framework: dart
-    packages:
-      - id: test-app
-        path: .
-        roots: [lib, test]
-    contractOutput: lib/src/generated
-''');
+      writeSchema3Workspace(
+        tempDir,
+        name: 'test-app',
+        target: 'backend',
+        packageId: 'test-app',
+        framework: 'dart',
+        roots: const ['lib', 'test'],
+        contractOutput: 'lib/src/generated',
+      );
 
       Directory('${tempDir.path}/specs/features').createSync(recursive: true);
       File(

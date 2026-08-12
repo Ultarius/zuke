@@ -5,10 +5,6 @@
 - Consolidated analyzer-backed tooling, typed current contracts, profile locks,
   structured diagnostics, and first-party Dart Frog topology extraction.
 
-## 0.3.1
-
-- Expanded the package description so pub.dev recognizes the pubspec as valid.
-
 ## 0.3.0
 
 - Updated extraction cache compatibility for the analyzer-compatible core

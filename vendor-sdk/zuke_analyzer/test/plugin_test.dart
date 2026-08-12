@@ -1,5 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
+
+import '../../zuke_test_support/lib/src/temporary_directory.dart';
 import 'package:analyzer/dart/analysis/analysis_context_collection.dart';
 import 'package:analyzer/dart/analysis/results.dart';
 import 'package:analyzer/dart/ast/ast.dart';
@@ -20,7 +22,7 @@ void main() {
       _writePackageConfig(tempDir);
     });
 
-    tearDown(() => _deleteDirectoryWithRetry(tempDir));
+    tearDown(() => deleteTemporaryDirectory(tempDir));
 
     test(
       'analyzer plugin extracts diagnostics from out-of-date index',
@@ -331,30 +333,6 @@ Directory _findWorkspaceRoot() {
     }
     current = parent;
   }
-}
-
-Future<void> _deleteDirectoryWithRetry(Directory directory) async {
-  final deadline = DateTime.now().add(const Duration(seconds: 5));
-  var attempts = 0;
-  var delay = const Duration(milliseconds: 25);
-  while (DateTime.now().isBefore(deadline)) {
-    attempts++;
-    if (!directory.existsSync()) return;
-    try {
-      await directory.delete(recursive: true);
-      return;
-    } on FileSystemException {
-      await Future<void>.delayed(delay);
-      delay = delay * 2;
-      if (delay > const Duration(milliseconds: 500)) {
-        delay = const Duration(milliseconds: 500);
-      }
-    }
-  }
-  throw StateError(
-    'Unable to remove plugin fixture after $attempts attempt(s): '
-    '${directory.path}',
-  );
 }
 
 void _walk(AstNode node, AstVisitor<void> visitor) {

@@ -9,7 +9,7 @@ operatingSystems: [linux, windows]
 packages:
   zuke_core:
     version: 0.3.0
-    previousVersion: 0.2.1
+    previousVersion: 0.2.0
     publish: true
     releaseAction: publish
     tier: Shared infrastructure
@@ -49,7 +49,7 @@ packages:
     bumpReason: Coordinated primary SDK dependency floor.
   zuke_runner_flutter:
     version: 0.3.0
-    previousVersion: 0.2.1
+    previousVersion: 0.2.0
     publish: true
     releaseAction: publish
     tier: Specialized SDK
@@ -65,7 +65,7 @@ packages:
     bumpReason: Existing hosted version remains compatible with this release.
   zuke_cli:
     version: 0.4.0
-    previousVersion: 0.3.1
+    previousVersion: 0.3.0
     publish: true
     releaseAction: publish
     tier: Specialized SDK

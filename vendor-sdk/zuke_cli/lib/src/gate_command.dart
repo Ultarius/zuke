@@ -445,8 +445,7 @@ class GateCommand {
       stage: 'artifact',
       severity: DiagnosticSeverity.error,
       owner: DiagnosticOwner.zuke,
-      message:
-          'Artifact directory contains an unexpected entry: $unsafe',
+      message: 'Artifact directory contains an unexpected entry: $unsafe',
       remediation:
           'Remove the unexpected artifact entry and rerun the gate; raw logs, '
           'source, tokens, headers, and payloads are not allowed in the safe bundle.',

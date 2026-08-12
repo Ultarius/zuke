@@ -134,6 +134,33 @@ export 'package:other/api.dart'
       expect(byName['coverage_dependency']!['covered'], 1);
       expect(byName['coverage_dependency']!['missingSources'], isEmpty);
     });
+
+    test(
+      'selects multiple packages without counting other workspace packages',
+      () {
+        final selected = _package(root, 'coverage_selected');
+        final unselected = _package(root, 'coverage_unselected');
+        _writeLines(File('${selected.path}/lib/selected.dart'), 201);
+        _writeLines(File('${unselected.path}/lib/unselected.dart'), 201);
+        final coverage = Directory('${selected.path}/coverage')..createSync();
+        File('${coverage.path}/lcov.info').writeAsStringSync(
+          'SF:${selected.path.replaceAll('\\', '/')}/lib/selected.dart\n'
+          'DA:1,1\n'
+          'end_of_record\n',
+        );
+
+        final report = CoverageChecker(
+          root.path,
+          packageNames: const {'coverage_selected'},
+        ).check();
+
+        final packages = (report.toJson()['packages'] as List<Object?>)
+            .cast<Map<String, Object?>>();
+        expect(packages, hasLength(1));
+        expect(packages.single['name'], 'coverage_selected');
+        expect(report.passed, isTrue);
+      },
+    );
   });
 }
 

@@ -139,8 +139,9 @@ class ZukeCli {
   final ProcessSupervisor processSupervisor;
   late final ArgParser parser;
 
-  ZukeCli({this.version = '0.1.0', ProcessSupervisor? processSupervisor})
-    : processSupervisor = processSupervisor ?? const LocalProcessSupervisor() {
+  ZukeCli({String? version, ProcessSupervisor? processSupervisor})
+    : version = version ?? releasePublicPackageVersions['zuke_cli']!,
+      processSupervisor = processSupervisor ?? const LocalProcessSupervisor() {
     parser = ArgParser()
       ..addFlag('help', abbr: 'h', help: 'Show help')
       ..addFlag('version', abbr: 'v', help: 'Show version')
@@ -497,8 +498,9 @@ Usage:
     final jsonMode = (cmd['format'] as String? ?? 'text') == 'json';
     final diagnostics = <Diagnostic>[];
     final releaseDetails = <String, Object?>{
-      'publicPackageVersions':
-          Map<String, String>.from(releasePublicPackageVersions),
+      'publicPackageVersions': Map<String, String>.from(
+        releasePublicPackageVersions,
+      ),
       'retiredPackages': releaseRetiredPackages.toList()..sort(),
       'operatingSystems': releaseSupportedOperatingSystems,
       'compatibilityIds': Map<String, String>.from(releaseCompatibilityIds),

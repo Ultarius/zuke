@@ -484,8 +484,7 @@ class EvidenceValidator {
     final sourcePackage = slot?['sourcePackage'];
     final sourceAdapter = slot?['sourceAdapter'];
     final configuredMode = workspace.config.evidenceTypes[type];
-    if (configuredMode != null &&
-        !_builtInEvidenceTypes.contains(type)) {
+    if (configuredMode != null && !_builtInEvidenceTypes.contains(type)) {
       return _isConfiguredEvidenceSatisfied(
         mode: configuredMode,
         rule: rule,
@@ -617,50 +616,52 @@ class EvidenceValidator {
   }) {
     final record = switch (mode) {
       'record' => _hasPassedEvidence(
-          records,
-          requirementId,
-          evidenceType,
-          target ?? 'backend',
-          variant: variant,
-          sourcePackage: sourcePackage,
-          sourceAdapter: sourceAdapter,
-        ),
+        records,
+        requirementId,
+        evidenceType,
+        target ?? 'backend',
+        variant: variant,
+        sourcePackage: sourcePackage,
+        sourceAdapter: sourceAdapter,
+      ),
       'scenario-record' => _hasExecutedEvidence(
-          rule,
-          records,
-          evidenceType,
-          target: target,
-          variant: variant,
-          sourcePackage: sourcePackage,
-          sourceAdapter: sourceAdapter,
-        ),
-      'control-backed' => _hasExecutedEvidence(
-          rule,
-          records,
-          evidenceType,
-          target: target,
-          variant: variant,
-          sourcePackage: sourcePackage,
-          sourceAdapter: sourceAdapter,
-        ) &&
-          (rule.metadata.requires?.isNotEmpty ?? false) &&
-          rule.metadata.requires!.every(
-            (control) => controlProofs.any(
-              (proof) =>
-                  proof.controlId == control.id &&
-                  (proof.status == ProofStatus.proven ||
-                      proof.status == ProofStatus.verified ||
-                      proof.status == ProofStatus.attested),
+        rule,
+        records,
+        evidenceType,
+        target: target,
+        variant: variant,
+        sourcePackage: sourcePackage,
+        sourceAdapter: sourceAdapter,
+      ),
+      'control-backed' =>
+        _hasExecutedEvidence(
+              rule,
+              records,
+              evidenceType,
+              target: target,
+              variant: variant,
+              sourcePackage: sourcePackage,
+              sourceAdapter: sourceAdapter,
+            ) &&
+            (rule.metadata.requires?.isNotEmpty ?? false) &&
+            rule.metadata.requires!.every(
+              (control) => controlProofs.any(
+                (proof) =>
+                    proof.controlId == control.id &&
+                    (proof.status == ProofStatus.proven ||
+                        proof.status == ProofStatus.verified ||
+                        proof.status == ProofStatus.attested),
+              ),
             ),
-          ),
-      'attestation' => (rule.metadata.requires?.isNotEmpty ?? false) &&
-          rule.metadata.requires!.every(
-            (control) => controlProofs.any(
-              (proof) =>
-                  proof.controlId == control.id &&
-                  proof.status == ProofStatus.attested,
+      'attestation' =>
+        (rule.metadata.requires?.isNotEmpty ?? false) &&
+            rule.metadata.requires!.every(
+              (control) => controlProofs.any(
+                (proof) =>
+                    proof.controlId == control.id &&
+                    proof.status == ProofStatus.attested,
+              ),
             ),
-          ),
       _ => false,
     };
     return record;

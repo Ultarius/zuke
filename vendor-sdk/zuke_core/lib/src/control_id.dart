@@ -3,7 +3,6 @@
 /// This is an extension type so generated constant control sets remain valid
 /// compile-time Dart values while retaining the distinct typed API.
 extension type const ControlId(String value) {
-
   factory ControlId.parse(String value) {
     if (!_isCanonical(value)) {
       throw FormatException('Invalid ControlId: $value');

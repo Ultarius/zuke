@@ -922,9 +922,7 @@ void main() {
       'variant': 'default',
     };
     final workspace = WorkspaceDiscoveryResult(
-      config: const ZukeConfig(
-        evidenceTypes: {'dashboard-behavior': 'record'},
-      ),
+      config: const ZukeConfig(evidenceTypes: {'dashboard-behavior': 'record'}),
       data: MetadataExtractorResult(
         features: [
           ParsedFeature(

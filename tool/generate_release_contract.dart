@@ -33,7 +33,8 @@ Future<void> main(List<String> args) async {
   final operatingSystems = [...matrix.operatingSystems]..sort();
   final compatibilityIds = matrix.compatibilityIds.entries.toList()
     ..sort((a, b) => a.key.compareTo(b.key));
-  final content = '''// GENERATED CODE - DO NOT EDIT BY HAND.
+  final content =
+      '''// GENERATED CODE - DO NOT EDIT BY HAND.
 // Source: docs/release-matrix.yaml
 
 /// Compatibility identity for the first-party Dart Frog topology adapter.
@@ -53,9 +54,7 @@ ${retiredPackages.map((value) => "  '${_quote(value)}',").join('\n')}
 };
 
 /// Operating systems covered by the release certification lanes.
-const releaseSupportedOperatingSystems = <String>[
-${operatingSystems.map((value) => "  '${_quote(value)}',").join('\n')}
-];
+const releaseSupportedOperatingSystems = ${_dartList(operatingSystems)};
 
 /// Compatibility identities selected by the release matrix.
 const releaseCompatibilityIds = <String, String>{
@@ -75,7 +74,12 @@ ${_dartMap({for (final entry in compatibilityIds) entry.key: entry.value})}
   stdout.writeln('Generated $_output');
 }
 
-String _quote(String value) => value.replaceAll(r'\', r'\\').replaceAll("'", r"\'");
+String _dartList(List<String> values) {
+  return '<String>[${values.map((value) => "'${_quote(value)}'").join(', ')}]';
+}
+
+String _quote(String value) =>
+    value.replaceAll(r'\', r'\\').replaceAll("'", r"\'");
 
 String _dartMap(Map<String, String> values) => values.entries
     .map((entry) => "  '${_quote(entry.key)}': '${_quote(entry.value)}',")

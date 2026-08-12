@@ -33,10 +33,7 @@ const releaseRetiredPackages = <String>{
 };
 
 /// Operating systems covered by the release certification lanes.
-const releaseSupportedOperatingSystems = <String>[
-  'linux',
-  'windows',
-];
+const releaseSupportedOperatingSystems = <String>['linux', 'windows'];
 
 /// Compatibility identities selected by the release matrix.
 const releaseCompatibilityIds = <String, String>{

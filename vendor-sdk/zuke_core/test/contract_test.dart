@@ -62,10 +62,7 @@ void main() {
       {'exitCode': 1, 'eligible': true},
     ]) {
       expect(
-        () => CommandResult.fromJson({
-          ...result.toJson(),
-          ...fields,
-        }),
+        () => CommandResult.fromJson({...result.toJson(), ...fields}),
         throwsFormatException,
       );
     }
@@ -226,9 +223,8 @@ void main() {
       throwsFormatException,
     );
     expect(
-      () => RunnerExecutionContext.fromEnvironment(const {
-        'ZUKE_RESULT_DIR': '',
-      }),
+      () =>
+          RunnerExecutionContext.fromEnvironment(const {'ZUKE_RESULT_DIR': ''}),
       throwsFormatException,
     );
   });

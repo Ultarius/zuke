@@ -20,9 +20,21 @@ const _testIdentity = ExecutionSourceIdentity(
 );
 
 enum _Contract implements ZukeScenarioContract {
-  correct(ScenarioId('SCN-CONTRACT-ONE'), RuleId('RULE-CONTRACT-001'), 'Correct title'),
-  missing(ScenarioId('SCN-CONTRACT-TWO'), RuleId('RULE-CONTRACT-001'), 'Correct title'),
-  drifted(ScenarioId('SCN-CONTRACT-ONE'), RuleId('RULE-OTHER'), 'Drifted title');
+  correct(
+    ScenarioId('SCN-CONTRACT-ONE'),
+    RuleId('RULE-CONTRACT-001'),
+    'Correct title',
+  ),
+  missing(
+    ScenarioId('SCN-CONTRACT-TWO'),
+    RuleId('RULE-CONTRACT-001'),
+    'Correct title',
+  ),
+  drifted(
+    ScenarioId('SCN-CONTRACT-ONE'),
+    RuleId('RULE-OTHER'),
+    'Drifted title',
+  );
 
   const _Contract(this.id, this.requirementId, this.title);
   @override

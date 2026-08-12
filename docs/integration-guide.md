@@ -43,7 +43,11 @@ the supported frontend and annotation APIs. This does not remove the narrower
 `zuke_annotations` production boundary. `zuke_http_runtime` remains an opt-in
 normal dependency for application-side HTTP registration. `zuke` is the
 primary SDK; `zuke_runner` remains a compatibility package for existing
-consumers.
+consumers. New code should import `package:zuke` directly. The compatibility
+package is retained only through the current coordinated release; its removal
+target is the next intentional breaking semver release after supported consumer
+imports have migrated and the hosted Linux/Windows certification lanes are
+green. No new API should be added to `zuke_runner`.
 
 For development from this repository, use `dart pub get` at the workspace root;
 the Pub workspace resolves these hosted constraints to the local packages.

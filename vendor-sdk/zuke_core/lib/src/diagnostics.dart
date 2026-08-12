@@ -112,6 +112,7 @@ final class CommandResult {
   final CommandStatus status;
   final bool eligible;
   final List<Diagnostic> diagnostics;
+
   /// Additional structured command details, such as profile, stage results,
   /// workspace results, and run identity. Raw process output is never stored.
   final Map<String, Object?> details;
@@ -235,9 +236,7 @@ final class CommandResult {
     if (rawWorkspaces != null) {
       if (rawWorkspaces is! List ||
           rawWorkspaces.any((workspace) => workspace is! Map)) {
-        throw const FormatException(
-          'Command result workspaces are malformed',
-        );
+        throw const FormatException('Command result workspaces are malformed');
       }
       for (final raw in rawWorkspaces) {
         final workspace = Map<Object?, Object?>.from(raw as Map);
@@ -246,15 +245,14 @@ final class CommandResult {
             workspace['status'] is! String ||
             !const {'passed', 'failed'}.contains(workspace['status']) ||
             workspace['stages'] is! List) {
-          throw const FormatException(
-            'Command result workspace is malformed',
-          );
+          throw const FormatException('Command result workspace is malformed');
         }
       }
     }
     final rawProfiles = details['profiles'];
     if (rawProfiles != null) {
-      if (rawProfiles is! List || rawProfiles.any((profile) => profile is! Map)) {
+      if (rawProfiles is! List ||
+          rawProfiles.any((profile) => profile is! Map)) {
         throw const FormatException('Command result profiles are malformed');
       }
       for (final raw in rawProfiles) {
@@ -307,10 +305,12 @@ final class CommandResult {
       final status = stage['status'];
       final exitCode = stage['exitCode'];
       final eligible = stage['eligible'];
-      if (name is! String || name.isEmpty ||
+      if (name is! String ||
+          name.isEmpty ||
           status is! String ||
           !const {'passed', 'failed', 'skipped'}.contains(status) ||
-          exitCode is! int || eligible is! bool) {
+          exitCode is! int ||
+          eligible is! bool) {
         throw const FormatException(
           'Command result stage identity or status is malformed',
         );

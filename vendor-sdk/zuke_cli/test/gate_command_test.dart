@@ -161,7 +161,9 @@ targets: {}
       () async {
         final artifacts = Directory('${root.path}/unsafe-all-artifacts')
           ..createSync(recursive: true);
-        File('${artifacts.path}/raw.log').writeAsStringSync('unexpected output');
+        File(
+          '${artifacts.path}/raw.log',
+        ).writeAsStringSync('unexpected output');
         final summary = File('${root.path}/unsafe-all-summary.json');
 
         final result = await runInProcessCli([

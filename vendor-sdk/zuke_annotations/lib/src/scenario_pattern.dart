@@ -91,5 +91,6 @@ final class _RulePattern extends ZukeScenarioPattern {
   final String id;
   const _RulePattern(this.id);
   @override
-  bool matches(ZukeScenarioContract contract) => contract.requirementId.value == id;
+  bool matches(ZukeScenarioContract contract) =>
+      contract.requirementId.value == id;
 }

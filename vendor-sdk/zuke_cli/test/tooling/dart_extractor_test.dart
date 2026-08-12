@@ -3,6 +3,8 @@ import 'dart:io';
 import 'package:zuke_cli/src/dart_extractor.dart';
 import 'package:test/test.dart';
 
+import '../support/temporary_directory.dart';
+
 void main() {
   test('DartExtractionResult stores fragments', () {
     final result = DartExtractionResult();
@@ -30,7 +32,7 @@ void main() {
       final root = Directory.systemTemp.createTempSync(
         'dart-extractor-fixture-',
       );
-      addTearDown(() => _deleteDirectoryWithRetry(root));
+      addTearDown(() => deleteTemporaryDirectory(root));
       final dartTool = Directory('${root.path}/.dart_tool')
         ..createSync(recursive: true);
       Directory currentDir = Directory.current.absolute;
@@ -269,7 +271,7 @@ class UnsupportedVerification {}
 
   test('rejects invalid package roots and reports analyzer errors', () async {
     final root = Directory.systemTemp.createTempSync('dart-extractor-invalid-');
-    addTearDown(() => _deleteDirectoryWithRetry(root));
+    addTearDown(() => deleteTemporaryDirectory(root));
 
     expect(
       () => DartExtractor().extract(root.path),
@@ -295,29 +297,4 @@ environment:
     expect(output.diagnostics, isNotEmpty);
     expect(output.graph, isNull);
   });
-}
-
-Future<void> _deleteDirectoryWithRetry(Directory directory) async {
-  final deadline = DateTime.now().add(const Duration(seconds: 5));
-  var attempt = 0;
-  var delay = const Duration(milliseconds: 25);
-  while (DateTime.now().isBefore(deadline)) {
-    attempt++;
-    if (!directory.existsSync()) return;
-    try {
-      await directory.delete(recursive: true);
-      return;
-    } on FileSystemException {
-      // Analyzer disposal can release Windows file handles asynchronously.
-      await Future<void>.delayed(delay);
-      delay *= 2;
-      if (delay > const Duration(milliseconds: 500)) {
-        delay = const Duration(milliseconds: 500);
-      }
-    }
-  }
-  throw StateError(
-    'Unable to remove analyzer fixture after $attempt attempt(s): '
-    '${directory.path}',
-  );
 }

@@ -6,9 +6,6 @@
   Flutter result artifacts.
 - Declared the direct digest dependency and aligned the managed widget-test
   `skip` option with Flutter's boolean test API.
-
-## 0.2.1
-
 - Allow Flutter's pinned SDK metadata to select the analyzer-8 lane from the
   dual-version-compatible `zuke_core` dependency.
 
