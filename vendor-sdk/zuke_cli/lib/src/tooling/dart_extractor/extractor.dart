@@ -66,7 +66,7 @@ Expression? _argumentExpression(dynamic argument) {
 /// Resolved Dart extractor shared by the CLI and future analyzer/build-hook
 /// surfaces.  It intentionally has no regex fallback: an unresolved source
 /// fragment is unsafe evidence and is reported as an extraction error.
-class DartExtractor implements FrameworkAdapter {
+class DartExtractor implements LegacyFrameworkAdapter {
   static const annotationLibrary =
       'package:zuke_annotations/zuke_annotations.dart';
 
@@ -81,7 +81,7 @@ class DartExtractor implements FrameworkAdapter {
   );
 
   @override
-  Future<AdapterOutput> extract(
+  Future<IrAdapterOutput> extract(
     String rootPath, {
     List<String> roots = const ['lib'],
   }) async {
@@ -115,9 +115,9 @@ class DartExtractor implements FrameworkAdapter {
         .where((directory) => directory.existsSync())
         .toList();
     if (sourceDirectories.isEmpty) {
-      return AdapterOutput(
+      return IrAdapterOutput(
         adapter: adapterInfo,
-        completeness: const AdapterCompleteness(),
+        completeness: const IrAdapterCompleteness(),
         symbols: const [],
         inputDigest: _computeDigest(root),
         diagnostics: const [],
@@ -329,9 +329,9 @@ class DartExtractor implements FrameworkAdapter {
           '${b.source.uri}:${b.source.offset}:${b.kind}:${b.symbolId}';
       return left.compareTo(right);
     });
-    return AdapterOutput(
+    return IrAdapterOutput(
       adapter: adapterInfo,
-      completeness: AdapterCompleteness(
+      completeness: IrAdapterCompleteness(
         annotationTargets: errors.isEmpty
             ? CompletenessValue.complete
             : CompletenessValue.indeterminate,
@@ -341,10 +341,10 @@ class DartExtractor implements FrameworkAdapter {
       inputDigest: _computeDigest(root),
       diagnostics: errors
           .map(
-            (message) => Diagnostic(
+            (message) => IrDiagnostic(
               code: 'DART-EXTRACT-001',
               message: message,
-              severity: DiagnosticSeverity.error,
+              severity: IrDiagnosticSeverity.error,
             ),
           )
           .toList(),

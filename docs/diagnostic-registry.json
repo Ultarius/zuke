@@ -1,5 +1,5 @@
 {
-  "schemaVersion": "zuke.diagnostic-registry.v2",
+  "kind": "zuke.diagnostic-registry",
   "defaults": {
     "owner": "unknown",
     "remediation": "Use the diagnostic code and command context to determine the owning repository."
@@ -18,13 +18,14 @@
     {"code": "ZK-DART-FROG-WS-001", "severity": "warning", "summary": "A Dart Frog route transport could not be resolved.", "owner": "zuke", "remediation": "Resolve the transport element or keep WebSocket classification indeterminate."},
     {"code": "ZK-DART-FROG-WS-002", "severity": "warning", "summary": "A webSocketHandler symbol did not resolve to Dart Frog.", "owner": "zuke", "remediation": "Confirm the invoked element is Dart Frog or retain an indeterminate transport classification."},
     {"code": "ZK-DART-SOURCE-001", "severity": "error", "summary": "A Dart source package could not be resolved.", "owner": "environment", "remediation": "Check the configured package root and workspace dependency state."},
-    {"code": "ZK-DOCTOR-001", "severity": "error", "summary": "The V2 workspace doctor found an invalid project setup.", "owner": "project", "remediation": "Resolve the structured doctor diagnostic before running assurance."},
-    {"code": "ZK-DOCTOR-002", "severity": "error", "summary": "A required V2 workspace identity is missing.", "owner": "project", "remediation": "Declare the target, package, runner, and evidence identities explicitly."},
+    {"code": "ZK-DOCTOR-001", "severity": "error", "summary": "The workspace doctor found an invalid project setup.", "owner": "project", "remediation": "Resolve the structured doctor diagnostic before running assurance."},
+    {"code": "ZK-DOCTOR-002", "severity": "error", "summary": "A required workspace identity is missing.", "owner": "project", "remediation": "Declare the target, package, runner, and evidence identities explicitly."},
     {"code": "ZK-EVIDENCE-AMBIGUOUS-SOURCE", "severity": "error", "summary": "Evidence matched multiple source identities.", "owner": "zuke", "remediation": "Declare an exact target, package, adapter, and variant slot."},
-    {"code": "ZK-EVIDENCE-MISSING-SOURCE", "severity": "error", "summary": "Evidence has no matching source identity.", "owner": "zuke", "remediation": "Regenerate the record from the configured V2 runner."},
+    {"code": "ZK-EVIDENCE-MISSING-SOURCE", "severity": "error", "summary": "Evidence has no matching source identity.", "owner": "zuke", "remediation": "Regenerate the record from the configured runner."},
+    {"code": "ZK-LOCK-LEGACY-FORMAT", "severity": "error", "summary": "A legacy or malformed lock artifact was rejected.", "owner": "zuke", "remediation": "Remove the legacy lock and regenerate assurance/locks/<profile>.lock.json with the current Zuke CLI."},
     {"code": "ZK-RESULT-MISSING", "severity": "error", "summary": "Zuke did not emit a structured command result.", "owner": "unknown", "remediation": "Treat the run as blocked and attach only sanitized command context."},
     {"code": "ZK-TEST-001", "severity": "error", "summary": "A configured test runner did not produce an acceptable result.", "owner": "project", "remediation": "Run the direct suite and inspect its structured result artifact."},
-    {"code": "ZK-TEST-002", "severity": "error", "summary": "A command result has contradictory status, exit, or eligibility fields.", "owner": "unknown", "remediation": "Reject the result and regenerate a complete V2 command summary."},
+    {"code": "ZK-TEST-002", "severity": "error", "summary": "A command result has contradictory status, exit, or eligibility fields.", "owner": "unknown", "remediation": "Reject the result and regenerate a complete current command summary."},
     {"code": "ZUKE-ANNOTATION-001", "severity": "error", "summary": "A specification annotation is invalid."},
     {"code": "ZUKE-ATTEST-EXPIRING", "severity": "warning", "summary": "An external attestation is approaching expiry."},
     {"code": "ZUKE-BATCH-UNSAFE-ARGUMENT", "severity": "error", "summary": "A batch command argument is unsafe."},

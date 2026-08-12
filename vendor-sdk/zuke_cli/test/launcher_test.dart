@@ -3,8 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:zuke_cli/zuke_cli.dart';
-import 'package:zuke_core/zuke_core.dart' show ScenarioId;
-import 'package:zuke_core/v2.dart';
+import 'package:zuke_core/zuke_core.dart';
 import 'package:zuke/runner.dart';
 import 'package:test/test.dart';
 
@@ -50,6 +49,10 @@ void main() {
         runners: '''
     - id: unit-runner
       kind: setup
+      target: backend
+      sourcePackage: fake-supervisor
+      sourceAdapter: dart-test-runner
+      sourceCompatibilityId: fake-supervisor-runner-v2
       executable: flutter
       runnerMode: cli
       args: [test, test]
@@ -232,6 +235,10 @@ void main() {
           runners: '''
     - id: evidence-runner
       kind: test
+      target: backend
+      sourcePackage: fake-supervisor
+      sourceAdapter: dart-test-runner
+      sourceCompatibilityId: fake-supervisor-runner-v2
       executable: dart
       evidenceTypes: [domain-unit]
 ''',
@@ -255,6 +262,10 @@ void main() {
             runners: '''
     - id: artifact-runner
       kind: test
+      target: backend
+      sourcePackage: fake-supervisor
+      sourceAdapter: dart-test-runner
+      sourceCompatibilityId: fake-supervisor-runner-v2
       executable: dart
 ''',
           );
@@ -280,6 +291,10 @@ void main() {
             runners: '''
     - id: artifact-runner
       kind: test
+      target: backend
+      sourcePackage: fake-supervisor
+      sourceAdapter: dart-test-runner
+      sourceCompatibilityId: fake-supervisor-runner-v2
       executable: dart
 ''',
           );
@@ -327,8 +342,16 @@ void main() {
         final valid = _workspace(
           runners: '    []',
           targets:
-              '{backend: {path: ".", timeoutSeconds: 3, '
-              'runner: {executable: flutter, runnerMode: cli, args: [test]}}}',
+              '  backend:\n'
+              '    language: dart\n'
+              '    framework: dart\n'
+              '    packages:\n'
+              '      - id: fake-supervisor\n'
+              '        path: .\n'
+              '        roots: [lib, test]\n'
+              '    path: .\n'
+              '    timeoutSeconds: 3\n'
+              '    runner: {executable: flutter, runnerMode: cli, args: [test]}\n',
         );
         addTearDown(() => valid.delete(recursive: true));
         final supervisor = _FakeSupervisor(ProcessResult(1, 0, 'ok', ''));
@@ -346,7 +369,15 @@ void main() {
 
         final failed = _workspace(
           runners: '    []',
-          targets: '{backend: {runner: {executable: dart, args: [test]}}}',
+          targets:
+              '  backend:\n'
+              '    language: dart\n'
+              '    framework: dart\n'
+              '    packages:\n'
+              '      - id: fake-supervisor\n'
+              '        path: .\n'
+              '        roots: [lib, test]\n'
+              '    runner: {executable: dart, args: [test]}\n',
         );
         addTearDown(() => failed.delete(recursive: true));
         expect(
@@ -365,6 +396,10 @@ void main() {
           runners: '''
     - id: artifact-runner
       kind: test
+      target: backend
+      sourcePackage: fake-supervisor
+      sourceAdapter: dart-test-runner
+      sourceCompatibilityId: fake-supervisor-runner-v2
       executable: dart
       evidenceTypes: [suite]
 ''',
@@ -404,27 +439,45 @@ void main() {
 }
 
 Directory _workspace({
-  String runners = '''
+String runners = '''
     - id: unit-runner
       kind: setup
+      target: backend
+      sourcePackage: fake-supervisor
+      sourceAdapter: dart-test-runner
+      sourceCompatibilityId: fake-supervisor-runner-v2
       executable: dart
       args: [test, test]
       timeoutSeconds: 7
 ''',
-  String targets = '{}',
+  String targets = '''
+  backend:
+    language: dart
+    framework: dart
+    packages:
+      - id: fake-supervisor
+        path: .
+        roots: [lib, test]
+''',
 }) {
   final root = Directory.systemTemp.createTempSync('zuke_supervisor_');
   File('${root.path}${Platform.pathSeparator}zuke.yaml').writeAsStringSync('''
-schemaVersion: 2
+schemaVersion: 3
 workspace:
   name: fake-supervisor
   root: .
 specifications:
   features: [specs/features/**/*.feature]
-targets: $targets
+targets:
+$targets
 execution:
   runners:
 $runners
+''');
+  File('${root.path}${Platform.pathSeparator}pubspec.yaml').writeAsStringSync('''
+name: fake_supervisor
+environment:
+  sdk: '>=3.0.0 <4.0.0'
 ''');
   final features = Directory(
     '${root.path}${Platform.pathSeparator}specs${Platform.pathSeparator}features',

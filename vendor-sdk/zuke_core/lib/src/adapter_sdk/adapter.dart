@@ -6,18 +6,18 @@ import '../assurance_ir.dart';
 
 export '../assurance_ir.dart'
     show
-        AdapterCompleteness,
+        IrAdapterCompleteness,
         AdapterDescriptor,
-        AdapterOutput,
-        Diagnostic,
-        DiagnosticSeverity,
+        IrAdapterOutput,
+        IrDiagnostic,
+        IrDiagnosticSeverity,
         ExtractedSourceLocation,
         ExtractedSymbol;
 
 /// Source compatibility alias; the object is owned by assurance_ir.
 typedef AdapterInfo = AdapterDescriptor;
 
-abstract class FrameworkAdapter {
+abstract class LegacyFrameworkAdapter {
   AdapterDescriptor get adapterInfo;
-  Future<AdapterOutput> extract(String rootPath);
+  Future<IrAdapterOutput> extract(String rootPath);
 }

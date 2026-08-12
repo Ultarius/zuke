@@ -387,10 +387,10 @@ final application = ZukeHttpApplication(
 
         for (final wsPath in [lfRootPath, crlfRootPath]) {
           File(
-            '$wsPath/assurance-history/trust/ed25519-v2.json',
+            '$wsPath/assurance-history/trust/ed25519.json',
           ).writeAsStringSync(
             const JsonEncoder.withIndent('  ').convert({
-              'schemaVersion': 'zuke.ed25519-trust.v2',
+              'kind': 'zuke.ed25519-trust',
               'keys': [
                 {
                   'signerId': 'attestation-signer',
@@ -576,7 +576,7 @@ Directory _repositoryRoot() {
 }
 
 Map<String, Object?> _normalizedOutputJson(
-  AdapterOutput output,
+  IrAdapterOutput output,
   Directory workspace,
 ) {
   final json = <String, Object?>{

@@ -128,7 +128,7 @@ void main() {
       () async {
         _writePackage(tempDir);
         final evidence = Directory('${tempDir.path}/evidence')..createSync();
-        final record = EvidenceRecord(
+        final record = SemanticEvidenceRecord(
           requirementId: 'RULE-TEST-001',
           evidenceType: 'domain-unit',
           target: 'backend',
@@ -137,6 +137,9 @@ void main() {
           candidateId: 'SCN-TEST-001',
           runnerId: 'unit-runner',
           runnerCompatibilityId: 'unit-runner-v1',
+          sourcePackage: 'test_pkg',
+          sourceAdapter: 'dart-source',
+          sourceCompatibilityId: DartExtractor.compatibilityId,
         ).toJson();
         File(
           '${evidence.path}/a.json',

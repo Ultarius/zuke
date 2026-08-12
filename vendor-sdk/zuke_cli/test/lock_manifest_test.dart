@@ -253,9 +253,9 @@ class MyApp {
         final emptyTrustDir = Directory(
           '${tempDir.path}/assurance-history/trust',
         )..createSync(recursive: true);
-        final emptyTrustFile = File('${emptyTrustDir.path}/ed25519-v2.json');
+        final emptyTrustFile = File('${emptyTrustDir.path}/ed25519.json');
         emptyTrustFile.writeAsStringSync(
-          jsonEncode({'schemaVersion': 'zuke.ed25519-trust.v2', 'keys': []}),
+          jsonEncode({'kind': 'zuke.ed25519-trust', 'keys': []}),
         );
 
         Process.runSync('git', ['init'], workingDirectory: tempDir.path);
@@ -277,7 +277,7 @@ class MyApp {
         ], workingDirectory: tempDir.path);
 
         expect(
-          () => ManifestCommand.createV2(
+          () => ManifestCommand.create(
             root: tempDir.path,
             signerId: 'non-existent',
           ),
@@ -541,7 +541,7 @@ Feature: Gateway
         'change source without lock',
       ], workingDirectory: tempDir.path);
       await expectLater(
-        ManifestCommand.createV2(
+        ManifestCommand.create(
           root: tempDir.path,
           signerId: 'release-signer',
         ),
@@ -613,13 +613,13 @@ Feature: Gateway
         expect(await cli.run(const ['extract']), 1);
         expect(await cli.run(const ['manifest']), 1);
         expect(
-          await cli.run(['manifest', 'verify-v2', '--root', tempDir.path]),
+          await cli.run(['manifest', 'verify', '--root', tempDir.path]),
           0,
         );
         expect(
           await cli.run([
             'manifest',
-            'verify-v2',
+            'verify',
             '--root',
             tempDir.path,
             '--require-history',

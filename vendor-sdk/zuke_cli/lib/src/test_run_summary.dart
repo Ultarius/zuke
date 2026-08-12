@@ -34,8 +34,13 @@ class TestRunSummary {
 
   /// Encodes the summary as a stable JSON object.
   Map<String, Object?> toJson() => {
-    'schemaVersion': 'zuke.test-run.v1',
+    'kind': 'zuke.command-result',
+    'command': 'test',
+    'stage': 'test',
+    'exitCode': 0,
     'status': 'passed',
+    'eligible': true,
+    'diagnostics': const <Object?>[],
     'profile': profile,
     'runnersExecuted': runnersExecuted,
     'selectionDigest': selectionDigest,

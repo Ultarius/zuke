@@ -1,4 +1,4 @@
-/// Canonical SHA-256 digest used by V2 evidence and ledger contracts.
+/// Canonical SHA-256 digest used by current evidence and ledger contracts.
 final class Sha256Digest {
   final String value;
 

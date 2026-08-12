@@ -16,7 +16,7 @@ void main() {
     if (root.existsSync()) root.deleteSync(recursive: true);
   });
 
-  test('accepts a complete V2 active SDK release surface', () {
+  test('accepts a complete current active SDK release surface', () {
     expect(DocumentationChecker(root).check(), isEmpty);
   });
 
@@ -116,7 +116,7 @@ void _writeBaseline(Directory root) {
       'previousVersion': '0.2.0',
       'action': 'publish',
       'tier': 'Primary SDK',
-      'support': 'Primary pure-Dart Zuke SDK and supported V2 facade.',
+      'support': 'Primary pure-Dart Zuke SDK and supported facade.',
     },
     'zuke_runner': {
       'version': '0.3.0',
@@ -220,6 +220,12 @@ void _writeBaseline(Directory root) {
     '${publicationOrder.map((name) => '  - $name').join('\n')}\n',
   );
   File('${root.path}/docs/integration-guide.md').writeAsStringSync('# guide\n');
+  File('${root.path}/docs/migration.md').writeAsStringSync('''# Migrating to the Current Zuke Release
+
+Previous package versions pinned until ready to migrate.
+schema 3 sourcePackage sourceAdapter assurance/locks/pullRequest.lock.json
+regenerate retired package
+''');
   Directory('${root.path}/examples').createSync(recursive: true);
   Directory('${root.path}/.github').createSync(recursive: true);
 }

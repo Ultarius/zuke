@@ -9,7 +9,7 @@ import 'assurance_ir.dart';
 /// Deterministic Ed25519 release-record signer. Private key material is
 /// supplied by the caller and is never persisted by this package.
 class Ed25519ReleaseSigner {
-  static const _domain = 'Zuke behavioral assurance release v2\u0000';
+  static const _domain = 'Zuke behavioral assurance release\u0000';
   final Ed25519 algorithm;
   Ed25519ReleaseSigner({Ed25519? algorithm})
     : algorithm = algorithm ?? Ed25519();
@@ -46,7 +46,7 @@ class Ed25519ReleaseSigner {
       }
     }
     final unsigned = <String, Object?>{
-      'schemaVersion': 'zuke.behavioral-assurance-release.v2',
+      'kind': 'zuke.behavioral-assurance-release',
       'signer': {'signerId': signerId, 'keyId': keyId, 'algorithm': 'Ed25519'},
       'body': body,
     };
@@ -74,7 +74,7 @@ class Ed25519ReleaseSigner {
       return false;
     }
     final unsigned = <String, Object?>{
-      'schemaVersion': record['schemaVersion'],
+      'kind': record['kind'],
       'signer': signer,
       'body': record['body'],
     };
@@ -149,8 +149,10 @@ class TrustBundle {
   const TrustBundle(this.keys);
 
   factory TrustBundle.fromJson(Map value) {
-    if (value['schemaVersion'] != 'zuke.ed25519-trust.v2') {
-      throw const FormatException('Invalid Ed25519 trust bundle schema');
+    if (value['kind'] != 'zuke.ed25519-trust') {
+      throw const FormatException(
+        'Invalid Ed25519 trust bundle format; regenerate it for the current Zuke release',
+      );
     }
     final keys = (value['keys'] as List? ?? const [])
         .whereType<Map>()
@@ -190,7 +192,7 @@ class TrustedReleaseVerifier {
     if (signerId is! String ||
         keyId is! String ||
         signerMap?['algorithm'] != 'Ed25519' ||
-        record['schemaVersion'] != 'zuke.behavioral-assurance-release.v2' ||
+        record['kind'] != 'zuke.behavioral-assurance-release' ||
         record['body'] is! Map) {
       return false;
     }
@@ -242,14 +244,14 @@ class TrustedReleaseVerifier {
 
 /// Verifies a separately signed external-control attestation.
 class SignedAttestationVerifier {
-  static const _domain = 'Zuke external control attestation v1\u0000';
+  static const _domain = 'Zuke external control attestation\u0000';
   final Ed25519 algorithm;
 
   SignedAttestationVerifier({Ed25519? algorithm})
     : algorithm = algorithm ?? Ed25519();
 
   Future<bool> verify(Map<String, Object?> record, TrustBundle trust) async {
-    if (record['schemaVersion'] != 'zuke.external-attestation.v1') {
+    if (record['kind'] != 'zuke.external-attestation') {
       return false;
     }
     final signer = (record['signer'] as Map?)?.cast<String, Object?>();
@@ -292,7 +294,7 @@ class SignedAttestationVerifier {
     final key = trust.find(signerId, keyId, 'attestation');
     if (key == null) return false;
     final unsigned = <String, Object?>{
-      'schemaVersion': record['schemaVersion'],
+      'kind': record['kind'],
       'signer': signer,
       'body': body,
     };

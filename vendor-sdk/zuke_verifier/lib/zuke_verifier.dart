@@ -5,7 +5,7 @@ import 'dart:convert';
 
 import 'package:zuke_core/zuke_core.dart';
 
-/// A verification verdict for an exported v2 history.
+/// A verification verdict for an exported current history.
 class ExportVerificationResult {
   final bool valid;
   final List<String> diagnostics;
@@ -18,14 +18,14 @@ class ExportVerificationResult {
   });
 
   Map<String, Object?> toJson() => {
-    'schemaVersion': 'zuke.verifier.v1',
+    'kind': 'zuke.verification-result',
     'valid': valid,
     'diagnostics': diagnostics,
     'recordDigests': recordDigests,
   };
 }
 
-/// Verifies a `zuke.behavioral-assurance-release.v2.export` value produced by
+/// Verifies a `zuke.behavioral-assurance-release-export` value produced by
 /// `zuke manifest export`. The export is ordered from its head through
 /// each predecessor, so ordering itself is part of the checked contract.
 class ExportedReleaseVerifier {
@@ -65,8 +65,7 @@ class ExportedReleaseVerifier {
     Map<String, Object?> export,
     TrustBundle trust,
   ) async {
-    if (export['schemaVersion'] !=
-        'zuke.behavioral-assurance-release.v2.export') {
+    if (export['kind'] != 'zuke.behavioral-assurance-release-export') {
       return const ExportVerificationResult(
         valid: false,
         diagnostics: ['Unsupported assurance-history export schema'],

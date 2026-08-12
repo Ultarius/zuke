@@ -17,6 +17,7 @@ void main() {
 
     test('rejects paths that escape workspace root with ../ prefix', () {
       File('${tempDir.path}/zuke.yaml').writeAsStringSync('''
+schemaVersion: 3
 specifications:
   features:
     - ../specs/features/**/*.feature
@@ -38,6 +39,7 @@ Feature: Test
 
     test('rejects absolute path patterns', () {
       File('${tempDir.path}/zuke.yaml').writeAsStringSync('''
+schemaVersion: 3
 specifications:
   features:
     - /absolute/path/**/*.feature
@@ -59,6 +61,7 @@ Feature: Test
 
     test('rejects Windows absolute drive path patterns', () {
       File('${tempDir.path}/zuke.yaml').writeAsStringSync('''
+schemaVersion: 3
 specifications:
   features:
     - C:\\path\\**\\*.feature
@@ -94,6 +97,7 @@ Feature: Test
       'reports file matched by multiple patterns with all patterns listed',
       () {
         File('${tempDir.path}/zuke.yaml').writeAsStringSync('''
+schemaVersion: 3
 specifications:
   features:
     - specs/features/**/*.feature
@@ -686,6 +690,7 @@ Feature: Cardinality alias
       'loads every configured input and reports duplicate or invalid data',
       () {
         File('${tempDir.path}/zuke.yaml').writeAsStringSync('''
+schemaVersion: 3
 specifications:
   features: [specs/features/**/*.feature]
   epics: [specs/epics/**/*.yaml]
@@ -696,10 +701,17 @@ policies:
   profiles: [specs/policies/profile-*.yaml]
 targets:
   flutter:
+    language: dart
+    framework: flutter
+    packages:
+      - id: temporary-workspace
+        path: .
+        roots: [lib, test]
     contractOutput: packages/contracts/lib/src/generated
     contractExport: packages/contracts/lib/contracts.dart
 lock:
-  file: zuke.lock.json
+  directory: assurance/locks
+  profiles: [pullRequest]
 evidence:
   output: generated/evidence
 trust:
@@ -781,7 +793,7 @@ endpoints:
 
         expect(result.config.contractOutput, contains('generated'));
         expect(result.config.contractExport, contains('contracts.dart'));
-        expect(result.config.lockFile, 'zuke.lock.json');
+        expect(result.config.lockFile, isNull);
         expect(result.config.evidenceOutput, 'generated/evidence');
         expect(result.config.trustBundle, 'trust/bundle.json');
         expect(result.config.executionConfig['runners'], isEmpty);

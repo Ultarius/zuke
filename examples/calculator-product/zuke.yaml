@@ -112,9 +112,19 @@ evidence:
   records: generated/evidence/records
   observations: generated/evidence/runs
   includeSourceCode: false
+  types:
+    api-contract: {mode: record}
+    security-integration: {mode: record}
+    gherkin-api: {mode: record}
+    logging-verification: {mode: record}
+    performance: {mode: record}
+    domain-unit: {mode: record}
+    flutter-widget: {mode: record}
+    gherkin-ui: {mode: record}
+    accessibility-integration: {mode: record}
 
 trust:
-  bundle: assurance-history/trust/ed25519-v2.json
+  bundle: assurance-history/trust/ed25519.json
   algorithm: ed25519
 
 lock:

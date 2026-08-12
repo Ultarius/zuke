@@ -9,8 +9,8 @@ import 'validator.dart';
 class VerificationBackedValidator {
   ValidationResult validate(
     WorkspaceDiscoveryResult workspace,
-    List<AdapterOutput> outputs,
-    List<EvidenceRecord> evidence,
+    List<IrAdapterOutput> outputs,
+    List<SemanticEvidenceRecord> evidence,
   ) {
     final proofs = <ControlProofResult>[];
     final providers = <_Provider>[];
@@ -163,7 +163,7 @@ class VerificationBackedValidator {
     return result.values.toList();
   }
 
-  bool _hasRequiredDigests(EvidenceRecord record) =>
+  bool _hasRequiredDigests(SemanticEvidenceRecord record) =>
       const [
         'source',
         'contract',
@@ -184,7 +184,7 @@ class VerificationBackedValidator {
 
 class _Provider {
   final ExtractedSymbol symbol;
-  final AdapterCompleteness completeness;
+  final IrAdapterCompleteness completeness;
   const _Provider(this.symbol, this.completeness);
 }
 

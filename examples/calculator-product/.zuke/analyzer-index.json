@@ -1,6 +1,6 @@
 {
   "schemaVersion": "zuke.analyzer-index.v2",
-  "inputDigest": "sha256:14252d4c782c8114eed30c074114a3503adf13c659b64436216e316c5c9fd064",
+  "inputDigest": "sha256:b712506b2a5bc15366cb501e149f466905475939de69d88ea51f5f2ddc5baa7e",
   "generatedManifestDigest": "sha256:93a855fd8152858600fddb02f9e20ac525804cf43a8f09ecd4672fe66191824d",
   "generatedManifestPath": "packages/calculator_contracts/.zuke-generated.json",
   "inputs": [
@@ -22,11 +22,11 @@
     },
     {
       "path": "specs/features/calculator_operations.feature",
-      "digest": "sha256:adafd4d21ca6382630c91272ac0e7c43230188c7b9abec7f4fa2b7b189e5b931"
+      "digest": "sha256:0516a86d5b1caa3116a09adda52c3bc384740633772005f3259e0123133f02d1"
     },
     {
       "path": "specs/features/calculator_security.feature",
-      "digest": "sha256:8925eda4b62f2c681fde96adb24880f467de89670858b8c763b6b32c3ef90c75"
+      "digest": "sha256:94272360e99f4b91d9fe198bb6d828bcf5f603d470c198f48c72cd9f0ee94720"
     },
     {
       "path": "specs/registry/endpoints.yaml",
@@ -54,7 +54,7 @@
     },
     {
       "path": "zuke.yaml",
-      "digest": "sha256:2d0e5d4e492cd43196f1dde3d09334b8a9bd0ce2df28d9b188a6c21ae399009f"
+      "digest": "sha256:b97eb6907467e3fdf1a69d83529b318cc891022a6763aad8af490fb0fba03ecd"
     }
   ],
   "inputPatterns": [

@@ -4,7 +4,7 @@ import 'dart:io';
 import 'package:zuke_core/zuke_core.dart';
 import 'package:zuke_frontend/zuke_frontend.dart';
 
-const _defaultTrustBundle = 'assurance-history/trust/ed25519-v2.json';
+const _defaultTrustBundle = 'assurance-history/trust/ed25519.json';
 
 File configuredTrustBundle(String root, {String? configuredPath}) {
   final relativePath = configuredPath ?? _trustBundlePathFromConfig(root);

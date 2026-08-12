@@ -31,9 +31,9 @@ Future<Directory> createEligibleWorkspace(
   // 2. Trust bundle
   final trustDir = Directory('${tempDir.path}/assurance-history/trust')
     ..createSync(recursive: true);
-  File('${trustDir.path}/ed25519-v2.json').writeAsStringSync(
+  File('${trustDir.path}/ed25519.json').writeAsStringSync(
     const JsonEncoder.withIndent('  ').convert({
-      'schemaVersion': 'zuke.ed25519-trust.v2',
+      'kind': 'zuke.ed25519-trust',
       'keys': [
         {
           'signerId': 'attestation-signer',
@@ -212,7 +212,7 @@ providers:
   };
 
   final attestationUnsigned = <String, Object?>{
-    'schemaVersion': 'zuke.external-attestation.v1',
+    'kind': 'zuke.external-attestation',
     'signer': {
       'signerId': 'attestation-signer',
       'keyId': 'default',
@@ -221,7 +221,7 @@ providers:
     'body': attestationBody,
   };
 
-  const domain = 'Zuke external control attestation v1\u0000';
+  const domain = 'Zuke external control attestation\u0000';
   final bytesToSign = utf8.encode(
     '$domain${canonicalJson(attestationUnsigned)}',
   );

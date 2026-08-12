@@ -2,18 +2,18 @@ import 'ir.dart';
 import 'validation.dart';
 
 /// Diagnostic severities are shared by adapters, validators, and reporters.
-enum DiagnosticSeverity { error, warning, info }
+enum IrDiagnosticSeverity { error, warning, info }
 
-class Diagnostic {
+class IrDiagnostic {
   final String code;
   final String message;
-  final DiagnosticSeverity severity;
+  final IrDiagnosticSeverity severity;
 
   /// SourceSpan is canonical; Object? keeps frontend diagnostics source
   /// compatible during the migration and is normalized by toJson.
   final Object? source;
 
-  const Diagnostic({
+  const IrDiagnostic({
     required this.code,
     required this.message,
     required this.severity,
@@ -52,12 +52,12 @@ class AdapterDescriptor {
   };
 }
 
-class AdapterCompleteness {
+class IrAdapterCompleteness {
   final CompletenessValue annotationTargets;
   final CompletenessValue generatedParts;
   final GraphCompleteness graph;
 
-  const AdapterCompleteness({
+  const IrAdapterCompleteness({
     this.annotationTargets = CompletenessValue.complete,
     this.generatedParts = CompletenessValue.complete,
     this.graph = const GraphCompleteness(),
@@ -146,18 +146,18 @@ class ExtractedSymbol {
   };
 }
 
-class AdapterOutput {
+class IrAdapterOutput {
   final AdapterDescriptor adapter;
-  final AdapterCompleteness completeness;
+  final IrAdapterCompleteness completeness;
   final List<ExtractedSymbol> symbols;
   final String inputDigest;
-  final List<Diagnostic> diagnostics;
+  final List<IrDiagnostic> diagnostics;
   final String? packageName;
   final String? packageRoot;
   final IrGraph? graph;
-  final List<EvidenceRecord> evidenceRecords;
+  final List<SemanticEvidenceRecord> evidenceRecords;
 
-  const AdapterOutput({
+  const IrAdapterOutput({
     required this.adapter,
     required this.completeness,
     required this.symbols,

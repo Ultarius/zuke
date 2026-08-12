@@ -1,9 +1,9 @@
 import 'package:test/test.dart';
-import 'package:zuke_core/v2.dart';
+import 'package:zuke_core/zuke_core.dart';
 
 void main() {
   test('diagnostics default null ownership to unknown', () {
-    final diagnostic = DiagnosticV2.fromJson({
+    final diagnostic = Diagnostic.fromJson({
       'code': 'ZK-TEST-001',
       'stage': 'test',
       'severity': 'error',
@@ -16,7 +16,7 @@ void main() {
   test('empty or unknown diagnostic owners fail closed', () {
     for (final owner in ['', 'package-owner']) {
       expect(
-        () => DiagnosticV2.fromJson({
+        () => Diagnostic.fromJson({
           'code': 'ZK-TEST-002',
           'stage': 'test',
           'severity': 'error',
@@ -29,21 +29,21 @@ void main() {
   });
 
   test('command result requires identity fields and consistent status', () {
-    const result = CommandResultV2(
+    const result = CommandResult(
       command: 'gate',
       stage: 'gate',
       exitCode: 1,
       status: CommandStatus.failed,
       eligible: false,
     );
-    expect(CommandResultV2.fromJson(result.toJson()).succeeded, isFalse);
+    expect(CommandResult.fromJson(result.toJson()).succeeded, isFalse);
 
     for (final field in const ['command', 'stage', 'status']) {
       final json = result.toJson()..remove(field);
-      expect(() => CommandResultV2.fromJson(json), throwsFormatException);
+      expect(() => CommandResult.fromJson(json), throwsFormatException);
     }
     expect(
-      () => CommandResultV2.fromJson({
+      () => CommandResult.fromJson({
         ...result.toJson(),
         'status': 'passed',
       }),
@@ -78,14 +78,14 @@ void main() {
 
   test('evidence record rejects malformed schema and digest', () {
     expect(
-      () => EvidenceRecordV2.fromJson({
-        'schemaVersion': 'zuke.evidence-record.v1',
+      () => EvidenceRecord.fromJson({
+        'kind': 'zuke.evidence-record.legacy',
       }),
       throwsFormatException,
     );
     expect(
-      () => EvidenceRecordV2.fromJson({
-        'schemaVersion': 'zuke.evidence-record.v2',
+      () => EvidenceRecord.fromJson({
+        'kind': 'zuke.evidence-record',
         'requirementId': 'RULE-1',
         'evidenceType': 'contract',
         'target': 'contract',

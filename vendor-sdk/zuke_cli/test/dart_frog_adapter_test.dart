@@ -2,7 +2,7 @@ import 'dart:io';
 
 import 'package:test/test.dart';
 import 'package:zuke_cli/src/dart_frog_adapter.dart';
-import 'package:zuke_core/v2.dart';
+import 'package:zuke_core/zuke_core.dart';
 
 void main() {
   test('extracts route topology and reverses resolved middleware chains', () async {

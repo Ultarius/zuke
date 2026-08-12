@@ -1,0 +1,24 @@
+{
+  "schemaVersion": "zuke.evidence-record.v1",
+  "requirementId": "RULE-CALC-RATE-LIMIT",
+  "evidenceType": "gherkin-api",
+  "target": "backend",
+  "variant": "default",
+  "executionId": "exec-gherkin-api-RULE-CALC-RATE-LIMIT-SCN-CALC-RATE-LIMIT",
+  "status": "passed",
+  "scenarioIds": [
+    "SCN-CALC-RATE-LIMIT"
+  ],
+  "controlIds": [],
+  "digests": {
+    "source": "sha256:7c9dcc87cf2ffeeb15f8520be585b8cf085133189a0721a88bb90f14887c90d4",
+    "contract": "sha256:93a855fd8152858600fddb02f9e20ac525804cf43a8f09ecd4672fe66191824d",
+    "mapping": "sha256:07a0030c7b1d64c70f781049d59a596db984334edc809458330eca142051d31d",
+    "specificationIndex": "sha256:ecce4a957c3f34286c0ed3029c1357f0f071471d68f20a5c1a347fb7b908280d",
+    "result": "sha256:a1d0a87973f2662ab0feec1ac1883db53efb5883b835cdef45593580b745862c"
+  },
+  "candidateId": "SCN-CALC-RATE-LIMIT",
+  "profile": "merge",
+  "runnerId": "calculator-api-tests",
+  "runnerCompatibilityId": "calculator-api-tests-v1"
+}

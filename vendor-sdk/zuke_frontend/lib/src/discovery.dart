@@ -8,7 +8,7 @@ import 'metadata_extractor.dart';
 
 /// Workspace configuration loaded from `zuke.yaml`.
 class ZukeConfig {
-  /// Configuration schema. V2 consumers should use schema 3.
+  /// Configuration schema. Current consumers should use schema 3.
   final int schemaVersion;
   /// Workspace root override.
   final String? root;
@@ -58,10 +58,10 @@ class ZukeConfig {
   /// V3 stable package identities grouped by target.
   final Map<String, List<Map<String, dynamic>>> targetPackages;
 
-  /// V3 framework selection grouped by target.
+  /// Current framework selection grouped by target.
   final Map<String, String> targetFrameworks;
 
-  /// V3 registered evidence types and their satisfaction modes.
+  /// Current registered evidence types and their satisfaction modes.
   final Map<String, String> evidenceTypes;
 
   /// V3 lock directory and official profile names.
@@ -70,10 +70,7 @@ class ZukeConfig {
 
   /// Creates workspace configuration.
   const ZukeConfig({
-    // Keep the programmatic constructor compatible with the legacy IR-based
-    // APIs. File-backed V2 consumers still go through fromYaml(), whose
-    // strict default rejects every pre-V3 document.
-    this.schemaVersion = 2,
+    this.schemaVersion = 3,
     this.root,
     this.featurePatterns = const ['specs/features/**/*.feature'],
     this.epicPatterns = const ['specs/epics/**/*.yaml'],
@@ -100,7 +97,6 @@ class ZukeConfig {
   static ZukeConfig fromYaml(
     String yamlContent, {
     String? root,
-    bool validateV3 = true,
   }) {
     final doc = loadYaml(yamlContent) as Map?;
     if (doc == null) {
@@ -112,9 +108,9 @@ class ZukeConfig {
     final schemaVersion = doc['schemaVersion'] is int
         ? doc['schemaVersion'] as int
         : 2;
-    if (validateV3 && schemaVersion != 3) {
+    if (schemaVersion != 3) {
       throw const FormatException(
-        'Only Zuke schemaVersion 3 configuration is supported; migrate from V1/V2.',
+        'Only current Zuke schemaVersion 3 configuration is supported; see docs/migration.md.',
       );
     }
 
@@ -178,17 +174,15 @@ class ZukeConfig {
         ? (lockSection['profiles'] as List).whereType<String>().toList()
         : const <String>[];
 
-    if (validateV3) {
-      _validateV3(
-        rawTargets,
-        rawExecution,
-        evidenceSection,
-        lockSection,
-        targetPackages,
-        targetFrameworks,
-        lockProfiles,
-      );
-    }
+    _validateV3(
+      rawTargets,
+      rawExecution,
+      evidenceSection,
+      lockSection,
+      targetPackages,
+      targetFrameworks,
+      lockProfiles,
+    );
 
     return ZukeConfig(
       schemaVersion: schemaVersion,
@@ -272,7 +266,7 @@ class ZukeConfig {
     }
     if (targetPackages.length != targets.length ||
         targetFrameworks.length != targets.length) {
-      throw const FormatException('V3 targets must declare stable package and framework identities');
+      throw const FormatException('Current targets must declare stable package and framework identities');
     }
 
     final runners = execution['runners'];
@@ -325,20 +319,23 @@ class ZukeConfig {
     }
 
     // Minimal programmatic/configuration fixtures are useful to commands that
-    // do not read or write locks. Enforce the V3 lock shape when a lock section
-    // is present; lock-producing commands separately require the official
-    // profile configuration before they resolve a lock path.
+    // do not read or write locks. Enforce the current lock shape when a lock
+    // section is present.
     if (lock.isEmpty) return;
     if (lock.containsKey('file')) {
-      throw const FormatException('V3 lock configuration must not use lock.file; use lock.directory and profiles');
+      throw const FormatException('Current lock configuration must not use lock.file; use the official profile lock directory');
     }
     final directory = lock['directory'];
-    if (directory is! String || directory.trim().isEmpty || lockProfiles.isEmpty) {
-      throw const FormatException('V3 lock configuration requires directory and non-empty profiles');
+    if (directory is! String ||
+        directory.replaceAll('\\', '/') != 'assurance/locks' ||
+        lockProfiles.isEmpty) {
+      throw const FormatException(
+        'Current lock configuration requires directory assurance/locks and non-empty profiles',
+      );
     }
     if (lockProfiles.toSet().length != lockProfiles.length ||
         lockProfiles.any((profile) => profile.trim().isEmpty)) {
-      throw const FormatException('V3 lock profiles must be unique non-empty strings');
+      throw const FormatException('Current lock profiles must be unique non-empty strings');
     }
   }
 
@@ -407,16 +404,7 @@ class WorkspaceDiscovery {
     } catch (error) {
       config = ZukeConfig(root: root);
       configurationError = '$error';
-      try {
-        final configContent = configFile.readAsStringSync();
-        config = ZukeConfig.fromYaml(
-          configContent,
-          root: root,
-          validateV3: false,
-        );
-      } catch (_) {
-        // Keep safe defaults when the document cannot even be parsed.
-      }
+      // Never bypass current-schema validation after a configuration error.
     }
 
     final errors = <String>[];

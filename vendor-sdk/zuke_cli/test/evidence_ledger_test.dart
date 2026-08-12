@@ -2,10 +2,10 @@ import 'dart:convert';
 
 import 'package:test/test.dart';
 import 'package:zuke_cli/src/evidence_ledger.dart';
-import 'package:zuke_core/v2.dart';
+import 'package:zuke_core/zuke_core.dart';
 
 void main() {
-  final record = EvidenceRecordV2(
+  final record = EvidenceRecord(
     requirementId: 'RULE-LEDGER-001',
     evidenceType: 'contract',
     target: 'contract',

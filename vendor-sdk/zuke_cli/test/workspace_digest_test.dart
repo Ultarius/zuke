@@ -18,7 +18,7 @@ void main() {
 
   setUp(() {
     workspace = Directory.systemTemp.createTempSync('zuke-workspace-digest-');
-    writeFile('zuke.yaml', 'schemaVersion: 2\n');
+    writeFile('zuke.yaml', 'schemaVersion: 3\n');
     writeFile('lib/source.dart', 'const value = 1;\n');
   });
 
@@ -37,7 +37,7 @@ void main() {
   });
 
   test('hashes only discovered specification inputs when requested', () {
-    final config = writeFile('zuke.yaml', 'schemaVersion: 2\n');
+    final config = writeFile('zuke.yaml', 'schemaVersion: 3\n');
     final feature = writeFile(
       'specs/features/example.feature',
       'Feature: One\n',
@@ -65,11 +65,11 @@ void main() {
     );
     final lf = <String, String>{
       feature.path: 'Feature: One\n',
-      '${workspace.path}/zuke.yaml': 'schemaVersion: 2\n',
+      '${workspace.path}/zuke.yaml': 'schemaVersion: 3\n',
     };
     final crlf = <String, String>{
       feature.path: 'Feature: One\r\n',
-      '${workspace.path}/zuke.yaml': 'schemaVersion: 2\r\n',
+      '${workspace.path}/zuke.yaml': 'schemaVersion: 3\r\n',
     };
     expect(
       WorkspaceDigest.computeInputContents(workspace, lf),

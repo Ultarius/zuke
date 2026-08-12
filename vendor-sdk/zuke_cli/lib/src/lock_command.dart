@@ -67,6 +67,22 @@ class LockCommand {
         args['root'] as String? ?? Directory.current.path,
       ).absolute.resolveSymbolicLinksSync(),
     );
+    final legacyLockPaths = [
+      File('${root.path}/zuke.lock.json'),
+      File('${root.path}/zuke.lock'),
+    ];
+    final legacyLock = legacyLockPaths.firstWhere(
+      (file) => file.existsSync(),
+      orElse: () => File(''),
+    );
+    if (legacyLock.path.isNotEmpty) {
+      stderr.writeln(
+        'ZK-LOCK-LEGACY-FORMAT: ${legacyLock.path} is a legacy lock path; '
+        'remove it and regenerate assurance/locks/<profile>.lock.json with '
+        'the current Zuke CLI.',
+      );
+      return 1;
+    }
     final workspace = WorkspaceDiscovery().discover(root.path);
     final profile = args['profile'] as String? ?? 'pullRequest';
     final extraction = await ExtractionService().extract(workspace);
@@ -119,6 +135,25 @@ class LockCommand {
         args.options.contains('quiet') && (args['quiet'] as bool? ?? false);
     if (check) {
       final current = file.existsSync() ? file.readAsStringSync() : null;
+      if (current != null) {
+        try {
+          final decoded = jsonDecode(current);
+          if (decoded is! Map ||
+              decoded['kind'] != 'zuke.lock' ||
+              decoded.containsKey('schemaVersion') ||
+              decoded.containsKey('formatVersion')) {
+            stderr.writeln(
+              'ZK-LOCK-LEGACY-FORMAT: the lock is not a current lock; regenerate it with the current Zuke CLI.',
+            );
+            return 1;
+          }
+        } on FormatException {
+          stderr.writeln(
+            'ZK-LOCK-LEGACY-FORMAT: the lock is malformed; regenerate it with the current Zuke CLI.',
+          );
+          return 1;
+        }
+      }
       if (current != lockContent) {
         stderr.writeln('Specification lock is stale or missing: $path');
         if (current != null) {
@@ -263,8 +298,7 @@ class LockCommand {
         'sha256:${sha256.convert(utf8.encode(const JsonEncoder().convert(evidenceRequirements)))}';
 
     final data = <String, dynamic>{
-      'schemaVersion': 'zuke.lock.v2',
-      'formatVersion': 2,
+      'kind': 'zuke.lock',
       'profile': profile,
       'selectedScenarioIds': selection.scenarioIds,
       'selectionDigest': selection.digest,
@@ -371,22 +405,11 @@ class LockCommand {
   }
 }
 
-/// Resolves the only supported V2 lock location for [profile].
+/// Resolves the only supported current lock location for [profile].
 String resolveProfileLockPath(
   String root,
   WorkspaceDiscoveryResult workspace,
   String profile,
 ) {
-  final directory = workspace.config.lockDirectory;
-  if (directory != null && directory.isNotEmpty) {
-    return '$root/${directory.replaceAll('\\', '/')}/$profile.lock.json';
-  }
-  final configured = workspace.config.lockFile;
-  if (configured != null &&
-      configured.isNotEmpty &&
-      !configured.endsWith('zuke.lock') &&
-      !configured.endsWith('zuke.lock.json')) {
-    return '$root/${configured.replaceAll('\\', '/')}';
-  }
   return '$root/assurance/locks/$profile.lock.json';
 }

@@ -8,7 +8,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:zuke_annotations/zuke_annotations.dart';
 import 'package:zuke_frontend/zuke_frontend.dart';
-import 'package:zuke_core/v2.dart';
+import 'package:zuke_core/zuke_core.dart';
 import 'package:zuke/runner.dart';
 
 import 'src/flutter_binding_key.dart';
@@ -85,7 +85,7 @@ final class ZukeFlutterEvidenceHarness {
   /// Environment used for scenario selection and evidence output.
   final Map<String, String>? environment;
 
-  /// Source identity required by V2 evidence records. When omitted it is
+  /// Source identity required by current evidence records. When omitted it is
   /// loaded from the effective environment at test registration time.
   final ExecutionSourceIdentity? sourceIdentity;
 
@@ -183,7 +183,7 @@ final class ZukeFlutterHarness<W extends ScenarioWorld> {
   /// Optional output directory for results.
   final String? resultDirectory;
 
-  /// Source identity required by V2 scenario results.
+  /// Source identity required by current scenario results.
   final ExecutionSourceIdentity? sourceIdentity;
 
   /// Creates a generated-scenario Flutter harness.

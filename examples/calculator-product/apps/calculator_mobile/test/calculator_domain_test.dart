@@ -11,7 +11,7 @@ void _emit(ZukeScenarioContract contract, Object result) {
     requirementId: contract.requirementId,
     scenarioId: contract.id,
     evidenceTypes: const ['domain-unit'],
-    target: 'backend',
+    target: 'flutter',
     runnerCompatibilityId: 'calculator-flutter-tests-v1',
     digestInput: jsonEncode(result),
     runnerId: 'calculator-flutter-tests',
@@ -27,7 +27,7 @@ void _emit(ZukeScenarioContract contract, Object result) {
     FeatCalc001RequirementIds.validation,
   ],
   evidenceType: 'domain-unit',
-  target: 'backend',
+  target: 'flutter',
   variant: 'default',
 )
 void main() {

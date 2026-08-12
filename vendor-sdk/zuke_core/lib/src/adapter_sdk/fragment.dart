@@ -5,7 +5,7 @@ class CanonicalFragment {
   final AdapterDescriptor adapter;
   final String packageName;
   final String packageRoot;
-  final AdapterCompleteness completeness;
+  final IrAdapterCompleteness completeness;
   final List<ExtractedSymbol> symbols;
   final String inputDigest;
   final IrGraph? graph;
@@ -22,7 +22,7 @@ class CanonicalFragment {
   });
 
   factory CanonicalFragment.fromOutput(
-    AdapterOutput output, {
+    IrAdapterOutput output, {
     String? workspaceRoot,
   }) {
     final packageName = output.packageName;

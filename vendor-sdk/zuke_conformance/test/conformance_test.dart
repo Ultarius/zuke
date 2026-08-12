@@ -28,83 +28,60 @@ void main() {
   group('Adapter Output & Conformance Fixtures', () {
     test('AdapterOutput serializes to conforming IR JSON structure', () {
       const output = AdapterOutput(
-        adapter: AdapterInfo(
-          id: 'conformance.test',
-          version: '1.0.0',
-          compatibilityId: 'v1',
-        ),
+        targetId: 'backend',
+        packageId: 'conformance_pkg',
+        sourceAdapter: 'conformance.test',
+        compatibilityId: 'v1',
         completeness: AdapterCompleteness(),
-        symbols: [
-          ExtractedSymbol(
-            kind: 'implementsRequirement',
-            role: 'implementation',
-            symbolId: 'testSymbol',
-            requirementIds: ['RULE-TEST-001'],
-            source: ExtractedSourceLocation(
-              uri: 'lib/test.dart',
-              offset: 0,
-              length: 10,
-              line: 1,
-              column: 1,
-            ),
+        nodes: [
+          TopologyNode(
+            id: 'implementation:testSymbol',
+            kind: 'implementation',
+            name: 'testSymbol',
+            attributes: {'requirementIds': ['RULE-TEST-001']},
           ),
         ],
-        inputDigest: 'abc123digest',
-        packageName: 'conformance_pkg',
-        packageRoot: '/test',
       );
 
       final json = output.toJson();
-      expect(json['schemaVersion'], equals('zuke.adapter-output.v1'));
-      expect(json['packageName'], equals('conformance_pkg'));
-      expect(json['symbols'], hasLength(1));
+      expect(json['kind'], equals('zuke.adapter-output'));
+      expect(json['sourcePackage'], equals('conformance_pkg'));
+      expect(json['target'], equals('backend'));
+      expect(json['nodes'], hasLength(1));
     });
 
     test('adapter output conforms to contract schema', () {
       const output = AdapterOutput(
-        adapter: AdapterInfo(
-          id: 'test.adapter',
-          version: '1.0.0',
-          compatibilityId: 'compat-v1',
-        ),
+        targetId: 'backend',
+        packageId: 'test_pkg',
+        sourceAdapter: 'test.adapter',
+        compatibilityId: 'compat-v1',
         completeness: AdapterCompleteness(),
-        symbols: [],
-        inputDigest: 'sha256:abc123',
-        packageName: 'test_pkg',
-        packageRoot: '/tmp/test',
+        nodes: [],
       );
 
       final json = output.toJson();
 
-      expect(json.containsKey('schemaVersion'), isTrue);
-      expect(json['schemaVersion'], equals('zuke.adapter-output.v1'));
+      expect(json.containsKey('kind'), isTrue);
+      expect(json['kind'], equals('zuke.adapter-output'));
 
-      final adapter = json['adapter'] as Map;
-      expect(adapter.containsKey('id'), isTrue);
-      expect(adapter.containsKey('version'), isTrue);
-      expect(adapter.containsKey('compatibilityId'), isTrue);
+      expect(json['target'], equals('backend'));
+      expect(json['sourcePackage'], equals('test_pkg'));
+      expect(json['sourceAdapter'], equals('test.adapter'));
+      expect(json['sourceCompatibilityId'], equals('compat-v1'));
 
       final completeness = json['completeness'] as Map;
-      expect(completeness.containsKey('annotationTargets'), isTrue);
-      expect(completeness.containsKey('generatedParts'), isTrue);
+      expect(completeness.containsKey('routeRegistration'), isTrue);
+      expect(completeness.containsKey('middlewareOrder'), isTrue);
 
-      expect(json.containsKey('symbols'), isTrue);
-      expect(json['symbols'], isA<List>());
-
-      expect(json.containsKey('inputDigest'), isTrue);
-      expect(json['inputDigest'], isA<String>());
-
-      expect(json.containsKey('packageName'), isTrue);
-      expect(json['packageName'], equals('test_pkg'));
-
-      expect(json.containsKey('packageRoot'), isTrue);
-      expect(json['packageRoot'], equals('/tmp/test'));
+      expect(json.containsKey('nodes'), isTrue);
+      expect(json['nodes'], isA<List>());
     });
 
     test('incompatible adapter claims fail with stable diagnostic', () {
       expect(
         () => EvidenceRecord.fromJson({
-          'schemaVersion': 'zuke.evidence-record.v1',
+          'kind': 'zuke.evidence-record',
           'requirementId': '',
           'evidenceType': 'domain-unit',
         }),
@@ -119,7 +96,7 @@ void main() {
 
       expect(
         () => EvidenceRecord.fromJson({
-          'schemaVersion': 'zuke.evidence-record.v1',
+          'kind': 'zuke.evidence-record',
           'requirementId': 'RULE-TEST-001',
           'evidenceType': 'domain-unit',
           'target': '',
@@ -129,7 +106,11 @@ void main() {
           isA<FormatException>().having(
             (e) => e.message,
             'message',
-            anyOf(contains('non-empty'), contains('Unknown')),
+        anyOf(
+          contains('non-empty'),
+          contains('Evidence'),
+          contains('Unknown evidence status'),
+        ),
           ),
         ),
       );
@@ -138,11 +119,11 @@ void main() {
     test('manifest schema validates', () async {
       final schemaUris = <String>[
         'package:zuke_conformance/schemas/'
-            'behavioral-assurance-manifest.v1.schema.json',
+            'behavioral-assurance-manifest.schema.json',
         'package:zuke_conformance/schemas/'
-            'behavioral-assurance-release.v2.schema.json',
-        'package:zuke_conformance/schemas/ed25519-trust.v2.schema.json',
-        'package:zuke_conformance/schemas/zuke.lock.v1.schema.json',
+            'behavioral-assurance-release.schema.json',
+        'package:zuke_conformance/schemas/ed25519-trust.schema.json',
+        'package:zuke_conformance/schemas/zuke.lock.schema.json',
       ];
       expect(schemaUris, isNotEmpty);
 
@@ -251,7 +232,7 @@ void main() {
       );
       expect(registryFile.existsSync(), isTrue);
       final registry = jsonDecode(registryFile.readAsStringSync()) as Map;
-      expect(registry['schemaVersion'], 'zuke.diagnostic-registry.v2');
+      expect(registry['kind'], 'zuke.diagnostic-registry');
       final defaults = registry['defaults'] as Map;
       expect(defaults['owner'], 'unknown');
       expect((defaults['remediation'] as String).trim(), isNotEmpty);
@@ -313,11 +294,11 @@ void main() {
       final lock =
           jsonDecode(
                 File(
-                  '${root.path}/examples/calculator-product/zuke.lock.json',
+                  '${root.path}/examples/calculator-product/assurance/locks/merge.lock.json',
                 ).readAsStringSync(),
               )
               as Map;
-      expect(lock['formatVersion'], 1);
+      expect(lock['kind'], 'zuke.lock');
       final controls = lock['controls'] as Map;
       final assurances = controls.values
           .whereType<Map>()
@@ -371,11 +352,11 @@ void main() {
       final trust =
           jsonDecode(
                 File(
-                  '${root.path}/examples/calculator-product/assurance-history/trust/ed25519-v2.json',
+                  '${root.path}/examples/calculator-product/assurance-history/trust/ed25519.json',
                 ).readAsStringSync(),
               )
               as Map;
-      expect(trust['schemaVersion'], 'zuke.ed25519-trust.v2');
+      expect(trust['kind'], 'zuke.ed25519-trust');
       final identities = <String>{};
       for (final key in (trust['keys'] as List).cast<Map>()) {
         expect(key['algorithm'], 'Ed25519');
@@ -420,13 +401,13 @@ void main() {
 
   group('trace instance contract', () {
     test('canonical fragment emits the stable trace envelope', () {
-      const output = AdapterOutput(
+      const output = IrAdapterOutput(
         adapter: AdapterInfo(
           id: 'trace.fixture',
           version: '1',
           compatibilityId: 'v1',
         ),
-        completeness: AdapterCompleteness(),
+        completeness: IrAdapterCompleteness(),
         symbols: [],
         inputDigest: '0123456789abcdef',
         packageName: 'fixture',

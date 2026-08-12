@@ -9,7 +9,7 @@ import 'validator.dart';
 class SourceMappingValidator {
   ValidationResult validate(
     WorkspaceDiscoveryResult workspace,
-    List<AdapterOutput> outputs,
+    List<IrAdapterOutput> outputs,
   ) {
     final errors = <ValidationMessage>[];
     final rules = <String>{};

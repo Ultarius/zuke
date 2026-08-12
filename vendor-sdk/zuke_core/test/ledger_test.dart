@@ -46,7 +46,7 @@ void main() {
     final public = await pair.extractPublicKey();
     final fingerprint = 'sha256:${sha256.convert(public.bytes)}';
     final active = TrustBundle.fromJson({
-      'schemaVersion': 'zuke.ed25519-trust.v2',
+      'kind': 'zuke.ed25519-trust',
       'keys': [
         {
           'signerId': 'ci',
@@ -94,7 +94,7 @@ void main() {
     );
     expect(await TrustedReleaseVerifier().verify(placeholder, active), isFalse);
     final revoked = TrustBundle.fromJson({
-      'schemaVersion': 'zuke.ed25519-trust.v2',
+      'kind': 'zuke.ed25519-trust',
       'keys': [
         {
           'signerId': 'ci',

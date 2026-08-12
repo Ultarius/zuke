@@ -2,15 +2,11 @@
 
 Optional package-owned Zuke build-time validation hook.
 
-## Preview status
-
-This package is part of the Zuke `0.1.0` preview release line.
-
 ## Installation
 
 ```yaml
 dependencies:
-  zuke_dart_build_hook: ^0.1.0
+  zuke_dart_build_hook: ^0.3.0
 ```
 
 ## Support tier

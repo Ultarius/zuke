@@ -2,7 +2,7 @@
 
 ## 0.3.0
 
-- Coordinated the annotation package with the analyzer-free V2 core and
+- Coordinated the annotation package with the analyzer-free current core and
   deterministic source-identity contracts.
 
 ## 0.2.0

@@ -120,7 +120,7 @@ void main() {
       decoded.freshnessIssues(root: root.path).single.kind,
       ZukeIndexFreshnessIssueKind.inputDigestMismatch,
     );
-    input.writeAsStringSync('schemaVersion: 2\n');
+    input.writeAsStringSync('schemaVersion: 3\n');
     manifest.writeAsStringSync('{"files":"invalid"}');
     expect(decoded.isCurrent(root: root.path), isFalse);
     expect(
@@ -135,7 +135,7 @@ void main() {
       final root = Directory.systemTemp.createTempSync('zuke-index-issues-');
       addTearDown(() => _deleteDirectoryWithRetry(root));
       final input = File('${root.path}/zuke.yaml')
-        ..writeAsStringSync('schemaVersion: 2\n');
+        ..writeAsStringSync('schemaVersion: 3\n');
       final manifest = File('${root.path}/manifest.json')
         ..writeAsStringSync('{"files":"invalid"}');
       final malformed = ZukeIndex.create(

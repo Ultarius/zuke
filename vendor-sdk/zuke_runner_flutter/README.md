@@ -2,15 +2,11 @@
 
 Flutter testWidgets integration boundary for Zuke scenarios.
 
-## Preview status
-
-This package is part of the Zuke `0.1.x` preview release line.
-
 ## Installation
 
 ```yaml
 dependencies:
-  zuke_runner_flutter: ^0.1.0
+  zuke_runner_flutter: ^0.3.0
 ```
 
 Flutter test code can use this package as its single Zuke facade. It

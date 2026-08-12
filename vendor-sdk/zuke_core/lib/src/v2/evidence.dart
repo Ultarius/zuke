@@ -12,10 +12,10 @@ final class EvidenceTypeDefinition {
   Map<String, Object?> toJson() => {'mode': mode.name};
 }
 
-final class EvidenceRequirementV2 extends EvidenceSlot {
+final class EvidenceRequirement extends EvidenceSlot {
   final String? controlId;
 
-  const EvidenceRequirementV2({
+  const EvidenceRequirement({
     required super.requirementId,
     required super.evidenceType,
     required super.target,
@@ -31,7 +31,7 @@ final class EvidenceRequirementV2 extends EvidenceSlot {
       };
 }
 
-final class EvidenceRecordV2 extends EvidenceSlot {
+final class EvidenceRecord extends EvidenceSlot {
   final String executionId;
   final String profile;
   final String status;
@@ -42,7 +42,7 @@ final class EvidenceRecordV2 extends EvidenceSlot {
   final List<String> scenarioIds;
   final List<String> controlIds;
 
-  const EvidenceRecordV2({
+  const EvidenceRecord({
     required super.requirementId,
     required super.evidenceType,
     required super.target,
@@ -63,7 +63,7 @@ final class EvidenceRecordV2 extends EvidenceSlot {
   Map<String, Object?> toJson() {
     Sha256Digest.parse(sourceDigest);
     return {
-      'schemaVersion': 'zuke.evidence-record.v2',
+      'kind': 'zuke.evidence-record',
       ...super.toJson(),
       'executionId': executionId,
       'profile': profile,
@@ -78,9 +78,11 @@ final class EvidenceRecordV2 extends EvidenceSlot {
     };
   }
 
-  factory EvidenceRecordV2.fromJson(Map<Object?, Object?> json) {
-    if (json['schemaVersion'] != 'zuke.evidence-record.v2') {
-      throw const FormatException('Unsupported evidence record schema');
+  factory EvidenceRecord.fromJson(Map<Object?, Object?> json) {
+    if (json['kind'] != 'zuke.evidence-record') {
+      throw const FormatException(
+        'Unsupported evidence record format; regenerate with the current Zuke CLI',
+      );
     }
     String requiredString(String key) {
       final value = json[key];
@@ -104,7 +106,7 @@ final class EvidenceRecordV2 extends EvidenceSlot {
     }
     final digest = requiredString('sourceDigest');
     Sha256Digest.parse(digest);
-    return EvidenceRecordV2(
+    return EvidenceRecord(
       requirementId: requiredString('requirementId'),
       evidenceType: requiredString('evidenceType'),
       target: requiredString('target'),

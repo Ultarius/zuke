@@ -2,7 +2,7 @@
 
 ## 0.4.0
 
-- Consolidated analyzer-backed tooling, typed V2 contracts, profile locks,
+- Consolidated analyzer-backed tooling, typed current contracts, profile locks,
   structured diagnostics, and first-party Dart Frog topology extraction.
 
 ## 0.3.1

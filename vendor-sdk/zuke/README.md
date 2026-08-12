@@ -31,11 +31,11 @@ For a Dart or backend package:
 
 ```yaml
 dependencies:
-  zuke: ^0.1.0
-  zuke_http_runtime: ^0.1.0 # Optional: inspect a real HTTP application
+  zuke: ^0.3.0
+  zuke_http_runtime: ^0.1.1 # Optional: inspect a real HTTP application
 
 dev_dependencies:
-  zuke_cli: ^0.2.0
+  zuke_cli: ^0.4.0
 ```
 
 For a Flutter application, the narrow dependency layout remains valid and is
@@ -44,11 +44,11 @@ belongs to tests:
 
 ```yaml
 dependencies:
-  zuke_annotations: ^0.1.0
+  zuke_annotations: ^0.3.0
 
 dev_dependencies:
-  zuke_runner_flutter: ^0.1.0
-  zuke_cli: ^0.2.0
+  zuke_runner_flutter: ^0.3.0
+  zuke_cli: ^0.4.0
 ```
 
 For strict backend separation, keep annotation and application registration
@@ -56,12 +56,12 @@ packages in `dependencies`, and place execution APIs in `dev_dependencies`:
 
 ```yaml
 dependencies:
-  zuke_annotations: ^0.1.0
-  zuke_http_runtime: ^0.1.0
+  zuke_annotations: ^0.3.0
+  zuke_http_runtime: ^0.1.1
 
 dev_dependencies:
-  test: ^1.26.0
-  zuke: ^0.1.0
+  test: ^1.31.0
+  zuke: ^0.3.0
 ```
 
 ## Public API
@@ -90,12 +90,12 @@ logical-endpoint HTTP driver and reusable HTTP assertions.
 | Generate, test, validate, lock, and gate a workspace | `zuke_cli` |
 | Low-level extraction, assurance, and adapter integrations | `zuke_core` and other specialized packages |
 
-`zuke_runner` remains available as a source-compatible transition package for
-existing `0.1.x` consumers. New pure-Dart execution code should import `zuke`.
+`zuke_runner` remains available as the coordinated compatibility runner package.
+New pure-Dart execution code should import `zuke`.
 
 ## Support tier
 
-Primary pure-Dart Zuke SDK and supported V2 facade. Its runner implementation
+Primary pure-Dart Zuke SDK and supported current facade. Its runner implementation
 and exported APIs are supported for application and test use. Use
 `zuke_annotations` directly when production code only needs metadata and the
 execution SDK belongs in `dev_dependencies`.

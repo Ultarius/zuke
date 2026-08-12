@@ -4,7 +4,7 @@ enum DiagnosticOwner { project, environment, zuke, unknown }
 
 enum CommandStatus { passed, failed }
 
-final class DiagnosticV2 {
+final class Diagnostic {
   final String code;
   final String stage;
   final DiagnosticSeverity severity;
@@ -15,7 +15,7 @@ final class DiagnosticV2 {
   final String? runnerId;
   final Map<String, String> context;
 
-  const DiagnosticV2({
+  const Diagnostic({
     required this.code,
     required this.stage,
     required this.severity,
@@ -39,7 +39,7 @@ final class DiagnosticV2 {
         if (context.isNotEmpty) 'context': Map<String, String>.from(context),
       };
 
-  factory DiagnosticV2.fromJson(Map<Object?, Object?> json) {
+  factory Diagnostic.fromJson(Map<Object?, Object?> json) {
     String requiredString(String key) {
       final value = json[key];
       if (value is! String || value.isEmpty) {
@@ -84,7 +84,7 @@ final class DiagnosticV2 {
         context[entry.key as String] = entry.value as String;
       }
     }
-    return DiagnosticV2(
+    return Diagnostic(
       code: requiredString('code'),
       stage: requiredString('stage'),
       severity: parseSeverity(json['severity']),
@@ -98,15 +98,15 @@ final class DiagnosticV2 {
   }
 }
 
-final class CommandResultV2 {
+final class CommandResult {
   final String command;
   final String stage;
   final int exitCode;
   final CommandStatus status;
   final bool eligible;
-  final List<DiagnosticV2> diagnostics;
+  final List<Diagnostic> diagnostics;
 
-  const CommandResultV2({
+  const CommandResult({
     required this.command,
     required this.stage,
     required this.exitCode,
@@ -119,7 +119,7 @@ final class CommandResultV2 {
       exitCode == 0 && status == CommandStatus.passed && eligible;
 
   Map<String, Object?> toJson() => {
-        'schemaVersion': 'zuke.command-result.v2',
+        'kind': 'zuke.command-result',
         'command': command,
         'stage': stage,
         'exitCode': exitCode,
@@ -128,9 +128,11 @@ final class CommandResultV2 {
         'diagnostics': diagnostics.map((diagnostic) => diagnostic.toJson()).toList(),
       };
 
-  factory CommandResultV2.fromJson(Map<Object?, Object?> json) {
-    if (json['schemaVersion'] != 'zuke.command-result.v2') {
-      throw const FormatException('Unsupported command result schema');
+  factory CommandResult.fromJson(Map<Object?, Object?> json) {
+    if (json['kind'] != 'zuke.command-result') {
+      throw const FormatException(
+        'Unsupported command result format; regenerate with the current Zuke CLI',
+      );
     }
     String requiredString(String key) {
       final value = json[key];
@@ -157,7 +159,7 @@ final class CommandResultV2 {
     if (diagnostics is! List || diagnostics.any((item) => item is! Map)) {
       throw const FormatException('Command result diagnostics are malformed');
     }
-    return CommandResultV2(
+    return CommandResult(
       command: requiredString('command'),
       stage: requiredString('stage'),
       exitCode: exitCode,
@@ -165,7 +167,7 @@ final class CommandResultV2 {
       eligible: eligible,
       diagnostics: diagnostics
           .cast<Map<Object?, Object?>>()
-          .map(DiagnosticV2.fromJson)
+          .map(Diagnostic.fromJson)
           .toList(),
     );
   }

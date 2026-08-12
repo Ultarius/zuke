@@ -92,7 +92,31 @@ execution:
 name: trust_gate_fixture
 environment:
   sdk: ">=3.10.0 <4.0.0"
+dependencies:
+  zuke_core:
+    path: '${Directory.current.path.replaceAll('\\', '/')}/vendor-sdk/zuke_core'
+  zuke:
+    path: '${Directory.current.path.replaceAll('\\', '/')}/vendor-sdk/zuke'
+  zuke_annotations:
+    path: '${Directory.current.path.replaceAll('\\', '/')}/vendor-sdk/zuke_annotations'
+  zuke_frontend:
+    path: '${Directory.current.path.replaceAll('\\', '/')}/vendor-sdk/zuke_frontend'
+dependency_overrides:
+  zuke_core:
+    path: '${Directory.current.path.replaceAll('\\', '/')}/vendor-sdk/zuke_core'
+  zuke_annotations:
+    path: '${Directory.current.path.replaceAll('\\', '/')}/vendor-sdk/zuke_annotations'
+  zuke_frontend:
+    path: '${Directory.current.path.replaceAll('\\', '/')}/vendor-sdk/zuke_frontend'
 ''');
+      final pubGet = await Process.run(
+        Platform.resolvedExecutable,
+        ['pub', 'get', '--offline'],
+        workingDirectory: tempDir.path,
+      );
+      if (pubGet.exitCode != 0) {
+        throw Exception('pub get failed: ${pubGet.stdout}\n${pubGet.stderr}');
+      }
       Directory('${tempDir.path}/lib').createSync(recursive: true);
 
       final featureDir = Directory('${tempDir.path}/specs/features')
@@ -163,8 +187,8 @@ Feature: Dummy
 
         final trustDir = Directory('${tempDir.path}/assurance-history/trust')
           ..createSync(recursive: true);
-        File('${trustDir.path}/ed25519-v2.json').writeAsStringSync(
-          jsonEncode({'schemaVersion': 'zuke.ed25519-trust.v2', 'keys': []}),
+        File('${trustDir.path}/ed25519.json').writeAsStringSync(
+          jsonEncode({'kind': 'zuke.ed25519-trust', 'keys': []}),
         );
 
         final result = await runInProcessCli([
@@ -191,7 +215,6 @@ Feature: Dummy
         }
 
         final result = await runInProcessCli(['gate', '--root', tempDir.path]);
-
         expect(result.exitCode, equals(0));
       },
     );
@@ -209,7 +232,7 @@ Feature: Dummy
 
       expect(result.exitCode, equals(0));
       final decoded = jsonDecode(result.stdout) as Map<String, dynamic>;
-      expect(decoded['schemaVersion'], equals('zuke.command-result.v2'));
+      expect(decoded['kind'], equals('zuke.command-result'));
       expect(decoded['command'], equals('gate'));
       expect(decoded['stage'], equals('gate'));
       expect(decoded['status'], equals('passed'));

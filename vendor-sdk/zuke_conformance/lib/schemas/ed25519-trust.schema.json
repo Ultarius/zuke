@@ -1,10 +1,10 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://github.com/Ultarius/zuke/blob/main/vendor-sdk/zuke_conformance/lib/schemas/ed25519-trust.v2.schema.json",
+  "$id": "https://github.com/Ultarius/zuke/blob/main/vendor-sdk/zuke_conformance/lib/schemas/ed25519-trust.schema.json",
   "type": "object",
-  "required": ["schemaVersion", "keys"],
+  "required": ["kind", "keys"],
   "properties": {
-    "schemaVersion": {"const": "zuke.ed25519-trust.v2"},
+    "kind": {"const": "zuke.ed25519-trust"},
     "keys": {
       "type": "array",
       "items": {

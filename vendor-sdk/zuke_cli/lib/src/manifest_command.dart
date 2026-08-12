@@ -15,7 +15,7 @@ import 'scenario_selection.dart';
 import 'proof_engine.dart';
 
 class ManifestCommand {
-  static Future<String> createV2({
+  static Future<String> create({
     required String root,
     required String signerId,
     String keyId = 'default',
@@ -28,19 +28,19 @@ class ManifestCommand {
     final workspace = WorkspaceDiscovery().discover(workspaceRoot.path);
     final trust = loadWorkspaceTrustBundle(workspace);
     if (trust.keys.isEmpty) {
-      throw FormatException('No signers enrolled in ed25519-v2.json');
+      throw FormatException('No signers enrolled in ed25519.json');
     }
     final activeReleaseKeys = trust.keys
         .where((k) => k.active && k.usages.contains('release'))
         .toList();
     if (activeReleaseKeys.isEmpty) {
       throw FormatException(
-        'No active release signers enrolled in ed25519-v2.json',
+        'No active release signers enrolled in ed25519.json',
       );
     }
     if (trust.find(signerId, keyId, 'release') == null) {
       throw FormatException(
-        'Signer is not active in assurance-history/trust/ed25519-v2.json',
+        'Signer is not active in assurance-history/trust/ed25519.json',
       );
     }
     final lock = File(
@@ -119,7 +119,7 @@ class ManifestCommand {
     };
     final existingHead = await _verifiedHead(root);
     if (existingHead != null) {
-      final headFile = File('$root/assurance-history/v2/$existingHead.json');
+      final headFile = File('$root/assurance-history/records/$existingHead.json');
       if (headFile.existsSync()) {
         final head = Map<String, Object?>.from(
           jsonDecode(headFile.readAsStringSync()) as Map,
@@ -141,7 +141,7 @@ class ManifestCommand {
       trustedKey: trust.find(signerId, keyId, 'release')!,
     );
     final digest = record['recordDigest'] as String;
-    final dir = Directory('$root/assurance-history/v2')
+    final dir = Directory('$root/assurance-history/records')
       ..createSync(recursive: true);
     final file = File('${dir.path}/$digest.json');
     if (!file.existsSync()) {
@@ -160,9 +160,9 @@ class ManifestCommand {
     required String keyId,
     required TrustKey trustedKey,
   }) async {
-    const domain = 'Zuke behavioral assurance release v2\u0000';
+    const domain = 'Zuke behavioral assurance release\u0000';
     final unsigned = <String, Object?>{
-      'schemaVersion': 'zuke.behavioral-assurance-release.v2',
+      'kind': 'zuke.behavioral-assurance-release',
       'signer': {'signerId': signerId, 'keyId': keyId, 'algorithm': 'Ed25519'},
       'body': body,
     };
@@ -192,24 +192,24 @@ class ManifestCommand {
   }
 
   static Future<String?> _verifiedHead(String root) async {
-    final dir = Directory('$root/assurance-history/v2');
+    final dir = Directory('$root/assurance-history/records');
     if (!dir.existsSync()) return null;
     final records = <String, Map<String, Object?>>{};
     for (final file in dir.listSync().whereType<File>().where(
       (f) => f.path.endsWith('.json'),
     )) {
       final value = jsonDecode(file.readAsStringSync());
-      if (value is! Map) throw StateError('Invalid v2 record: ${file.path}');
+      if (value is! Map) throw StateError('Invalid current record: ${file.path}');
       final record = Map<String, Object?>.from(value);
       if (!await TrustedReleaseVerifier().verify(
         record,
         loadTrustBundle(root),
       )) {
-        throw StateError('Invalid v2 signature: ${file.path}');
+        throw StateError('Invalid current signature: ${file.path}');
       }
       final digest = record['recordDigest'];
       if (digest is! String || !file.path.endsWith('$digest.json')) {
-        throw StateError('V2 filename does not match digest: ${file.path}');
+        throw StateError('Record filename does not match digest: ${file.path}');
       }
       records[digest] = record;
     }
@@ -218,20 +218,20 @@ class ManifestCommand {
       final previous = (record['body'] as Map?)?['previousRecord'];
       if (previous is String) {
         if (!records.containsKey(previous)) {
-          throw StateError('Missing v2 predecessor: $previous');
+          throw StateError('Missing record predecessor: $previous');
         }
         referenced.add(previous);
       }
     }
     final heads = records.keys.where((id) => !referenced.contains(id)).toList();
-    if (heads.length > 1) throw StateError('Multiple v2 chain heads: $heads');
+    if (heads.length > 1) throw StateError('Multiple record chain heads: $heads');
     if (records.isNotEmpty && heads.isEmpty) {
-      throw StateError('V2 chain has a cycle and no head');
+      throw StateError('Record chain has a cycle and no head');
     }
     return heads.isEmpty ? null : heads.single;
   }
 
-  static Future<bool> verifyV2(
+  static Future<bool> verify(
     String root, {
     String? head,
     bool current = false,
@@ -239,7 +239,7 @@ class ManifestCommand {
   }) async {
     final selected = head ?? await _verifiedHead(root);
     if (selected == null) return !current && !requireHistory;
-    final dir = Directory('$root/assurance-history/v2');
+    final dir = Directory('$root/assurance-history/records');
     final seen = <String>{};
     String? currentRecord = selected;
     while (currentRecord != null) {
@@ -259,7 +259,7 @@ class ManifestCommand {
     }
     if (!current) return true;
     try {
-      final file = File('$root/assurance-history/v2/$selected.json');
+      final file = File('$root/assurance-history/records/$selected.json');
       final record = Map<String, Object?>.from(
         jsonDecode(file.readAsStringSync()) as Map,
       );
@@ -321,7 +321,7 @@ class ManifestCommand {
     }
   }
 
-  static Future<void> exportV2(
+  static Future<void> export(
     String root,
     String output, {
     String? head,
@@ -330,14 +330,14 @@ class ManifestCommand {
     final chain = <Object?>[];
     var current = selected;
     while (current != null) {
-      final file = File('$root/assurance-history/v2/$current.json');
+      final file = File('$root/assurance-history/records/$current.json');
       final record = jsonDecode(file.readAsStringSync());
       chain.add(record);
       current = ((record as Map)['body'] as Map?)?['previousRecord'] as String?;
     }
     File(output).writeAsStringSync(
       const JsonEncoder.withIndent('  ').convert({
-            'schemaVersion': 'zuke.behavioral-assurance-release.v2.export',
+            'kind': 'zuke.behavioral-assurance-release-export',
             'chain': chain,
           }) +
           '\n',
@@ -467,7 +467,7 @@ class ManifestCommand {
       root,
     ).uri.pathSegments.where((s) => s.isNotEmpty).last;
     final body = <String, dynamic>{
-      'schemaVersion': 'zuke.behavioral-assurance-manifest.v1',
+      'kind': 'zuke.behavioral-assurance-manifest',
       'workspace': workspaceName,
       'requirements': requirements,
       'evidence': evidence,
@@ -578,7 +578,7 @@ class ManifestCommand {
     final id = rule.metadata.id;
     final records = extraction.outputs
         .expand((o) => o.evidenceRecords)
-        .whereType<EvidenceRecord>();
+        .whereType<SemanticEvidenceRecord>();
     bool executed(String evidenceType, String target) => records.any(
       (record) =>
           record.requirementId == id &&

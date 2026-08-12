@@ -1,13 +1,13 @@
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:zuke_core/v2.dart';
+import 'package:zuke_core/zuke_core.dart';
 
-DiagnosticV2 gateDiagnostic({
+Diagnostic gateDiagnostic({
   required String stage,
   required String message,
   String? profile,
-}) => DiagnosticV2(
+}) => Diagnostic(
       code: 'ZK-GATE-${stage.toUpperCase()}-FAILED',
       stage: stage,
       severity: DiagnosticSeverity.error,
@@ -17,7 +17,7 @@ DiagnosticV2 gateDiagnostic({
       profile: profile,
     );
 
-void writeCommandSummary(String? path, CommandResultV2 result) {
+void writeCommandSummary(String? path, CommandResult result) {
   if (path == null || path.isEmpty) return;
   final file = File(path);
   file.parent.createSync(recursive: true);

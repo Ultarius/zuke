@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io';
 import 'package:crypto/crypto.dart';
 import 'package:zuke_frontend/zuke_frontend.dart';
 import 'package:zuke_core/zuke_core.dart';
@@ -8,25 +9,12 @@ import '../generator.dart';
 import 'workspace_digest.dart';
 import 'validator.dart';
 
-const _evidenceTargets = <String, String>{
-  'domain-unit': 'backend',
-  'flutter-widget': 'flutter',
-  'api-contract': 'backend',
-  'gherkin-api': 'backend',
-  'gherkin-ui': 'flutter',
-  'security-integration': 'backend',
-  'logging-verification': 'backend',
-  'accessibility-integration': 'flutter',
-  'performance': 'backend',
-  'attestation-freshness': 'edge',
-};
-
 class EvidenceValidator {
   ValidationResult validate(
     WorkspaceDiscoveryResult workspace, {
-    List<EvidenceRecord> records = const [],
+    List<SemanticEvidenceRecord> records = const [],
     List<ControlProofResult> controlProofs = const [],
-    List<AdapterOutput> outputs = const [],
+    List<IrAdapterOutput> outputs = const [],
 
     /// The exact scenario IDs selected by the configured execution profile.
     /// A null value retains legacy runner-owned selection behaviour.
@@ -74,30 +62,24 @@ class EvidenceValidator {
         final requiredEvidence = rule.metadata.requiredEvidence ?? const [];
         for (final type in requiredEvidence) {
           final slots = rule.metadata.evidenceRequirements
-              ?.where((slot) =>
-                  slot['type'] == type || slot['evidenceType'] == type)
+              ?.where(
+                (slot) => slot['type'] == type || slot['evidenceType'] == type,
+              )
               .toList();
           if (slots != null && slots.isNotEmpty) {
             for (final slot in slots) {
               final expectedTarget = slot['target'];
               if (expectedTarget == null) continue;
               validMappings.add(
-                workspace.config.schemaVersion >= 3
-                    ? _v3MappingKey(
-                        id,
-                        type,
-                        expectedTarget,
-                        slot['variant'] ?? 'default',
-                        slot['sourcePackage'],
-                        slot['sourceAdapter'],
-                      )
-                    : '$id|$type|$expectedTarget',
+                _v3MappingKey(
+                  id,
+                  type,
+                  expectedTarget,
+                  slot['variant'] ?? 'default',
+                  slot['sourcePackage'],
+                  slot['sourceAdapter'],
+                ),
               );
-            }
-          } else {
-            final expectedTarget = _targetForEvidence(workspace, type);
-            if (expectedTarget != null && workspace.config.schemaVersion < 3) {
-              validMappings.add('$id|$type|$expectedTarget');
             }
           }
         }
@@ -111,16 +93,14 @@ class EvidenceValidator {
       final target = record.target;
 
       // ZUKE-EVIDENCE-005: Reject unmapped records
-      final mappingKey = workspace.config.schemaVersion >= 3
-          ? _v3MappingKey(
-              id,
-              type,
-              target,
-              record.variant,
-              record.sourcePackage,
-              record.sourceAdapter,
-            )
-          : '$id|$type|$target';
+      final mappingKey = _v3MappingKey(
+        id,
+        type,
+        target,
+        record.variant,
+        record.sourcePackage,
+        record.sourceAdapter,
+      );
       if (!validMappings.contains(mappingKey)) {
         errors.add(
           ValidationMessage(
@@ -217,18 +197,18 @@ class EvidenceValidator {
 
       // 3. Source digest (code-annotation mapping digest)
       if (record.digests.containsKey('source')) {
-        AdapterOutput? output;
-        for (final candidate in outputs) {
-          if (candidate.symbols.any(
-            (symbol) =>
-                (symbol.target == null || symbol.target == target) &&
-                (symbol.requirementIds.contains(id) || symbol.bindingId == id),
-          )) {
-            output = candidate;
-            break;
-          }
-        }
-        if (output != null) {
+        final output = _sourceOutputForRecord(workspace, record, outputs);
+        if (output == null) {
+          errors.add(
+            ValidationMessage(
+              code: 'ZUKE-EVIDENCE-STALE',
+              message:
+                  'No source extraction matches the evidence identity for $id ($type)',
+              severity: Severity.error,
+              source: rule.metadata.source,
+            ),
+          );
+        } else {
           final sourceDigest = output.inputDigest.startsWith('sha256:')
               ? output.inputDigest
               : 'sha256:${output.inputDigest}';
@@ -382,23 +362,21 @@ class EvidenceValidator {
   }
 
   bool _isRecordStale(
-    EvidenceRecord record,
+    SemanticEvidenceRecord record,
     WorkspaceDiscoveryResult workspace,
     String contractDigest,
     String? specificationDigest,
     String? mappingDigest,
-    List<AdapterOutput> outputs,
+    List<IrAdapterOutput> outputs,
   ) {
     final id = record.requirementId;
 
-    if (workspace.config.schemaVersion >= 3) {
-      final slot = _slotForRequirement(workspace, id, record.evidenceType);
-      if (slot != null &&
-          (record.variant != (slot['variant'] ?? 'default') ||
-              record.sourcePackage != slot['sourcePackage'] ||
-              record.sourceAdapter != slot['sourceAdapter'])) {
-        return true;
-      }
+    final slot = _slotForRequirement(workspace, id, record.evidenceType);
+    if (slot != null &&
+        (record.variant != (slot['variant'] ?? 'default') ||
+            record.sourcePackage != slot['sourcePackage'] ||
+            record.sourceAdapter != slot['sourceAdapter'])) {
+      return true;
     }
 
     if (record.digests.containsKey('contract') &&
@@ -413,17 +391,10 @@ class EvidenceValidator {
       return true;
     }
     if (record.digests.containsKey('source')) {
-      AdapterOutput? output;
-      for (final candidate in outputs) {
-        if (candidate.symbols.any(
-          (symbol) =>
-              symbol.requirementIds.contains(id) || symbol.bindingId == id,
-        )) {
-          output = candidate;
-          break;
-        }
-      }
-      if (output != null) {
+      final output = _sourceOutputForRecord(workspace, record, outputs);
+      if (output == null) {
+        return true;
+      } else {
         final sourceDigest = output.inputDigest.startsWith('sha256:')
             ? output.inputDigest
             : 'sha256:${output.inputDigest}';
@@ -436,17 +407,63 @@ class EvidenceValidator {
     return false;
   }
 
+  IrAdapterOutput? _sourceOutputForRecord(
+    WorkspaceDiscoveryResult workspace,
+    SemanticEvidenceRecord record,
+    List<IrAdapterOutput> outputs,
+  ) {
+    final root = workspace.config.root;
+    if (root == null ||
+        record.sourcePackage == null ||
+        record.sourcePackage!.isEmpty) {
+      return null;
+    }
+    final packages = workspace.config.targetPackages[record.target] ?? const [];
+    final package = packages.cast<Map?>().firstWhere(
+      (candidate) => candidate?['id'] == record.sourcePackage,
+      orElse: () => null,
+    );
+    final packagePath = package?['path'];
+    if (packagePath is! String) return null;
+    final directory = Directory('$root${Platform.pathSeparator}$packagePath');
+    if (!directory.existsSync()) return null;
+    final packageRoot = directory.resolveSymbolicLinksSync();
+    String canonical(String path) {
+      final normalized = path
+          .replaceAll('\\', '/')
+          .replaceFirst(RegExp(r'/$'), '');
+      return Platform.isWindows ? normalized.toLowerCase() : normalized;
+    }
+
+    final candidates = outputs
+        .where(
+          (output) =>
+              output.packageRoot != null &&
+              canonical(output.packageRoot!) == canonical(packageRoot),
+        )
+        .toList();
+    if (candidates.isEmpty) return null;
+    final compatible = candidates
+        .where(
+          (output) =>
+              output.adapter.compatibilityId == record.sourceCompatibilityId,
+        )
+        .toList();
+    final selected = compatible.isNotEmpty ? compatible : candidates;
+    return selected.length == 1 ? selected.single : null;
+  }
+
   bool _isSatisfied(
     String type,
     ParsedFeature feature,
     ParsedRule rule,
     WorkspaceDiscoveryResult workspace,
-    List<EvidenceRecord> records,
+    List<SemanticEvidenceRecord> records,
     List<ControlProofResult> controlProofs,
     String contractDigest,
     String? specificationDigest,
     String? mappingDigest,
-    List<AdapterOutput> outputs,
+    List<IrAdapterOutput> outputs,
   ) {
     final id = rule.metadata.id;
     final executionEvidence = records
@@ -572,14 +589,13 @@ class EvidenceValidator {
 
   bool _hasExecutedEvidence(
     ParsedRule rule,
-    List<EvidenceRecord> records,
+    List<SemanticEvidenceRecord> records,
     String evidenceType, {
     String? target,
     String variant = 'default',
     String? sourcePackage,
     String? sourceAdapter,
-  }
-  ) {
+  }) {
     final id = rule.metadata.id;
     if (id == null) return false;
     return records.any((record) {
@@ -594,15 +610,14 @@ class EvidenceValidator {
   }
 
   bool _hasPassedEvidence(
-    Iterable<EvidenceRecord> records,
+    Iterable<SemanticEvidenceRecord> records,
     String? requirementId,
     String evidenceType,
     String target, {
     String variant = 'default',
     String? sourcePackage,
     String? sourceAdapter,
-  }
-  ) => records.any(
+  }) => records.any(
     (record) =>
         record.requirementId == requirementId &&
         record.evidenceType == evidenceType &&
@@ -657,21 +672,7 @@ class EvidenceValidator {
         return slot['target'];
       }
     }
-    return _targetForEvidence(workspace, evidenceType);
-  }
-
-  String? _targetForEvidence(
-    WorkspaceDiscoveryResult workspace,
-    String evidenceType,
-  ) {
-    // V3 evidence types are registered by semantic mode, not hard-coded to a
-    // framework. Their target is supplied by the exact rule slot. Legacy
-    // workspaces retain the compatibility mapping until regenerated.
-    if (workspace.config.schemaVersion >= 3 &&
-        workspace.config.evidenceTypes.containsKey(evidenceType)) {
-      return null;
-    }
-    return _evidenceTargets[evidenceType];
+    return null;
   }
 
   Map<String, ParsedRule> _scenarioRules(WorkspaceDiscoveryResult workspace) {
@@ -694,7 +695,7 @@ class EvidenceValidator {
   }
 
   Set<String> _executedScenarioIds(
-    Iterable<EvidenceRecord> records,
+    Iterable<SemanticEvidenceRecord> records,
     Set<String> declaredIds,
   ) => {
     for (final record in records) ...[

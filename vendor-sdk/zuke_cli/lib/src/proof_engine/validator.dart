@@ -9,8 +9,8 @@ import 'dominance_validator.dart';
 import 'verification_backed_validator.dart';
 import 'package:zuke_core/zuke_core.dart' as ir;
 
-typedef ValidationMessage = ir.Diagnostic;
-typedef Severity = ir.DiagnosticSeverity;
+typedef ValidationMessage = ir.IrDiagnostic;
+typedef Severity = ir.IrDiagnosticSeverity;
 
 class ValidationResult {
   final List<ValidationMessage> errors;
@@ -32,7 +32,7 @@ class ValidationResult {
   bool get passed => errors.isEmpty;
 
   ir.ValidationReport toReport({
-    List<ir.EvidenceRecord> evidence = const [],
+    List<ir.SemanticEvidenceRecord> evidence = const [],
     String workspace = '',
     String profile = 'pullRequest',
     Map<String, String> graphHashes = const {},
@@ -111,8 +111,8 @@ class ValidatorEngine {
     WorkspaceDiscoveryResult workspace, {
     List<ExtractedSymbol> extractedSymbols = const [],
     IrGraph? irGraph,
-    List<AdapterOutput> outputs = const [],
-    List<ir.EvidenceRecord> evidenceRecords = const [],
+    List<IrAdapterOutput> outputs = const [],
+    List<ir.SemanticEvidenceRecord> evidenceRecords = const [],
     List<ControlProofResult> verifiedAttestationProofs = const [],
     String profile = 'pullRequest',
     List<String>? selectedScenarioIds,
@@ -143,11 +143,11 @@ class ValidatorEngine {
     final effectiveOutputs = outputs.isNotEmpty
         ? outputs
         : extractedSymbols.isEmpty
-        ? const <AdapterOutput>[]
+        ? const <IrAdapterOutput>[]
         : [
-            AdapterOutput(
+            IrAdapterOutput(
               adapter: const AdapterInfo(id: 'zuke.compat', version: '1.0.0'),
-              completeness: const AdapterCompleteness(),
+              completeness: const IrAdapterCompleteness(),
               symbols: extractedSymbols,
               inputDigest: '',
             ),

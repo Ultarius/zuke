@@ -1,0 +1,24 @@
+{
+  "schemaVersion": "zuke.evidence-record.v1",
+  "requirementId": "RULE-CALC-UI-FAILURE",
+  "evidenceType": "flutter-widget",
+  "target": "flutter",
+  "variant": "default",
+  "executionId": "exec-flutter-widget-RULE-CALC-UI-FAILURE-SCN-CALC-CALCULATION-FAILED",
+  "status": "passed",
+  "scenarioIds": [
+    "SCN-CALC-CALCULATION-FAILED"
+  ],
+  "controlIds": [],
+  "digests": {
+    "source": "sha256:d114c6f13c72ddae6fd11e4d313907a5bcc8aa2dd4b5c5ad4f6fcc32343cb0ea",
+    "contract": "sha256:93a855fd8152858600fddb02f9e20ac525804cf43a8f09ecd4672fe66191824d",
+    "mapping": "sha256:07a0030c7b1d64c70f781049d59a596db984334edc809458330eca142051d31d",
+    "specificationIndex": "sha256:ecce4a957c3f34286c0ed3029c1357f0f071471d68f20a5c1a347fb7b908280d",
+    "result": "sha256:13a57280ba6e1842d2fb30c75da5659fbbbaed34cefc71e5003d34edda80e23b"
+  },
+  "candidateId": "SCN-CALC-CALCULATION-FAILED",
+  "profile": "merge",
+  "runnerId": "calculator-flutter-tests",
+  "runnerCompatibilityId": "calculator-flutter-tests-v1"
+}

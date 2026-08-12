@@ -342,7 +342,7 @@ environment:
   sdk: '>=3.10.0 <4.0.0'
 ''');
   File('${root.path}/zuke.yaml').writeAsStringSync('''
-schemaVersion: 2
+schemaVersion: 3
 workspace:
   name: generator-fixture
   root: .
@@ -351,6 +351,11 @@ specifications:
 targets:
   flutter:
     language: dart
+    framework: flutter
+    packages:
+      - id: generator-fixture
+        path: .
+        roots: [lib, test]
     contractOutput: packages/contracts/lib/src/generated
 ''');
   final features = Directory('${root.path}/specs/features')

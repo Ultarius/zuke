@@ -4,7 +4,7 @@
 `examples/shopping_cart` expands that setup with additional UI coverage, and
 `examples/calculator-product` is the advanced mixed Flutter, Dart HTTP,
 security-attestation, and release-history reference. The existing specialized
-SDK packages are coordinated by the V2 release matrix in
+SDK packages are coordinated by the current release matrix in
 `docs/release-matrix.yaml`; analyzer-dependent extraction is isolated from the
 analyzer-free IR and adapter contracts.
 
@@ -41,9 +41,9 @@ binding keys, drivers, and vendor steps. Pure-Dart and backend tests should keep
 `zuke` owns the deterministic runner and HTTP test helpers while re-exporting
 the supported frontend and annotation APIs. This does not remove the narrower
 `zuke_annotations` production boundary. `zuke_http_runtime` remains an opt-in
-normal dependency for application-side HTTP registration. `zuke` is the V2
-primary SDK; `zuke_runner` remains a source-compatible transition package for
-older consumers.
+normal dependency for application-side HTTP registration. `zuke` is the
+primary SDK; `zuke_runner` remains a compatibility package for existing
+consumers.
 
 For development from this repository, use `dart pub get` at the workspace root;
 the Pub workspace resolves these hosted constraints to the local packages.
@@ -170,7 +170,7 @@ execution:
       target: flutter
       sourcePackage: my-app
       sourceAdapter: flutter
-      sourceCompatibilityId: flutter-runner-v2
+      sourceCompatibilityId: flutter-runner-v1
       evidenceTypes: [gherkin-ui]
       executable: flutter
       args: [test, --no-pub, --reporter, expanded]
@@ -192,7 +192,7 @@ evidence:
   includeSourceCode: false
 
 trust:
-  bundle: assurance-history/trust/ed25519-v2.json
+  bundle: assurance-history/trust/ed25519.json
   algorithm: ed25519
 
 lock:
@@ -843,7 +843,7 @@ For release profiles, configure trust settings in `zuke.yaml`:
 
 ```yaml
 trust:
-  bundle: assurance-history/trust/ed25519-v2.json
+  bundle: assurance-history/trust/ed25519.json
   algorithm: ed25519
 ```
 
@@ -861,18 +861,18 @@ Create and verify history:
 ```sh
 dart run zuke_cli:zuke manifest create \
   --root . --profile release --signer-id <signer> --key-id <key>
-dart run zuke_cli:zuke manifest verify-v2 \
+dart run zuke_cli:zuke manifest verify \
   --root . --current --require-history
 dart run zuke_cli:zuke manifest export \
-  --root . --output dist/assurance-history.v2.json
+  --root . --output dist/assurance-history.json
 ```
 
 Verify exported history independently:
 
 ```sh
 dart run zuke_verifier:verify \
-  dist/assurance-history.v2.json \
-  assurance-history/trust/ed25519-v2.json
+  dist/assurance-history.json \
+  assurance-history/trust/ed25519.json
 ```
 
 ---

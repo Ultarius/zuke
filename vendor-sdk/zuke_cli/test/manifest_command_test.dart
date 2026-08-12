@@ -34,12 +34,12 @@ void main() {
       expect(result.exitCode, 1);
     });
 
-    test('manifest verify-v2 validates history chain', () async {
+    test('manifest verify validates history chain', () async {
       await runInProcessCli(['generate', '--root', root.path]);
 
       final result = await runInProcessCli([
         'manifest',
-        'verify-v2',
+        'verify',
         '--root',
         root.path,
       ]);

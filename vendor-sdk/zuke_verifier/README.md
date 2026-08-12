@@ -1,6 +1,6 @@
 # zuke_verifier
 
-Independent verifier for exported Zuke v2 assurance history.
+Independent verifier for exported Zuke assurance history.
 
 ## Preview status
 

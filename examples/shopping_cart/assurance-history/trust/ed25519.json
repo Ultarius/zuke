@@ -1,5 +1,5 @@
 {
-  "schemaVersion": "zuke.ed25519-trust.v2",
+  "kind": "zuke.ed25519-trust",
   "keys": [
     {
       "signerId": "shopping-cart-release-signer-v1",

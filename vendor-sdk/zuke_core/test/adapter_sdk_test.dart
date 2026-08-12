@@ -3,13 +3,13 @@ import 'package:test/test.dart';
 
 void main() {
   test('CanonicalFragment fromOutput creates fragment', () {
-    final output = AdapterOutput(
+    final output = IrAdapterOutput(
       adapter: AdapterDescriptor(
         id: 'test-adapter',
         version: '1.0.0',
         compatibilityId: 'test',
       ),
-      completeness: AdapterCompleteness(),
+      completeness: IrAdapterCompleteness(),
       symbols: [],
       inputDigest: 'abc123',
       packageName: 'test_package',

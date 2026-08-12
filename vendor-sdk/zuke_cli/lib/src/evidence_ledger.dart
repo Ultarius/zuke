@@ -1,28 +1,30 @@
 import 'dart:convert';
 
 import 'package:crypto/crypto.dart';
-import 'package:zuke_core/v2.dart';
+import 'package:zuke_core/zuke_core.dart';
 
 /// Hash-linked evidence publication primitive owned by the CLI boundary.
 final class EvidenceLedgerEntry {
-  final EvidenceRecordV2 record;
+  final EvidenceRecord record;
   final Sha256Digest digest;
 
   EvidenceLedgerEntry(this.record) : digest = _digest(record);
 
-  static Sha256Digest _digest(EvidenceRecordV2 record) => Sha256Digest.parse(
+  static Sha256Digest _digest(EvidenceRecord record) => Sha256Digest.parse(
         'sha256:${sha256.convert(utf8.encode(jsonEncode(record.toJson())))}',
       );
 
   Map<String, Object?> toJson() => {
-        'schemaVersion': 'zuke.ledger-entry.v2',
+        'kind': 'zuke.ledger-entry',
         'digest': digest.value,
         'record': record.toJson(),
       };
 
   factory EvidenceLedgerEntry.fromJson(Map<Object?, Object?> json) {
-    if (json['schemaVersion'] != 'zuke.ledger-entry.v2') {
-      throw const FormatException('Unsupported ledger entry schema');
+    if (json['kind'] != 'zuke.ledger-entry') {
+      throw const FormatException(
+        'Unsupported ledger entry format; regenerate with the current Zuke CLI',
+      );
     }
     final rawDigest = json['digest'];
     if (rawDigest is! String) {
@@ -33,7 +35,7 @@ final class EvidenceLedgerEntry {
     if (rawRecord is! Map) {
       throw const FormatException('Ledger entry record is missing');
     }
-    final record = EvidenceRecordV2.fromJson(
+    final record = EvidenceRecord.fromJson(
       rawRecord.cast<Object?, Object?>(),
     );
     final expected = _digest(record);

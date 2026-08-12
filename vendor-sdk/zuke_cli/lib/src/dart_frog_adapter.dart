@@ -6,7 +6,7 @@ import 'package:analyzer/dart/ast/ast.dart';
 import 'package:analyzer/dart/ast/visitor.dart';
 import 'package:dart_frog_gen/dart_frog_gen.dart';
 import 'package:path/path.dart' as path;
-import 'package:zuke_core/v2.dart';
+import 'package:zuke_core/zuke_core.dart';
 
 import 'generated/release_contract.dart';
 import 'tooling/inspection.dart';
@@ -24,8 +24,8 @@ final class DartFrogAdapter implements FrameworkAdapter {
   String get compatibilityId => dartFrogCompatibilityId;
 
   @override
-  Future<AdapterOutputV2> extract(AdapterRequest request) async {
-    final diagnostics = <DiagnosticV2>[];
+  Future<AdapterOutput> extract(AdapterRequest request) async {
+    final diagnostics = <Diagnostic>[];
     final nodes = <TopologyNode>[];
     late final RouteConfiguration configuration;
     try {
@@ -97,12 +97,12 @@ final class DartFrogAdapter implements FrameworkAdapter {
     diagnostics.addAll(middleware.diagnostics);
     final customEntrypoint = configuration.invokeCustomEntrypoint ||
         configuration.invokeCustomInit;
-    return AdapterOutputV2(
+    return AdapterOutput(
       targetId: request.targetId,
       packageId: request.packageId,
       sourceAdapter: id,
       compatibilityId: compatibilityId,
-      completeness: AdapterCompletenessV2(
+      completeness: AdapterCompleteness(
         routeRegistration: routeComplete
             ? CompletenessStatus.complete
             : CompletenessStatus.incomplete,
@@ -123,19 +123,19 @@ final class DartFrogAdapter implements FrameworkAdapter {
     );
   }
 
-  AdapterOutputV2 _failed(
+  AdapterOutput _failed(
     AdapterRequest request,
-    List<DiagnosticV2> diagnostics,
+    List<Diagnostic> diagnostics,
     String code,
     String message,
   ) {
     diagnostics.add(_error(code, message));
-    return AdapterOutputV2(
+    return AdapterOutput(
       targetId: request.targetId,
       packageId: request.packageId,
       sourceAdapter: id,
       compatibilityId: compatibilityId,
-      completeness: const AdapterCompletenessV2(
+      completeness: const AdapterCompleteness(
         routeRegistration: CompletenessStatus.incomplete,
         middlewareOrder: CompletenessStatus.incomplete,
         dynamicRegistration: CompletenessStatus.incomplete,
@@ -151,7 +151,7 @@ final class DartFrogAdapter implements FrameworkAdapter {
     RouteConfiguration configuration,
     List<TopologyNode> nodes,
   ) async {
-    final diagnostics = <DiagnosticV2>[];
+    final diagnostics = <Diagnostic>[];
     final files = <String>{
       path.join(request.packageRoot, 'routes', '_middleware.dart'),
     };
@@ -326,7 +326,7 @@ final class DartFrogAdapter implements FrameworkAdapter {
         ],
       );
     }
-    final diagnostics = <DiagnosticV2>[];
+    final diagnostics = <Diagnostic>[];
     var complete = true;
     final calls = <_MiddlewareCall>[];
     // The outermost call is the first incoming middleware in Dart Frog's
@@ -422,7 +422,7 @@ final class DartFrogAdapter implements FrameworkAdapter {
   String _nodeId(AdapterRequest request, String kind, String name) =>
       '${request.targetId}/${request.packageId}/$kind/$name';
 
-  DiagnosticV2 _error(String code, String message) => DiagnosticV2(
+  Diagnostic _error(String code, String message) => Diagnostic(
         code: code,
         stage: 'extract',
         severity: DiagnosticSeverity.error,
@@ -431,7 +431,7 @@ final class DartFrogAdapter implements FrameworkAdapter {
         remediation: 'Resolve the Dart Frog topology or mark the dimension indeterminate.',
       );
 
-  DiagnosticV2 _warning(String code, String message) => DiagnosticV2(
+  Diagnostic _warning(String code, String message) => Diagnostic(
         code: code,
         stage: 'extract',
         severity: DiagnosticSeverity.warning,
@@ -444,7 +444,7 @@ final class DartFrogAdapter implements FrameworkAdapter {
 final class _TransportResult {
   final String kind;
   final bool complete;
-  final List<DiagnosticV2> diagnostics;
+  final List<Diagnostic> diagnostics;
 
   const _TransportResult({
     required this.kind,
@@ -463,7 +463,7 @@ final class _MiddlewareCall {
 final class _MiddlewareInspection {
   final bool complete;
   final List<_MiddlewareCall> calls;
-  final List<DiagnosticV2> diagnostics;
+  final List<Diagnostic> diagnostics;
 
   const _MiddlewareInspection({
     required this.complete,
@@ -521,7 +521,7 @@ final class _ControlVisitor extends RecursiveAstVisitor<void> {
 
 final class _MiddlewareResult {
   final bool complete;
-  final List<DiagnosticV2> diagnostics;
+  final List<Diagnostic> diagnostics;
 
   const _MiddlewareResult({required this.complete, required this.diagnostics});
 }

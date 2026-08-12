@@ -42,7 +42,7 @@ void main() {
       'generates Dart contracts and step support for a Flutter workspace',
       () {
         File('${tempDir.path}/zuke.yaml').writeAsStringSync('''
-schemaVersion: 2
+schemaVersion: 3
 workspace:
   name: test-app
   root: .
@@ -51,12 +51,20 @@ specifications:
 targets:
   flutter:
     language: dart
+    framework: flutter
+    packages:
+      - id: test-app
+        path: .
+        roots: [lib, test]
     contractOutput: lib/src/generated
 execution:
   runners:
     - id: sample-tests
       kind: gherkin
       target: flutter
+      sourcePackage: test-app
+      sourceAdapter: flutter-test
+      sourceCompatibilityId: flutter-test-v1
       generatedStepsOutput: test/support/generated
 ''');
 
@@ -141,7 +149,7 @@ Feature: Sample Feature
 
     test('generates pure-Dart step support for a non-Flutter runner', () {
       File('${tempDir.path}/zuke.yaml').writeAsStringSync('''
-schemaVersion: 2
+schemaVersion: 3
 workspace:
   name: test-app
   root: .
@@ -150,12 +158,20 @@ specifications:
 targets:
   backend:
     language: dart
+    framework: dart
+    packages:
+      - id: test-app
+        path: .
+        roots: [lib, test]
     contractOutput: lib/src/generated
 execution:
   runners:
     - id: sample-api-tests
       kind: gherkin
       target: backend
+      sourcePackage: test-app
+      sourceAdapter: dart-test
+      sourceCompatibilityId: dart-source-package-v1
       generatedStepsOutput: test/support/generated
 ''');
 
@@ -199,7 +215,7 @@ Feature: Sample Feature
 
     test('detects colliding member names and reports generation errors', () {
       File('${tempDir.path}/zuke.yaml').writeAsStringSync('''
-schemaVersion: 2
+schemaVersion: 3
 workspace:
   name: test-app
   root: .
@@ -208,6 +224,11 @@ specifications:
 targets:
   flutter:
     language: dart
+    framework: flutter
+    packages:
+      - id: test-app
+        path: .
+        roots: [lib, test]
 ''');
 
       Directory('${tempDir.path}/specs/features').createSync(recursive: true);

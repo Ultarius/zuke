@@ -2,7 +2,7 @@
 
 ## 0.3.0
 
-- Consume the published CLI tooling boundary for coordinated V2 validation.
+- Consume the published CLI tooling boundary for coordinated current validation.
 
 ## 0.2.0
 

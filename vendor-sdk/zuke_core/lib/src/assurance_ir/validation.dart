@@ -83,7 +83,7 @@ class ControlProofResult {
   };
 }
 
-class EvidenceRecord {
+class SemanticEvidenceRecord {
   final String requirementId;
   final String evidenceType;
   final String target;
@@ -102,7 +102,7 @@ class EvidenceRecord {
   final String? sourceCompatibilityId;
   final List<String> attachmentDigests;
 
-  const EvidenceRecord({
+  const SemanticEvidenceRecord({
     required this.requirementId,
     required this.evidenceType,
     required this.target,
@@ -123,12 +123,7 @@ class EvidenceRecord {
   });
 
   Map<String, Object?> toJson() => {
-    'schemaVersion':
-        sourcePackage == null &&
-                sourceAdapter == null &&
-                sourceCompatibilityId == null
-            ? 'zuke.evidence-record.v1'
-            : 'zuke.evidence-record.v2',
+    'kind': 'zuke.evidence-record',
     'requirementId': requirementId,
     'evidenceType': evidenceType,
     'target': target,
@@ -154,22 +149,14 @@ class EvidenceRecord {
   /// Validates the semantic record at the filesystem boundary.  A record
   /// which merely resembles evidence must not silently acquire defaults that
   /// allow it to satisfy a required-evidence slot.
-  factory EvidenceRecord.fromJson(Map<String, Object?> json) {
-    if (json['schemaVersion'] != 'zuke.evidence-record.v1' &&
-        json['schemaVersion'] != 'zuke.evidence-record.v2') {
-      throw const FormatException('Unsupported evidence record schema');
+  factory SemanticEvidenceRecord.fromJson(Map<String, Object?> json) {
+    if (json['kind'] != 'zuke.evidence-record') {
+      throw const FormatException(
+        'Unsupported evidence record format; regenerate with the current Zuke CLI',
+      );
     }
     String required(String key) {
       final value = json[key];
-      if (value is! String || value.isEmpty) {
-        throw FormatException('Evidence record requires non-empty $key');
-      }
-      return value;
-    }
-
-    String? optional(String key) {
-      final value = json[key];
-      if (value == null) return null;
       if (value is! String || value.isEmpty) {
         throw FormatException('Evidence record requires non-empty $key');
       }
@@ -215,13 +202,10 @@ class EvidenceRecord {
       return value.cast<String>();
     }
 
-    final isV2 = json['schemaVersion'] == 'zuke.evidence-record.v2';
-    final sourcePackage = isV2 ? required('sourcePackage') : optional('sourcePackage');
-    final sourceAdapter = isV2 ? required('sourceAdapter') : optional('sourceAdapter');
-    final sourceCompatibilityId = isV2
-        ? required('sourceCompatibilityId')
-        : optional('sourceCompatibilityId');
-    return EvidenceRecord(
+    final sourcePackage = required('sourcePackage');
+    final sourceAdapter = required('sourceAdapter');
+    final sourceCompatibilityId = required('sourceCompatibilityId');
+    return SemanticEvidenceRecord(
       requirementId: required('requirementId'),
       evidenceType: required('evidenceType'),
       target: required('target'),
@@ -249,9 +233,9 @@ class ValidationReport {
   final String engineVersion;
   final String workspace;
   final String profile;
-  final List<Diagnostic> diagnostics;
+  final List<IrDiagnostic> diagnostics;
   final List<ControlProofResult> controlProofs;
-  final List<EvidenceRecord> evidence;
+  final List<SemanticEvidenceRecord> evidence;
   final Map<String, String> graphHashes;
   final Map<String, CompletenessValue> completeness;
   final Map<String, String> adapterHashes;

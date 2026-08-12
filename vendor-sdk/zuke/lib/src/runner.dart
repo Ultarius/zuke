@@ -5,7 +5,6 @@ import 'dart:io';
 import 'package:crypto/crypto.dart';
 import 'package:zuke_frontend/zuke_frontend.dart';
 import 'package:zuke_core/zuke_core.dart';
-import 'package:zuke_core/v2.dart';
 import 'step_arguments.dart';
 
 abstract class ScenarioWorld {
@@ -386,7 +385,7 @@ class ScenarioResult implements ExecutionResult {
       sourceCompatibilityId: sourceCompatibilityId,
     );
     return {
-    'schemaVersion': 'zuke.scenario-result.v2',
+    'kind': 'zuke.scenario-result',
     'executionId': executionId,
     'status': status.name,
     'requirementId': requirementId,
@@ -407,8 +406,10 @@ class ScenarioResult implements ExecutionResult {
   }
 
   factory ScenarioResult.fromJson(Map<String, Object?> json) {
-    if (json['schemaVersion'] != 'zuke.scenario-result.v2') {
-      throw const FormatException('Unsupported scenario result schema');
+    if (json['kind'] != 'zuke.scenario-result') {
+      throw const FormatException(
+        'Unsupported scenario result format; regenerate with the current Zuke CLI',
+      );
     }
     String required(String key) {
       final value = json[key];
@@ -561,7 +562,7 @@ class SuiteResult implements ExecutionResult {
       sourceCompatibilityId: sourceCompatibilityId,
     );
     return {
-    'schemaVersion': 'zuke.suite-result.v2',
+    'kind': 'zuke.suite-result',
     'executionId': executionId,
     'status': status.name,
     'requirementId': requirementId,
@@ -582,8 +583,10 @@ class SuiteResult implements ExecutionResult {
   }
 
   factory SuiteResult.fromJson(Map<String, Object?> json) {
-    if (json['schemaVersion'] != 'zuke.suite-result.v2') {
-      throw const FormatException('Unsupported suite result schema');
+    if (json['kind'] != 'zuke.suite-result') {
+      throw const FormatException(
+        'Unsupported suite result format; regenerate with the current Zuke CLI',
+      );
     }
     String required(String key) {
       final value = json[key];

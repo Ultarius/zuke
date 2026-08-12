@@ -3,9 +3,11 @@ import 'dart:io';
 import 'package:calculator_api/calculator_api.dart';
 import 'package:calculator_contracts/calculator_contracts.dart';
 import 'package:zuke/http.dart';
+import 'package:zuke/runner.dart';
 import 'package:test/test.dart';
 
 void main() {
+  final selectedScenarios = scenarioFilterFromEnvironment(Platform.environment);
   test(
     'calculator API Gherkin scenario executes through the HTTP driver',
     () async {
@@ -161,5 +163,9 @@ void main() {
       // to current workspace digests before publishing semantic evidence.
       await driver.dispose(MapScenarioWorld());
     },
+    skip: !shouldRunScenario(
+      AdditionScenarios.addIntegersApi.id.value,
+      selectedScenarios,
+    ),
   );
 }

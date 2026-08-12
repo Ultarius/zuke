@@ -47,10 +47,10 @@ void main() {
         ],
       ),
     );
-    const output = AdapterOutput(
+    const output = IrAdapterOutput(
       adapter: AdapterDescriptor(id: 'fixture', version: '1'),
       inputDigest: 'fixture',
-      completeness: AdapterCompleteness(),
+      completeness: IrAdapterCompleteness(),
       symbols: [
         ExtractedSymbol(
           kind: 'controlProvider',

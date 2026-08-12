@@ -229,19 +229,19 @@ void main() {
       scenarioIds: ['SCN-B', 'SCN-A'],
       source: source,
     );
-    const diagnostic = Diagnostic(
+    const diagnostic = IrDiagnostic(
       code: 'TEST-001',
       message: 'failure',
-      severity: DiagnosticSeverity.error,
+      severity: IrDiagnosticSeverity.error,
       source: 'source',
     );
-    const output = AdapterOutput(
+    const output = IrAdapterOutput(
       adapter: AdapterDescriptor(
         id: 'dart',
         version: '0.1.0',
         compatibilityId: 'dart-v1',
       ),
-      completeness: AdapterCompleteness(
+      completeness: IrAdapterCompleteness(
         annotationTargets: CompletenessValue.indeterminate,
       ),
       symbols: [symbol],

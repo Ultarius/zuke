@@ -58,7 +58,7 @@ void main() {
         'json',
       ]);
       expect(jsonRes.exitCode, 0);
-      expect(jsonRes.stdout, contains('"schemaVersion"'));
+      expect(jsonRes.stdout, contains('"kind":"zuke.command-result"'));
 
       final invalidRes = await runInProcessCli([
         'check',

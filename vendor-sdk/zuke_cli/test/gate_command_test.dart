@@ -47,7 +47,7 @@ void main() {
         'json',
       ]);
       expect(result.exitCode, 0);
-      expect(result.stdout, contains('"schemaVersion":"zuke.command-result.v2"'));
+      expect(result.stdout, contains('"kind":"zuke.command-result"'));
     });
 
     test(

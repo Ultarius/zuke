@@ -44,9 +44,11 @@ Use this skill to turn a failing Zuke pull request into a verified, reviewable p
 
 ### 3. Apply Zuke-specific diagnosis
 
-For assurance jobs, inspect the workspace's `zuke.yaml`, lock file, generated manifests, profile tag expressions, runner definitions, and the workflow that invokes the CLI.
+For assurance jobs, inspect the workspace's `zuke.yaml`, profile lock files under
+`assurance/locks/`, generated manifests, profile tag expressions, runner
+definitions, and the workflow that invokes the CLI.
 
-Zuke assurance profiles are not interchangeable. `pullRequest`, `merge`, and `release` can select different scenarios and therefore produce different validation and lock digests. A single committed `zuke.lock.json` cannot be assumed to satisfy all profiles.
+Zuke assurance profiles are not interchangeable. `pullRequest`, `merge`, and `release` can select different scenarios and therefore produce different validation and lock digests. A single profile lock cannot be assumed to satisfy all profiles.
 
 If CI runs `zuke check --profile <profile>` and reports a stale lock:
 
@@ -79,7 +81,7 @@ Other recurring Zuke diagnoses:
 - Keep normal dependencies and `dev_dependencies` in their intended layers. Do not collapse specialized packages into a facade just to make a CI command pass.
 - Keep local/mock demonstrations honest: label them as local evidence and document how a production integration such as APIM would enforce the corresponding control. A GitHub Actions pipeline proves the checked-in application behavior and assurance workflow; it does not prove an external gateway that is not present.
 - For a matrix that should appear as one collapsible example in GitHub Actions, put the matrix inside a reusable workflow with an internal `verify` job, then call it from the parent workflow. Renaming direct matrix jobs does not create a collapsible group; reusable-workflow callers render as `example-assurance / verify (os)` like the other example checks.
-- When a workflow has optional assurance policy inputs such as `require-history`, prefer an always-executed policy-validation step whose input changes strictness over an `if:` that silently removes the check. Only enable fail-closed signed-history requirements when the example has a valid authorized V2 history; do not fabricate records to eliminate a skip.
+- When a workflow has optional assurance policy inputs such as `require-history`, prefer an always-executed policy-validation step whose input changes strictness over an `if:` that silently removes the check. Only enable fail-closed signed-history requirements when the example has a valid authorized current history; do not fabricate records to eliminate a skip.
 - A reusable-workflow refactor can invalidate repository conformance tests even when the workflow is correct. If every OS reaches coverage and `zuke_conformance` reports one failure such as `Expected: contains '--profile pullRequest'`, inspect the test before changing the workflow: callers may pass `profile: pullRequest` through `with:` while the reusable workflow contains the eventual `--profile` command. The contract test should accept and validate both direct CLI flags and reusable-workflow inputs.
 
 ### 5. Verify before handoff

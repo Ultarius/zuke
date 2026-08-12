@@ -45,6 +45,7 @@ class DocumentationChecker {
     _checkReadmeTiers(activePackages, matrix, failures);
     _checkRetiredPackages(matrix, failures);
     _checkLockDocumentation(failures);
+    _checkCurrentProductLanguage(failures);
     return failures;
   }
 
@@ -607,7 +608,7 @@ class DocumentationChecker {
   }
 
   void _checkLockDocumentation(List<String> failures) {
-    final legacyLock = RegExp(r'\bzuke\.lock\.json\b|\bzuke\.lock\b(?!\.v2)');
+    final legacyLock = RegExp(r'\bzuke\.lock(?:\.v\d+|\.json)\b');
     final missingProfile = RegExp(r'\bzuke\s+lock\b(?![^\n]*(?:--profile|--all-profiles))');
     for (final file in _allFiles().where((file) {
       final path = file.path.toLowerCase();
@@ -618,11 +619,70 @@ class DocumentationChecker {
       final relative = _relative(file);
       final contents = file.readAsStringSync();
       if (legacyLock.hasMatch(contents)) {
-        failures.add('$relative: V1 lock name zuke.lock.json/zuke.lock is forbidden');
+        failures.add('$relative: legacy/versioned lock names are forbidden; use assurance/locks/<profile>.lock.json');
       }
       for (final line in contents.split('\n')) {
         if (missingProfile.hasMatch(line)) {
           failures.add('$relative: zuke lock commands must specify --profile or --all-profiles');
+        }
+      }
+    }
+  }
+
+  void _checkCurrentProductLanguage(List<String> failures) {
+    final migration = File(
+      '${root.path}${Platform.pathSeparator}docs${Platform.pathSeparator}migration.md',
+    );
+    if (!migration.existsSync()) {
+      failures.add('missing docs/migration.md');
+    } else {
+      final contents = migration.readAsStringSync();
+      if (!contents.startsWith('# Migrating to the Current Zuke Release')) {
+        failures.add('docs/migration.md must use the current migration title');
+      }
+      for (final required in [
+        'previous package versions pinned',
+        'schema 3',
+        'sourcePackage',
+        'sourceAdapter',
+        'assurance/locks/pullRequest.lock.json',
+        'regenerate',
+        'retired package',
+      ]) {
+        if (!contents.toLowerCase().contains(required.toLowerCase())) {
+          failures.add('docs/migration.md is missing required migration guidance: $required');
+        }
+      }
+    }
+
+    final forbidden = <RegExp>[
+      RegExp(r'\bzuke-v2\b', caseSensitive: false),
+      RegExp(r'\bverify-v2\b', caseSensitive: false),
+      RegExp(r'\bv2\.dart\b', caseSensitive: false),
+      RegExp(r'\bzuke\.lock\.v\d+\b', caseSensitive: false),
+      RegExp(r'assurance-history/v2', caseSensitive: false),
+      RegExp(r'\bV2\s+(?:SDK|primary|contracts?|workspace|product|release|history|facade|result)', caseSensitive: false),
+    ];
+    for (final file in _allFiles().where((candidate) {
+      final relative = _relative(candidate).toLowerCase();
+      if (!(relative.endsWith('.md') ||
+          relative.endsWith('.yaml') ||
+          relative.endsWith('.yml'))) {
+        return false;
+      }
+      if (relative.contains('/test/') ||
+          relative == 'vendor-sdk/check_docs.dart' ||
+          relative.endsWith('changelog.md') ||
+          relative.contains('/legacy-v2-untrusted/')) {
+        return false;
+      }
+      return true;
+    })) {
+      final relative = _relative(file);
+      final contents = file.readAsStringSync();
+      for (final pattern in forbidden) {
+        if (pattern.hasMatch(contents)) {
+          failures.add('$relative: product-facing legacy/V2 terminology is forbidden (${pattern.pattern})');
         }
       }
     }

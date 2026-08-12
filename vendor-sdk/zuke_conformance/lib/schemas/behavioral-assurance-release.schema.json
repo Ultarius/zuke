@@ -1,10 +1,10 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://github.com/Ultarius/zuke/blob/main/vendor-sdk/zuke_conformance/lib/schemas/behavioral-assurance-release.v2.schema.json",
+  "$id": "https://github.com/Ultarius/zuke/blob/main/vendor-sdk/zuke_conformance/lib/schemas/behavioral-assurance-release.schema.json",
   "type": "object",
-  "required": ["schemaVersion", "signer", "body", "recordDigest", "signature"],
+  "required": ["kind", "signer", "body", "recordDigest", "signature"],
   "properties": {
-    "schemaVersion": {"const": "zuke.behavioral-assurance-release.v2"},
+    "kind": {"const": "zuke.behavioral-assurance-release-export"},
     "signer": {
       "type": "object",
       "required": ["signerId", "keyId", "algorithm"],

@@ -75,7 +75,7 @@ evidence:
   includeSourceCode: false
 
 trust:
-  bundle: assurance-history/trust/ed25519-v2.json
+  bundle: assurance-history/trust/ed25519.json
   algorithm: ed25519
 
 lock:

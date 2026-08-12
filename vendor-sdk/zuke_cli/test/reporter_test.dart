@@ -30,7 +30,7 @@ void main() {
         ),
       ],
       evidence: [
-        EvidenceRecord(
+        SemanticEvidenceRecord(
           requirementId: 'RULE-1',
           evidenceType: 'gherkin-api',
           target: 'backend',

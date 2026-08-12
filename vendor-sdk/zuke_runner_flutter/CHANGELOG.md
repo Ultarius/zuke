@@ -2,7 +2,7 @@
 
 ## 0.3.0
 
-- Added the analyzer-free core dependency and V2 source identity emission for
+- Added the analyzer-free core dependency and current source identity emission for
   Flutter result artifacts.
 
 ## 0.2.1

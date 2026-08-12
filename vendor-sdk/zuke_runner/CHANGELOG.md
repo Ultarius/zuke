@@ -2,7 +2,7 @@
 
 ## 0.3.0
 
-- Coordinated the compatibility facade with the V2 result identity contract.
+- Coordinated the compatibility facade with the current result identity contract.
 
 ## 0.2.0
 

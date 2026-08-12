@@ -1,5 +1,5 @@
 name: zuke_verifier
-description: Independent verifier for exported Zuke v2 assurance history.
+description: Independent verifier for exported Zuke assurance history.
 version: 0.1.0
 publish_to: none
 

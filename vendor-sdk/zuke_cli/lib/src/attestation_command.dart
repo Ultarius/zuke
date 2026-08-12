@@ -11,7 +11,7 @@ import 'external_signing_client.dart';
 import 'trust_bundle.dart';
 
 class AttestationCommand {
-  static const _domain = 'Zuke external control attestation v1\u0000';
+  static const _domain = 'Zuke external control attestation\u0000';
   final ArgResults args;
   final ExternalSigningClient signingClient;
 
@@ -82,7 +82,7 @@ class AttestationCommand {
       );
     }
     final unsigned = <String, Object?>{
-      'schemaVersion': 'zuke.external-attestation.v1',
+      'kind': 'zuke.external-attestation',
       'signer': {'signerId': signerId, 'keyId': keyId, 'algorithm': 'Ed25519'},
       'body': body,
     };

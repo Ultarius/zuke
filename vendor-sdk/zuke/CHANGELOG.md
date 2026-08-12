@@ -2,7 +2,7 @@
 
 ## 0.3.0
 
-- Emit deterministic V2 scenario and suite results with complete source
+- Emit deterministic scenario and suite results with complete source
   identity and reject legacy V1 artifacts.
 
 ## 0.2.0

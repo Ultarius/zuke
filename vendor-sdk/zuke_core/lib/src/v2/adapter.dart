@@ -21,7 +21,7 @@ final class AdapterRequest {
 
 enum CompletenessStatus { complete, incomplete, indeterminate }
 
-final class AdapterCompletenessV2 {
+final class AdapterCompleteness {
   final CompletenessStatus routeRegistration;
   final CompletenessStatus middlewareOrder;
   final CompletenessStatus dynamicRegistration;
@@ -29,7 +29,7 @@ final class AdapterCompletenessV2 {
   final CompletenessStatus failureFlow;
   final CompletenessStatus logFlow;
 
-  const AdapterCompletenessV2({
+  const AdapterCompleteness({
     this.routeRegistration = CompletenessStatus.indeterminate,
     this.middlewareOrder = CompletenessStatus.indeterminate,
     this.dynamicRegistration = CompletenessStatus.indeterminate,
@@ -72,16 +72,16 @@ final class TopologyNode {
       };
 }
 
-final class AdapterOutputV2 {
+final class AdapterOutput {
   final String targetId;
   final String packageId;
   final String sourceAdapter;
   final String compatibilityId;
-  final AdapterCompletenessV2 completeness;
+  final AdapterCompleteness completeness;
   final List<TopologyNode> nodes;
-  final List<DiagnosticV2> diagnostics;
+  final List<Diagnostic> diagnostics;
 
-  const AdapterOutputV2({
+  const AdapterOutput({
     required this.targetId,
     required this.packageId,
     required this.sourceAdapter,
@@ -99,7 +99,7 @@ final class AdapterOutputV2 {
       );
 
   Map<String, Object?> toJson() => {
-        'schemaVersion': 'zuke.adapter-output.v2',
+        'kind': 'zuke.adapter-output',
         ...source.toJson(),
         'completeness': completeness.toJson(),
         'nodes': nodes.map((node) => node.toJson()).toList(),
@@ -110,5 +110,5 @@ final class AdapterOutputV2 {
 abstract interface class FrameworkAdapter {
   String get id;
   String get compatibilityId;
-  Future<AdapterOutputV2> extract(AdapterRequest request);
+  Future<AdapterOutput> extract(AdapterRequest request);
 }

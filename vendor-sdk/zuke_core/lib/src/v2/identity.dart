@@ -1,4 +1,4 @@
-/// Stable target/package identity used by V2 extraction and evidence.
+/// Stable target/package identity used by current extraction and evidence.
 final class TargetIdentity {
   final String id;
   final String language;

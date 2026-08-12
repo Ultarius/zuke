@@ -5,7 +5,7 @@ import 'package:crypto/crypto.dart';
 import 'package:test/test.dart';
 import 'package:zuke_annotations/zuke_annotations.dart';
 import 'package:zuke_frontend/zuke_frontend.dart';
-import 'package:zuke_core/v2.dart';
+import 'package:zuke_core/zuke_core.dart';
 import 'package:zuke/runner.dart';
 
 class World extends MapScenarioWorld {}
@@ -430,7 +430,7 @@ Feature: Run
     expect(decoded.candidateId, 'SCN-RUN-001');
   });
 
-  test('V2 result artifacts preserve target source identity', () {
+  test('current result artifacts preserve target source identity', () {
     const result = SuiteResult(
       executionId: 'execution-v2',
       status: SuiteStatus.passed,
@@ -448,7 +448,7 @@ Feature: Run
     );
 
     final json = result.toJson();
-    expect(json['schemaVersion'], 'zuke.suite-result.v2');
+    expect(json['kind'], 'zuke.suite-result');
     final decoded = SuiteResult.fromJson(json);
     expect(decoded.sourcePackage, 'secret-society-contract');
     expect(decoded.sourceAdapter, 'dart');
@@ -563,11 +563,11 @@ Feature: Failures
       throwsFormatException,
     );
     expect(
-      () => ScenarioResult.fromJson({...scenario, 'schemaVersion': 'zuke.scenario-result.v1'}),
+      () => ScenarioResult.fromJson({...scenario, 'kind': 'zuke.scenario-result.legacy'}),
       throwsFormatException,
     );
     expect(
-      () => SuiteResult.fromJson({...suite, 'schemaVersion': 'zuke.suite-result.v1'}),
+      () => SuiteResult.fromJson({...suite, 'kind': 'zuke.suite-result.legacy'}),
       throwsFormatException,
     );
     expect(
@@ -611,8 +611,9 @@ Feature: Failures
       evidenceType: 'domain-unit',
       target: 'backend',
       executionId: 'execution',
-      digests: digests,
-      candidateId: 'candidate',
+      profile: 'pullRequest',
+      status: 'passed',
+      sourceDigest: digests['source']!,
       runnerId: 'runner',
       runnerCompatibilityId: 'runner-v1',
       sourcePackage: _testSourcePackage,

@@ -1,9 +1,9 @@
-/// Public V2 assurance contracts for result, evidence, diagnostic, and source
-/// identity integrations.
+/// Public current assurance contracts for result, evidence, diagnostic, and
+/// source identity integrations.
 library;
 
-export 'package:zuke_core/v2.dart'
-    show CommandResultV2, CommandStatus, DiagnosticOwner, DiagnosticSeverity,
-        DiagnosticV2, EvidenceMode, EvidenceRecordV2, EvidenceRequirementV2,
+export 'package:zuke_core/zuke_core.dart'
+    show CommandResult, CommandStatus, DiagnosticOwner, DiagnosticSeverity,
+        Diagnostic, EvidenceMode, EvidenceRecord, EvidenceRequirement,
         EvidenceSlot, ExecutionSourceIdentity, Sha256Digest, SourceIdentity,
         TargetIdentity, PackageIdentity;

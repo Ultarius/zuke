@@ -1,5 +1,4 @@
 schemaVersion: 2
-releaseLine: zuke-v2
 sdk:
   dart: '>=3.10.0 <4.0.0'
   analyzerMajors: [8, 9, 10, 11, 12, 13, 14]
@@ -15,7 +14,7 @@ packages:
     releaseAction: publish
     tier: Shared infrastructure
     supportStatement: Supported Zuke infrastructure dependency; applications normally use a primary SDK package.
-    bumpReason: Breaking V2 contract ownership and analyzer-free core boundary.
+    bumpReason: Breaking contract ownership and analyzer-free core boundary.
   zuke_annotations:
     version: 0.3.0
     previousVersion: 0.2.0
@@ -23,7 +22,7 @@ packages:
     releaseAction: publish
     tier: Narrow SDK
     supportStatement: Supported application-facing annotation API.
-    bumpReason: Coordinated V2 core contract dependency.
+    bumpReason: Coordinated current core contract dependency.
   zuke_frontend:
     version: 0.2.0
     previousVersion: 0.1.1
@@ -31,15 +30,15 @@ packages:
     releaseAction: publish
     tier: Narrow SDK
     supportStatement: Supported frontend and configuration API.
-    bumpReason: V2 configuration and contract compatibility.
+    bumpReason: Current configuration and contract compatibility.
   zuke:
     version: 0.3.0
     previousVersion: 0.2.0
     publish: true
     releaseAction: publish
     tier: Primary SDK
-    supportStatement: Primary pure-Dart Zuke SDK and supported V2 facade.
-    bumpReason: V2 facade and deterministic assurance contracts.
+    supportStatement: Primary pure-Dart Zuke SDK and supported current facade.
+    bumpReason: Current facade and deterministic assurance contracts.
   zuke_runner:
     version: 0.3.0
     previousVersion: 0.2.0
@@ -55,7 +54,7 @@ packages:
     releaseAction: publish
     tier: Specialized SDK
     supportStatement: Supported Flutter testWidgets integration boundary.
-    bumpReason: V2 result identity and Flutter compatibility tuple.
+    bumpReason: Current result identity and Flutter compatibility tuple.
   zuke_http_runtime:
     version: 0.1.1
     previousVersion: 0.1.1
@@ -79,7 +78,7 @@ packages:
     releaseAction: publish
     tier: Specialized SDK
     supportStatement: Supported optional package-owned build-time validation hook.
-    bumpReason: First-party CLI tooling dependency and V2 compatibility.
+    bumpReason: First-party CLI tooling dependency and current compatibility.
   zuke_analyzer:
     version: 0.1.0
     previousVersion: 0.1.0
@@ -113,22 +112,22 @@ packages:
     supportStatement: Repository-only verification tooling; not published to pub.dev.
     bumpReason: Internal workspace tooling.
 retiredPackages:
-  assurance_ir: Consolidated into zuke_core V2 contracts.
+  assurance_ir: Consolidated into current zuke_core contracts.
   adapter_sdk: Consolidated into zuke_core and zuke adapter facade.
   evidence_ledger: Consolidated into zuke_cli.
-  dart_extractor: Consolidated into zuke_cli tooling.
+  dart_extractor: Consolidated into current zuke_cli tooling.
   proof_engine: Consolidated into zuke_cli proof engine.
   zuke_generator: Consolidated into zuke_cli generator.
   zuke_reporter: Consolidated into zuke_cli reporter.
-  zuke_adapter_dart_frog: Consolidated into zuke_cli Dart Frog adapter.
+  zuke_adapter_dart_frog: Consolidated into the zuke_cli Dart Frog adapter.
 compatibilityIds:
   dart-frog: dart-frog-gen-2-route-topology-v1
   dart-source: dart-source-package-v1
 contracts:
-  diagnostic: zuke.diagnostic-registry.v2
-  commandResult: zuke.command-result.v2
-  evidenceRecord: zuke.evidence-record.v2
-  lock: zuke.lock.v2
+  diagnostic: zuke.diagnostic-registry
+  commandResult: zuke.command-result
+  evidenceRecord: zuke.evidence-record
+  lock: zuke.lock
 publicationOrder:
   - zuke_core
   - zuke_annotations

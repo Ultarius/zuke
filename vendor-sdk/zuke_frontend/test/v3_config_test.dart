@@ -2,7 +2,7 @@ import 'package:test/test.dart';
 import 'package:zuke_frontend/zuke_frontend.dart';
 
 void main() {
-  test('rejects V1/V2 workspace configuration forms', () {
+  test('rejects legacy workspace configuration forms', () {
     expect(
       () => ZukeConfig.fromYaml('schemaVersion: 2\ntargets: {}'),
       throwsFormatException,

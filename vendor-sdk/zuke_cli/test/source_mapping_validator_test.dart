@@ -51,17 +51,17 @@ void main() {
         ],
       ),
     );
-    const output = AdapterOutput(
+    const output = IrAdapterOutput(
       adapter: AdapterDescriptor(id: 'fixture', version: '1'),
       inputDigest: 'fixture',
-      completeness: AdapterCompleteness(
+      completeness: IrAdapterCompleteness(
         annotationTargets: CompletenessValue.indeterminate,
       ),
       diagnostics: [
-        Diagnostic(
+        IrDiagnostic(
           code: 'EXTRACT-FIXTURE',
           message: 'resolver did not finish',
-          severity: DiagnosticSeverity.error,
+          severity: IrDiagnosticSeverity.error,
         ),
       ],
       symbols: [

@@ -2,7 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:args/args.dart';
-import 'package:zuke_core/v2.dart';
+import 'package:zuke_core/zuke_core.dart';
 import 'package:zuke_frontend/zuke_frontend.dart';
 
 import 'generate_command.dart';
@@ -45,7 +45,7 @@ class GateCommand {
               profile: profile,
             ),
       ];
-      final result = CommandResultV2(
+      final result = CommandResult(
         command: 'gate',
         stage: 'gate',
         exitCode: exitCode,
@@ -193,7 +193,7 @@ class GateCommand {
     }
   }
 
-  void _writeArtifactSummary(String? directory, CommandResultV2 result) {
+  void _writeArtifactSummary(String? directory, CommandResult result) {
     if (directory == null || directory.isEmpty) return;
     final dir = Directory(directory)..createSync(recursive: true);
     File('${dir.path}/command-result.json').writeAsStringSync(

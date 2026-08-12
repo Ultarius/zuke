@@ -3,7 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:args/args.dart';
-import 'package:zuke_core/v2.dart';
+import 'package:zuke_core/zuke_core.dart';
 import 'package:zuke_frontend/zuke_frontend.dart';
 
 import 'generate_command.dart';
@@ -49,7 +49,7 @@ class CheckCommand {
     );
     final succeeded = results.every((result) => result.status == 'passed');
     if (json) {
-      final commandResult = CommandResultV2(
+      final commandResult = CommandResult(
         command: 'check',
         stage: 'check',
         exitCode: succeeded ? 0 : 1,

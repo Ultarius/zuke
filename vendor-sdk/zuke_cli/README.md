@@ -8,22 +8,20 @@
 
 Authoritative zuke CLI tool.
 
-## Preview status
-
-Version `0.2.0` generates pure-Dart step support against the primary `zuke`
-SDK while preserving narrow `zuke_annotations` imports for generated
-application contracts.
+The current CLI generates contracts, extracts supported framework topology,
+executes configured profiles, validates evidence, writes profile locks, and
+runs release gates for the primary `zuke` SDK.
 
 ## Installation
 
 ```yaml
 dev_dependencies:
-  zuke_cli: ^0.2.0
+  zuke_cli: ^0.4.0
 ```
 
-Projects that regenerate non-Flutter steps with CLI `0.2.0` must add
-`zuke: ^0.1.0` to the dependency section used by those tests. Flutter steps
-continue to use `zuke_runner_flutter`.
+Projects that regenerate non-Flutter steps with the current CLI should add
+`zuke: ^0.3.0` to the dependency section used by those tests. Flutter steps
+use `zuke_runner_flutter: ^0.3.0`.
 
 ## Support tier
 

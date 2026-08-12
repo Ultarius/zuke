@@ -2,11 +2,10 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'package:args/args.dart';
-import 'package:zuke_core/v2.dart';
+import 'package:zuke_core/zuke_core.dart';
 import 'package:crypto/crypto.dart';
 import 'package:yaml/yaml.dart';
 import 'package:yaml_edit/yaml_edit.dart';
-import 'package:zuke_core/zuke_core.dart' show EvidenceStatus, canonicalJson;
 import 'package:zuke_frontend/zuke_frontend.dart';
 import 'package:zuke/runner.dart';
 import 'extraction_service.dart';
@@ -52,6 +51,82 @@ class _EvidencePublication {
     required this.evidenceOutput,
     this.observationPath,
   });
+}
+
+void _writeSemanticEvidenceAtomic(
+  String directory,
+  SemanticEvidenceRecord record,
+) {
+  final root = Directory(directory)..createSync(recursive: true);
+  final digest = sha256
+      .convert(utf8.encode(canonicalJson(record.toJson())))
+      .toString();
+  final semantic = File('${root.path}${Platform.pathSeparator}$digest.json');
+  final temporary = File('${semantic.path}.tmp');
+  temporary.writeAsStringSync(
+    const JsonEncoder.withIndent('  ').convert(record.toJson()) + '\n',
+  );
+  if (semantic.existsSync()) semantic.deleteSync();
+  temporary.renameSync(semantic.path);
+}
+
+String _canonicalPath(String path) {
+  final normalized = path.replaceAll('\\', '/').replaceFirst(RegExp(r'/$'), '');
+  return Platform.isWindows ? normalized.toLowerCase() : normalized;
+}
+
+String? _configuredPackageRoot(
+  WorkspaceDiscoveryResult workspace,
+  String targetId,
+  String packageId,
+) {
+  final packages = workspace.config.targetPackages[targetId] ?? const [];
+  for (final package in packages) {
+    if (package['id'] != packageId || package['path'] is! String) continue;
+    final directory = Directory(
+      '${workspace.config.root}${Platform.pathSeparator}${package['path']}',
+    );
+    if (!directory.existsSync()) return null;
+    return directory.resolveSymbolicLinksSync();
+  }
+  return null;
+}
+
+IrAdapterOutput? _sourceOutputForArtifact(
+  WorkspaceDiscoveryResult workspace,
+  ExecutionResult artifact,
+  List<IrAdapterOutput> outputs,
+) {
+  final packageRoot = _configuredPackageRoot(
+    workspace,
+    artifact.target,
+    artifact.sourcePackage ?? '',
+  );
+  if (packageRoot == null) return null;
+  final candidates = outputs
+      .where(
+        (output) =>
+            output.packageRoot != null &&
+            _canonicalPath(output.packageRoot!) == _canonicalPath(packageRoot),
+      )
+      .toList();
+  if (candidates.isEmpty) return null;
+  final compatible = candidates
+      .where(
+        (output) =>
+            artifact.sourceCompatibilityId == null ||
+            output.adapter.compatibilityId == artifact.sourceCompatibilityId,
+      )
+      .toList();
+  final selected = compatible.isNotEmpty ? compatible : candidates;
+  if (selected.length != 1) {
+    throw StateError(
+      'Ambiguous source extraction for target ${artifact.target}, '
+      'package ${artifact.sourcePackage}, and compatibility '
+      '${artifact.sourceCompatibilityId ?? '(missing)'}',
+    );
+  }
+  return selected.single;
 }
 
 class ZukeCli {
@@ -133,7 +208,7 @@ class ZukeCli {
               ..addOption('profile', defaultsTo: 'release'),
           )
           ..addCommand(
-            'verify-v2',
+            'verify',
             ArgParser()
               ..addOption('root')
               ..addOption('head')
@@ -285,7 +360,7 @@ class ZukeCli {
           if (command.command?.name == 'create') {
             final sub = command.command!;
             final root = sub['root'] as String? ?? Directory.current.path;
-            final path = await ManifestCommand.createV2(
+            final path = await ManifestCommand.create(
               root: root,
               signerId: sub['signer-id'] as String,
               keyId: sub['key-id'] as String? ?? 'default',
@@ -294,22 +369,20 @@ class ZukeCli {
             print(path);
             return 0;
           }
-          if (command.command?.name == 'verify-v2') {
+          if (command.command?.name == 'verify') {
             final sub = command.command!;
-            final valid = await ManifestCommand.verifyV2(
+            final valid = await ManifestCommand.verify(
               sub['root'] as String? ?? Directory.current.path,
               head: sub['head'] as String?,
               current: sub['current'] as bool? ?? false,
               requireHistory: sub['require-history'] as bool? ?? false,
             );
-            print(
-              valid ? 'V2 release chain valid.' : 'V2 release chain invalid.',
-            );
+            print(valid ? 'Release chain valid.' : 'Release chain invalid.');
             return valid ? 0 : 1;
           }
           if (command.command?.name == 'export') {
             final sub = command.command!;
-            await ManifestCommand.exportV2(
+            await ManifestCommand.export(
               sub['root'] as String? ?? Directory.current.path,
               sub['output'] as String,
               head: sub['head'] as String?,
@@ -373,7 +446,7 @@ Usage:
   zuke lock --profile <name>|--all-profiles  Write or check profile locks
   zuke gate         Run validate, generation, and lock gates
   zuke check        Verify one or more workspaces with isolated stage output
-  zuke manifest create|verify-v2|export  Manage trusted Ed25519 history
+  zuke manifest create|verify|export  Manage trusted Ed25519 history
   zuke attestation create           Create a signed external-control attestation
   zuke gateway canonicalize-apim    Canonicalize APIM gateway evidence
   zuke doctor       Diagnose project setup
@@ -389,9 +462,9 @@ Usage:
   Future<int> _runDoctor(ArgResults cmd) async {
     final root = cmd['root'] as String? ?? Directory.current.path;
     final jsonMode = (cmd['format'] as String? ?? 'text') == 'json';
-    final diagnostics = <DiagnosticV2>[];
+    final diagnostics = <Diagnostic>[];
     int finish(int code) {
-      final result = CommandResultV2(
+      final result = CommandResult(
         command: 'doctor',
         stage: 'doctor',
         exitCode: code,
@@ -405,16 +478,21 @@ Usage:
       writeCommandSummary(cmd['summary-file'] as String?, result);
       return code;
     }
+
     void issue(String code, String message) {
-      diagnostics.add(DiagnosticV2(
-        code: code,
-        stage: 'doctor',
-        severity: DiagnosticSeverity.error,
-        owner: DiagnosticOwner.unknown,
-        message: message,
-        remediation: 'Correct the workspace or environment and run doctor again.',
-      ));
+      diagnostics.add(
+        Diagnostic(
+          code: code,
+          stage: 'doctor',
+          severity: DiagnosticSeverity.error,
+          owner: DiagnosticOwner.unknown,
+          message: message,
+          remediation:
+              'Correct the workspace or environment and run doctor again.',
+        ),
+      );
     }
+
     if (jsonMode) {
       // Keep JSON mode free of human-readable preamble output.
     } else {
@@ -432,7 +510,9 @@ Usage:
     final featuresDir = Directory('$root/specs/features');
     if (!featuresDir.existsSync()) {
       issue('ZK-DOCTOR-002', 'specs/features/ directory not found');
-      if (!jsonMode) stderr.writeln('  ERROR: specs/features/ directory not found');
+      if (!jsonMode) {
+        stderr.writeln('  ERROR: specs/features/ directory not found');
+      }
       return finish(1);
     }
     final featureCount = featuresDir
@@ -443,15 +523,23 @@ Usage:
 
     final retiredFile = File('$root/specs/registry/retired-ids.yaml');
     if (!retiredFile.existsSync()) {
-      diagnostics.add(const DiagnosticV2(
-        code: 'ZUKE-DOCTOR-001',
-        stage: 'doctor',
-        severity: DiagnosticSeverity.warning,
-        owner: DiagnosticOwner.project,
-        message: 'specs/registry/retired-ids.yaml not found (retired ID governance inactive)',
-        remediation: 'Add the retired ID registry if the workspace uses ID retirement governance.',
-      ));
-      if (!jsonMode) stderr.writeln('  [ZUKE-DOCTOR-001] WARNING: specs/registry/retired-ids.yaml not found (retired ID governance inactive)');
+      diagnostics.add(
+        const Diagnostic(
+          code: 'ZUKE-DOCTOR-001',
+          stage: 'doctor',
+          severity: DiagnosticSeverity.warning,
+          owner: DiagnosticOwner.project,
+          message:
+              'specs/registry/retired-ids.yaml not found (retired ID governance inactive)',
+          remediation:
+              'Add the retired ID registry if the workspace uses ID retirement governance.',
+        ),
+      );
+      if (!jsonMode) {
+        stderr.writeln(
+          '  [ZUKE-DOCTOR-001] WARNING: specs/registry/retired-ids.yaml not found (retired ID governance inactive)',
+        );
+      }
     } else {
       if (!jsonMode) print('  specs/registry/retired-ids.yaml: found');
     }
@@ -481,7 +569,7 @@ Usage:
       if (adoption != 0) return adoption;
     }
     final config =
-        '''schemaVersion: 2\nworkspace:\n  name: ${Directory(root).uri.pathSegments.where((s) => s.isNotEmpty).last}\n  root: .\nspecifications:\n  features: [specs/features/**/*.feature]\ntargets: {}\ntrust:\n  bundle: assurance-history/trust/ed25519-v2.json\n  algorithm: ed25519\n''';
+        '''schemaVersion: 3\nworkspace:\n  name: ${Directory(root).uri.pathSegments.where((s) => s.isNotEmpty).last}\n  root: .\nspecifications:\n  features: [specs/features/**/*.feature]\ntargets: {}\ntrust:\n  bundle: assurance-history/trust/ed25519.json\n  algorithm: ed25519\n''';
     if (dryRun) {
       print('Would create ${file.path}');
       return 0;
@@ -853,8 +941,8 @@ Future<void> main(List<String> arguments) => zuke.build(arguments);
           final runnerTarget = runner['target']?.toString();
           final runnerSourcePackage = runner['sourcePackage']?.toString();
           final runnerSourceAdapter = runner['sourceAdapter']?.toString();
-          final runnerSourceCompatibilityId =
-              runner['sourceCompatibilityId']?.toString();
+          final runnerSourceCompatibilityId = runner['sourceCompatibilityId']
+              ?.toString();
           if (workspace.config.schemaVersion >= 3 &&
               (runnerTarget == null ||
                   runnerTarget.isEmpty ||
@@ -934,8 +1022,7 @@ Future<void> main(List<String> arguments) => zuke.build(arguments);
                   if (runnerSourceAdapter != null)
                     'ZUKE_SOURCE_ADAPTER': runnerSourceAdapter,
                   if (runnerSourceCompatibilityId != null)
-                    'ZUKE_SOURCE_COMPATIBILITY_ID':
-                        runnerSourceCompatibilityId,
+                    'ZUKE_SOURCE_COMPATIBILITY_ID': runnerSourceCompatibilityId,
                   if (scenarioFilter.isNotEmpty)
                     'ZUKE_SCENARIO_FILTER': scenarioFilter.join(','),
                   'ZUKE_SELECTION_DIGEST': selection.digest,
@@ -962,8 +1049,13 @@ Future<void> main(List<String> arguments) => zuke.build(arguments);
             if (jsonMode) {
               stdout.writeln(
                 const JsonEncoder().convert({
-                  'schemaVersion': 'zuke.test-run.v1',
+                  'kind': 'zuke.command-result',
+                  'command': 'test',
+                  'stage': 'test',
+                  'exitCode': result.exitCode,
                   'status': 'failed',
+                  'eligible': false,
+                  'diagnostics': const <Object?>[],
                   'profile': profile,
                 }),
               );
@@ -1078,8 +1170,13 @@ Future<void> main(List<String> arguments) => zuke.build(arguments);
           if (jsonMode) {
             stdout.writeln(
               const JsonEncoder().convert({
-                'schemaVersion': 'zuke.test-run.v1',
+                'kind': 'zuke.command-result',
+                'command': 'test',
+                'stage': 'test',
+                'exitCode': result.exitCode,
                 'status': 'failed',
+                'eligible': false,
+                'diagnostics': const <Object?>[],
                 'profile': profile,
               }),
             );
@@ -1188,10 +1285,9 @@ Future<void> main(List<String> arguments) => zuke.build(arguments);
       '${directory.path}.publish-${pid}-${DateTime.now().microsecondsSinceEpoch}',
     );
     final backup = Directory('${staging.path}.previous');
-    const writer = EvidenceWriter();
     try {
       for (final record in records) {
-        writer.writeAtomic(staging.path, record);
+        _writeSemanticEvidenceAtomic(staging.path, record);
       }
       if (directory.existsSync()) await _renameDirectory(directory, backup);
       try {
@@ -1280,9 +1376,9 @@ Future<void> main(List<String> arguments) => zuke.build(arguments);
         throw StateError('Result artifact is not an object: ${file.path}');
       }
       final json = Map<String, Object?>.from(decoded);
-      final ExecutionResult artifact = switch (json['schemaVersion']) {
-        'zuke.scenario-result.v2' => ScenarioResult.fromJson(json),
-        'zuke.suite-result.v2' => SuiteResult.fromJson(json),
+      final ExecutionResult artifact = switch (json['kind']) {
+        'zuke.scenario-result' => ScenarioResult.fromJson(json),
+        'zuke.suite-result' => SuiteResult.fromJson(json),
         _ => throw StateError(
           'Unsupported result artifact schema in ${file.path}',
         ),
@@ -1340,12 +1436,13 @@ Future<void> main(List<String> arguments) => zuke.build(arguments);
     WorkspaceDiscoveryResult workspace,
     String target,
     String packageId,
-  ) => workspace.config.targetPackages[target]?.any(
+  ) =>
+      workspace.config.targetPackages[target]?.any(
         (package) => package['id'] == packageId,
       ) ??
       false;
 
-  Future<List<EvidenceRecord>> _recordsFromArtifacts(
+  Future<List<SemanticEvidenceRecord>> _recordsFromArtifacts(
     WorkspaceDiscoveryResult workspace,
     String profile,
     List<ExecutionResult> artifacts,
@@ -1381,7 +1478,7 @@ Future<void> main(List<String> arguments) => zuke.build(arguments);
       workspace.config.root!,
       (path) => path.startsWith('specs/'),
     );
-    final records = <EvidenceRecord>[];
+    final records = <SemanticEvidenceRecord>[];
     final evidenceKeys = <String>{};
     for (final artifact in artifacts) {
       if (artifact.profile != profile) {
@@ -1394,22 +1491,22 @@ Future<void> main(List<String> arguments) => zuke.build(arguments);
       }
       final requirementId = artifact.requirementId;
       final target = artifact.target;
-      final matchingOutputs = extraction.outputs.where(
-        (output) => output.symbols.any(
-          (symbol) =>
-              symbol.target == target &&
-              symbol.requirementIds.contains(requirementId),
-        ),
+      final sourceOutput = _sourceOutputForArtifact(
+        workspace,
+        artifact,
+        extraction.outputs,
       );
-      final sourceDigest = matchingOutputs.isEmpty
-          ? WorkspaceDigest.computeFiltered(
-              workspace.config.root!,
-              (path) => path.endsWith('.dart') && !path.contains('/build/'),
-            )
-          : _normalizeHash(matchingOutputs.first.inputDigest);
+      if (sourceOutput == null) {
+        throw StateError(
+          'No source extraction matches target $target, '
+          'package ${artifact.sourcePackage}, and compatibility '
+          '${artifact.sourceCompatibilityId ?? '(missing)'}',
+        );
+      }
+      final sourceDigest = _normalizeHash(sourceOutput.inputDigest);
       final artifactJson = Map<String, Object?>.from(artifact.toJson())
         ..remove('profile');
-      final record = EvidenceRecord(
+      final record = SemanticEvidenceRecord(
         requirementId: requirementId,
         evidenceType: artifact.evidenceType,
         target: target,
@@ -1447,7 +1544,7 @@ Future<void> main(List<String> arguments) => zuke.build(arguments);
         throw StateError('Duplicate evidence key: $key');
       }
       // Round-trip through the strict boundary validator before publication.
-      records.add(EvidenceRecord.fromJson(record.toJson()));
+      records.add(SemanticEvidenceRecord.fromJson(record.toJson()));
     }
     return records;
   }

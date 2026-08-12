@@ -6,13 +6,12 @@ import 'package:crypto/crypto.dart';
 import 'dart_extractor.dart';
 import 'package:zuke_core/zuke_core.dart';
 import 'package:zuke_frontend/zuke_frontend.dart';
-import 'package:zuke_core/v2.dart' as v2;
 import 'dart_frog_adapter.dart';
 
 class WorkspaceExtraction {
-  final List<AdapterOutput> outputs;
-  final List<v2.AdapterOutputV2> topologyOutputs;
-  final List<EvidenceRecord> evidenceRecords;
+  final List<IrAdapterOutput> outputs;
+  final List<AdapterOutput> topologyOutputs;
+  final List<SemanticEvidenceRecord> evidenceRecords;
   final List<String> errors;
 
   const WorkspaceExtraction({
@@ -36,8 +35,8 @@ class ExtractionService {
     bool includeEvidence = true,
   }) async {
     final root = workspace.config.root!;
-    final outputs = <AdapterOutput>[];
-    final topologyOutputs = <v2.AdapterOutputV2>[];
+    final outputs = <IrAdapterOutput>[];
+    final topologyOutputs = <AdapterOutput>[];
     final errors = <String>[];
     for (final target in workspace.config.targetsConfig.entries) {
       final targetConfig = target.value;
@@ -64,7 +63,7 @@ class ExtractionService {
               const ['lib'];
           if (framework == 'dart-frog') {
             final topology = await const DartFrogAdapter().extract(
-              v2.AdapterRequest(
+              AdapterRequest(
                 workspaceRoot: root,
                 targetId: target.key,
                 packageId: packageId,
@@ -73,14 +72,14 @@ class ExtractionService {
               ),
             );
             topologyOutputs.add(topology);
-            // The V2 adapter output is retained for V2 reporting and also
-            // projected into the canonical IR consumed by the proof engine.
+            // The adapter output is retained for reporting and also projected
+            // into the canonical IR consumed by the proof engine.
             // Keeping this bridge here prevents a successful adapter run from
             // becoming diagnostics-only evidence.
             outputs.add(_topologyAdapterOutput(topology, packageRoot));
             errors.addAll(topology.diagnostics
                 .where((diagnostic) =>
-                    diagnostic.severity == v2.DiagnosticSeverity.error)
+                    diagnostic.severity == DiagnosticSeverity.error)
                 .map(
                   (diagnostic) => '${diagnostic.code}: ${diagnostic.message}',
                 ));
@@ -94,7 +93,7 @@ class ExtractionService {
                 : DartExtractor.compatibilityId,
           );
           final cached = _loadCached(root, 'dart', cacheKey);
-          AdapterOutput output;
+          IrAdapterOutput output;
           if (cached != null) {
             output = cached;
           } else {
@@ -184,16 +183,16 @@ class ExtractionService {
     return sha256.convert(bytes).toString();
   }
 
-  AdapterOutput _topologyAdapterOutput(
-    v2.AdapterOutputV2 output,
+  IrAdapterOutput _topologyAdapterOutput(
+    AdapterOutput output,
     String packageRoot,
   ) {
-    CompletenessValue completeness(v2.CompletenessStatus status) => switch (
+    CompletenessValue completeness(CompletenessStatus status) => switch (
       status
     ) {
-      v2.CompletenessStatus.complete => CompletenessValue.complete,
-      v2.CompletenessStatus.indeterminate => CompletenessValue.indeterminate,
-      v2.CompletenessStatus.incomplete => CompletenessValue.notVisible,
+      CompletenessStatus.complete => CompletenessValue.complete,
+      CompletenessStatus.indeterminate => CompletenessValue.indeterminate,
+      CompletenessStatus.incomplete => CompletenessValue.notVisible,
     };
 
     final nodes = <IrNode>[];
@@ -254,13 +253,13 @@ class ExtractionService {
         ));
       }
     }
-    return AdapterOutput(
+    return IrAdapterOutput(
       adapter: AdapterDescriptor(
         id: output.sourceAdapter,
         version: '2',
         compatibilityId: output.compatibilityId,
       ),
-      completeness: AdapterCompleteness(
+      completeness: IrAdapterCompleteness(
         graph: GraphCompleteness(
           routeRegistration: completeness(output.completeness.routeRegistration),
           middlewareOrder: completeness(output.completeness.middlewareOrder),
@@ -276,13 +275,13 @@ class ExtractionService {
       inputDigest: output.compatibilityId,
       diagnostics: output.diagnostics
           .map(
-            (diagnostic) => Diagnostic(
+            (diagnostic) => IrDiagnostic(
               code: diagnostic.code,
               message: diagnostic.message,
               severity: switch (diagnostic.severity) {
-                v2.DiagnosticSeverity.error => DiagnosticSeverity.error,
-                v2.DiagnosticSeverity.warning => DiagnosticSeverity.warning,
-                v2.DiagnosticSeverity.info => DiagnosticSeverity.info,
+                DiagnosticSeverity.error => IrDiagnosticSeverity.error,
+                DiagnosticSeverity.warning => IrDiagnosticSeverity.warning,
+                DiagnosticSeverity.info => IrDiagnosticSeverity.info,
               },
             ),
           )
@@ -327,7 +326,7 @@ class ExtractionService {
         );
       }
     }
-    final records = <EvidenceRecord>[];
+    final records = <SemanticEvidenceRecord>[];
     final errors = <String>[];
     final ids = <String>{};
     files.sort((a, b) => a.path.compareTo(b.path));
@@ -357,7 +356,7 @@ class ExtractionService {
             errors.add('Duplicate evidence executionId: $executionId');
             continue;
           }
-          records.add(EvidenceRecord.fromJson(record));
+          records.add(SemanticEvidenceRecord.fromJson(record));
         }
       } catch (error) {
         errors.add('Malformed evidence file ${file.path}: $error');
@@ -366,7 +365,7 @@ class ExtractionService {
     return _EvidenceLoad(records, errors);
   }
 
-  AdapterOutput? _loadCached(String root, String adapter, String key) {
+  IrAdapterOutput? _loadCached(String root, String adapter, String key) {
     final file = File(_cachePath(root, adapter, key));
     if (!file.existsSync()) return null;
     try {
@@ -389,13 +388,13 @@ class ExtractionService {
           .map(_symbolFromJson)
           .toList();
       final completeness = value['completeness'] as Map? ?? const {};
-      final output = AdapterOutput(
+      final output = IrAdapterOutput(
         adapter: AdapterInfo(
           id: adapterMap['id'] as String,
           version: adapterMap['version'] as String,
           compatibilityId: adapterMap['compatibilityId'] as String? ?? '',
         ),
-        completeness: AdapterCompleteness(
+        completeness: IrAdapterCompleteness(
           annotationTargets: _completeness(completeness['annotationTargets']),
           generatedParts: _completeness(completeness['generatedParts']),
           graph: GraphCompleteness(
@@ -418,10 +417,10 @@ class ExtractionService {
         diagnostics: (value['errors'] as List? ?? const [])
             .whereType<String>()
             .map(
-              (message) => Diagnostic(
+              (message) => IrDiagnostic(
                 code: 'CACHE-EXTRACT-001',
                 message: message,
-                severity: DiagnosticSeverity.error,
+                severity: IrDiagnosticSeverity.error,
               ),
             )
             .toList(),
@@ -526,7 +525,7 @@ class ExtractionService {
     String root,
     String adapter,
     String key,
-    AdapterOutput output,
+    IrAdapterOutput output,
   ) {
     if (output.errors.isNotEmpty) return;
     final file = File(_cachePath(root, adapter, key));
@@ -581,7 +580,7 @@ class ExtractionService {
 }
 
 class _EvidenceLoad {
-  final List<EvidenceRecord> records;
+  final List<SemanticEvidenceRecord> records;
   final List<String> errors;
   const _EvidenceLoad(this.records, this.errors);
 }

@@ -8,6 +8,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:zuke_runner_flutter/zuke_runner_flutter.dart';
 import 'package:zuke/assurance.dart';
+import 'package:zuke/runner.dart';
 
 class _Bindings {
   final first = const Key('test.firstOperand');
@@ -19,6 +20,7 @@ class _Bindings {
 }
 
 void main() {
+  final selectedScenarios = scenarioFilterFromEnvironment(Platform.environment);
   final featureFile = File(
     '../../specs/features/calculator_operations.feature',
   );
@@ -142,7 +144,10 @@ void main() {
     // The test produces a raw scenario result only. Zuke CLI binds it to
     // current workspace digests before publishing semantic evidence.
     await driver.dispose(world);
-  });
+  }, skip: !shouldRunScenario(
+    AdditionScenarios.addIntegersUi.id.value,
+    selectedScenarios,
+  ));
 }
 
 class _TestBindings implements FeatCalc001FlutterBindings<Key> {

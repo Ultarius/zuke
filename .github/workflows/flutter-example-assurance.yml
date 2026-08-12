@@ -16,7 +16,7 @@ on:
         required: true
         type: string
       require-history:
-        description: Require a non-empty signed V2 history; false still validates the configured chain policy.
+        description: Require a non-empty signed history; false still validates the configured chain policy.
         required: true
         type: boolean
 
@@ -56,9 +56,9 @@ jobs:
       - run: dart --suppress-analytics run zuke_cli:zuke doctor --root ${{ inputs.example-root }}
       - run: dart --suppress-analytics run zuke_cli:zuke check --root ${{ inputs.example-root }} --profile ${{ inputs.profile }} --jobs 1 --format json
       - run: dart --suppress-analytics run zuke_cli:zuke affected --root ${{ inputs.example-root }} --changed-since ${{ inputs.changed-since }}
-      - name: Verify V2 assurance history policy
+      - name: Verify assurance history policy
         run: >-
-          dart --suppress-analytics run zuke_cli:zuke manifest verify-v2
+          dart --suppress-analytics run zuke_cli:zuke manifest verify
           --root ${{ inputs.example-root }}
           ${{ inputs.require-history && '--require-history' || '' }}
       - run: git diff --exit-code -- ${{ inputs.example-root }}
