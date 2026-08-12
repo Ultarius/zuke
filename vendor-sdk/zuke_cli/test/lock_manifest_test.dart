@@ -299,8 +299,7 @@ class MyApp {
       final result = await runInProcessCli(['lock', '--root', tempDir.path]);
       expect(result.exitCode, equals(0));
 
-      final lockPath =
-          '${tempDir.path}/assurance/locks/pullRequest.lock.json';
+      final lockPath = '${tempDir.path}/assurance/locks/pullRequest.lock.json';
       final lockFile = File(lockPath);
       expect(lockFile.existsSync(), isTrue);
 
@@ -541,10 +540,7 @@ Feature: Gateway
         'change source without lock',
       ], workingDirectory: tempDir.path);
       await expectLater(
-        ManifestCommand.create(
-          root: tempDir.path,
-          signerId: 'release-signer',
-        ),
+        ManifestCommand.create(root: tempDir.path, signerId: 'release-signer'),
         throwsA(
           isA<FormatException>().having(
             (error) => error.message,

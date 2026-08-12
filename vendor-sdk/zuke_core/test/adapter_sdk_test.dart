@@ -16,7 +16,7 @@ void main() {
       packageRoot: '/tmp/test',
     );
     final fragment = CanonicalFragment.fromOutput(output);
-    expect(fragment.schemaVersion, 'zuke.trace.v1');
+    expect(fragment.kind, 'zuke.adapter-fragment');
     expect(fragment.packageName, 'test_package');
   });
 

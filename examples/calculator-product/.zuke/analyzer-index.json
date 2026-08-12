@@ -1,6 +1,6 @@
 {
-  "schemaVersion": "zuke.analyzer-index.v2",
-  "inputDigest": "sha256:b712506b2a5bc15366cb501e149f466905475939de69d88ea51f5f2ddc5baa7e",
+  "kind": "zuke.analyzer-index",
+  "inputDigest": "sha256:11d87c4ab81b4afa89868d890daecaae7fa7d793dd1a958dd51d25f151f030e8",
   "generatedManifestDigest": "sha256:93a855fd8152858600fddb02f9e20ac525804cf43a8f09ecd4672fe66191824d",
   "generatedManifestPath": "packages/calculator_contracts/.zuke-generated.json",
   "inputs": [

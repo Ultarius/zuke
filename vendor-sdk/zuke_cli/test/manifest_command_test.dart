@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:test/test.dart';
@@ -46,6 +47,26 @@ void main() {
 
       // Returns 0 when no release records or valid chain
       expect(result.exitCode, 0);
+    });
+
+    test('manifest commands reject legacy history paths', () async {
+      await runInProcessCli(['generate', '--root', root.path]);
+      final legacy = File('${root.path}/assurance-history/export.json')
+        ..createSync(recursive: true)
+        ..writeAsStringSync(
+          jsonEncode({'schemaVersion': 1, 'manifests': <String>[]}),
+        );
+
+      final result = await runInProcessCli([
+        'manifest',
+        'verify',
+        '--root',
+        root.path,
+      ]);
+
+      expect(result.exitCode, 2);
+      expect(result.stderr, contains('ZK-HISTORY-LEGACY-FORMAT'));
+      expect(legacy.existsSync(), isTrue);
     });
 
     test('manifest create rejects unknown signer', () async {

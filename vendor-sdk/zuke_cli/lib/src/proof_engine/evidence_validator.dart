@@ -17,7 +17,7 @@ class EvidenceValidator {
     List<IrAdapterOutput> outputs = const [],
 
     /// The exact scenario IDs selected by the configured execution profile.
-    /// A null value retains legacy runner-owned selection behaviour.
+    /// A null value means the caller is running without profile filtering.
     List<String>? selectedScenarioIds,
   }) {
     final errors = <ValidationMessage>[];
@@ -71,7 +71,7 @@ class EvidenceValidator {
               final expectedTarget = slot['target'];
               if (expectedTarget == null) continue;
               validMappings.add(
-                _v3MappingKey(
+                _mappingKey(
                   id,
                   type,
                   expectedTarget,
@@ -93,7 +93,7 @@ class EvidenceValidator {
       final target = record.target;
 
       // ZUKE-EVIDENCE-005: Reject unmapped records
-      final mappingKey = _v3MappingKey(
+      final mappingKey = _mappingKey(
         id,
         type,
         target,
@@ -650,7 +650,7 @@ class EvidenceValidator {
     return null;
   }
 
-  String _v3MappingKey(
+  String _mappingKey(
     String requirementId,
     String evidenceType,
     String target,

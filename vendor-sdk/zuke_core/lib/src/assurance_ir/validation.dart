@@ -261,7 +261,7 @@ class ValidationReport {
   });
 
   Map<String, Object?> toJson() => {
-    'schemaVersion': 'zuke.validation-report.v1',
+    'kind': 'zuke.validation-report',
     'status': eligible ? 'passed' : 'failed',
     'engineVersion': engineVersion,
     'workspace': workspace,

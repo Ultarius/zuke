@@ -1,6 +1,6 @@
 {
-  "schemaVersion": "zuke.analyzer-index.v2",
-  "inputDigest": "sha256:40985f791974155b8f86c8145ba6aa1cfbca14613d96352baddf8a5e0a9d6e07",
+  "kind": "zuke.analyzer-index",
+  "inputDigest": "sha256:69d920b0a63cb555a9f49d387183c7809c6f5b5ea5fa8573a01ee2ea5429f053",
   "generatedManifestDigest": "sha256:74774c8e854711d3b763400b2c2a5f9da7ebe6b6217a9a63e40c8dd0548430ef",
   "generatedManifestPath": "lib/src/.zuke-generated.json",
   "inputs": [
@@ -22,7 +22,7 @@
     },
     {
       "path": "specs/features/todo.feature",
-      "digest": "sha256:98af5eb654b918cc285b977fa16d61497716473c6bc3ca47817e4a6a300c242e"
+      "digest": "sha256:49ca73a032984b65bf46338207eea876752df4489490d780bae28ae08b8c2c41"
     },
     {
       "path": "specs/registry/pbis.yaml",
@@ -34,7 +34,7 @@
     },
     {
       "path": "zuke.yaml",
-      "digest": "sha256:79aed7cc3ef806f3282b89a90fe619edd33f6c969dde806183cb161ba1d809bc"
+      "digest": "sha256:df1611ced163ce24f70017ef6762ba5f842717724386e9d38ea84b570050a7d9"
     }
   ],
   "inputPatterns": [

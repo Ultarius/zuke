@@ -178,7 +178,7 @@ void main() {
   test('index parser rejects malformed schemas, IDs, inputs, and paths', () {
     final digest = 'sha256:${List.filled(64, 'a').join()}';
     final valid = <String, Object?>{
-      'schemaVersion': ZukeIndex.schemaVersion,
+      'kind': ZukeIndex.kind,
       'inputDigest': digest,
       'generatedManifestDigest': digest,
       'generatedManifestPath': 'manifest.json',
@@ -190,7 +190,7 @@ void main() {
       'bindingIds': ['binding-1'],
     };
     final invalid = <Map<String, Object?>>[
-      {...valid, 'schemaVersion': 'unknown'},
+      {...valid, 'kind': 'unknown'},
       {...valid, 'inputDigest': ''},
       {
         ...valid,

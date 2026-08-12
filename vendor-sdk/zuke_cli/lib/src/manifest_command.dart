@@ -21,6 +21,7 @@ class ManifestCommand {
     String keyId = 'default',
     String profile = 'release',
   }) async {
+    _rejectLegacyHistoryLayout(root);
     _requireCleanRepository(root);
     final workspaceRoot = Directory(
       Directory(root).absolute.resolveSymbolicLinksSync(),
@@ -119,7 +120,9 @@ class ManifestCommand {
     };
     final existingHead = await _verifiedHead(root);
     if (existingHead != null) {
-      final headFile = File('$root/assurance-history/records/$existingHead.json');
+      final headFile = File(
+        '$root/assurance-history/records/$existingHead.json',
+      );
       if (headFile.existsSync()) {
         final head = Map<String, Object?>.from(
           jsonDecode(headFile.readAsStringSync()) as Map,
@@ -199,7 +202,9 @@ class ManifestCommand {
       (f) => f.path.endsWith('.json'),
     )) {
       final value = jsonDecode(file.readAsStringSync());
-      if (value is! Map) throw StateError('Invalid current record: ${file.path}');
+      if (value is! Map) {
+        throw StateError('Invalid current record: ${file.path}');
+      }
       final record = Map<String, Object?>.from(value);
       if (!await TrustedReleaseVerifier().verify(
         record,
@@ -224,7 +229,9 @@ class ManifestCommand {
       }
     }
     final heads = records.keys.where((id) => !referenced.contains(id)).toList();
-    if (heads.length > 1) throw StateError('Multiple record chain heads: $heads');
+    if (heads.length > 1) {
+      throw StateError('Multiple record chain heads: $heads');
+    }
     if (records.isNotEmpty && heads.isEmpty) {
       throw StateError('Record chain has a cycle and no head');
     }
@@ -237,6 +244,7 @@ class ManifestCommand {
     bool current = false,
     bool requireHistory = false,
   }) async {
+    _rejectLegacyHistoryLayout(root);
     final selected = head ?? await _verifiedHead(root);
     if (selected == null) return !current && !requireHistory;
     final dir = Directory('$root/assurance-history/records');
@@ -266,9 +274,7 @@ class ManifestCommand {
       final body = Map<String, Object?>.from(record['body'] as Map);
       if (body['repositoryState'] != _gitState(root)) return false;
       final workspace = WorkspaceDiscovery().discover(root);
-      final lock = File(
-        resolveProfileLockPath(root, workspace, 'release'),
-      );
+      final lock = File(resolveProfileLockPath(root, workspace, 'release'));
       if (!lock.existsSync() ||
           body['lockDigest'] !=
               sha256.convert(lock.readAsBytesSync()).toString()) {
@@ -321,11 +327,8 @@ class ManifestCommand {
     }
   }
 
-  static Future<void> export(
-    String root,
-    String output, {
-    String? head,
-  }) async {
+  static Future<void> export(String root, String output, {String? head}) async {
+    _rejectLegacyHistoryLayout(root);
     final selected = head ?? await _verifiedHead(root);
     final chain = <Object?>[];
     var current = selected;
@@ -354,6 +357,30 @@ class ManifestCommand {
     } catch (_) {
       return 'unknown';
     }
+  }
+
+  static void _rejectLegacyHistoryLayout(String root) {
+    final legacyPaths =
+        <String>[
+              '$root/assurance-history/legacy-v2-untrusted',
+              '$root/assurance-history/legacy-untrusted',
+              '$root/assurance-history/manifests',
+              '$root/assurance-history/trust/verifier.json',
+              '$root/assurance-history/export.json',
+              '$root/assurance-history/v2',
+            ]
+            .where(
+              (path) =>
+                  FileSystemEntity.typeSync(path) !=
+                  FileSystemEntityType.notFound,
+            )
+            .toList();
+    if (legacyPaths.isEmpty) return;
+    throw FormatException(
+      'ZK-HISTORY-LEGACY-FORMAT: legacy assurance history was found at '
+      '${legacyPaths.join(', ')}. Move it out of assurance-history and '
+      'regenerate current records using docs/migration.md.',
+    );
   }
 
   static void _requireCleanRepository(String root) {

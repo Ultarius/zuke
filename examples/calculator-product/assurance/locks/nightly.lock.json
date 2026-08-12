@@ -4,7 +4,7 @@
   "selectedScenarioIds": [
     "SCN-CALC-P95"
   ],
-  "selectionDigest": "sha256:c90868dcc745d4db5fa30f9574989ab3fb11fe8fe0b43b669af66aceb546ef82",
+  "selectionDigest": "sha256:a9dd8e6ad4c3eef948cf6deddb3f05463e3ab6a3a0ab406613f7160e9df67061",
   "engineVersion": "0.1.0",
   "workspace": "calculator-product",
   "policy": {

@@ -22,9 +22,9 @@ class ScenarioSelector {
   ) {
     final profileConfig = workspace.config.executionConfig[profile];
     if (profileConfig is! Map) {
-      // Older workspaces can have runners without profile declarations. They
-      // retain their runner-owned selection semantics until they opt in.
-      return ScenarioSelection.legacy(profile);
+      // A runner may intentionally own selection when no tag expression is
+      // configured. This is a current execution mode, not a legacy format.
+      return ScenarioSelection.runnerManaged(profile);
     }
     final expression = profileConfig['tagExpression'];
     if (expression is! String || expression.trim().isEmpty) {
@@ -85,7 +85,7 @@ class ScenarioSelector {
 /// written only after all configured runners have succeeded, alongside the
 /// evidence observation; it is never an input that can make a later run pass.
 class ScenarioSelection {
-  static const schemaVersion = 'zuke.scenario-selection.v1';
+  static const kind = 'zuke.scenario-selection';
 
   final String profile;
   final String? tagExpression;
@@ -100,17 +100,18 @@ class ScenarioSelection {
        scenarioIds = List.unmodifiable([...scenarioIds]..sort()),
        digest = _digest(profile, tagExpression, scenarioIds);
 
-  const ScenarioSelection._legacy(this.profile)
+  const ScenarioSelection._runnerManaged(this.profile)
     : tagExpression = null,
       scenarioIds = const [],
-      digest = 'sha256:legacy-runner-selection';
+      digest = 'sha256:runner-managed-selection';
 
-  factory ScenarioSelection.legacy(String profile) =>
-      ScenarioSelection._legacy(profile);
+  factory ScenarioSelection.runnerManaged(String profile) =>
+      ScenarioSelection._runnerManaged(profile);
 
   Map<String, Object?> toJson() => {
-    'schemaVersion': schemaVersion,
+    'kind': kind,
     'profile': profile,
+    if (tagExpression == null) 'selectionMode': 'runner-managed',
     if (tagExpression != null) 'tagExpression': tagExpression,
     'scenarioIds': scenarioIds,
     'digest': digest,
@@ -132,7 +133,7 @@ class ScenarioSelection {
     List<String> scenarioIds,
   ) {
     final body = <String, Object?>{
-      'schemaVersion': schemaVersion,
+      'kind': kind,
       'profile': profile,
       'tagExpression': expression,
       'scenarioIds': [...scenarioIds]..sort(),

@@ -43,7 +43,7 @@ void main() {
         ]);
 
         expect(result.exitCode, 0);
-        expect(result.stdout, contains('"schemaVersion"'));
+        expect(result.stdout, contains('"kind": "zuke.adapter-fragment"'));
       },
     );
   });

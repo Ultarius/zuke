@@ -743,6 +743,9 @@ dart run zuke_cli:zuke validate --profile pullRequest
 dart run zuke_cli:zuke lock --profile pullRequest
 dart run zuke_cli:zuke lock --profile pullRequest --check
 dart run zuke_cli:zuke gate --profile pullRequest
+# Remove only repository-local test/temp_* directories; use --dry-run first if needed.
+dart run zuke_cli:zuke clean --root vendor-sdk/zuke_cli --dry-run
+dart run zuke_cli:zuke clean --root vendor-sdk/zuke_cli
 # For one or more workspaces, run isolated stages and emit one JSON envelope.
 dart run zuke_cli:zuke check --root examples/calculator-product --root examples/shopping_cart --profile pullRequest --jobs 2
 ```
@@ -757,6 +760,7 @@ dart run zuke_cli:zuke check --root examples/calculator-product --root examples/
   `--all-profiles` for the official four-profile set).
 - **`gate`**: Combines validation, clean generation checks, test execution if evidence is missing, lock checking, and release trust checks into a single command.
 - **`check`**: Runs generation, configured runners, validation, lock synchronization, and an observational report for each supplied root. Roots can run concurrently; `--format json` emits exactly one `zuke.check.v1` document.
+- **`clean`**: Removes only directories matching `test/temp_*` beneath the supplied root. It does not remove source, locks, generated contracts, evidence, caches, or build output. Use `--dry-run` to preview.
 
 ### Pull-request CI example
 

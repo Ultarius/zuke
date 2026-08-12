@@ -23,6 +23,7 @@ import 'attestation_command.dart';
 import 'generator.dart';
 import 'proof_engine.dart';
 import 'report_command.dart';
+import 'clean_command.dart';
 import 'process_supervisor.dart';
 import 'tool_invocation.dart';
 import 'watch_coordinator.dart';
@@ -260,6 +261,15 @@ class ZukeCli {
           ..addOption('summary-file'),
       )
       ..addCommand(
+        'clean',
+        ArgParser()
+          ..addOption('root', abbr: 'r', help: 'Directory to clean')
+          ..addFlag(
+            'dry-run',
+            help: 'List test temporary directories without removing them',
+          ),
+      )
+      ..addCommand(
         'init',
         ArgParser()
           ..addOption('root', abbr: 'r')
@@ -340,6 +350,8 @@ class ZukeCli {
           return await GenerateCommand(command).execute();
         case 'doctor':
           return await _runDoctor(command);
+        case 'clean':
+          return CleanCommand(command).execute();
         case 'extract':
           if (command.command?.name == 'dart') {
             return await ExtractDartCommand(command.command!).execute();
@@ -450,6 +462,7 @@ Usage:
   zuke attestation create           Create a signed external-control attestation
   zuke gateway canonicalize-apim    Canonicalize APIM gateway evidence
   zuke doctor       Diagnose project setup
+  zuke clean        Remove Zuke test temporary directories
   zuke init         Create a starter configuration
   zuke watch        Run generation and validation once
   zuke affected     List requirements affected by a git change
@@ -943,26 +956,24 @@ Future<void> main(List<String> arguments) => zuke.build(arguments);
           final runnerSourceAdapter = runner['sourceAdapter']?.toString();
           final runnerSourceCompatibilityId = runner['sourceCompatibilityId']
               ?.toString();
-          if (workspace.config.schemaVersion >= 3 &&
-              (runnerTarget == null ||
-                  runnerTarget.isEmpty ||
-                  runnerSourcePackage == null ||
-                  runnerSourcePackage.isEmpty ||
-                  runnerSourceAdapter == null ||
-                  runnerSourceAdapter.isEmpty ||
-                  runnerSourceCompatibilityId == null ||
-                  runnerSourceCompatibilityId.isEmpty)) {
+          if (runnerTarget == null ||
+              runnerTarget.isEmpty ||
+              runnerSourcePackage == null ||
+              runnerSourcePackage.isEmpty ||
+              runnerSourceAdapter == null ||
+              runnerSourceAdapter.isEmpty ||
+              runnerSourceCompatibilityId == null ||
+              runnerSourceCompatibilityId.isEmpty) {
             throw StateError(
-              'V3 runner $runnerId must declare target, sourcePackage, '
+              'Runner $runnerId must declare target, sourcePackage, '
               'sourceAdapter, and sourceCompatibilityId',
             );
           }
-          if (workspace.config.schemaVersion >= 3 &&
-              !_targetContainsPackage(
-                workspace,
-                runnerTarget!,
-                runnerSourcePackage!,
-              )) {
+          if (!_targetContainsPackage(
+            workspace,
+            runnerTarget,
+            runnerSourcePackage,
+          )) {
             throw StateError(
               'Runner $runnerId source package $runnerSourcePackage is not '
               'configured for target $runnerTarget',
@@ -1016,13 +1027,10 @@ Future<void> main(List<String> arguments) => zuke.build(arguments);
                   'ZUKE_RESULT_DIR': resultDirectory.path,
                   'ZUKE_RUNNER_ID': runnerId,
                   'ZUKE_PROFILE': profile,
-                  if (runnerTarget != null) 'ZUKE_TARGET': runnerTarget,
-                  if (runnerSourcePackage != null)
-                    'ZUKE_SOURCE_PACKAGE': runnerSourcePackage,
-                  if (runnerSourceAdapter != null)
-                    'ZUKE_SOURCE_ADAPTER': runnerSourceAdapter,
-                  if (runnerSourceCompatibilityId != null)
-                    'ZUKE_SOURCE_COMPATIBILITY_ID': runnerSourceCompatibilityId,
+                  'ZUKE_TARGET': runnerTarget,
+                  'ZUKE_SOURCE_PACKAGE': runnerSourcePackage,
+                  'ZUKE_SOURCE_ADAPTER': runnerSourceAdapter,
+                  'ZUKE_SOURCE_COMPATIBILITY_ID': runnerSourceCompatibilityId,
                   if (scenarioFilter.isNotEmpty)
                     'ZUKE_SCENARIO_FILTER': scenarioFilter.join(','),
                   'ZUKE_SELECTION_DIGEST': selection.digest,
@@ -1308,7 +1316,7 @@ Future<void> main(List<String> arguments) => zuke.build(arguments);
               .toList()
             ..sort();
       final observation = <String, Object?>{
-        'schemaVersion': 'zuke.evidence-observation.v1',
+        'kind': 'zuke.evidence-observation',
         'profile': profile,
         'observedAt': DateTime.now().toUtc().toIso8601String(),
         'recordDigests': recordDigests,

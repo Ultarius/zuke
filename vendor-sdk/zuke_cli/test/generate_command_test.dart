@@ -282,10 +282,7 @@ String finderFor(FeatTest001FlutterBinding binding) => switch (binding) {
         expect(await _run(root), 0);
         final index = File('${root.path}/.zuke/analyzer-index.json');
         expect(index.existsSync(), isTrue);
-        expect(
-          jsonDecode(index.readAsStringSync())['schemaVersion'],
-          ZukeIndex.schemaVersion,
-        );
+        expect(jsonDecode(index.readAsStringSync())['kind'], ZukeIndex.kind);
 
         final feature = File('${root.path}/specs/features/fixture.feature');
         feature.writeAsStringSync('${feature.readAsStringSync()}\n# changed\n');

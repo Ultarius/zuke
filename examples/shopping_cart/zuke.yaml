@@ -73,6 +73,8 @@ evidence:
   records: generated/evidence/records
   observations: generated/evidence/runs
   includeSourceCode: false
+  types:
+    gherkin-ui: {mode: record}
 
 trust:
   bundle: assurance-history/trust/ed25519.json

@@ -21,13 +21,15 @@ void main() {
   });
 
   test('rejects path dependencies and retired identities', () {
-    File('${root.path}/vendor-sdk/zuke_frontend/pubspec.yaml')
-        .writeAsStringSync(
-          'name: zuke_frontend\nversion: 0.2.0\nresolution: workspace\n'
-          'dependencies:\n  yaml:\n    path: ../yaml\n',
-        );
-    File('${root.path}/docs/current.md')
-        .writeAsStringSync('import `package:spec_runtime/runtime.dart`;\n');
+    File(
+      '${root.path}/vendor-sdk/zuke_frontend/pubspec.yaml',
+    ).writeAsStringSync(
+      'name: zuke_frontend\nversion: 0.2.0\nresolution: workspace\n'
+      'dependencies:\n  yaml:\n    path: ../yaml\n',
+    );
+    File(
+      '${root.path}/docs/current.md',
+    ).writeAsStringSync('import `package:spec_runtime/runtime.dart`;\n');
 
     final failures = DocumentationChecker(root).check().join('\n');
 
@@ -36,23 +38,26 @@ void main() {
   });
 
   test('rejects unclassified Dart fences and source drift', () {
-    File('${root.path}/docs/integration-guide.md')
-        .writeAsStringSync('```dart\nvoid main() {}\n```\n');
+    File(
+      '${root.path}/docs/integration-guide.md',
+    ).writeAsStringSync('```dart\nvoid main() {}\n```\n');
     expect(
       DocumentationChecker(root).check().join('\n'),
       contains('Dart fence needs snippet=<name> or pseudocode'),
     );
 
-    File('${root.path}/docs/integration-guide.md')
-        .writeAsStringSync('```dart snippet=sample\nvoid documented() {}\n```\n');
-    final fixture = File(
-      '${root.path}/examples/shopping_cart/test/guide_snippets/sample.dart',
-    )
-      ..parent.createSync(recursive: true)
-      ..writeAsStringSync(
-        '// guide-snippet:sample:start\nvoid source() {}\n'
-        '// guide-snippet:sample:end\n',
-      );
+    File(
+      '${root.path}/docs/integration-guide.md',
+    ).writeAsStringSync('```dart snippet=sample\nvoid documented() {}\n```\n');
+    final fixture =
+        File(
+            '${root.path}/examples/shopping_cart/test/guide_snippets/sample.dart',
+          )
+          ..parent.createSync(recursive: true)
+          ..writeAsStringSync(
+            '// guide-snippet:sample:start\nvoid source() {}\n'
+            '// guide-snippet:sample:end\n',
+          );
     expect(fixture.existsSync(), isTrue);
     expect(
       DocumentationChecker(root).check().join('\n'),
@@ -61,10 +66,12 @@ void main() {
   });
 
   test('rejects an invalid YAML fence and missing tier contract', () {
-    File('${root.path}/docs/integration-guide.md')
-        .writeAsStringSync('```yaml\nkey: [\n```\n');
-    File('${root.path}/vendor-sdk/zuke_runner/README.md')
-        .writeAsStringSync('# zuke_runner\n');
+    File(
+      '${root.path}/docs/integration-guide.md',
+    ).writeAsStringSync('```yaml\nkey: [\n```\n');
+    File(
+      '${root.path}/vendor-sdk/zuke_runner/README.md',
+    ).writeAsStringSync('# zuke_runner\n');
 
     final failures = DocumentationChecker(root).check().join('\n');
 
@@ -86,6 +93,20 @@ void main() {
     );
     expect(DocumentationChecker(root).check(), isEmpty);
   });
+
+  test('rejects versioned current artifact discriminators in active libraries', () {
+    final fixture = File('${root.path}/vendor-sdk/zuke_core/lib/src/current.dart')
+      ..parent.createSync(recursive: true)
+      ..writeAsStringSync(
+        "Map<String, Object?> toJson() => {'schemaVersion': 'zuke.current.v1'};\n",
+      );
+
+    expect(fixture.existsSync(), isTrue);
+    expect(
+      DocumentationChecker(root).check().join('\n'),
+      contains('current Zuke artifacts must use an unversioned kind'),
+    );
+  });
 }
 
 void _writeBaseline(Directory root) {
@@ -95,7 +116,8 @@ void _writeBaseline(Directory root) {
       'previousVersion': '0.2.1',
       'action': 'publish',
       'tier': 'Shared infrastructure',
-      'support': 'Supported Zuke infrastructure dependency; applications normally use a primary SDK package.',
+      'support':
+          'Supported Zuke infrastructure dependency; applications normally use a primary SDK package.',
     },
     'zuke_annotations': {
       'version': '0.3.0',
@@ -144,7 +166,8 @@ void _writeBaseline(Directory root) {
       'previousVersion': '0.3.1',
       'action': 'publish',
       'tier': 'Specialized SDK',
-      'support': 'Supported CLI for generation, extraction, validation, locks, and gates.',
+      'support':
+          'Supported CLI for generation, extraction, validation, locks, and gates.',
     },
     'zuke_dart_build_hook': {
       'version': '0.3.0',
@@ -165,7 +188,8 @@ void _writeBaseline(Directory root) {
       'previousVersion': '0.1.0',
       'action': 'internal',
       'tier': 'Repository tooling',
-      'support': 'Repository-only conformance tooling; not published to pub.dev.',
+      'support':
+          'Repository-only conformance tooling; not published to pub.dev.',
     },
     'zuke_test_support': {
       'version': '0.1.0',
@@ -179,7 +203,8 @@ void _writeBaseline(Directory root) {
       'previousVersion': '0.1.0',
       'action': 'internal',
       'tier': 'Repository tooling',
-      'support': 'Repository-only verification tooling; not published to pub.dev.',
+      'support':
+          'Repository-only verification tooling; not published to pub.dev.',
     },
   };
   final paths = <String>[];
@@ -195,8 +220,9 @@ void _writeBaseline(Directory root) {
       'name: ${entry.key}\nversion: ${value['version']}\n'
       'resolution: workspace\n${internal ? 'publish_to: none\n' : ''}',
     );
-    File('${directory.path}/README.md')
-        .writeAsStringSync('# ${entry.key}\n${value['support']}\n');
+    File(
+      '${directory.path}/README.md',
+    ).writeAsStringSync('# ${entry.key}\n${value['support']}\n');
     matrix
       ..writeln('  ${entry.key}:')
       ..writeln('    version: ${value['version']}')
@@ -210,9 +236,9 @@ void _writeBaseline(Directory root) {
       publicationOrder.add(entry.key);
     }
   }
-  File('${root.path}/pubspec.yaml').writeAsStringSync(
-    'workspace:\n${paths.join('\n')}\n',
-  );
+  File(
+    '${root.path}/pubspec.yaml',
+  ).writeAsStringSync('workspace:\n${paths.join('\n')}\n');
   File('${root.path}/README.md').writeAsStringSync('# root\n');
   Directory('${root.path}/docs').createSync(recursive: true);
   File('${root.path}/docs/release-matrix.yaml').writeAsStringSync(
@@ -220,12 +246,14 @@ void _writeBaseline(Directory root) {
     '${publicationOrder.map((name) => '  - $name').join('\n')}\n',
   );
   File('${root.path}/docs/integration-guide.md').writeAsStringSync('# guide\n');
-  File('${root.path}/docs/migration.md').writeAsStringSync('''# Migrating to the Current Zuke Release
+  File('${root.path}/docs/migration.md').writeAsStringSync(
+    '''# Migrating to the Current Zuke Release
 
 Previous package versions pinned until ready to migrate.
 schema 3 sourcePackage sourceAdapter assurance/locks/pullRequest.lock.json
 regenerate retired package
-''');
+''',
+  );
   Directory('${root.path}/examples').createSync(recursive: true);
   Directory('${root.path}/.github').createSync(recursive: true);
 }

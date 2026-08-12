@@ -172,7 +172,7 @@ class IrAdapterOutput {
   List<String> get errors => diagnostics.map((d) => d.message).toList();
 
   Map<String, Object?> toJson() => {
-    'schemaVersion': 'zuke.adapter-output.v1',
+    'kind': 'zuke.adapter-output',
     'adapter': adapter.toJson(),
     'completeness': completeness.toJson(),
     'symbols': symbols.map((s) => s.toJson()).toList(),

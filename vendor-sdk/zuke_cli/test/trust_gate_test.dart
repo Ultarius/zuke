@@ -109,11 +109,11 @@ dependency_overrides:
   zuke_frontend:
     path: '${Directory.current.path.replaceAll('\\', '/')}/vendor-sdk/zuke_frontend'
 ''');
-      final pubGet = await Process.run(
-        Platform.resolvedExecutable,
-        ['pub', 'get', '--offline'],
-        workingDirectory: tempDir.path,
-      );
+      final pubGet = await Process.run(Platform.resolvedExecutable, [
+        'pub',
+        'get',
+        '--offline',
+      ], workingDirectory: tempDir.path);
       if (pubGet.exitCode != 0) {
         throw Exception('pub get failed: ${pubGet.stdout}\n${pubGet.stderr}');
       }

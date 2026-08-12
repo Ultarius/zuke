@@ -61,7 +61,7 @@ open a new terminal before continuing.
 
 ### 1. Add Dependencies
 
-The supported hosted V2 tuple is defined by `docs/release-matrix.yaml`. The
+The supported hosted package tuple is defined by `docs/release-matrix.yaml`. The
 public release surface contains nine packages: `zuke_core` 0.3.0,
 `zuke_annotations` 0.3.0, `zuke_frontend` 0.2.0, `zuke` 0.3.0,
 `zuke_runner` 0.3.0, `zuke_runner_flutter` 0.3.0, `zuke_http_runtime` 0.1.1,

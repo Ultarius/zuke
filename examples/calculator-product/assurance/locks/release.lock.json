@@ -21,7 +21,7 @@
     "SCN-CALC-SUBTRACT",
     "SCN-CALC-UNEXPECTED-FAILURE"
   ],
-  "selectionDigest": "sha256:046464c9e6594d6da422fa619e32cd7a24a8a4f04875de16036ebcc0d991af78",
+  "selectionDigest": "sha256:5fb6995760bc5d2729a52f1ed73ade13b27a1783121c2f4b37e836698e85be4c",
   "engineVersion": "0.1.0",
   "workspace": "calculator-product",
   "policy": {

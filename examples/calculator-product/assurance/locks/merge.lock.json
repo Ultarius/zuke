@@ -19,7 +19,7 @@
     "SCN-CALC-RATE-LIMIT",
     "SCN-CALC-SUBTRACT"
   ],
-  "selectionDigest": "sha256:1423eb9d06e4ddd7d371e89c9b8c039b6faa7c5b375a34080ad14f2c82b72257",
+  "selectionDigest": "sha256:7b99568145c5403e0044485d74f451e11b48ddb2cfaa7c35d18bc9f4a5ce147f",
   "engineVersion": "0.1.0",
   "workspace": "calculator-product",
   "policy": {

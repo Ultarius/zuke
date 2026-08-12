@@ -31,7 +31,7 @@ final class ZukeIndexFreshnessIssue {
 /// The index is never assurance evidence: it only allows local tooling to
 /// reject stale mappings before a CLI validation run.
 class ZukeIndex {
-  static const schemaVersion = 'zuke.analyzer-index.v2';
+  static const kind = 'zuke.analyzer-index';
 
   final String inputDigest;
   final String generatedManifestDigest;
@@ -138,7 +138,7 @@ class ZukeIndex {
   }
 
   factory ZukeIndex.fromJson(Map<Object?, Object?> json) {
-    if (json['schemaVersion'] != schemaVersion) {
+    if (json['kind'] != kind) {
       throw const FormatException('Unsupported Zuke analyzer index schema');
     }
     String requiredString(String field) {
@@ -204,7 +204,7 @@ class ZukeIndex {
   );
 
   Map<String, Object?> toJson() => {
-    'schemaVersion': schemaVersion,
+    'kind': kind,
     'inputDigest': inputDigest,
     'generatedManifestDigest': generatedManifestDigest,
     'generatedManifestPath': generatedManifestPath,
@@ -385,7 +385,7 @@ class ZukeIndex {
   ) => _sha256(
     utf8.encode(
       _canonicalJson({
-        'schemaVersion': schemaVersion,
+        'kind': kind,
         'inputs': (inputs.map((input) => input.toJson()).toList()
           ..sort(
             (left, right) =>

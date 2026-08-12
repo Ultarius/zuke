@@ -46,6 +46,7 @@ class DocumentationChecker {
     _checkRetiredPackages(matrix, failures);
     _checkLockDocumentation(failures);
     _checkCurrentProductLanguage(failures);
+    _checkCurrentArtifactDiscriminators(failures);
     return failures;
   }
 
@@ -64,7 +65,9 @@ class DocumentationChecker {
       }
       final rawPackages = decoded['packages'];
       if (rawPackages is! Map) {
-        throw const FormatException('release matrix packages must be a mapping');
+        throw const FormatException(
+          'release matrix packages must be a mapping',
+        );
       }
       final packages = <String, _PackageRelease>{};
       for (final entry in rawPackages.entries) {
@@ -98,6 +101,7 @@ class DocumentationChecker {
           }
           return item;
         }
+
         final publish = value['publish'];
         if (publish is! bool) {
           throw FormatException('$name publish must be true or false');
@@ -106,12 +110,15 @@ class DocumentationChecker {
         if (!const {'publish', 'reuse', 'internal'}.contains(action)) {
           throw FormatException('$name has unsupported releaseAction $action');
         }
-        if (publish && action == 'internal' || !publish && action != 'internal') {
+        if (publish && action == 'internal' ||
+            !publish && action != 'internal') {
           throw FormatException('$name publish/releaseAction disagree');
         }
         final version = requiredString('version');
         final previousVersion = requiredString('previousVersion');
-        final versionPattern = RegExp(r'^\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?$');
+        final versionPattern = RegExp(
+          r'^\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?$',
+        );
         if (!versionPattern.hasMatch(version) ||
             !versionPattern.hasMatch(previousVersion)) {
           throw FormatException('$name has a malformed semantic version');
@@ -391,7 +398,9 @@ class DocumentationChecker {
       final relative = _relative(pubspec);
       final release = matrix.packages[entry.key];
       if (release == null) {
-        failures.add('${entry.key}: active SDK package is missing from the release matrix');
+        failures.add(
+          '${entry.key}: active SDK package is missing from the release matrix',
+        );
         continue;
       }
       final packageYaml = loadYaml(contents);
@@ -432,16 +441,25 @@ class DocumentationChecker {
           if (dependency.value is Map &&
               (dependency.value as Map).containsKey('path')) {
             if (release.publish) {
-              failures.add('$relative: published package must not use a path dependency for ${dependency.key}');
+              failures.add(
+                '$relative: published package must not use a path dependency for ${dependency.key}',
+              );
             }
           }
           final dependencyName = dependency.key.toString();
           final dependencyRelease = matrix.packages[dependencyName];
-          if (release.publish && dependencyRelease != null && !dependencyRelease.publish) {
-            failures.add('$relative: published package depends on internal package $dependencyName');
+          if (release.publish &&
+              dependencyRelease != null &&
+              !dependencyRelease.publish) {
+            failures.add(
+              '$relative: published package depends on internal package $dependencyName',
+            );
           }
-          if (release.publish && matrix.retiredPackages.contains(dependencyName)) {
-            failures.add('$relative: published package depends on retired package $dependencyName');
+          if (release.publish &&
+              matrix.retiredPackages.contains(dependencyName)) {
+            failures.add(
+              '$relative: published package depends on retired package $dependencyName',
+            );
           }
         }
       }
@@ -451,13 +469,17 @@ class DocumentationChecker {
     final matrixNames = matrix.packages.keys.toSet();
     final missingFromMatrix = activeNames.difference(matrixNames);
     for (final name in missingFromMatrix) {
-      failures.add('$name: active SDK package is missing from the release matrix');
+      failures.add(
+        '$name: active SDK package is missing from the release matrix',
+      );
     }
-    final missingFromWorkspace = matrixNames.difference(activeNames).where(
-      (name) => !matrix.retiredPackages.contains(name),
-    );
+    final missingFromWorkspace = matrixNames
+        .difference(activeNames)
+        .where((name) => !matrix.retiredPackages.contains(name));
     for (final name in missingFromWorkspace) {
-      failures.add('$name: release-matrix package is not an active workspace package');
+      failures.add(
+        '$name: release-matrix package is not an active workspace package',
+      );
     }
 
     final expectedOrder = matrix.packages.values
@@ -520,7 +542,8 @@ class DocumentationChecker {
         if (raw is! Map) continue;
         for (final dependency in raw.keys) {
           final dependencyName = dependency.toString();
-          if (packages.containsKey(dependencyName)) dependencies.add(dependencyName);
+          if (packages.containsKey(dependencyName))
+            dependencies.add(dependencyName);
           final dependencyRelease = matrix.packages[dependencyName];
           if (release.publish &&
               dependencyRelease != null &&
@@ -535,9 +558,14 @@ class DocumentationChecker {
 
       final lib = Directory('${entry.value.path}${Platform.pathSeparator}lib');
       if (!lib.existsSync()) continue;
-      for (final file in lib.listSync(recursive: true, followLinks: false).whereType<File>()) {
+      for (final file
+          in lib
+              .listSync(recursive: true, followLinks: false)
+              .whereType<File>()) {
         final contents = file.readAsStringSync();
-        final imports = RegExp(r"package:([A-Za-z0-9_]+?)/").allMatches(contents);
+        final imports = RegExp(
+          r"package:([A-Za-z0-9_]+?)/",
+        ).allMatches(contents);
         for (final match in imports) {
           final imported = match.group(1)!;
           if (matrix.retiredPackages.contains(imported)) {
@@ -582,15 +610,13 @@ class DocumentationChecker {
       }
       visiting.remove(packageName);
     }
+
     for (final packageName in graph.keys) {
       visit(packageName, const []);
     }
   }
 
-  void _checkRetiredPackages(
-    _ReleaseMatrix matrix,
-    List<String> failures,
-  ) {
+  void _checkRetiredPackages(_ReleaseMatrix matrix, List<String> failures) {
     for (final name in matrix.retiredPackages) {
       final directory = Directory(
         '${root.path}${Platform.pathSeparator}vendor-sdk${Platform.pathSeparator}$name',
@@ -609,7 +635,9 @@ class DocumentationChecker {
 
   void _checkLockDocumentation(List<String> failures) {
     final legacyLock = RegExp(r'\bzuke\.lock(?:\.v\d+|\.json)\b');
-    final missingProfile = RegExp(r'\bzuke\s+lock\b(?![^\n]*(?:--profile|--all-profiles))');
+    final missingProfile = RegExp(
+      r'\bzuke\s+lock\b(?![^\n]*(?:--profile|--all-profiles))',
+    );
     for (final file in _allFiles().where((file) {
       final path = file.path.toLowerCase();
       return path.endsWith('.md') ||
@@ -619,11 +647,15 @@ class DocumentationChecker {
       final relative = _relative(file);
       final contents = file.readAsStringSync();
       if (legacyLock.hasMatch(contents)) {
-        failures.add('$relative: legacy/versioned lock names are forbidden; use assurance/locks/<profile>.lock.json');
+        failures.add(
+          '$relative: legacy/versioned lock names are forbidden; use assurance/locks/<profile>.lock.json',
+        );
       }
       for (final line in contents.split('\n')) {
         if (missingProfile.hasMatch(line)) {
-          failures.add('$relative: zuke lock commands must specify --profile or --all-profiles');
+          failures.add(
+            '$relative: zuke lock commands must specify --profile or --all-profiles',
+          );
         }
       }
     }
@@ -650,7 +682,9 @@ class DocumentationChecker {
         'retired package',
       ]) {
         if (!contents.toLowerCase().contains(required.toLowerCase())) {
-          failures.add('docs/migration.md is missing required migration guidance: $required');
+          failures.add(
+            'docs/migration.md is missing required migration guidance: $required',
+          );
         }
       }
     }
@@ -661,7 +695,10 @@ class DocumentationChecker {
       RegExp(r'\bv2\.dart\b', caseSensitive: false),
       RegExp(r'\bzuke\.lock\.v\d+\b', caseSensitive: false),
       RegExp(r'assurance-history/v2', caseSensitive: false),
-      RegExp(r'\bV2\s+(?:SDK|primary|contracts?|workspace|product|release|history|facade|result)', caseSensitive: false),
+      RegExp(
+        r'\bV2\s+(?:SDK|primary|contracts?|workspace|product|release|history|facade|result)',
+        caseSensitive: false,
+      ),
     ];
     for (final file in _allFiles().where((candidate) {
       final relative = _relative(candidate).toLowerCase();
@@ -672,8 +709,7 @@ class DocumentationChecker {
       }
       if (relative.contains('/test/') ||
           relative == 'vendor-sdk/check_docs.dart' ||
-          relative.endsWith('changelog.md') ||
-          relative.contains('/legacy-v2-untrusted/')) {
+          relative.endsWith('changelog.md')) {
         return false;
       }
       return true;
@@ -682,8 +718,31 @@ class DocumentationChecker {
       final contents = file.readAsStringSync();
       for (final pattern in forbidden) {
         if (pattern.hasMatch(contents)) {
-          failures.add('$relative: product-facing legacy/V2 terminology is forbidden (${pattern.pattern})');
+          failures.add(
+            '$relative: product-facing legacy/V2 terminology is forbidden (${pattern.pattern})',
+          );
         }
+      }
+    }
+  }
+
+  void _checkCurrentArtifactDiscriminators(List<String> failures) {
+    final versioned = RegExp(
+      r'''['"]schemaVersion['"]\s*:\s*['"]zuke\.[^'"]+\.v\d+['"]''',
+    );
+    for (final file in _allFiles().where((candidate) {
+      final relative = _relative(candidate).replaceAll('\\', '/');
+      return relative.startsWith('vendor-sdk/') &&
+          relative.endsWith('.dart') &&
+          !relative.contains('/test/') &&
+          relative != 'vendor-sdk/check_docs.dart';
+    })) {
+      final relative = _relative(file);
+      if (versioned.hasMatch(file.readAsStringSync())) {
+        failures.add(
+          '$relative: current Zuke artifacts must use an unversioned kind, '
+          'not a versioned schemaVersion discriminator',
+        );
       }
     }
   }

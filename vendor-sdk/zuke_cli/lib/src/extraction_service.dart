@@ -48,7 +48,8 @@ class ExtractionService {
         if (packages is! List) continue;
         for (final package in packages) {
           if (package is! Map || package['path'] is! String) continue;
-          final packageId = package['id'] as String? ?? package['path'] as String;
+          final packageId =
+              package['id'] as String? ?? package['path'] as String;
           final packageDirectory = Directory(
             _join(root, package['path'] as String),
           );
@@ -77,12 +78,16 @@ class ExtractionService {
             // Keeping this bridge here prevents a successful adapter run from
             // becoming diagnostics-only evidence.
             outputs.add(_topologyAdapterOutput(topology, packageRoot));
-            errors.addAll(topology.diagnostics
-                .where((diagnostic) =>
-                    diagnostic.severity == DiagnosticSeverity.error)
-                .map(
-                  (diagnostic) => '${diagnostic.code}: ${diagnostic.message}',
-                ));
+            errors.addAll(
+              topology.diagnostics
+                  .where(
+                    (diagnostic) =>
+                        diagnostic.severity == DiagnosticSeverity.error,
+                  )
+                  .map(
+                    (diagnostic) => '${diagnostic.code}: ${diagnostic.message}',
+                  ),
+            );
           }
           final cacheKey = _sourceDigest(
             packageRoot,
@@ -187,13 +192,12 @@ class ExtractionService {
     AdapterOutput output,
     String packageRoot,
   ) {
-    CompletenessValue completeness(CompletenessStatus status) => switch (
-      status
-    ) {
-      CompletenessStatus.complete => CompletenessValue.complete,
-      CompletenessStatus.indeterminate => CompletenessValue.indeterminate,
-      CompletenessStatus.incomplete => CompletenessValue.notVisible,
-    };
+    CompletenessValue completeness(CompletenessStatus status) =>
+        switch (status) {
+          CompletenessStatus.complete => CompletenessValue.complete,
+          CompletenessStatus.indeterminate => CompletenessValue.indeterminate,
+          CompletenessStatus.incomplete => CompletenessValue.notVisible,
+        };
 
     final nodes = <IrNode>[];
     final edges = <IrEdge>[];
@@ -220,37 +224,39 @@ class ExtractionService {
     final routeNodes = output.nodes
         .where((node) => node.kind == 'route' || node.kind == 'websocket-route')
         .toList();
-    final middlewareNodes = output.nodes
-        .where((node) => node.kind == 'middleware')
-        .toList()
-      ..sort((left, right) =>
-          ((left.attributes['incomingOrder'] as int?) ?? 0).compareTo(
-            (right.attributes['incomingOrder'] as int?) ?? 0,
-          ));
-    for (final alias in output.nodes.where((node) => node.kind == 'route-alias')) {
+    final middlewareNodes =
+        output.nodes.where((node) => node.kind == 'middleware').toList()..sort(
+          (left, right) => ((left.attributes['incomingOrder'] as int?) ?? 0)
+              .compareTo((right.attributes['incomingOrder'] as int?) ?? 0),
+        );
+    for (final alias in output.nodes.where(
+      (node) => node.kind == 'route-alias',
+    )) {
       final target = alias.attributes['target'];
       if (target is String) {
-        edges.add(IrEdge(
-          sourceId: alias.id,
-          targetId: target,
-          kind: EdgeKind.routesTo,
-        ));
+        edges.add(
+          IrEdge(sourceId: alias.id, targetId: target, kind: EdgeKind.routesTo),
+        );
       }
     }
     if (middlewareNodes.isNotEmpty) {
       for (final route in routeNodes) {
-        edges.add(IrEdge(
-          sourceId: route.id,
-          targetId: middlewareNodes.first.id,
-          kind: EdgeKind.precedes,
-        ));
+        edges.add(
+          IrEdge(
+            sourceId: route.id,
+            targetId: middlewareNodes.first.id,
+            kind: EdgeKind.precedes,
+          ),
+        );
       }
       for (var index = 1; index < middlewareNodes.length; index++) {
-        edges.add(IrEdge(
-          sourceId: middlewareNodes[index - 1].id,
-          targetId: middlewareNodes[index].id,
-          kind: EdgeKind.precedes,
-        ));
+        edges.add(
+          IrEdge(
+            sourceId: middlewareNodes[index - 1].id,
+            targetId: middlewareNodes[index].id,
+            kind: EdgeKind.precedes,
+          ),
+        );
       }
     }
     return IrAdapterOutput(
@@ -261,14 +267,18 @@ class ExtractionService {
       ),
       completeness: IrAdapterCompleteness(
         graph: GraphCompleteness(
-          routeRegistration: completeness(output.completeness.routeRegistration),
+          routeRegistration: completeness(
+            output.completeness.routeRegistration,
+          ),
           middlewareOrder: completeness(output.completeness.middlewareOrder),
           failureFlow: completeness(output.completeness.failureFlow),
           logFlow: completeness(output.completeness.logFlow),
           dynamicRegistration: completeness(
             output.completeness.dynamicRegistration,
           ),
-          externalVisibility: completeness(output.completeness.externalVisibility),
+          externalVisibility: completeness(
+            output.completeness.externalVisibility,
+          ),
         ),
       ),
       symbols: const [],
@@ -292,14 +302,18 @@ class ExtractionService {
         nodes: nodes,
         edges: edges,
         completeness: GraphCompleteness(
-          routeRegistration: completeness(output.completeness.routeRegistration),
+          routeRegistration: completeness(
+            output.completeness.routeRegistration,
+          ),
           middlewareOrder: completeness(output.completeness.middlewareOrder),
           failureFlow: completeness(output.completeness.failureFlow),
           logFlow: completeness(output.completeness.logFlow),
           dynamicRegistration: completeness(
             output.completeness.dynamicRegistration,
           ),
-          externalVisibility: completeness(output.completeness.externalVisibility),
+          externalVisibility: completeness(
+            output.completeness.externalVisibility,
+          ),
         ),
       ),
     );
@@ -370,7 +384,7 @@ class ExtractionService {
     if (!file.existsSync()) return null;
     try {
       final value = jsonDecode(file.readAsStringSync());
-      if (value is! Map || value['schemaVersion'] != 'zuke.cache.v1') {
+      if (value is! Map || value['kind'] != 'zuke.cache') {
         return null;
       }
       final adapterMap = value['adapter'];
@@ -533,7 +547,7 @@ class ExtractionService {
     final temporary = File('${file.path}.tmp');
     temporary.writeAsStringSync(
       const JsonEncoder.withIndent('  ').convert({
-            'schemaVersion': 'zuke.cache.v1',
+            'kind': 'zuke.cache',
             'adapter': {
               'id': output.adapter.id,
               'version': output.adapter.version,

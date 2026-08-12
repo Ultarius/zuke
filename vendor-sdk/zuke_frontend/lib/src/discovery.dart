@@ -10,6 +10,7 @@ import 'metadata_extractor.dart';
 class ZukeConfig {
   /// Configuration schema. Current consumers should use schema 3.
   final int schemaVersion;
+
   /// Workspace root override.
   final String? root;
 
@@ -94,10 +95,7 @@ class ZukeConfig {
   });
 
   /// Parses [yamlContent] into workspace configuration.
-  static ZukeConfig fromYaml(
-    String yamlContent, {
-    String? root,
-  }) {
+  static ZukeConfig fromYaml(String yamlContent, {String? root}) {
     final doc = loadYaml(yamlContent) as Map?;
     if (doc == null) {
       throw const FormatException(
@@ -243,7 +241,9 @@ class ZukeConfig {
       requiredTargetString('framework');
       final packages = target['packages'];
       if (packages is! List || packages.isEmpty) {
-        throw FormatException('target $targetId requires a non-empty packages list');
+        throw FormatException(
+          'target $targetId requires a non-empty packages list',
+        );
       }
       final ids = <String>{};
       for (final item in packages) {
@@ -254,19 +254,28 @@ class ZukeConfig {
         final path = item['path'];
         final roots = item['roots'];
         if (id is! String || id.trim().isEmpty || !ids.add(id)) {
-          throw FormatException('target $targetId packages require unique non-empty id values');
+          throw FormatException(
+            'target $targetId packages require unique non-empty id values',
+          );
         }
         if (path is! String || path.trim().isEmpty) {
-          throw FormatException('target $targetId package $id requires a non-empty path');
+          throw FormatException(
+            'target $targetId package $id requires a non-empty path',
+          );
         }
-        if (roots is! List || roots.any((root) => root is! String || root.isEmpty)) {
-          throw FormatException('target $targetId package $id requires string roots');
+        if (roots is! List ||
+            roots.any((root) => root is! String || root.isEmpty)) {
+          throw FormatException(
+            'target $targetId package $id requires string roots',
+          );
         }
       }
     }
     if (targetPackages.length != targets.length ||
         targetFrameworks.length != targets.length) {
-      throw const FormatException('Current targets must declare stable package and framework identities');
+      throw const FormatException(
+        'Current targets must declare stable package and framework identities',
+      );
     }
 
     final runners = execution['runners'];
@@ -280,9 +289,16 @@ class ZukeConfig {
         }
         final id = item['id'];
         if (id is! String || id.trim().isEmpty) {
-          throw const FormatException('execution runner requires a non-empty id');
+          throw const FormatException(
+            'execution runner requires a non-empty id',
+          );
         }
-        for (final key in ['target', 'sourcePackage', 'sourceAdapter', 'sourceCompatibilityId']) {
+        for (final key in [
+          'target',
+          'sourcePackage',
+          'sourceAdapter',
+          'sourceCompatibilityId',
+        ]) {
           final value = item[key];
           if (value is! String || value.trim().isEmpty) {
             throw FormatException('runner $id requires non-empty $key');
@@ -291,13 +307,19 @@ class ZukeConfig {
         final target = item['target'] as String;
         final sourcePackage = item['sourcePackage'] as String;
         final packages = targetPackages[target];
-        if (packages == null || !packages.any((package) => package['id'] == sourcePackage)) {
-          throw FormatException('runner $id sourcePackage $sourcePackage is not in target $target');
+        if (packages == null ||
+            !packages.any((package) => package['id'] == sourcePackage)) {
+          throw FormatException(
+            'runner $id sourcePackage $sourcePackage is not in target $target',
+          );
         }
         final evidenceTypes = item['evidenceTypes'];
         if (evidenceTypes != null &&
-            (evidenceTypes is! List || evidenceTypes.any((type) => type is! String || type.isEmpty))) {
-          throw FormatException('runner $id evidenceTypes must be string values');
+            (evidenceTypes is! List ||
+                evidenceTypes.any((type) => type is! String || type.isEmpty))) {
+          throw FormatException(
+            'runner $id evidenceTypes must be string values',
+          );
         }
       }
     }
@@ -311,9 +333,15 @@ class ZukeConfig {
         final value = entry.value;
         if (value is! Map ||
             value['mode'] is! String ||
-            !const {'record', 'scenario-record', 'control-backed', 'attestation'}
-                .contains(value['mode'])) {
-          throw FormatException('evidence type ${entry.key} has an unsupported mode');
+            !const {
+              'record',
+              'scenario-record',
+              'control-backed',
+              'attestation',
+            }.contains(value['mode'])) {
+          throw FormatException(
+            'evidence type ${entry.key} has an unsupported mode',
+          );
         }
       }
     }
@@ -323,7 +351,9 @@ class ZukeConfig {
     // section is present.
     if (lock.isEmpty) return;
     if (lock.containsKey('file')) {
-      throw const FormatException('Current lock configuration must not use lock.file; use the official profile lock directory');
+      throw const FormatException(
+        'Current lock configuration must not use lock.file; use the official profile lock directory',
+      );
     }
     final directory = lock['directory'];
     if (directory is! String ||
@@ -335,7 +365,9 @@ class ZukeConfig {
     }
     if (lockProfiles.toSet().length != lockProfiles.length ||
         lockProfiles.any((profile) => profile.trim().isEmpty)) {
-      throw const FormatException('Current lock profiles must be unique non-empty strings');
+      throw const FormatException(
+        'Current lock profiles must be unique non-empty strings',
+      );
     }
   }
 
@@ -523,9 +555,7 @@ class WorkspaceDiscovery {
       }
     }
 
-    if (config.schemaVersion >= 3) {
-      _validateV3EvidenceRequirements(config, features, errors);
-    }
+    _validateEvidenceRequirements(config, features, errors);
 
     final inputPatterns = <String>{
       ...config.featurePatterns,
@@ -555,7 +585,7 @@ class WorkspaceDiscovery {
     );
   }
 
-  void _validateV3EvidenceRequirements(
+  void _validateEvidenceRequirements(
     ZukeConfig config,
     List<ParsedFeature> features,
     List<String> errors,
@@ -581,8 +611,13 @@ class WorkspaceDiscovery {
           final sourcePackage = slot['sourcePackage'];
           final sourceAdapter = slot['sourceAdapter'];
           final variant = slot['variant'];
-          if ([type, target, sourcePackage, sourceAdapter, variant]
-              .any((value) => value == null || value.isEmpty)) {
+          if ([
+            type,
+            target,
+            sourcePackage,
+            sourceAdapter,
+            variant,
+          ].any((value) => value == null || value.isEmpty)) {
             errors.add(
               '${rule.metadata.id ?? rule.ruleElement.title}: incomplete V3 evidence slot',
             );
@@ -593,7 +628,8 @@ class WorkspaceDiscovery {
               '${rule.metadata.id ?? rule.ruleElement.title}: unknown evidence type $type',
             );
           }
-          final packageConfigured = config.targetPackages[target]?.any(
+          final packageConfigured =
+              config.targetPackages[target]?.any(
                 (package) => package['id'] == sourcePackage,
               ) ??
               false;

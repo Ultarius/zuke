@@ -1,7 +1,7 @@
 import '../assurance_ir.dart';
 
 class CanonicalFragment {
-  final String schemaVersion;
+  final String kind;
   final AdapterDescriptor adapter;
   final String packageName;
   final String packageRoot;
@@ -11,7 +11,7 @@ class CanonicalFragment {
   final IrGraph? graph;
 
   const CanonicalFragment({
-    required this.schemaVersion,
+    required this.kind,
     required this.adapter,
     required this.packageName,
     required this.packageRoot,
@@ -40,7 +40,7 @@ class CanonicalFragment {
       }
     }
     return CanonicalFragment(
-      schemaVersion: 'zuke.trace.v1',
+      kind: 'zuke.adapter-fragment',
       adapter: output.adapter,
       packageName: packageName,
       packageRoot: normalizedRoot,
@@ -52,7 +52,7 @@ class CanonicalFragment {
   }
 
   Map<String, Object?> toJson() => {
-    'schemaVersion': schemaVersion,
+    'kind': kind,
     'adapter': {
       'id': adapter.id,
       'version': adapter.version,

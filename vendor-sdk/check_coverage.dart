@@ -451,7 +451,7 @@ class CoverageReport {
       packages.every((package) => package.passed);
 
   Map<String, Object?> toJson() => {
-    'schemaVersion': 'zuke.coverage.v1',
+    'kind': 'zuke.coverage',
     'threshold': _threshold,
     'aggregate': {
       'covered': covered,

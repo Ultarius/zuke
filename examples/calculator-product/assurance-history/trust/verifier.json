@@ -1,5 +1,0 @@
-{
-  "schemaVersion": 1,
-  "algorithm": "HMAC-SHA256",
-  "keyId": "local-development-key"
-}

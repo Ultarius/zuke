@@ -38,7 +38,9 @@ void main() {
             id: 'implementation:testSymbol',
             kind: 'implementation',
             name: 'testSymbol',
-            attributes: {'requirementIds': ['RULE-TEST-001']},
+            attributes: {
+              'requirementIds': ['RULE-TEST-001'],
+            },
           ),
         ],
       );
@@ -106,11 +108,11 @@ void main() {
           isA<FormatException>().having(
             (e) => e.message,
             'message',
-        anyOf(
-          contains('non-empty'),
-          contains('Evidence'),
-          contains('Unknown evidence status'),
-        ),
+            anyOf(
+              contains('non-empty'),
+              contains('Evidence'),
+              contains('Unknown evidence status'),
+            ),
           ),
         ),
       );
@@ -417,7 +419,7 @@ void main() {
         output,
         workspaceRoot: '/workspace',
       ).toJson();
-      expect(trace['schemaVersion'], 'zuke.trace.v1');
+      expect(trace['kind'], 'zuke.adapter-fragment');
       expect(trace['package'], {'name': 'fixture', 'root': 'fixture'});
       expect((trace['inputs'] as Map)['digest'], 'sha256:0123456789abcdef');
       expect(trace['completeness'], isA<Map>());
