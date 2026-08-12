@@ -31,72 +31,101 @@ final class DartFrogAdapter implements FrameworkAdapter {
     try {
       configuration = buildRouteConfiguration(Directory(request.packageRoot));
     } catch (error) {
-      return _failed(request, diagnostics, 'ZK-DART-FROG-001',
-          'Unable to build Dart Frog route configuration: $error');
+      return _failed(
+        request,
+        diagnostics,
+        'ZK-DART-FROG-001',
+        'Unable to build Dart Frog route configuration: $error',
+      );
     }
 
     var routeComplete = configuration.rogueRoutes.isEmpty;
-    for (final entry in configuration.endpoints.entries.toList()
-      ..sort((a, b) => a.key.compareTo(b.key))) {
+    for (final entry
+        in configuration.endpoints.entries.toList()
+          ..sort((a, b) => a.key.compareTo(b.key))) {
       if (entry.value.length != 1) {
         routeComplete = false;
-        diagnostics.add(_error('ZK-DART-FROG-002',
-            'Conflicting Dart Frog route registration for ${entry.key}'));
+        diagnostics.add(
+          _error(
+            'ZK-DART-FROG-002',
+            'Conflicting Dart Frog route registration for ${entry.key}',
+          ),
+        );
       }
       for (final routeFile in entry.value) {
         final resolved = _resolveRoutePath(request.packageRoot, routeFile.path);
         if (resolved == null) {
           routeComplete = false;
-          diagnostics.add(_error('ZK-DART-FROG-PATH-001',
-              'Unsupported Dart Frog route path: ${routeFile.path}'));
+          diagnostics.add(
+            _error(
+              'ZK-DART-FROG-PATH-001',
+              'Unsupported Dart Frog route path: ${routeFile.path}',
+            ),
+          );
           continue;
         }
         final source = File(resolved);
         final exists = source.existsSync();
         if (!exists) {
           routeComplete = false;
-          diagnostics.add(_error('ZK-DART-FROG-003',
-              'Dart Frog route handler could not be resolved: ${routeFile.path}'));
+          diagnostics.add(
+            _error(
+              'ZK-DART-FROG-003',
+              'Dart Frog route handler could not be resolved: ${routeFile.path}',
+            ),
+          );
         }
         final transport = exists
             ? await _classifyTransport(resolved, request)
             : const _TransportResult(kind: 'route', complete: false);
         diagnostics.addAll(transport.diagnostics);
         final nodeId = _nodeId(request, 'route', entry.key);
-        nodes.add(TopologyNode(
-          id: nodeId,
-          kind: transport.kind == 'websocket' ? 'websocket-route' : 'route',
-          name: routeFile.name,
-          path: routeFile.path,
-          attributes: {
-            'route': entry.key,
-            'parameters': routeFile.params,
-            'wildcard': routeFile.wildcard,
-            'alias': routeFile.name,
-            'handlerResolved': exists,
-            'transport': transport.kind,
-            'transportResolved': transport.complete,
-          },
-        ));
-        nodes.add(TopologyNode(
-          id: _nodeId(request, 'route-alias', '${entry.key}|${routeFile.path}'),
-          kind: 'route-alias',
-          name: routeFile.name,
-          path: routeFile.path,
-          attributes: {'route': entry.key, 'target': nodeId},
-        ));
+        nodes.add(
+          TopologyNode(
+            id: nodeId,
+            kind: transport.kind == 'websocket' ? 'websocket-route' : 'route',
+            name: routeFile.name,
+            path: routeFile.path,
+            attributes: {
+              'route': entry.key,
+              'parameters': routeFile.params,
+              'wildcard': routeFile.wildcard,
+              'alias': routeFile.name,
+              'handlerResolved': exists,
+              'transport': transport.kind,
+              'transportResolved': transport.complete,
+            },
+          ),
+        );
+        nodes.add(
+          TopologyNode(
+            id: _nodeId(
+              request,
+              'route-alias',
+              '${entry.key}|${routeFile.path}',
+            ),
+            kind: 'route-alias',
+            name: routeFile.name,
+            path: routeFile.path,
+            attributes: {'route': entry.key, 'target': nodeId},
+          ),
+        );
       }
     }
     for (final route in configuration.rogueRoutes) {
       routeComplete = false;
-      diagnostics.add(_error('ZK-DART-FROG-004',
-          'Rogue Dart Frog route is not part of the generated topology: ${route.path}'));
+      diagnostics.add(
+        _error(
+          'ZK-DART-FROG-004',
+          'Rogue Dart Frog route is not part of the generated topology: ${route.path}',
+        ),
+      );
     }
 
     final middleware = await _extractMiddleware(request, configuration, nodes);
     diagnostics.addAll(middleware.diagnostics);
-    final customEntrypoint = configuration.invokeCustomEntrypoint ||
-        configuration.invokeCustomInit;
+    final customEntrypoint =
+        configuration.invokeCustomEntrypoint || configuration.invokeCustomInit;
     return AdapterOutput(
       targetId: request.targetId,
       packageId: request.packageId,
@@ -164,28 +193,40 @@ final class DartFrogAdapter implements FrameworkAdapter {
       final file = File(filePath);
       if (!file.existsSync()) {
         complete = false;
-        diagnostics.add(_error('ZK-DART-FROG-005',
-            'Dart Frog middleware file could not be resolved: $filePath'));
+        diagnostics.add(
+          _error(
+            'ZK-DART-FROG-005',
+            'Dart Frog middleware file could not be resolved: $filePath',
+          ),
+        );
         continue;
       }
-      final inspection = await _inspectMiddleware(filePath, request.packageRoot);
+      final inspection = await _inspectMiddleware(
+        filePath,
+        request.packageRoot,
+      );
       complete = complete && inspection.complete;
       diagnostics.addAll(inspection.diagnostics);
       for (var index = 0; index < inspection.calls.length; index++) {
         final call = inspection.calls[index];
         final name = call.name;
-        nodes.add(TopologyNode(
-          id: _nodeId(request, 'middleware',
-              '${path.relative(filePath, from: request.packageRoot)}|$name'),
-          kind: 'middleware',
-          name: name,
-          path: path.relative(filePath, from: request.packageRoot),
-          attributes: {
-            'incomingOrder': index,
-            'chainResolved': true,
-            if (call.controlId != null) 'controlId': call.controlId,
-          },
-        ));
+        nodes.add(
+          TopologyNode(
+            id: _nodeId(
+              request,
+              'middleware',
+              '${path.relative(filePath, from: request.packageRoot)}|$name',
+            ),
+            kind: 'middleware',
+            name: name,
+            path: path.relative(filePath, from: request.packageRoot),
+            attributes: {
+              'incomingOrder': index,
+              'chainResolved': true,
+              if (call.controlId != null) 'controlId': call.controlId,
+            },
+          ),
+        );
       }
     }
     return _MiddlewareResult(complete: complete, diagnostics: diagnostics);
@@ -338,10 +379,12 @@ final class DartFrogAdapter implements FrameworkAdapter {
       final name = argument == null ? null : _middlewareName(argument);
       if (name == null) {
         complete = false;
-        diagnostics.add(_warning(
-          'ZK-DART-FROG-009',
-          'Dart Frog middleware use argument is dynamic or unsupported: $filePath',
-        ));
+        diagnostics.add(
+          _warning(
+            'ZK-DART-FROG-009',
+            'Dart Frog middleware use argument is dynamic or unsupported: $filePath',
+          ),
+        );
         continue;
       }
       calls.add(_MiddlewareCall(name: name, controlId: controls[name]));
@@ -406,16 +449,21 @@ final class DartFrogAdapter implements FrameworkAdapter {
 
   String? _resolveRoutePath(String packageRoot, String generatedPath) {
     final normalized = generatedPath.replaceAll('\\', '/');
-    final segments = normalized.split('/')..removeWhere((segment) => segment.isEmpty);
+    final segments = normalized.split('/')
+      ..removeWhere((segment) => segment.isEmpty);
     if (segments.length < 3 || segments[0] != '..' || segments[1] != 'routes') {
       return null;
     }
     final relative = segments.sublist(2);
-    if (relative.any((segment) => segment == '..' || segment == '.')) return null;
+    if (relative.any((segment) => segment == '..' || segment == '.')) {
+      return null;
+    }
     final root = path.normalize(path.join(packageRoot, 'routes'));
     final resolved = path.normalize(path.joinAll([root, ...relative]));
     final rootWithSeparator = '$root${path.separator}';
-    if (resolved != root && !resolved.startsWith(rootWithSeparator)) return null;
+    if (resolved != root && !resolved.startsWith(rootWithSeparator)) {
+      return null;
+    }
     return resolved;
   }
 
@@ -423,22 +471,24 @@ final class DartFrogAdapter implements FrameworkAdapter {
       '${request.targetId}/${request.packageId}/$kind/$name';
 
   Diagnostic _error(String code, String message) => Diagnostic(
-        code: code,
-        stage: 'extract',
-        severity: DiagnosticSeverity.error,
-        owner: DiagnosticOwner.zuke,
-        message: message,
-        remediation: 'Resolve the Dart Frog topology or mark the dimension indeterminate.',
-      );
+    code: code,
+    stage: 'extract',
+    severity: DiagnosticSeverity.error,
+    owner: DiagnosticOwner.zuke,
+    message: message,
+    remediation:
+        'Resolve the Dart Frog topology or mark the dimension indeterminate.',
+  );
 
   Diagnostic _warning(String code, String message) => Diagnostic(
-        code: code,
-        stage: 'extract',
-        severity: DiagnosticSeverity.warning,
-        owner: DiagnosticOwner.zuke,
-        message: message,
-        remediation: 'Resolve the Dart Frog topology or retain the affected dimension as indeterminate.',
-      );
+    code: code,
+    stage: 'extract',
+    severity: DiagnosticSeverity.warning,
+    owner: DiagnosticOwner.zuke,
+    message: message,
+    remediation:
+        'Resolve the Dart Frog topology or retain the affected dimension as indeterminate.',
+  );
 }
 
 final class _TransportResult {

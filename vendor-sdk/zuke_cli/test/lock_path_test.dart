@@ -11,10 +11,7 @@ void main() {
       profileLockRelativePath('nightly'),
       'assurance/locks/nightly.lock.json',
     );
-    expect(
-      () => profileLockRelativePath('legacy'),
-      throwsArgumentError,
-    );
+    expect(() => profileLockRelativePath('legacy'), throwsArgumentError);
   });
 
   test('exposes the legacy root path only for rejection checks', () {

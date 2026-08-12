@@ -11,6 +11,11 @@ void main() {
       const FlutterBindingKey.single('todo.add'),
       isNot(equals(const FlutterBindingKey.collection('todo.add'))),
     );
+    expect(const FlutterBindingKey.single('todo.add').hashCode, isNotNull);
+    expect(
+      const FlutterBindingKey.single('todo.add').toString(),
+      contains('todo.add'),
+    );
   });
 
   test('collection item keys are unique and remain in their family', () {
@@ -41,6 +46,8 @@ void main() {
     expect(reordered, containsAll([first, second]));
     expect(reordered.where(family.matches), hasLength(2));
     expect([second].where(family.matches), contains(second));
+    expect(first.hashCode, isNotNull);
+    expect(first.toString(), contains('todo.taskText'));
   });
 
   test('empty typed binding IDs are rejected in checked mode', () {

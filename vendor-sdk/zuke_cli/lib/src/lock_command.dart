@@ -35,7 +35,8 @@ class LockCommand {
   LockCommand(this.args);
 
   Future<int> execute() async {
-    final allProfiles = args.options.contains('all-profiles') &&
+    final allProfiles =
+        args.options.contains('all-profiles') &&
         (args['all-profiles'] as bool? ?? false);
     if (allProfiles) {
       var result = 0;
@@ -56,7 +57,8 @@ class LockCommand {
           '--profile',
           profile,
           if (args['check'] as bool? ?? false) '--check',
-          if (args.options.contains('quiet') && (args['quiet'] as bool? ?? false))
+          if (args.options.contains('quiet') &&
+              (args['quiet'] as bool? ?? false))
             '--quiet',
         ];
         result |= await LockCommand(profileArgs.parse(values)).execute();

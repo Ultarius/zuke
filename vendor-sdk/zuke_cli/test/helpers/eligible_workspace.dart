@@ -113,14 +113,22 @@ dependency_overrides:
   zuke_core:
     path: '$repositoryRoot/vendor-sdk/zuke_core'
 ''');
-  final pubGet = await Process.run(
-    Platform.resolvedExecutable,
-    ['--suppress-analytics', 'pub', 'get', '--offline'],
-    workingDirectory: tempDir.path,
-  );
+  final pubGet = await Process.run(Platform.resolvedExecutable, [
+    '--suppress-analytics',
+    'pub',
+    'get',
+    '--offline',
+  ], workingDirectory: tempDir.path);
   if (pubGet.exitCode != 0) {
-    throw StateError('Fixture pub get failed: ${pubGet.stdout}\n${pubGet.stderr}');
+    throw StateError(
+      'Fixture pub get failed: ${pubGet.stdout}\n${pubGet.stderr}',
+    );
   }
+
+  // A consumer repository does not track Pub's generated package metadata.
+  // Keeping it ignored also makes clean-repository release tests resilient to
+  // a later pub/test process refreshing package_graph.json.
+  File('${tempDir.path}/.gitignore').writeAsStringSync('.dart_tool/\n');
 
   // 4. Feature file
   final featureDir = Directory('${tempDir.path}/specs/features')
@@ -252,8 +260,9 @@ File _workspacePackageConfig() {
       '${directory.path}${Platform.pathSeparator}.dart_tool${Platform.pathSeparator}package_config.json',
     );
     if (packageConfig.existsSync() &&
-        File('${directory.path}${Platform.pathSeparator}melos.yaml')
-            .existsSync()) {
+        File(
+          '${directory.path}${Platform.pathSeparator}melos.yaml',
+        ).existsSync()) {
       return packageConfig;
     }
     final parent = directory.parent;

@@ -189,17 +189,25 @@ class CoverageChecker {
   }
 
   bool _isPureReexport(File file) {
+    var inMultilineExport = false;
     for (final line in file.readAsLinesSync()) {
       final trimmed = line.trim();
+      if (inMultilineExport) {
+        if (trimmed.contains(';')) inMultilineExport = false;
+        continue;
+      }
       if (trimmed.isEmpty ||
           trimmed.startsWith('//') ||
           trimmed.startsWith('/*') ||
           trimmed.startsWith('*') ||
           trimmed.startsWith('*/') ||
           trimmed.startsWith('import ') ||
-          trimmed.startsWith('export ') ||
           trimmed.startsWith('library;') ||
           trimmed.startsWith('library ')) {
+        continue;
+      }
+      if (trimmed.startsWith('export ')) {
+        inMultilineExport = !trimmed.contains(';');
         continue;
       }
       return false;
@@ -220,7 +228,9 @@ class CoverageChecker {
       final normalized = file.path.replaceAll('\\', '/');
       if (!normalized.endsWith('.dart') ||
           normalized.endsWith('.g.dart') ||
-          normalized.contains('/generated/')) {
+          normalized.contains('/generated/') ||
+          _isCoverageIgnored(file) ||
+          _isPureReexport(file)) {
         continue;
       }
       for (final line in file.readAsLinesSync()) {

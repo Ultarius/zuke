@@ -439,7 +439,7 @@ void main() {
 }
 
 Directory _workspace({
-String runners = '''
+  String runners = '''
     - id: unit-runner
       kind: setup
       target: backend
@@ -474,11 +474,13 @@ execution:
   runners:
 $runners
 ''');
-  File('${root.path}${Platform.pathSeparator}pubspec.yaml').writeAsStringSync('''
+  File('${root.path}${Platform.pathSeparator}pubspec.yaml').writeAsStringSync(
+    '''
 name: fake_supervisor
 environment:
   sdk: '>=3.0.0 <4.0.0'
-''');
+''',
+  );
   final features = Directory(
     '${root.path}${Platform.pathSeparator}specs${Platform.pathSeparator}features',
   )..createSync(recursive: true);
@@ -560,12 +562,9 @@ final class _ResultSupervisor implements ProcessSupervisor {
     final directory = request.environment['ZUKE_RESULT_DIR']!;
     for (var index = 0; index < artifacts.length; index++) {
       final json = switch (artifacts[index]) {
-        ScenarioResult value => value
-            .withSourceIdentity(_runnerIdentity)
-            .toJson(),
-        SuiteResult value => value
-            .withSourceIdentity(_runnerIdentity)
-            .toJson(),
+        ScenarioResult value =>
+          value.withSourceIdentity(_runnerIdentity).toJson(),
+        SuiteResult value => value.withSourceIdentity(_runnerIdentity).toJson(),
         _ => throw StateError('Unsupported test artifact'),
       };
       File(

@@ -46,9 +46,7 @@ class ManifestCommand {
         'Signer is not active in assurance-history/trust/ed25519.json',
       );
     }
-    final lock = File(
-      resolveProfileLockPath(workspaceRoot.path, profile),
-    );
+    final lock = File(resolveProfileLockPath(workspaceRoot.path, profile));
     if (!lock.existsSync()) {
       throw const FormatException('A current zuke lock is required');
     }

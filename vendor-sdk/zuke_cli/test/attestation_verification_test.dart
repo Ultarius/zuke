@@ -364,9 +364,7 @@ class _SignerFixture {
     final algorithm = Ed25519();
     final keyPair = await algorithm.newKeyPairFromSeed(_seed);
     final publicKey = await keyPair.extractPublicKey();
-    final trustFile = File(
-      '${root.path}/assurance-history/trust/ed25519.json',
-    );
+    final trustFile = File('${root.path}/assurance-history/trust/ed25519.json');
     trustFile.parent.createSync(recursive: true);
     trustFile.writeAsStringSync(
       jsonEncode({

@@ -56,6 +56,7 @@ trust:
     });
 
     Future<void> prepareWorkspace() async {
+      final workspaceRootPath = zukeWorkspaceRoot().path.replaceAll('\\', '/');
       final runnerExec = Platform.isWindows ? 'cmd' : 'true';
       final runnerArgs = Platform.isWindows ? ['/c', 'exit 0'] : <String>[];
       final yamlArgs = runnerArgs.isEmpty
@@ -94,20 +95,20 @@ environment:
   sdk: ">=3.10.0 <4.0.0"
 dependencies:
   zuke_core:
-    path: '${Directory.current.path.replaceAll('\\', '/')}/vendor-sdk/zuke_core'
+    path: '$workspaceRootPath/vendor-sdk/zuke_core'
   zuke:
-    path: '${Directory.current.path.replaceAll('\\', '/')}/vendor-sdk/zuke'
+    path: '$workspaceRootPath/vendor-sdk/zuke'
   zuke_annotations:
-    path: '${Directory.current.path.replaceAll('\\', '/')}/vendor-sdk/zuke_annotations'
+    path: '$workspaceRootPath/vendor-sdk/zuke_annotations'
   zuke_frontend:
-    path: '${Directory.current.path.replaceAll('\\', '/')}/vendor-sdk/zuke_frontend'
+    path: '$workspaceRootPath/vendor-sdk/zuke_frontend'
 dependency_overrides:
   zuke_core:
-    path: '${Directory.current.path.replaceAll('\\', '/')}/vendor-sdk/zuke_core'
+    path: '$workspaceRootPath/vendor-sdk/zuke_core'
   zuke_annotations:
-    path: '${Directory.current.path.replaceAll('\\', '/')}/vendor-sdk/zuke_annotations'
+    path: '$workspaceRootPath/vendor-sdk/zuke_annotations'
   zuke_frontend:
-    path: '${Directory.current.path.replaceAll('\\', '/')}/vendor-sdk/zuke_frontend'
+    path: '$workspaceRootPath/vendor-sdk/zuke_frontend'
 ''');
       final pubGet = await Process.run(Platform.resolvedExecutable, [
         'pub',

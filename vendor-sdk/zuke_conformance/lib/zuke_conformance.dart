@@ -18,8 +18,7 @@ abstract final class ZukeSchemaPaths {
       'package:zuke_conformance/schemas/ed25519-trust.schema.json';
 
   /// Zuke profile lock schema.
-  static const lock =
-      'package:zuke_conformance/schemas/zuke.lock.schema.json';
+  static const lock = 'package:zuke_conformance/schemas/zuke.lock.schema.json';
 
   /// All current schema package URIs.
   static const all = <String>[

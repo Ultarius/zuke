@@ -385,24 +385,24 @@ class ScenarioResult implements ExecutionResult {
       sourceCompatibilityId: sourceCompatibilityId,
     );
     return {
-    'kind': 'zuke.scenario-result',
-    'executionId': executionId,
-    'status': status.name,
-    'requirementId': requirementId,
-    'evidenceType': evidenceType,
-    'target': target,
-    'variant': variant,
-    'candidateId': candidateId,
-    'profile': profile,
-    'runnerId': runnerId,
-    'runnerCompatibilityId': runnerCompatibilityId,
-    ...identity.toJson(),
-    'scenarioIds': scenarioIds.map((id) => id.value).toList()..sort(),
-    'controlIds': [...controlIds]..sort(),
-    'attachmentDigests': [...attachmentDigests]..sort(),
-    'steps': steps.map((s) => s.toJson()).toList(),
-    if (error != null) 'error': error,
-  };
+      'kind': 'zuke.scenario-result',
+      'executionId': executionId,
+      'status': status.name,
+      'requirementId': requirementId,
+      'evidenceType': evidenceType,
+      'target': target,
+      'variant': variant,
+      'candidateId': candidateId,
+      'profile': profile,
+      'runnerId': runnerId,
+      'runnerCompatibilityId': runnerCompatibilityId,
+      ...identity.toJson(),
+      'scenarioIds': scenarioIds.map((id) => id.value).toList()..sort(),
+      'controlIds': [...controlIds]..sort(),
+      'attachmentDigests': [...attachmentDigests]..sort(),
+      'steps': steps.map((s) => s.toJson()).toList(),
+      if (error != null) 'error': error,
+    };
   }
 
   factory ScenarioResult.fromJson(Map<String, Object?> json) {
@@ -562,24 +562,24 @@ class SuiteResult implements ExecutionResult {
       sourceCompatibilityId: sourceCompatibilityId,
     );
     return {
-    'kind': 'zuke.suite-result',
-    'executionId': executionId,
-    'status': status.name,
-    'requirementId': requirementId,
-    'evidenceType': evidenceType,
-    'target': target,
-    'variant': variant,
-    'candidateId': candidateId,
-    'profile': profile,
-    'runnerId': runnerId,
-    'runnerCompatibilityId': runnerCompatibilityId,
-    ...identity.toJson(),
-    'resultDigest': resultDigest,
-    'scenarioIds': scenarioIds.map((id) => id.value).toList()..sort(),
-    'controlIds': [...controlIds]..sort(),
-    'attachmentDigests': [...attachmentDigests]..sort(),
-    if (error != null) 'error': error,
-  };
+      'kind': 'zuke.suite-result',
+      'executionId': executionId,
+      'status': status.name,
+      'requirementId': requirementId,
+      'evidenceType': evidenceType,
+      'target': target,
+      'variant': variant,
+      'candidateId': candidateId,
+      'profile': profile,
+      'runnerId': runnerId,
+      'runnerCompatibilityId': runnerCompatibilityId,
+      ...identity.toJson(),
+      'resultDigest': resultDigest,
+      'scenarioIds': scenarioIds.map((id) => id.value).toList()..sort(),
+      'controlIds': [...controlIds]..sort(),
+      'attachmentDigests': [...attachmentDigests]..sort(),
+      if (error != null) 'error': error,
+    };
   }
 
   factory SuiteResult.fromJson(Map<String, Object?> json) {
@@ -653,12 +653,11 @@ class ExecutionResultWriter {
     result.withSourceIdentity(identity).toJson(),
   );
 
-  File writeSuite(String directory, SuiteResult result) =>
-      _writeAtomic(
-        directory,
-        'suite-${result.executionId}',
-        result.withSourceIdentity(identity).toJson(),
-      );
+  File writeSuite(String directory, SuiteResult result) => _writeAtomic(
+    directory,
+    'suite-${result.executionId}',
+    result.withSourceIdentity(identity).toJson(),
+  );
 
   File? writeScenarioToEnvironment(ScenarioResult result) {
     final directory = Platform.environment['ZUKE_RESULT_DIR'];

@@ -7,15 +7,14 @@ void main() {
       () => ZukeConfig.fromYaml('schemaVersion: 2\ntargets: {}'),
       throwsFormatException,
     );
-    expect(
-      () => ZukeConfig.fromYaml('targets: {}'),
-      throwsFormatException,
-    );
+    expect(() => ZukeConfig.fromYaml('targets: {}'), throwsFormatException);
   });
 
-  test('requires stable target, package, runner, and profile-lock identities', () {
-    expect(
-      () => ZukeConfig.fromYaml('''
+  test(
+    'requires stable target, package, runner, and profile-lock identities',
+    () {
+      expect(
+        () => ZukeConfig.fromYaml('''
 schemaVersion: 3
 targets:
   backend:
@@ -36,18 +35,19 @@ lock:
   directory: assurance/locks
   profiles: [pullRequest]
 '''),
-      throwsFormatException,
-    );
-    expect(
-      () => ZukeConfig.fromYaml('''
+        throwsFormatException,
+      );
+      expect(
+        () => ZukeConfig.fromYaml('''
 schemaVersion: 3
 targets: {}
 lock:
   file: zuke.lock.json
 '''),
-      throwsFormatException,
-    );
-  });
+        throwsFormatException,
+      );
+    },
+  );
 
   test('accepts a complete V3 identity configuration', () {
     final config = ZukeConfig.fromYaml('''

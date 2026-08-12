@@ -61,7 +61,8 @@ class CheckCommand {
               if (stage.status == 'failed')
                 gateDiagnostic(
                   stage: stage.name,
-                  message: 'Check stage ${stage.name} failed for ${workspace.root}.',
+                  message:
+                      'Check stage ${stage.name} failed for ${workspace.root}.',
                   profile: profile,
                 ),
         ],
@@ -92,13 +93,12 @@ class CheckCommand {
   }
 
   Map<String, Object?> _safeWorkspaceJson(_WorkspaceResult result) => {
-        'root': result.root,
-        'status': result.status,
-        'stages': {
-          for (final stage in result.stages)
-            stage.name: {'status': stage.status},
-        },
-      };
+    'root': result.root,
+    'status': result.status,
+    'stages': {
+      for (final stage in result.stages) stage.name: {'status': stage.status},
+    },
+  };
 
   Future<_WorkspaceResult> _verify(
     String root, {

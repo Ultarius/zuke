@@ -110,12 +110,10 @@ providers:
         );
 
         _writeWorkspace(root, _completeProvider);
-        final trust = File(
-          '${root.path}/assurance-history/trust/ed25519.json',
-        );
+        final trust = File('${root.path}/assurance-history/trust/ed25519.json');
         trust.parent.createSync(recursive: true);
         trust.writeAsStringSync(
-        jsonEncode({'kind': 'zuke.ed25519-trust', 'keys': []}),
+          jsonEncode({'kind': 'zuke.ed25519-trust', 'keys': []}),
         );
         await expectLater(
           _currentCommand(root, evidence).create(),
@@ -134,9 +132,7 @@ providers:
           _completeProvider.replaceFirst('owner: team\n', ''),
         );
         final publicKey = List<int>.filled(32, 7);
-        final trust = File(
-          '${root.path}/assurance-history/trust/ed25519.json',
-        );
+        final trust = File('${root.path}/assurance-history/trust/ed25519.json');
         trust.parent.createSync(recursive: true);
         trust.writeAsStringSync(
           jsonEncode({
@@ -170,9 +166,7 @@ providers:
       final keyPair = await algorithm.newKeyPairFromSeed(_signingSeed);
       final publicKey = await keyPair.extractPublicKey();
       final fingerprint = 'sha256:${sha256.convert(publicKey.bytes)}';
-      final trust = File(
-        '${root.path}/assurance-history/trust/ed25519.json',
-      );
+      final trust = File('${root.path}/assurance-history/trust/ed25519.json');
       trust.parent.createSync(recursive: true);
       trust.writeAsStringSync(
         jsonEncode({

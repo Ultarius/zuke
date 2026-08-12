@@ -185,9 +185,9 @@ void main() {
 typedef Handler = Object Function(Object);
 Handler middleware(Handler handler) => handler;
 ''');
-        File('${routes.path}/index.dart').writeAsStringSync(
-          'Object onRequest(Object request) => Object();',
-        );
+        File(
+          '${routes.path}/index.dart',
+        ).writeAsStringSync('Object onRequest(Object request) => Object();');
         File('${tempDir.path}/pubspec.yaml').writeAsStringSync(
           'name: dart_frog_fixture\\nenvironment:\\n  sdk: \">=3.10.0 <3.11.0\"\\n',
         );
@@ -199,7 +199,11 @@ Handler middleware(Handler handler) => handler;
                 'language': 'dart',
                 'framework': 'dart-frog',
                 'packages': [
-                  {'id': 'backend', 'path': '.', 'roots': ['routes']},
+                  {
+                    'id': 'backend',
+                    'path': '.',
+                    'roots': ['routes'],
+                  },
                 ],
               },
             },

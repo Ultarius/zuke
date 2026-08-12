@@ -563,11 +563,15 @@ Feature: Failures
       throwsFormatException,
     );
     expect(
-      () => ScenarioResult.fromJson({...scenario, 'kind': 'zuke.scenario-result.legacy'}),
+      () => ScenarioResult.fromJson({
+        ...scenario,
+        'kind': 'zuke.scenario-result.legacy',
+      }),
       throwsFormatException,
     );
     expect(
-      () => SuiteResult.fromJson({...suite, 'kind': 'zuke.suite-result.legacy'}),
+      () =>
+          SuiteResult.fromJson({...suite, 'kind': 'zuke.suite-result.legacy'}),
       throwsFormatException,
     );
     expect(
@@ -657,16 +661,10 @@ Feature: Failures
     ], buildId: 'build-1');
     final scenarioFile = const ExecutionResultWriter(
       identity: _testIdentity,
-    ).writeScenario(
-      '${root.path}/results',
-      scenario,
-    );
+    ).writeScenario('${root.path}/results', scenario);
     final suiteFile = const ExecutionResultWriter(
       identity: _testIdentity,
-    ).writeSuite(
-      '${root.path}/results',
-      suite,
-    );
+    ).writeSuite('${root.path}/results', suite);
 
     expect(jsonDecode(scenarioFile.readAsStringSync()), scenario.toJson());
     expect(jsonDecode(suiteFile.readAsStringSync()), suite.toJson());

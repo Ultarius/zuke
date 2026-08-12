@@ -58,6 +58,26 @@ void main() {
       expect(first['missingSources'], isEmpty);
     });
 
+    test('excludes multiline pure re-export barrels from source inventory', () {
+      final package = _package(root, 'coverage_fixture');
+      File('${package.path}/lib/api.dart').writeAsStringSync('''
+export 'package:other/api.dart'
+    show PublicApi;
+''');
+      _writeLines(File('${package.path}/lib/reported.dart'), 201);
+      final coverage = Directory('${package.path}/coverage')..createSync();
+      File('${coverage.path}/lcov.info').writeAsStringSync(
+        'SF:${package.path.replaceAll('\\', '/')}/lib/reported.dart\n'
+        'DA:1,1\n'
+        'end_of_record\n',
+      );
+
+      final report = CoverageChecker(root.path).check();
+      final result = report.toJson()['packages'] as List<Object?>;
+      final first = result.single as Map<String, Object?>;
+      expect(first['missingSources'], isEmpty);
+    });
+
     test('rejects malformed coverage instead of silently ignoring it', () {
       final package = _package(root, 'coverage_fixture');
       _writeLines(File('${package.path}/lib/source.dart'), 201);

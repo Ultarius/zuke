@@ -11,14 +11,14 @@ final class EvidenceLedgerEntry {
   EvidenceLedgerEntry(this.record) : digest = _digest(record);
 
   static Sha256Digest _digest(EvidenceRecord record) => Sha256Digest.parse(
-        'sha256:${sha256.convert(utf8.encode(jsonEncode(record.toJson())))}',
-      );
+    'sha256:${sha256.convert(utf8.encode(jsonEncode(record.toJson())))}',
+  );
 
   Map<String, Object?> toJson() => {
-        'kind': 'zuke.ledger-entry',
-        'digest': digest.value,
-        'record': record.toJson(),
-      };
+    'kind': 'zuke.ledger-entry',
+    'digest': digest.value,
+    'record': record.toJson(),
+  };
 
   factory EvidenceLedgerEntry.fromJson(Map<Object?, Object?> json) {
     if (json['kind'] != 'zuke.ledger-entry') {
@@ -35,9 +35,7 @@ final class EvidenceLedgerEntry {
     if (rawRecord is! Map) {
       throw const FormatException('Ledger entry record is missing');
     }
-    final record = EvidenceRecord.fromJson(
-      rawRecord.cast<Object?, Object?>(),
-    );
+    final record = EvidenceRecord.fromJson(rawRecord.cast<Object?, Object?>());
     final expected = _digest(record);
     if (expected != digest) {
       throw const FormatException('Ledger entry digest mismatch');

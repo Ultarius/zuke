@@ -101,3 +101,28 @@ Future<ProcessResult> runInProcessCli(List<String> args) async {
     stderrBuffer.toString(),
   );
 }
+
+/// Finds the repository workspace even when a package test is launched with
+/// the package directory as its current working directory.
+Directory zukeWorkspaceRoot() {
+  var current = Directory.current.absolute;
+  while (true) {
+    final pubspec = File(
+      '${current.path}${Platform.pathSeparator}pubspec.yaml',
+    );
+    if (pubspec.existsSync() &&
+        RegExp(
+          r'^workspace:\s*$',
+          multiLine: true,
+        ).hasMatch(pubspec.readAsStringSync())) {
+      return current;
+    }
+    final parent = current.parent;
+    if (parent.path == current.path) {
+      throw StateError(
+        'Unable to locate the Dart workspace root from ${Directory.current.path}',
+      );
+    }
+    current = parent;
+  }
+}

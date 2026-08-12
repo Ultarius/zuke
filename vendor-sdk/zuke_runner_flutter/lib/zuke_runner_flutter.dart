@@ -132,7 +132,8 @@ final class ZukeFlutterEvidenceHarness {
             runnerCompatibilityId: runnerCompatibilityId,
             outputDirectory: outputDirectory,
             digestInput: digestInput,
-            sourceIdentity: sourceIdentity ??
+            sourceIdentity:
+                sourceIdentity ??
                 ExecutionSourceIdentity.fromEnvironment(effectiveEnvironment),
           );
         },
@@ -243,7 +244,8 @@ final class ZukeFlutterHarness<W extends ScenarioWorld> {
         controlIds: contract.controlIds,
         runnerId: runnerId,
         runnerCompatibilityId: runnerCompatibilityId,
-        sourceIdentity: sourceIdentity ??
+        sourceIdentity:
+            sourceIdentity ??
             ExecutionSourceIdentity.fromEnvironment(Platform.environment),
         digests: digests,
       );
@@ -260,7 +262,8 @@ final class ZukeFlutterHarness<W extends ScenarioWorld> {
         print(result.toJson());
       }
       expect(result.status, ScenarioStatus.passed);
-      final identity = sourceIdentity ??
+      final identity =
+          sourceIdentity ??
           ExecutionSourceIdentity.fromEnvironment(Platform.environment);
       final writer = ExecutionResultWriter(identity: identity);
       final directory = resultDirectory;

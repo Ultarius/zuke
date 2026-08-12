@@ -83,10 +83,7 @@ class Ed25519ReleaseSigner {
     if (trustedPublicKey == null) return false;
     final signature = Signature(
       base64Decode(signatureText),
-      publicKey: SimplePublicKey(
-        trustedPublicKey,
-        type: KeyPairType.ed25519,
-      ),
+      publicKey: SimplePublicKey(trustedPublicKey, type: KeyPairType.ed25519),
     );
     return algorithm.verify(bytes, signature: signature);
   }
@@ -224,16 +221,15 @@ class TrustedReleaseVerifier {
       return false;
     }
     if (!RegExp(r'^[a-f0-9]{64}$').hasMatch(body['lockDigest'] as String) ||
-        !RegExp(r'^sha256:[a-f0-9]{64}$').hasMatch(
-          body['policyHash'] as String,
-        ) ||
-        !RegExp(r'^sha256:[a-f0-9]{64}$').hasMatch(
-          body['evidenceRequirementsHash'] as String,
-        )) {
+        !RegExp(
+          r'^sha256:[a-f0-9]{64}$',
+        ).hasMatch(body['policyHash'] as String) ||
+        !RegExp(
+          r'^sha256:[a-f0-9]{64}$',
+        ).hasMatch(body['evidenceRequirementsHash'] as String)) {
       return false;
     }
-    if (body['repositoryState'] ==
-        '0000000000000000000000000000000000000000') {
+    if (body['repositoryState'] == '0000000000000000000000000000000000000000') {
       return false;
     }
     final key = trust.find(signerId, keyId, 'release');
@@ -283,9 +279,9 @@ class SignedAttestationVerifier {
         return false;
       }
     }
-    if (!RegExp(r'^sha256:[a-f0-9]{64}$').hasMatch(
-      body['evidenceDigest'] as String,
-    )) {
+    if (!RegExp(
+      r'^sha256:[a-f0-9]{64}$',
+    ).hasMatch(body['evidenceDigest'] as String)) {
       return false;
     }
     final signerId = signer['signerId'];

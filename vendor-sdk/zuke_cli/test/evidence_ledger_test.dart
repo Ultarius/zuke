@@ -34,9 +34,6 @@ void main() {
     final tampered = jsonDecode(jsonEncode(entry)) as Map<String, Object?>;
     tampered['digest'] = 'sha256:${List.filled(64, 'b').join()}';
 
-    expect(
-      () => EvidenceLedgerEntry.fromJson(tampered),
-      throwsFormatException,
-    );
+    expect(() => EvidenceLedgerEntry.fromJson(tampered), throwsFormatException);
   });
 }

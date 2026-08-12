@@ -287,8 +287,9 @@ class Methods {
 /// re-exports ScenarioId from zuke_core and the analyzer fails closed on any
 /// unresolved import.
 void _writePackageConfig(Directory root) {
+  final workspaceRoot = _findWorkspaceRoot();
   final workspaceConfig = File(
-    '${Directory.current.path}${Platform.pathSeparator}.dart_tool'
+    '${workspaceRoot.path}${Platform.pathSeparator}.dart_tool'
     '${Platform.pathSeparator}package_config.json',
   );
   final decoded = jsonDecode(workspaceConfig.readAsStringSync()) as Map;
@@ -296,19 +297,40 @@ void _writePackageConfig(Directory root) {
   final packages = (decoded['packages'] as List).whereType<Map>().map((entry) {
     final copy = Map<String, Object?>.from(entry);
     final rootUri = Uri.parse(copy['rootUri'] as String);
-    copy['rootUri'] = (rootUri.isAbsolute
-            ? rootUri
-            : packageConfigDirectory.resolveUri(rootUri))
-        .toString();
+    copy['rootUri'] =
+        (rootUri.isAbsolute
+                ? rootUri
+                : packageConfigDirectory.resolveUri(rootUri))
+            .toString();
     return copy;
   }).toList();
   final config = Directory('${root.path}/.dart_tool')..createSync();
-  File('${config.path}/package_config.json').writeAsStringSync(
-    jsonEncode({
-      'configVersion': 2,
-      'packages': packages,
-    }),
-  );
+  File(
+    '${config.path}/package_config.json',
+  ).writeAsStringSync(jsonEncode({'configVersion': 2, 'packages': packages}));
+}
+
+Directory _findWorkspaceRoot() {
+  var current = Directory.current.absolute;
+  while (true) {
+    final pubspec = File(
+      '${current.path}${Platform.pathSeparator}pubspec.yaml',
+    );
+    if (pubspec.existsSync() &&
+        RegExp(
+          r'^workspace:\s*$',
+          multiLine: true,
+        ).hasMatch(pubspec.readAsStringSync())) {
+      return current;
+    }
+    final parent = current.parent;
+    if (parent.path == current.path) {
+      throw StateError(
+        'Unable to locate the Dart workspace root from ${Directory.current.path}',
+      );
+    }
+    current = parent;
+  }
 }
 
 Future<void> _deleteDirectoryWithRetry(Directory directory) async {

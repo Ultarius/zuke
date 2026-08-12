@@ -181,9 +181,7 @@ class ReportCommand {
     final registriesMap = Map<String, Object?>.from(workspace.data.registries);
 
     Map<String, Object?> lockDigests = {};
-    final lockFile = File(
-      resolveProfileLockPath(root, 'pullRequest'),
-    );
+    final lockFile = File(resolveProfileLockPath(root, 'pullRequest'));
     if (lockFile.existsSync()) {
       try {
         final lockJson = jsonDecode(lockFile.readAsStringSync());
