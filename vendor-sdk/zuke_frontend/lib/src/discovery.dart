@@ -44,9 +44,6 @@ class ZukeConfig {
   /// Generated contract export path.
   final String? contractExport;
 
-  /// Specification lock path.
-  final String? lockFile;
-
   /// Evidence output path.
   final String? evidenceOutput;
 
@@ -83,7 +80,6 @@ class ZukeConfig {
     this.targetsConfig = const {},
     this.contractOutput,
     this.contractExport,
-    this.lockFile,
     this.evidenceOutput,
     this.trustBundle,
     this.executionConfig = const {},
@@ -202,7 +198,6 @@ class ZukeConfig {
       contractExport: rawTargets['flutter'] is Map
           ? (rawTargets['flutter'] as Map)['contractExport'] as String?
           : null,
-      lockFile: lockSection['file'] as String?,
       evidenceOutput: evidenceSection['output'] as String?,
       trustBundle: trustSection['bundle'] as String?,
       executionConfig: rawExecution,

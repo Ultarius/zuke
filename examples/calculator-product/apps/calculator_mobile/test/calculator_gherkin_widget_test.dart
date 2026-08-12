@@ -8,7 +8,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:zuke_runner_flutter/zuke_runner_flutter.dart';
 import 'package:zuke/assurance.dart';
-import 'package:zuke/runner.dart';
 
 class _Bindings {
   final first = const Key('test.firstOperand');

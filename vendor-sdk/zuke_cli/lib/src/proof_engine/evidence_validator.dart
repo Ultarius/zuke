@@ -2,8 +2,8 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:crypto/crypto.dart';
 import 'package:zuke_frontend/zuke_frontend.dart';
-import 'package:zuke_core/zuke_core.dart';
-import 'package:zuke_core/zuke_core.dart' as ir;
+import '../ir.dart' as ir;
+import '../ir.dart';
 
 import '../generator.dart';
 import 'workspace_digest.dart';

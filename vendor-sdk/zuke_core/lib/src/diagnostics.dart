@@ -28,16 +28,16 @@ final class Diagnostic {
   });
 
   Map<String, Object?> toJson() => {
-        'code': code,
-        'stage': stage,
-        'severity': severity.name,
-        'owner': owner.name,
-        'message': message,
-        if (remediation.isNotEmpty) 'remediation': remediation,
-        if (profile != null) 'profile': profile,
-        if (runnerId != null) 'runnerId': runnerId,
-        if (context.isNotEmpty) 'context': Map<String, String>.from(context),
-      };
+    'code': code,
+    'stage': stage,
+    'severity': severity.name,
+    'owner': owner.name,
+    'message': message,
+    if (remediation.isNotEmpty) 'remediation': remediation,
+    if (profile != null) 'profile': profile,
+    if (runnerId != null) 'runnerId': runnerId,
+    if (context.isNotEmpty) 'context': Map<String, String>.from(context),
+  };
 
   factory Diagnostic.fromJson(Map<Object?, Object?> json) {
     String requiredString(String key) {
@@ -49,19 +49,19 @@ final class Diagnostic {
     }
 
     DiagnosticSeverity parseSeverity(Object? value) => switch (value) {
-          'info' => DiagnosticSeverity.info,
-          'warning' => DiagnosticSeverity.warning,
-          'error' => DiagnosticSeverity.error,
-          _ => throw FormatException('Unknown diagnostic severity: $value'),
-        };
+      'info' => DiagnosticSeverity.info,
+      'warning' => DiagnosticSeverity.warning,
+      'error' => DiagnosticSeverity.error,
+      _ => throw FormatException('Unknown diagnostic severity: $value'),
+    };
 
     DiagnosticOwner parseOwner(Object? value) => switch (value) {
-          null || 'unknown' => DiagnosticOwner.unknown,
-          'project' => DiagnosticOwner.project,
-          'environment' => DiagnosticOwner.environment,
-          'zuke' => DiagnosticOwner.zuke,
-          _ => throw FormatException('Unknown diagnostic owner: $value'),
-        };
+      null || 'unknown' => DiagnosticOwner.unknown,
+      'project' => DiagnosticOwner.project,
+      'environment' => DiagnosticOwner.environment,
+      'zuke' => DiagnosticOwner.zuke,
+      _ => throw FormatException('Unknown diagnostic owner: $value'),
+    };
 
     String? optionalString(String key) {
       final value = json[key];
@@ -78,7 +78,9 @@ final class Diagnostic {
       if (rawContext is! Map ||
           rawContext.keys.any((key) => key is! String) ||
           rawContext.values.any((value) => value is! String)) {
-        throw const FormatException('Diagnostic context must be string-to-string');
+        throw const FormatException(
+          'Diagnostic context must be string-to-string',
+        );
       }
       for (final entry in rawContext.entries) {
         context[entry.key as String] = entry.value as String;
@@ -119,14 +121,16 @@ final class CommandResult {
       exitCode == 0 && status == CommandStatus.passed && eligible;
 
   Map<String, Object?> toJson() => {
-        'kind': 'zuke.command-result',
-        'command': command,
-        'stage': stage,
-        'exitCode': exitCode,
-        'status': status.name,
-        'eligible': eligible,
-        'diagnostics': diagnostics.map((diagnostic) => diagnostic.toJson()).toList(),
-      };
+    'kind': 'zuke.command-result',
+    'command': command,
+    'stage': stage,
+    'exitCode': exitCode,
+    'status': status.name,
+    'eligible': eligible,
+    'diagnostics': diagnostics
+        .map((diagnostic) => diagnostic.toJson())
+        .toList(),
+  };
 
   factory CommandResult.fromJson(Map<Object?, Object?> json) {
     if (json['kind'] != 'zuke.command-result') {
@@ -153,7 +157,9 @@ final class CommandResult {
       final value => throw FormatException('Unknown command status: $value'),
     };
     if ((status == CommandStatus.passed) != (exitCode == 0 && eligible)) {
-      throw const FormatException('Command result status disagrees with exit code or eligibility');
+      throw const FormatException(
+        'Command result status disagrees with exit code or eligibility',
+      );
     }
     final diagnostics = json['diagnostics'];
     if (diagnostics is! List || diagnostics.any((item) => item is! Map)) {

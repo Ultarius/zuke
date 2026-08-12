@@ -1,15 +1,14 @@
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:yaml/yaml.dart';
-
 import '../vendor-sdk/check_docs.dart';
+import 'release_matrix.dart';
 
 Future<void> main(List<String> args) async {
   final root = Directory.current.absolute;
-  late final _ReleaseMatrix matrix;
+  late final ReleaseMatrix matrix;
   try {
-    matrix = _readReleaseMatrix(root);
+    matrix = readReleaseMatrix(root);
   } on Object catch (error) {
     stderr.writeln('Release matrix preflight failed: $error');
     exitCode = 1;
@@ -26,7 +25,7 @@ Future<void> main(List<String> args) async {
   }
   final generatedContractCheck = Process.runSync(
     Platform.resolvedExecutable,
-    ['run', 'tool/generate_release_contract.dart', '--check'],
+    ['tool/generate_release_contract.dart', '--check'],
     workingDirectory: root.path,
     runInShell: Platform.isWindows,
   );
@@ -134,7 +133,7 @@ Future<void> main(List<String> args) async {
 _PublishTarget _readPublishTarget(
   Directory root,
   String package,
-  _ReleaseMatrix matrix,
+  ReleaseMatrix matrix,
 ) {
   final packageDirectory = Directory(
     '${root.path}${Platform.pathSeparator}vendor-sdk${Platform.pathSeparator}$package',
@@ -328,60 +327,6 @@ class _PublishOptions {
       error: error,
     );
   }
-}
-
-class _ReleaseMatrix {
-  const _ReleaseMatrix({required this.publicationOrder, required this.versions});
-
-  final List<String> publicationOrder;
-  final Map<String, String> versions;
-}
-
-_ReleaseMatrix _readReleaseMatrix(Directory root) {
-  final file = File('${root.path}${Platform.pathSeparator}docs${Platform.pathSeparator}release-matrix.yaml');
-  if (!file.existsSync()) throw StateError('Missing docs/release-matrix.yaml');
-  final decoded = loadYaml(file.readAsStringSync());
-  if (decoded is! Map || decoded['schemaVersion'] != 2) {
-    throw const FormatException('release matrix schemaVersion must be 2');
-  }
-  final rawPackages = decoded['packages'];
-  if (rawPackages is! Map) {
-    throw const FormatException('release matrix packages must be a mapping');
-  }
-  final versions = <String, String>{};
-  final publishable = <String>{};
-  for (final entry in rawPackages.entries) {
-    final name = entry.key.toString();
-    final value = entry.value;
-    if (value is! Map) throw FormatException('$name release entry must be a mapping');
-    final version = value['version'];
-    final action = value['releaseAction'];
-    final publish = value['publish'];
-    if (version is! String || version.isEmpty) {
-      throw FormatException('$name has no non-empty version');
-    }
-    if (action is! String || !const {'publish', 'reuse', 'internal'}.contains(action)) {
-      throw FormatException('$name has an invalid releaseAction');
-    }
-    if (publish is! bool || (publish != (action == 'publish' || action == 'reuse'))) {
-      throw FormatException('$name publish/releaseAction disagree');
-    }
-    versions[name] = version;
-    if (action == 'publish') publishable.add(name);
-  }
-  final rawOrder = decoded['publicationOrder'];
-  if (rawOrder is! List || rawOrder.any((item) => item is! String)) {
-    throw const FormatException('publicationOrder must be a string list');
-  }
-  final order = rawOrder.cast<String>();
-  if (order.toSet().length != order.length ||
-      order.length != publishable.length ||
-      !publishable.containsAll(order)) {
-    throw const FormatException(
-      'publicationOrder must contain each publish-action package exactly once',
-    );
-  }
-  return _ReleaseMatrix(publicationOrder: order, versions: versions);
 }
 
 void _printUsage() {

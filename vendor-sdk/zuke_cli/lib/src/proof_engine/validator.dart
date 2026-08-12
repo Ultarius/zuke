@@ -1,5 +1,4 @@
 import 'package:zuke_frontend/zuke_frontend.dart';
-import 'package:zuke_core/zuke_core.dart';
 import 'identity_validator.dart';
 import 'reference_resolver.dart';
 import 'cardinality_validator.dart';
@@ -7,7 +6,8 @@ import 'evidence_validator.dart';
 import 'source_mapping_validator.dart';
 import 'dominance_validator.dart';
 import 'verification_backed_validator.dart';
-import 'package:zuke_core/zuke_core.dart' as ir;
+import '../ir.dart' as ir;
+import '../ir.dart';
 
 typedef ValidationMessage = ir.IrDiagnostic;
 typedef Severity = ir.IrDiagnosticSeverity;

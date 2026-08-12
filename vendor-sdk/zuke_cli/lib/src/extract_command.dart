@@ -3,7 +3,7 @@ import 'dart:io';
 
 import 'package:args/args.dart';
 import 'dart_extractor.dart';
-import 'package:zuke_core/zuke_core.dart';
+import 'ir.dart';
 
 class ExtractDartCommand {
   final ArgResults args;

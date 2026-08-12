@@ -2,7 +2,8 @@ import 'dart:io';
 
 import 'package:args/args.dart';
 import 'package:zuke_frontend/zuke_frontend.dart';
-import 'package:zuke_core/zuke_core.dart' show ProofStatus;
+import 'ir.dart' show ProofStatus;
+import 'ir.dart';
 
 import 'extraction_service.dart';
 import 'proof_engine.dart';

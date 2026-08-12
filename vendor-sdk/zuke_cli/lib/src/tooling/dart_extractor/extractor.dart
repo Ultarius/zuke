@@ -11,7 +11,7 @@ import 'package:analyzer/dart/element/element.dart';
 import 'package:analyzer/error/error.dart' as analyzer_error;
 import 'package:analyzer/source/line_info.dart';
 import 'package:crypto/crypto.dart';
-import 'package:zuke_core/zuke_core.dart';
+import 'package:zuke_cli/src/ir.dart';
 import '../inspection.dart';
 import '../../generated/release_contract.dart';
 
@@ -66,7 +66,7 @@ Expression? _argumentExpression(dynamic argument) {
 /// Resolved Dart extractor shared by the CLI and future analyzer/build-hook
 /// surfaces.  It intentionally has no regex fallback: an unresolved source
 /// fragment is unsafe evidence and is reported as an extraction error.
-class DartExtractor implements LegacyFrameworkAdapter {
+class DartExtractor implements DartSourceExtractor {
   static const annotationLibrary =
       'package:zuke_annotations/zuke_annotations.dart';
 

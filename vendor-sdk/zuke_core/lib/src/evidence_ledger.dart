@@ -4,7 +4,7 @@ library;
 import 'dart:convert';
 import 'package:crypto/crypto.dart';
 import 'package:cryptography/cryptography.dart';
-import 'assurance_ir.dart';
+import 'canonical_json.dart';
 
 /// Deterministic Ed25519 release-record signer. Private key material is
 /// supplied by the caller and is never persisted by this package.

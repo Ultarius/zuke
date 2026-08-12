@@ -12,6 +12,9 @@ jobs:
       changed-since: ${{ github.event.before }}
       example-root: examples/shopping_cart
       package-name: shopping_cart
+      source-package: shopping-cart
+      source-adapter: flutter-test
+      source-compatibility-id: flutter-test-v1
       require-history: false
   todo-app-assurance:
     uses: ./.github/workflows/flutter-example-assurance.yml
@@ -20,6 +23,9 @@ jobs:
       changed-since: ${{ github.event.before }}
       example-root: examples/todo_app
       package-name: todo_app
+      source-package: todo-app
+      source-adapter: flutter-test
+      source-compatibility-id: flutter-test-v1
       require-history: false
   calculator-product-assurance:
     uses: ./.github/workflows/calculator-product-assurance.yml

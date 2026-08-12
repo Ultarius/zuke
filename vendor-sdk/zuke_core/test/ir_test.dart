@@ -1,4 +1,5 @@
 import 'package:zuke_core/zuke_core.dart';
+import 'package:zuke_core/src/internal_ir.dart';
 import 'package:test/test.dart';
 
 void main() {

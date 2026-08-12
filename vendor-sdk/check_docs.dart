@@ -2,6 +2,8 @@ import 'dart:io';
 
 import 'package:yaml/yaml.dart';
 
+import '../tool/release_matrix.dart';
+
 /// Checks public documentation, active SDK manifests, and retired identities.
 void main() {
   final failures = DocumentationChecker(Directory.current).check();
@@ -50,122 +52,13 @@ class DocumentationChecker {
     return failures;
   }
 
-  _ReleaseMatrix _releaseMatrix(List<String> failures) {
-    final file = File(
-      '${root.path}${Platform.pathSeparator}docs${Platform.pathSeparator}release-matrix.yaml',
-    );
-    if (!file.existsSync()) {
-      failures.add('missing docs/release-matrix.yaml');
-      return const _ReleaseMatrix.empty();
-    }
+  ReleaseMatrix _releaseMatrix(List<String> failures) {
     try {
-      final decoded = loadYaml(file.readAsStringSync());
-      if (decoded is! Map || decoded['schemaVersion'] != 2) {
-        throw const FormatException('release matrix schemaVersion must be 2');
-      }
-      final rawPackages = decoded['packages'];
-      if (rawPackages is! Map) {
-        throw const FormatException(
-          'release matrix packages must be a mapping',
-        );
-      }
-      final packages = <String, _PackageRelease>{};
-      for (final entry in rawPackages.entries) {
-        final name = entry.key.toString();
-        final value = entry.value;
-        if (value is! Map) {
-          throw FormatException('$name release entry must be a mapping');
-        }
-        const allowedFields = {
-          'version',
-          'previousVersion',
-          'publish',
-          'releaseAction',
-          'tier',
-          'supportStatement',
-          'bumpReason',
-        };
-        final unknownFields = value.keys
-            .map((key) => key.toString())
-            .where((key) => !allowedFields.contains(key))
-            .toList();
-        if (unknownFields.isNotEmpty) {
-          throw FormatException(
-            '$name has unknown release fields: ${unknownFields.join(', ')}',
-          );
-        }
-        String requiredString(String key) {
-          final item = value[key];
-          if (item is! String || item.isEmpty) {
-            throw FormatException('$name is missing non-empty $key');
-          }
-          return item;
-        }
-
-        final publish = value['publish'];
-        if (publish is! bool) {
-          throw FormatException('$name publish must be true or false');
-        }
-        final action = requiredString('releaseAction');
-        if (!const {'publish', 'reuse', 'internal'}.contains(action)) {
-          throw FormatException('$name has unsupported releaseAction $action');
-        }
-        if (publish && action == 'internal' ||
-            !publish && action != 'internal') {
-          throw FormatException('$name publish/releaseAction disagree');
-        }
-        final version = requiredString('version');
-        final previousVersion = requiredString('previousVersion');
-        final versionPattern = RegExp(
-          r'^\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?$',
-        );
-        if (!versionPattern.hasMatch(version) ||
-            !versionPattern.hasMatch(previousVersion)) {
-          throw FormatException('$name has a malformed semantic version');
-        }
-        packages[name] = _PackageRelease(
-          name: name,
-          version: version,
-          previousVersion: previousVersion,
-          publish: publish,
-          releaseAction: action,
-          tier: requiredString('tier'),
-          supportStatement: requiredString('supportStatement'),
-          bumpReason: requiredString('bumpReason'),
-        );
-      }
-      final rawOrder = decoded['publicationOrder'];
-      if (rawOrder is! List || rawOrder.any((item) => item is! String)) {
-        throw const FormatException('publicationOrder must be a string list');
-      }
-      final order = rawOrder.cast<String>();
-      if (order.toSet().length != order.length) {
-        throw const FormatException('publicationOrder contains duplicates');
-      }
-      return _ReleaseMatrix(
-        packages: packages,
-        publicationOrder: order,
-        retiredPackages: (decoded['retiredPackages'] is Map)
-            ? _retiredPackageNames(decoded['retiredPackages'] as Map)
-            : const {},
-      );
+      return readReleaseMatrix(root);
     } on Object catch (error) {
       failures.add('invalid docs/release-matrix.yaml: $error');
-      return const _ReleaseMatrix.empty();
+      return const ReleaseMatrix.empty();
     }
-  }
-
-  Set<String> _retiredPackageNames(Map value) {
-    for (final entry in value.entries) {
-      if (entry.key is! String ||
-          entry.value is! String ||
-          (entry.value as String).trim().isEmpty) {
-        throw const FormatException(
-          'retiredPackages must map package names to non-empty reasons',
-        );
-      }
-    }
-    return value.keys.cast<String>().toSet();
   }
 
   Map<String, Directory> _activePackages(List<String> failures) {
@@ -387,7 +280,7 @@ class DocumentationChecker {
 
   void _checkActivePubspecs(
     Map<String, Directory> packages,
-    _ReleaseMatrix matrix,
+    ReleaseMatrix matrix,
     List<String> failures,
   ) {
     for (final entry in packages.entries) {
@@ -501,7 +394,7 @@ class DocumentationChecker {
 
   void _checkReadmeTiers(
     Map<String, Directory> packages,
-    _ReleaseMatrix matrix,
+    ReleaseMatrix matrix,
     List<String> failures,
   ) {
     for (final entry in packages.entries) {
@@ -524,7 +417,7 @@ class DocumentationChecker {
 
   void _checkPackageImportsAndCycles(
     Map<String, Directory> packages,
-    _ReleaseMatrix matrix,
+    ReleaseMatrix matrix,
     List<String> failures,
   ) {
     final graph = <String, Set<String>>{};
@@ -542,8 +435,9 @@ class DocumentationChecker {
         if (raw is! Map) continue;
         for (final dependency in raw.keys) {
           final dependencyName = dependency.toString();
-          if (packages.containsKey(dependencyName))
+          if (packages.containsKey(dependencyName)) {
             dependencies.add(dependencyName);
+          }
           final dependencyRelease = matrix.packages[dependencyName];
           if (release.publish &&
               dependencyRelease != null &&
@@ -616,7 +510,7 @@ class DocumentationChecker {
     }
   }
 
-  void _checkRetiredPackages(_ReleaseMatrix matrix, List<String> failures) {
+  void _checkRetiredPackages(ReleaseMatrix matrix, List<String> failures) {
     for (final name in matrix.retiredPackages) {
       final directory = Directory(
         '${root.path}${Platform.pathSeparator}vendor-sdk${Platform.pathSeparator}$name',
@@ -693,6 +587,10 @@ class DocumentationChecker {
       RegExp(r'\bzuke-v2\b', caseSensitive: false),
       RegExp(r'\bverify-v2\b', caseSensitive: false),
       RegExp(r'\bv2\.dart\b', caseSensitive: false),
+      RegExp(r'\bCommandResultV2\b', caseSensitive: false),
+      RegExp(r'\bDiagnosticV2\b', caseSensitive: false),
+      RegExp(r'\bAdapterOutputV2\b', caseSensitive: false),
+      RegExp(r'\bEvidenceRecordV2\b', caseSensitive: false),
       RegExp(r'\bzuke\.lock\.v\d+\b', caseSensitive: false),
       RegExp(r'assurance-history/v2', caseSensitive: false),
       RegExp(
@@ -702,14 +600,14 @@ class DocumentationChecker {
     ];
     for (final file in _allFiles().where((candidate) {
       final relative = _relative(candidate).toLowerCase();
-      if (!(relative.endsWith('.md') ||
+      if (!(relative.endsWith('.dart') ||
+          relative.endsWith('.md') ||
           relative.endsWith('.yaml') ||
           relative.endsWith('.yml'))) {
         return false;
       }
       if (relative.contains('/test/') ||
-          relative == 'vendor-sdk/check_docs.dart' ||
-          relative.endsWith('changelog.md')) {
+          relative == 'vendor-sdk/check_docs.dart') {
         return false;
       }
       return true;
@@ -806,43 +704,4 @@ class DocumentationChecker {
       target.startsWith('https://') ||
       target.startsWith('mailto:') ||
       target.startsWith('data:');
-}
-
-class _ReleaseMatrix {
-  const _ReleaseMatrix({
-    required this.packages,
-    required this.publicationOrder,
-    required this.retiredPackages,
-  });
-
-  const _ReleaseMatrix.empty()
-    : packages = const {},
-      publicationOrder = const [],
-      retiredPackages = const {};
-
-  final Map<String, _PackageRelease> packages;
-  final List<String> publicationOrder;
-  final Set<String> retiredPackages;
-}
-
-class _PackageRelease {
-  const _PackageRelease({
-    required this.name,
-    required this.version,
-    required this.previousVersion,
-    required this.publish,
-    required this.releaseAction,
-    required this.tier,
-    required this.supportStatement,
-    required this.bumpReason,
-  });
-
-  final String name;
-  final String version;
-  final String previousVersion;
-  final bool publish;
-  final String releaseAction;
-  final String tier;
-  final String supportStatement;
-  final String bumpReason;
 }

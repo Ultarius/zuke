@@ -5,9 +5,9 @@ import 'package:args/args.dart';
 import 'package:zuke_frontend/zuke_frontend.dart';
 
 import 'extraction_service.dart';
-import 'lock_command.dart';
 import 'proof_engine.dart';
 import 'reporter.dart';
+import 'lock_path.dart';
 
 class ReportCommand {
   final ArgResults args;
@@ -182,7 +182,7 @@ class ReportCommand {
 
     Map<String, Object?> lockDigests = {};
     final lockFile = File(
-      resolveProfileLockPath(root, workspace, 'pullRequest'),
+      resolveProfileLockPath(root, 'pullRequest'),
     );
     if (lockFile.existsSync()) {
       try {

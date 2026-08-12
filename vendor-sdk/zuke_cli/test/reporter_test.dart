@@ -1,6 +1,6 @@
 import 'package:test/test.dart';
 import 'package:zuke_cli/src/reporter.dart';
-import 'package:zuke_core/zuke_core.dart';
+import 'package:zuke_cli/src/ir.dart';
 
 void main() {
   test('renders deterministic text and JSON validation reports', () {

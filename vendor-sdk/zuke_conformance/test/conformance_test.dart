@@ -1,8 +1,8 @@
 import 'dart:convert';
 import 'dart:io';
-import 'dart:isolate';
 import 'package:test/test.dart';
 import 'package:zuke_core/zuke_core.dart';
+import 'package:zuke_core/src/internal_adapter.dart';
 import 'package:yaml/yaml.dart' show loadYaml;
 
 /// Locates the workspace from either a package-local or repository-root test
@@ -119,20 +119,20 @@ void main() {
     });
 
     test('manifest schema validates', () async {
-      final schemaUris = <String>[
-        'package:zuke_conformance/schemas/'
-            'behavioral-assurance-manifest.schema.json',
-        'package:zuke_conformance/schemas/'
-            'behavioral-assurance-release.schema.json',
-        'package:zuke_conformance/schemas/ed25519-trust.schema.json',
-        'package:zuke_conformance/schemas/zuke.lock.schema.json',
+      final workspaceRoot = _workspaceRoot();
+      final schemaPaths = <String>[
+        'behavioral-assurance-manifest.schema.json',
+        'behavioral-assurance-release.schema.json',
+        'ed25519-trust.schema.json',
+        'zuke.lock.schema.json',
       ];
-      expect(schemaUris, isNotEmpty);
+      expect(schemaPaths, isNotEmpty);
 
-      for (final uri in schemaUris) {
-        final resolved = await Isolate.resolvePackageUri(Uri.parse(uri));
-        expect(resolved, isNotNull);
-        final file = File.fromUri(resolved!);
+      for (final schemaPath in schemaPaths) {
+        final file = File(
+          '${workspaceRoot.path}/vendor-sdk/zuke_conformance/lib/schemas/$schemaPath',
+        );
+        expect(file.existsSync(), isTrue);
         final content = file.readAsStringSync();
         final schema = jsonDecode(content) as Map;
 

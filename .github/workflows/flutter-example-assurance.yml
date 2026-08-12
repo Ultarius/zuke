@@ -15,6 +15,18 @@ on:
       package-name:
         required: true
         type: string
+      source-package:
+        description: Stable source package identity used by Flutter evidence.
+        required: true
+        type: string
+      source-adapter:
+        description: Source adapter identity used by Flutter evidence.
+        required: true
+        type: string
+      source-compatibility-id:
+        description: Source adapter compatibility identity used by Flutter evidence.
+        required: true
+        type: string
       require-history:
         description: Require a non-empty signed history; false still validates the configured chain policy.
         required: true
@@ -30,6 +42,9 @@ jobs:
     env:
       FLUTTER_SUPPRESS_ANALYTICS: 'true'
       ZUKE_RUN_PROCESS_INTEGRATION: 'true'
+      ZUKE_SOURCE_PACKAGE: ${{ inputs['source-package'] }}
+      ZUKE_SOURCE_ADAPTER: ${{ inputs['source-adapter'] }}
+      ZUKE_SOURCE_COMPATIBILITY_ID: ${{ inputs['source-compatibility-id'] }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:

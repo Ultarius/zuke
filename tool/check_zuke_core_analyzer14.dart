@@ -12,12 +12,15 @@ Future<void> main() async {
     _writeRootPubspec(temporaryRoot);
     _copyPackage(sourceRoot, temporaryRoot, 'zuke_core');
     _copyPackage(sourceRoot, temporaryRoot, 'zuke_annotations');
+    _copyPackage(sourceRoot, temporaryRoot, 'zuke_frontend');
+    _copyPackage(sourceRoot, temporaryRoot, 'zuke');
+    _copyPackage(sourceRoot, temporaryRoot, 'zuke_cli');
     _copyPackage(sourceRoot, temporaryRoot, 'zuke_http_runtime');
 
     final testDirectory = Directory('${temporaryRoot.path}/test')
       ..createSync(recursive: true);
     File(
-      '${repositoryRoot.path}/vendor-sdk/zuke_core/test/dart_extractor_test.dart',
+      '${repositoryRoot.path}/vendor-sdk/zuke_cli/test/tooling/dart_extractor_test.dart',
     ).copySync('${testDirectory.path}/dart_extractor_test.dart');
 
     final pubGet = await Process.run(Platform.resolvedExecutable, [
@@ -53,17 +56,33 @@ name: zuke_core_analyzer14_smoke
 environment:
   sdk: '>=3.10.0 <4.0.0'
 dependencies:
+  zuke_cli:
+    path: zuke_cli
   zuke_annotations:
     path: zuke_annotations
   zuke_core:
     path: zuke_core
+  zuke_frontend:
+    path: zuke_frontend
+  zuke:
+    path: zuke
   zuke_http_runtime:
     path: zuke_http_runtime
 dev_dependencies:
   test: ^1.31.1
 dependency_overrides:
+  zuke_annotations:
+    path: zuke_annotations
+  zuke_cli:
+    path: zuke_cli
   zuke_core:
     path: zuke_core
+  zuke_frontend:
+    path: zuke_frontend
+  zuke_http_runtime:
+    path: zuke_http_runtime
+  zuke:
+    path: zuke
 ''');
 }
 

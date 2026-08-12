@@ -1,7 +1,7 @@
 /// Canonical stack-neutral assurance graph model.
 library;
 
-import 'canonical_json.dart';
+import '../canonical_json.dart';
 
 /// A workspace-relative source span in a Dart or specification file.
 class SourceSpan {

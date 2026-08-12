@@ -4,13 +4,14 @@ import 'dart:io';
 import 'package:crypto/crypto.dart';
 import 'package:args/args.dart';
 import 'package:zuke_frontend/zuke_frontend.dart';
-import 'package:zuke_core/zuke_core.dart';
 
 import 'extraction_service.dart';
 import 'attestation_verification.dart';
 import 'scenario_selection.dart';
 import 'generator.dart';
 import 'proof_engine.dart';
+import 'ir.dart';
+import 'lock_path.dart';
 
 /// Immutable inputs for one lock calculation.
 ///
@@ -68,7 +69,7 @@ class LockCommand {
       ).absolute.resolveSymbolicLinksSync(),
     );
     final legacyLockPaths = [
-      File('${root.path}/zuke.lock.json'),
+      File(resolveLegacyRootLockPath(root.path)),
       File('${root.path}/zuke.lock'),
     ];
     final legacyLock = legacyLockPaths.firstWhere(
@@ -128,7 +129,7 @@ class LockCommand {
       extraction: extraction,
     );
     final lockContent = await buildLock(context, validation, profile: profile);
-    final path = _lockPath(root.path, workspace, profile);
+    final path = resolveProfileLockPath(root.path, profile);
     final file = File(path);
     final check = args['check'] as bool? ?? false;
     final quiet =
@@ -334,14 +335,6 @@ class LockCommand {
     return const JsonEncoder.withIndent('  ').convert(data) + '\n';
   }
 
-  String _lockPath(
-    String root,
-    WorkspaceDiscoveryResult workspace,
-    String profile,
-  ) {
-    return resolveProfileLockPath(root, workspace, profile);
-  }
-
   List<Map<String, Object?>> _attestations(
     WorkspaceDiscoveryResult workspace,
     List<ControlProofResult> proofs,
@@ -403,13 +396,4 @@ class LockCommand {
     }
     return result;
   }
-}
-
-/// Resolves the only supported current lock location for [profile].
-String resolveProfileLockPath(
-  String root,
-  WorkspaceDiscoveryResult workspace,
-  String profile,
-) {
-  return '$root/assurance/locks/$profile.lock.json';
 }

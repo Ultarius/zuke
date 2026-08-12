@@ -1,7 +1,7 @@
 import 'dart:io';
 
 import 'package:zuke_cli/src/workspace_digest.dart';
-import 'package:zuke_core/zuke_core.dart';
+import 'package:zuke_cli/src/ir.dart';
 import 'package:test/test.dart';
 
 void main() {

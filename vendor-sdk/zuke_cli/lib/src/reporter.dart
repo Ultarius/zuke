@@ -2,7 +2,7 @@
 library;
 
 import 'dart:convert';
-import 'package:zuke_core/zuke_core.dart';
+import 'ir.dart';
 
 /// Presentation-ready context for one governed requirement.  The reporter is
 /// intentionally independent of the frontend and extractor packages; command

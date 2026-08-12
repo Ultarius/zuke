@@ -759,7 +759,7 @@ dart run zuke_cli:zuke check --root examples/calculator-product --root examples/
   proof record (`lock --profile <name> --check` verifies no drift; use
   `--all-profiles` for the official four-profile set).
 - **`gate`**: Combines validation, clean generation checks, test execution if evidence is missing, lock checking, and release trust checks into a single command.
-- **`check`**: Runs generation, configured runners, validation, lock synchronization, and an observational report for each supplied root. Roots can run concurrently; `--format json` emits exactly one `zuke.check.v1` document.
+- **`check`**: Runs generation, configured runners, validation, lock synchronization, and an observational report for each supplied root. Roots can run concurrently; `--format json` emits exactly one `kind: zuke.check` document.
 - **`clean`**: Removes only directories matching `test/temp_*` beneath the supplied root. It does not remove source, locks, generated contracts, evidence, caches, or build output. Use `--dry-run` to preview.
 
 ### Pull-request CI example

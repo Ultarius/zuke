@@ -1,4 +1,4 @@
-import 'package:zuke_core/zuke_core.dart';
+import 'package:zuke_cli/src/ir.dart';
 
 class DartExtractionResult {
   final List<CanonicalFragment> fragments;

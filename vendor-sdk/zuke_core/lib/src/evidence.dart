@@ -26,9 +26,9 @@ final class EvidenceRequirement extends EvidenceSlot {
   });
 
   Map<String, Object?> toJson() => {
-        ...super.toJson(),
-        if (controlId != null) 'controlId': controlId,
-      };
+    ...super.toJson(),
+    if (controlId != null) 'controlId': controlId,
+  };
 }
 
 final class EvidenceRecord extends EvidenceSlot {

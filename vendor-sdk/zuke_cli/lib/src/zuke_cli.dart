@@ -29,6 +29,7 @@ import 'tool_invocation.dart';
 import 'watch_coordinator.dart';
 import 'test_run_summary.dart';
 import 'command_result.dart';
+import 'ir.dart';
 
 const _runnerModeNames = ['auto', 'cli', 'directSnapshot'];
 

@@ -43,10 +43,7 @@ void main() {
       expect(() => CommandResult.fromJson(json), throwsFormatException);
     }
     expect(
-      () => CommandResult.fromJson({
-        ...result.toJson(),
-        'status': 'passed',
-      }),
+      () => CommandResult.fromJson({...result.toJson(), 'status': 'passed'}),
       throwsFormatException,
     );
   });
@@ -78,9 +75,7 @@ void main() {
 
   test('evidence record rejects malformed schema and digest', () {
     expect(
-      () => EvidenceRecord.fromJson({
-        'kind': 'zuke.evidence-record.legacy',
-      }),
+      () => EvidenceRecord.fromJson({'kind': 'zuke.evidence-record.legacy'}),
       throwsFormatException,
     );
     expect(

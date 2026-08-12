@@ -1,6 +1,6 @@
 import 'ir.dart';
 import 'adapter_models.dart';
-import 'scenario_id.dart';
+import '../scenario_id.dart';
 
 enum ProofStatus {
   proven,

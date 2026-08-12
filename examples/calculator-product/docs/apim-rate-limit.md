@@ -119,7 +119,7 @@ An APIM-owned control has a different evidence path:
 3. The deployment process exports the APIM policy and hashes the export and
    route scope.
 4. The authorized signing workflow creates a
-   `zuke.external-attestation.v1` record containing the provider, target,
+   `kind: zuke.external-attestation` record containing the provider, target,
    policy digest, route scope, signer, issue time, and expiry.
 5. Zuke verifies the signature against the attestation trust usage, checks the
    document and policy scope, and includes the attestation in the release

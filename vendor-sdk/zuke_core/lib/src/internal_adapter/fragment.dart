@@ -1,4 +1,4 @@
-import '../assurance_ir.dart';
+import '../internal_ir.dart';
 
 class CanonicalFragment {
   final String kind;

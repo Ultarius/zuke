@@ -39,13 +39,13 @@ final class AdapterCompleteness {
   });
 
   Map<String, String> toJson() => {
-        'routeRegistration': routeRegistration.name,
-        'middlewareOrder': middlewareOrder.name,
-        'dynamicRegistration': dynamicRegistration.name,
-        'externalVisibility': externalVisibility.name,
-        'failureFlow': failureFlow.name,
-        'logFlow': logFlow.name,
-      };
+    'routeRegistration': routeRegistration.name,
+    'middlewareOrder': middlewareOrder.name,
+    'dynamicRegistration': dynamicRegistration.name,
+    'externalVisibility': externalVisibility.name,
+    'failureFlow': failureFlow.name,
+    'logFlow': logFlow.name,
+  };
 }
 
 final class TopologyNode {
@@ -64,12 +64,12 @@ final class TopologyNode {
   });
 
   Map<String, Object?> toJson() => {
-        'id': id,
-        'kind': kind,
-        'name': name,
-        if (path != null) 'path': path,
-        if (attributes.isNotEmpty) 'attributes': attributes,
-      };
+    'id': id,
+    'kind': kind,
+    'name': name,
+    if (path != null) 'path': path,
+    if (attributes.isNotEmpty) 'attributes': attributes,
+  };
 }
 
 final class AdapterOutput {
@@ -92,19 +92,21 @@ final class AdapterOutput {
   });
 
   SourceIdentity get source => SourceIdentity(
-        target: targetId,
-        sourcePackage: packageId,
-        sourceAdapter: sourceAdapter,
-        compatibilityId: compatibilityId,
-      );
+    target: targetId,
+    sourcePackage: packageId,
+    sourceAdapter: sourceAdapter,
+    compatibilityId: compatibilityId,
+  );
 
   Map<String, Object?> toJson() => {
-        'kind': 'zuke.adapter-output',
-        ...source.toJson(),
-        'completeness': completeness.toJson(),
-        'nodes': nodes.map((node) => node.toJson()).toList(),
-        'diagnostics': diagnostics.map((diagnostic) => diagnostic.toJson()).toList(),
-      };
+    'kind': 'zuke.adapter-output',
+    ...source.toJson(),
+    'completeness': completeness.toJson(),
+    'nodes': nodes.map((node) => node.toJson()).toList(),
+    'diagnostics': diagnostics
+        .map((diagnostic) => diagnostic.toJson())
+        .toList(),
+  };
 }
 
 abstract interface class FrameworkAdapter {

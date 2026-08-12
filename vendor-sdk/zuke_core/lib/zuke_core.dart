@@ -1,11 +1,13 @@
 /// Shared compiler, extraction, evidence, and assurance primitives for Zuke.
 library;
 
-export 'src/adapter_sdk.dart';
-export 'src/assurance_ir.dart';
+export 'src/canonical_json.dart';
+export 'src/control_id.dart';
 export 'src/evidence_ledger.dart';
-export 'src/v2/adapter.dart';
-export 'src/v2/diagnostics.dart';
-export 'src/v2/digest.dart';
-export 'src/v2/evidence.dart';
-export 'src/v2/identity.dart';
+export 'src/rule_id.dart';
+export 'src/scenario_id.dart';
+export 'src/adapter.dart';
+export 'src/diagnostics.dart';
+export 'src/digest.dart';
+export 'src/evidence.dart';
+export 'src/identity.dart';

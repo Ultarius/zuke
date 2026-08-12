@@ -2,7 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:zuke_cli/src/dart_extractor.dart';
-import 'package:zuke_core/zuke_core.dart';
+import 'package:zuke_cli/src/ir.dart';
 import 'package:test/test.dart';
 import 'package:zuke_frontend/zuke_frontend.dart';
 import 'package:zuke_cli/src/extraction_service.dart';

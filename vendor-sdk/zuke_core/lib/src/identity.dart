@@ -13,11 +13,11 @@ final class TargetIdentity {
   });
 
   Map<String, Object?> toJson() => {
-        'id': id,
-        'language': language,
-        'framework': framework,
-        'packages': packages.map((package) => package.toJson()).toList(),
-      };
+    'id': id,
+    'language': language,
+    'framework': framework,
+    'packages': packages.map((package) => package.toJson()).toList(),
+  };
 }
 
 final class PackageIdentity {
@@ -50,11 +50,11 @@ final class SourceIdentity {
   String get key => '$target|$sourcePackage|$sourceAdapter';
 
   Map<String, Object?> toJson() => {
-        'target': target,
-        'sourcePackage': sourcePackage,
-        'sourceAdapter': sourceAdapter,
-        'sourceCompatibilityId': compatibilityId,
-      };
+    'target': target,
+    'sourcePackage': sourcePackage,
+    'sourceAdapter': sourceAdapter,
+    'sourceCompatibilityId': compatibilityId,
+  };
 }
 
 final class ExecutionSourceIdentity {
@@ -87,10 +87,10 @@ final class ExecutionSourceIdentity {
   }
 
   Map<String, Object?> toJson() => {
-        'sourcePackage': sourcePackage,
-        'sourceAdapter': sourceAdapter,
-        'sourceCompatibilityId': sourceCompatibilityId,
-      };
+    'sourcePackage': sourcePackage,
+    'sourceAdapter': sourceAdapter,
+    'sourceCompatibilityId': sourceCompatibilityId,
+  };
 }
 
 class EvidenceSlot {
@@ -114,11 +114,11 @@ class EvidenceSlot {
       '$requirementId|$evidenceType|$target|$variant|$sourcePackage|$sourceAdapter';
 
   Map<String, Object?> toJson() => {
-        'requirementId': requirementId,
-        'evidenceType': evidenceType,
-        'target': target,
-        'variant': variant,
-        'sourcePackage': sourcePackage,
-        'sourceAdapter': sourceAdapter,
-      };
+    'requirementId': requirementId,
+    'evidenceType': evidenceType,
+    'target': target,
+    'variant': variant,
+    'sourcePackage': sourcePackage,
+    'sourceAdapter': sourceAdapter,
+  };
 }

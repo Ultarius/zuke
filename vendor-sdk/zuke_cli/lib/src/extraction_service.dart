@@ -7,6 +7,7 @@ import 'dart_extractor.dart';
 import 'package:zuke_core/zuke_core.dart';
 import 'package:zuke_frontend/zuke_frontend.dart';
 import 'dart_frog_adapter.dart';
+import 'ir.dart';
 
 class WorkspaceExtraction {
   final List<IrAdapterOutput> outputs;

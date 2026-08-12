@@ -2,7 +2,8 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:crypto/crypto.dart';
-import 'package:zuke_core/zuke_core.dart';
+import '../ir.dart';
+import '../lock_path.dart';
 
 /// Computes the deterministic digest of repository inputs covered by a lock
 /// or evidence validation pass.
@@ -17,7 +18,7 @@ final class WorkspaceDigest {
            'release',
            'nightly',
          ])
-           _normalizeRelative('assurance/locks/$profile.lock.json'),
+           _normalizeRelative(profileLockRelativePath(profile)),
          if (lockFile != null) _normalizeRelative(lockFile),
          for (final path in generatedPaths) _normalizeRelative(path),
        };

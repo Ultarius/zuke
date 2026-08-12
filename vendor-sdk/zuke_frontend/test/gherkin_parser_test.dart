@@ -793,7 +793,6 @@ endpoints:
 
         expect(result.config.contractOutput, contains('generated'));
         expect(result.config.contractExport, contains('contracts.dart'));
-        expect(result.config.lockFile, isNull);
         expect(result.config.evidenceOutput, 'generated/evidence');
         expect(result.config.trustBundle, 'trust/bundle.json');
         expect(result.config.executionConfig['runners'], isEmpty);
