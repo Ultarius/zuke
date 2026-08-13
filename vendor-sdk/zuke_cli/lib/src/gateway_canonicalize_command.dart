@@ -68,7 +68,7 @@ class GatewayCanonicalizeCommand {
 
     final canonical = _sanitize(<String, Object?>{
       ...raw,
-      'schemaVersion': 'zuke.gateway-evidence.v1',
+      'kind': 'zuke.gateway-evidence',
       'reference': reference,
       'route': route,
       'policies': normalizedPolicies,

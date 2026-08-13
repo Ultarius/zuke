@@ -1,5 +1,5 @@
 import 'package:zuke_frontend/zuke_frontend.dart';
-import 'package:zuke_core/zuke_core.dart';
+import '../ir.dart';
 import 'validator.dart';
 
 class ReferenceResolver {

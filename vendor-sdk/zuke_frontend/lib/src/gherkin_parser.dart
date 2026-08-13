@@ -719,11 +719,30 @@ class GherkinParser {
       performance: metadata.performance,
       requires: metadata.requires,
       requiredEvidence: metadata.requiredEvidence,
+      evidenceRequirements: _yamlEvidenceRequirements(
+        (loadYaml(yamlText) as Map?)?['requiredEvidence'],
+      ),
       securityProfile: metadata.securityProfile,
       extensions: extensions,
       source: source,
       errors: errors,
     );
+  }
+
+  List<Map<String, String>> _yamlEvidenceRequirements(Object? value) {
+    if (value is! Iterable || value is String) return const [];
+    final result = <Map<String, String>>[];
+    for (final item in value) {
+      if (item is! Map) continue;
+      final row = <String, String>{};
+      for (final entry in item.entries) {
+        if (entry.key is String && entry.value is String) {
+          row[entry.key as String] = entry.value as String;
+        }
+      }
+      if (row.isNotEmpty) result.add(Map.unmodifiable(row));
+    }
+    return List.unmodifiable(result);
   }
 
   Map<String, Object?> _extensionsFromYaml(Map value) {
@@ -922,7 +941,8 @@ class GherkinParser {
             ),
           )
           .toList(growable: false),
-      requiredEvidence: _yamlTextList(root['requiredEvidence']),
+      requiredEvidence: _yamlEvidenceTypes(root['requiredEvidence']),
+      evidenceRequirements: _yamlEvidenceRequirements(root['requiredEvidence']),
       securityProfile: _yamlText(root['securityProfile']),
       extensions: Map.unmodifiable(_extensionsFromYaml(root)),
       source: source,
@@ -948,6 +968,18 @@ class GherkinParser {
           return _yamlMap(item);
         })
         .toList(growable: false);
+  }
+
+  List<String>? _yamlEvidenceTypes(Object? value) {
+    if (value == null) return null;
+    if (value is Iterable && value.any((item) => item is Map)) {
+      return value
+          .whereType<Map>()
+          .map((item) => item['type'] ?? item['evidenceType'])
+          .whereType<String>()
+          .toList(growable: false);
+    }
+    return _yamlTextList(value);
   }
 
   List<String>? _yamlTextList(Object? value) {

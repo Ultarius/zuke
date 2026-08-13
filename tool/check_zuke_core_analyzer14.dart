@@ -12,13 +12,42 @@ Future<void> main() async {
     _writeRootPubspec(temporaryRoot);
     _copyPackage(sourceRoot, temporaryRoot, 'zuke_core');
     _copyPackage(sourceRoot, temporaryRoot, 'zuke_annotations');
+    _copyPackage(sourceRoot, temporaryRoot, 'zuke_frontend');
+    _copyPackage(sourceRoot, temporaryRoot, 'zuke');
+    _copyPackage(sourceRoot, temporaryRoot, 'zuke_cli');
     _copyPackage(sourceRoot, temporaryRoot, 'zuke_http_runtime');
 
     final testDirectory = Directory('${temporaryRoot.path}/test')
       ..createSync(recursive: true);
-    File(
-      '${repositoryRoot.path}/vendor-sdk/zuke_core/test/dart_extractor_test.dart',
-    ).copySync('${testDirectory.path}/dart_extractor_test.dart');
+    final supportDirectory = Directory('${temporaryRoot.path}/support')
+      ..createSync(recursive: true);
+    final extractorTest = File(
+      '${repositoryRoot.path}${Platform.pathSeparator}vendor-sdk'
+      '${Platform.pathSeparator}zuke_cli${Platform.pathSeparator}test'
+      '${Platform.pathSeparator}tooling${Platform.pathSeparator}dart_extractor_test.dart',
+    );
+    if (!extractorTest.existsSync()) {
+      throw StateError(
+        'Required analyzer compatibility fixture is missing: '
+        '${extractorTest.path}. The extractor fixture belongs to '
+        'zuke_cli/test/tooling, not zuke_core/test.',
+      );
+    }
+    extractorTest.copySync('${testDirectory.path}/dart_extractor_test.dart');
+    final temporaryDirectoryHelper = File(
+      '${sourceRoot.path}${Platform.pathSeparator}zuke_test_support'
+      '${Platform.pathSeparator}lib${Platform.pathSeparator}src'
+      '${Platform.pathSeparator}temporary_directory.dart',
+    );
+    if (!temporaryDirectoryHelper.existsSync()) {
+      throw StateError(
+        'Required analyzer compatibility support is missing: '
+        '${temporaryDirectoryHelper.path}.',
+      );
+    }
+    temporaryDirectoryHelper.copySync(
+      '${supportDirectory.path}${Platform.pathSeparator}temporary_directory.dart',
+    );
 
     final pubGet = await Process.run(Platform.resolvedExecutable, [
       '--suppress-analytics',
@@ -53,17 +82,33 @@ name: zuke_core_analyzer14_smoke
 environment:
   sdk: '>=3.10.0 <4.0.0'
 dependencies:
+  zuke_cli:
+    path: zuke_cli
   zuke_annotations:
     path: zuke_annotations
   zuke_core:
     path: zuke_core
+  zuke_frontend:
+    path: zuke_frontend
+  zuke:
+    path: zuke
   zuke_http_runtime:
     path: zuke_http_runtime
 dev_dependencies:
   test: ^1.31.1
 dependency_overrides:
+  zuke_annotations:
+    path: zuke_annotations
+  zuke_cli:
+    path: zuke_cli
   zuke_core:
     path: zuke_core
+  zuke_frontend:
+    path: zuke_frontend
+  zuke_http_runtime:
+    path: zuke_http_runtime
+  zuke:
+    path: zuke
 ''');
 }
 

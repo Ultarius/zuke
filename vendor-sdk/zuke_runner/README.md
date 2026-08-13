@@ -3,16 +3,14 @@
 Compatibility package for deterministic Gherkin execution and evidence
 contracts now implemented by `package:zuke`.
 
-## Preview status
-
-`zuke_runner` is deprecated as a primary entry package. Version `0.1.1` keeps
-the existing libraries source-compatible by forwarding them to `zuke`.
+`zuke_runner` is the coordinated compatibility runner package for projects
+that keep runner-specific imports separate from the primary `zuke` facade.
 
 ## Installation
 
 ```yaml
 dependencies:
-  zuke: ^0.1.0
+  zuke_runner: ^0.3.0
 ```
 
 Use these imports in new code:
@@ -22,15 +20,12 @@ import 'package:zuke/zuke.dart';
 import 'package:zuke/http.dart'; // HTTP scenario tests only
 ```
 
-Existing `package:zuke_runner/zuke_runner.dart`, `runtime.dart`, and
-`http.dart` imports continue to compile. There is no removal timeline during
-the current preview; keeping the package available also leaves room for a more
-specialized runner role in a future breaking release.
+The package provides the current runner surface while the primary SDK remains
+available through `package:zuke/zuke.dart`.
 
 ## Support tier
 
-Compatibility package for the primary Zuke SDK. The forwarded APIs remain
-supported during the `0.1.x` transition. See the [integration guide](https://github.com/Ultarius/zuke/blob/main/docs/integration-guide.md).
+Compatibility package for the primary Zuke SDK. See the [integration guide](https://github.com/Ultarius/zuke/blob/main/docs/integration-guide.md).
 
 ## License
 

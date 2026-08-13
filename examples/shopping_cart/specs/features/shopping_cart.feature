@@ -71,7 +71,7 @@ Feature: E-Commerce Shopping Cart & Checkout
 
   # rule-spec-begin
   # id: RULE-CART-ITEM-MANAGEMENT
-  # requiredEvidence: [gherkin-ui]
+  # requiredEvidence: [{type: gherkin-ui, target: flutter, sourcePackage: shopping-cart, sourceAdapter: dart-source, variant: default}]
   # securityProfile: cart-validation-profile
   # rule-spec-end
   @RULE-CART-ITEM-MANAGEMENT
@@ -94,7 +94,7 @@ Feature: E-Commerce Shopping Cart & Checkout
 
   # rule-spec-begin
   # id: RULE-CART-PROMO-DISCOUNT
-  # requiredEvidence: [gherkin-ui]
+  # requiredEvidence: [{type: gherkin-ui, target: flutter, sourcePackage: shopping-cart, sourceAdapter: dart-source, variant: default}]
   # securityProfile: promo-validation-profile
   # rule-spec-end
   @RULE-CART-PROMO-DISCOUNT
@@ -139,7 +139,7 @@ Feature: E-Commerce Shopping Cart & Checkout
 
   # rule-spec-begin
   # id: RULE-CART-EMPTY-CHECKOUT
-  # requiredEvidence: [gherkin-ui]
+  # requiredEvidence: [{type: gherkin-ui, target: flutter, sourcePackage: shopping-cart, sourceAdapter: dart-source, variant: default}]
   # securityProfile: cart-validation-profile
   # rule-spec-end
   @RULE-CART-EMPTY-CHECKOUT
@@ -152,7 +152,7 @@ Feature: E-Commerce Shopping Cart & Checkout
 
   # rule-spec-begin
   # id: RULE-CART-SUCCESSFUL-CHECKOUT
-  # requiredEvidence: [gherkin-ui]
+  # requiredEvidence: [{type: gherkin-ui, target: flutter, sourcePackage: shopping-cart, sourceAdapter: dart-source, variant: default}]
   # securityProfile: cart-validation-profile
   # rule-spec-end
   @RULE-CART-SUCCESSFUL-CHECKOUT
@@ -172,7 +172,7 @@ Feature: E-Commerce Shopping Cart & Checkout
 
   # rule-spec-begin
   # id: RULE-CART-ACCESSIBILITY
-  # requiredEvidence: [gherkin-ui]
+  # requiredEvidence: [{type: gherkin-ui, target: flutter, sourcePackage: shopping-cart, sourceAdapter: dart-source, variant: default}]
   # securityProfile: cart-accessible-profile
   # rule-spec-end
   @RULE-CART-ACCESSIBILITY

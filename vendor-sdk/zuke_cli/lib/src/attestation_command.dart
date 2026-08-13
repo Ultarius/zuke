@@ -9,9 +9,9 @@ import 'package:zuke_frontend/zuke_frontend.dart';
 import 'attestation_verification.dart';
 import 'external_signing_client.dart';
 import 'trust_bundle.dart';
+import 'configuration_preflight.dart';
 
 class AttestationCommand {
-  static const _domain = 'Zuke external control attestation v1\u0000';
   final ArgResults args;
   final ExternalSigningClient signingClient;
 
@@ -46,7 +46,7 @@ class AttestationCommand {
     if (evidence.isEmpty) {
       throw const FormatException('Gateway evidence must not be empty');
     }
-    final workspace = WorkspaceDiscovery().discover(root);
+    final workspace = requireCurrentWorkspace(root);
     final provider = _provider(workspace, providerId);
     if (provider == null) {
       throw FormatException('Attested provider not found: $providerId');
@@ -82,16 +82,16 @@ class AttestationCommand {
       );
     }
     final unsigned = <String, Object?>{
-      'schemaVersion': 'zuke.external-attestation.v1',
+      'kind': 'zuke.external-attestation',
       'signer': {'signerId': signerId, 'keyId': keyId, 'algorithm': 'Ed25519'},
       'body': body,
     };
-    final payload = utf8.encode('$_domain${canonicalJson(unsigned)}');
+    final payload = attestationSigningPayload(unsigned);
     final external = await signingClient.sign(
       signerId: signerId,
       keyId: keyId,
       usage: 'attestation',
-      domainSeparator: _domain,
+      domainSeparator: attestationSigningDomain,
       payload: payload,
       trustedKey: trustedKey,
     );
@@ -124,7 +124,7 @@ class AttestationCommand {
         '${JsonEncoder.withIndent('  ').convert(record)}\n',
       );
       _writeAtomically(policyFile, updatedPolicy);
-      final verifiedWorkspace = WorkspaceDiscovery().discover(root);
+      final verifiedWorkspace = requireCurrentWorkspace(root);
       final verified = await AttestationVerification().verify(
         verifiedWorkspace,
       );

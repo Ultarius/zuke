@@ -1,7 +1,8 @@
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:zuke_core/zuke_core.dart';
+import 'package:zuke_cli/src/dart_extractor.dart';
+import 'package:zuke_cli/src/ir.dart';
 import 'package:test/test.dart';
 import 'package:zuke_frontend/zuke_frontend.dart';
 import 'package:zuke_cli/src/extraction_service.dart';
@@ -132,10 +133,14 @@ void main() {
           evidenceType: 'domain-unit',
           target: 'backend',
           executionId: 'run-1',
+          profile: 'pullRequest',
           digests: _digests(),
           candidateId: 'SCN-TEST-001',
           runnerId: 'unit-runner',
           runnerCompatibilityId: 'unit-runner-v1',
+          sourcePackage: 'test_pkg',
+          sourceAdapter: 'dart-source',
+          sourceCompatibilityId: DartExtractor.compatibilityId,
         ).toJson();
         File(
           '${evidence.path}/a.json',
@@ -168,6 +173,67 @@ void main() {
         expect(
           replacementExtraction.errors,
           isNot(anyElement(contains('evidence'))),
+        );
+      },
+    );
+
+    test(
+      'feeds native Dart Frog topology into the proof extraction outputs',
+      () async {
+        final routes = Directory('${tempDir.path}/routes')
+          ..createSync(recursive: true);
+        File('${routes.path}/_middleware.dart').writeAsStringSync('''
+typedef Handler = Object Function(Object);
+Handler middleware(Handler handler) => handler;
+''');
+        File(
+          '${routes.path}/index.dart',
+        ).writeAsStringSync('Object onRequest(Object request) => Object();');
+        File('${tempDir.path}/pubspec.yaml').writeAsStringSync(
+          'name: dart_frog_fixture\\nenvironment:\\n  sdk: \">=3.10.0 <3.11.0\"\\n',
+        );
+        final workspace = WorkspaceDiscoveryResult(
+          config: ZukeConfig(
+            root: tempDir.path,
+            targetsConfig: {
+              'backend': {
+                'language': 'dart',
+                'framework': 'dart-frog',
+                'packages': [
+                  {
+                    'id': 'backend',
+                    'path': '.',
+                    'roots': ['routes'],
+                  },
+                ],
+              },
+            },
+          ),
+          data: const MetadataExtractorResult(),
+        );
+
+        final result = await ExtractionService().extract(
+          workspace,
+          includeEvidence: false,
+        );
+
+        expect(result.topologyOutputs, hasLength(1));
+        expect(
+          result.topologyOutputs.single.nodes.any(
+            (node) => node.kind == 'route',
+          ),
+          isTrue,
+        );
+        final topologyProjection = result.outputs.firstWhere(
+          (output) => output.graph!.nodes.any(
+            (node) => node.properties['topologyKind'] == 'route',
+          ),
+        );
+        expect(
+          topologyProjection.graph!.nodes.any(
+            (node) => node.properties['topologyKind'] == 'route',
+          ),
+          isTrue,
         );
       },
     );

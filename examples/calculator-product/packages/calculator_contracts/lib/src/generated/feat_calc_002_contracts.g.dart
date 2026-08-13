@@ -5,28 +5,47 @@ import 'package:zuke_annotations/zuke_annotations.dart';
 
 abstract final class FeatCalc002RequirementIds {
   static const bodySize = 'RULE-CALC-BODY-SIZE';
+  static const bodySizeId = RuleId('RULE-CALC-BODY-SIZE');
   static const rateLimit = 'RULE-CALC-RATE-LIMIT';
+  static const rateLimitId = RuleId('RULE-CALC-RATE-LIMIT');
   static const errorRedaction = 'RULE-CALC-ERROR-REDACTION';
+  static const errorRedactionId = RuleId('RULE-CALC-ERROR-REDACTION');
+}
+
+abstract final class FeatCalc002ControlIds {
+  static const bodySize = ControlId('CTRL-CALC-BODY-SIZE');
+  static const errorRedaction = ControlId('CTRL-CALC-ERROR-REDACTION');
+  static const logRedaction = ControlId('CTRL-CALC-LOG-REDACTION');
+  static const rateLimit = ControlId('CTRL-CALC-RATE-LIMIT');
 }
 
 enum FeatCalc002Scenario implements ZukeScenarioContract {
   oversizedBody(
     ScenarioId('SCN-CALC-OVERSIZED-BODY'),
-    'RULE-CALC-BODY-SIZE',
+    RuleId('RULE-CALC-BODY-SIZE'),
     'Reject an oversized request body',
-    <String>{'CTRL-CALC-BODY-SIZE', 'CTRL-CALC-LOG-REDACTION'},
+    <ControlId>{
+      ControlId('CTRL-CALC-BODY-SIZE'),
+      ControlId('CTRL-CALC-LOG-REDACTION'),
+    },
   ),
   rateLimit(
     ScenarioId('SCN-CALC-RATE-LIMIT'),
-    'RULE-CALC-RATE-LIMIT',
+    RuleId('RULE-CALC-RATE-LIMIT'),
     'Apply rate limiting after the request budget is exhausted',
-    <String>{'CTRL-CALC-LOG-REDACTION', 'CTRL-CALC-RATE-LIMIT'},
+    <ControlId>{
+      ControlId('CTRL-CALC-LOG-REDACTION'),
+      ControlId('CTRL-CALC-RATE-LIMIT'),
+    },
   ),
   unexpectedFailure(
     ScenarioId('SCN-CALC-UNEXPECTED-FAILURE'),
-    'RULE-CALC-ERROR-REDACTION',
+    RuleId('RULE-CALC-ERROR-REDACTION'),
     'Sanitize an unexpected internal calculation failure',
-    <String>{'CTRL-CALC-ERROR-REDACTION', 'CTRL-CALC-LOG-REDACTION'},
+    <ControlId>{
+      ControlId('CTRL-CALC-ERROR-REDACTION'),
+      ControlId('CTRL-CALC-LOG-REDACTION'),
+    },
   );
 
   const FeatCalc002Scenario(
@@ -38,11 +57,11 @@ enum FeatCalc002Scenario implements ZukeScenarioContract {
   @override
   final ScenarioId id;
   @override
-  final String requirementId;
+  final RuleId requirementId;
   @override
   final String title;
   @override
-  final Set<String> controlIds;
+  final Set<ControlId> controlIds;
 }
 
 abstract final class FeatCalc002Scenarios {

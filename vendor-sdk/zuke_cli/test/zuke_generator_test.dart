@@ -2,7 +2,8 @@ import 'dart:io';
 
 import 'package:zuke_cli/src/generator.dart';
 import 'package:zuke_frontend/zuke_frontend.dart';
-import 'package:zuke_test_support/zuke_test_support.dart';
+import 'helpers/schema3_workspace.dart';
+import 'support/temporary_directory.dart';
 import 'package:test/test.dart';
 
 void main() {
@@ -41,24 +42,19 @@ void main() {
     test(
       'generates Dart contracts and step support for a Flutter workspace',
       () {
-        File('${tempDir.path}/zuke.yaml').writeAsStringSync('''
-schemaVersion: 2
-workspace:
-  name: test-app
-  root: .
-specifications:
-  features: [specs/features/**/*.feature]
-targets:
-  flutter:
-    language: dart
-    contractOutput: lib/src/generated
-execution:
-  runners:
-    - id: sample-tests
-      kind: gherkin
-      target: flutter
-      generatedStepsOutput: test/support/generated
-''');
+        writeSchema3Workspace(
+          tempDir,
+          name: 'test-app',
+          target: 'flutter',
+          packageId: 'test-app',
+          framework: 'flutter',
+          roots: const ['lib', 'test'],
+          sourceAdapter: 'dart-source',
+          sourceCompatibilityId: 'dart-source-package-v1',
+          runnerCompatibilityId: 'flutter-runner-v1',
+          contractOutput: 'lib/src/generated',
+          generatedStepsOutput: 'test/support/generated',
+        );
 
         Directory('${tempDir.path}/specs/features').createSync(recursive: true);
         File('${tempDir.path}/specs/features/sample.feature').writeAsStringSync(
@@ -140,24 +136,20 @@ Feature: Sample Feature
     );
 
     test('generates pure-Dart step support for a non-Flutter runner', () {
-      File('${tempDir.path}/zuke.yaml').writeAsStringSync('''
-schemaVersion: 2
-workspace:
-  name: test-app
-  root: .
-specifications:
-  features: [specs/features/**/*.feature]
-targets:
-  backend:
-    language: dart
-    contractOutput: lib/src/generated
-execution:
-  runners:
-    - id: sample-api-tests
-      kind: gherkin
-      target: backend
-      generatedStepsOutput: test/support/generated
-''');
+      writeSchema3Workspace(
+        tempDir,
+        name: 'test-app',
+        target: 'backend',
+        packageId: 'test-app',
+        framework: 'dart',
+        roots: const ['lib', 'test'],
+        sourceAdapter: 'dart-source',
+        sourceCompatibilityId: 'dart-source-package-v1',
+        runnerCompatibilityId: 'dart-runner-v1',
+        runnerId: 'sample-api-tests',
+        contractOutput: 'lib/src/generated',
+        generatedStepsOutput: 'test/support/generated',
+      );
 
       Directory('${tempDir.path}/specs/features').createSync(recursive: true);
       File('${tempDir.path}/specs/features/sample.feature').writeAsStringSync(
@@ -198,17 +190,14 @@ Feature: Sample Feature
     });
 
     test('detects colliding member names and reports generation errors', () {
-      File('${tempDir.path}/zuke.yaml').writeAsStringSync('''
-schemaVersion: 2
-workspace:
-  name: test-app
-  root: .
-specifications:
-  features: [specs/features/**/*.feature]
-targets:
-  flutter:
-    language: dart
-''');
+      writeSchema3Workspace(
+        tempDir,
+        name: 'test-app',
+        target: 'flutter',
+        packageId: 'test-app',
+        framework: 'flutter',
+        roots: const ['lib', 'test'],
+      );
 
       Directory('${tempDir.path}/specs/features').createSync(recursive: true);
       File('${tempDir.path}/specs/features/bad.feature').writeAsStringSync('''
@@ -243,6 +232,59 @@ Feature: Bad Feature
 
       expect(result.errors, isNotEmpty);
       expect(result.errors.first, contains('generated invalid Dart'));
+    });
+
+    test('names colliding control constants without duplicate members', () {
+      writeSchema3Workspace(
+        tempDir,
+        name: 'test-app',
+        target: 'backend',
+        packageId: 'test-app',
+        framework: 'dart',
+        roots: const ['lib', 'test'],
+        contractOutput: 'lib/src/generated',
+      );
+
+      Directory('${tempDir.path}/specs/features').createSync(recursive: true);
+      File(
+        '${tempDir.path}/specs/features/collision.feature',
+      ).writeAsStringSync('''
+# spec-begin
+# schemaVersion: 1
+# id: FEAT-COLLISION-001
+# targets:
+#   - backend
+# spec-end
+
+@FEAT-COLLISION-001
+Feature: Control name collision
+  # rule-spec-begin
+  # id: RULE-COLLISION-001
+  # requires:
+  #   - kind: control
+  #     id: CTRL-CART-VALIDATION
+  #   - kind: control
+  #     id: CTRL-PROMO-VALIDATION
+  # rule-spec-end
+  @RULE-COLLISION-001
+  Rule: Control names remain unique
+    @SCN-COLLISION-001
+    Scenario: The generated constants compile
+      Given the API is healthy
+''');
+
+      final discovery = WorkspaceDiscovery().discover(tempDir.path);
+      final result = DartContractGenerator().generate(
+        workspace: discovery,
+        outputDir: '${tempDir.path}/lib/src/generated',
+      );
+
+      expect(result.errors, isEmpty);
+      final contracts = result.files.firstWhere(
+        (file) => file.path.contains('feat_collision_001_contracts.g.dart'),
+      );
+      expect(contracts.content, contains('static const validation ='));
+      expect(contracts.content, contains('static const promoValidation ='));
     });
   });
 }

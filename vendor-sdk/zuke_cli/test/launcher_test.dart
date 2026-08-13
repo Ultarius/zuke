@@ -3,9 +3,15 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:zuke_cli/zuke_cli.dart';
-import 'package:zuke_core/zuke_core.dart' show ScenarioId;
+import 'package:zuke_core/zuke_core.dart';
 import 'package:zuke/runner.dart';
 import 'package:test/test.dart';
+
+const _runnerIdentity = ExecutionSourceIdentity(
+  sourcePackage: 'fake-supervisor',
+  sourceAdapter: 'dart-source',
+  sourceCompatibilityId: 'dart-source-package-v1',
+);
 
 void main() {
   group('configured runner supervision', () {
@@ -43,6 +49,11 @@ void main() {
         runners: '''
     - id: unit-runner
       kind: setup
+      target: backend
+      sourcePackage: fake-supervisor
+      sourceAdapter: dart-source
+      sourceCompatibilityId: dart-source-package-v1
+      runnerCompatibilityId: fake-supervisor-v1
       executable: flutter
       runnerMode: cli
       args: [test, test]
@@ -225,6 +236,11 @@ void main() {
           runners: '''
     - id: evidence-runner
       kind: test
+      target: backend
+      sourcePackage: fake-supervisor
+      sourceAdapter: dart-source
+      sourceCompatibilityId: dart-source-package-v1
+      runnerCompatibilityId: fake-supervisor-v1
       executable: dart
       evidenceTypes: [domain-unit]
 ''',
@@ -248,6 +264,11 @@ void main() {
             runners: '''
     - id: artifact-runner
       kind: test
+      target: backend
+      sourcePackage: fake-supervisor
+      sourceAdapter: dart-source
+      sourceCompatibilityId: dart-source-package-v1
+      runnerCompatibilityId: fake-supervisor-v1
       executable: dart
 ''',
           );
@@ -273,6 +294,11 @@ void main() {
             runners: '''
     - id: artifact-runner
       kind: test
+      target: backend
+      sourcePackage: fake-supervisor
+      sourceAdapter: dart-source
+      sourceCompatibilityId: dart-source-package-v1
+      runnerCompatibilityId: fake-supervisor-v1
       executable: dart
 ''',
           );
@@ -290,66 +316,89 @@ void main() {
       },
     );
 
-    test(
-      'supports structured target runners and rejects shell strings',
-      () async {
-        final shell = _workspace(
-          runners: '    []',
-          targets: '{backend: {runner: dart test}}',
-        );
-        addTearDown(() => shell.delete(recursive: true));
-        expect(
-          await ZukeCli(
-            processSupervisor: _FakeSupervisor(ProcessResult(1, 0, '', '')),
-          ).run(['test', '--root', shell.path]),
-          2,
-        );
+    test('rejects target-level runner declarations', () async {
+      final shell = _workspace(
+        runners: '    []',
+        targets:
+            '  backend:\n'
+            '    language: dart\n'
+            '    framework: dart\n'
+            '    packages:\n'
+            '      - id: fake-supervisor\n'
+            '        path: .\n'
+            '        roots: [lib, test]\n'
+            '    runner: dart test\n',
+      );
+      addTearDown(() => shell.delete(recursive: true));
+      expect(
+        await ZukeCli(
+          processSupervisor: _FakeSupervisor(ProcessResult(1, 0, '', '')),
+        ).run(['test', '--root', shell.path]),
+        2,
+      );
 
-        final missingExecutable = _workspace(
-          runners: '    []',
-          targets: '{backend: {runner: {args: [test]}}}',
-        );
-        addTearDown(() => missingExecutable.delete(recursive: true));
-        expect(
-          await ZukeCli(
-            processSupervisor: _FakeSupervisor(ProcessResult(1, 0, '', '')),
-          ).run(['test', '--root', missingExecutable.path]),
-          2,
-        );
+      final missingExecutable = _workspace(
+        runners: '    []',
+        targets:
+            '  backend:\n'
+            '    language: dart\n'
+            '    framework: dart\n'
+            '    packages:\n'
+            '      - id: fake-supervisor\n'
+            '        path: .\n'
+            '        roots: [lib, test]\n'
+            '    runner: {args: [test]}\n',
+      );
+      addTearDown(() => missingExecutable.delete(recursive: true));
+      expect(
+        await ZukeCli(
+          processSupervisor: _FakeSupervisor(ProcessResult(1, 0, '', '')),
+        ).run(['test', '--root', missingExecutable.path]),
+        2,
+      );
 
-        final valid = _workspace(
-          runners: '    []',
-          targets:
-              '{backend: {path: ".", timeoutSeconds: 3, '
-              'runner: {executable: flutter, runnerMode: cli, args: [test]}}}',
-        );
-        addTearDown(() => valid.delete(recursive: true));
-        final supervisor = _FakeSupervisor(ProcessResult(1, 0, 'ok', ''));
-        expect(
-          await ZukeCli(
-            processSupervisor: supervisor,
-          ).run(['test', '--root', valid.path]),
-          0,
-        );
-        expect(
-          supervisor.requests.single.executionTimeout,
-          const Duration(seconds: 3),
-        );
-        expect(supervisor.requests.single.runnerMode, ToolRunnerMode.cli);
+      final structured = _workspace(
+        runners: '    []',
+        targets:
+            '  backend:\n'
+            '    language: dart\n'
+            '    framework: dart\n'
+            '    packages:\n'
+            '      - id: fake-supervisor\n'
+            '        path: .\n'
+            '        roots: [lib, test]\n'
+            '    path: .\n'
+            '    timeoutSeconds: 3\n'
+            '    runner: {executable: flutter, runnerMode: cli, args: [test]}\n',
+      );
+      addTearDown(() => structured.delete(recursive: true));
+      expect(
+        await ZukeCli(
+          processSupervisor: _FakeSupervisor(ProcessResult(1, 0, '', '')),
+        ).run(['test', '--root', structured.path]),
+        2,
+      );
 
-        final failed = _workspace(
-          runners: '    []',
-          targets: '{backend: {runner: {executable: dart, args: [test]}}}',
-        );
-        addTearDown(() => failed.delete(recursive: true));
-        expect(
-          await ZukeCli(
-            processSupervisor: _FakeSupervisor(ProcessResult(1, 1, '', 'bad')),
-          ).run(['test', '--root', failed.path, '--format', 'json']),
-          1,
-        );
-      },
-    );
+      final structuredWithoutTimeout = _workspace(
+        runners: '    []',
+        targets:
+            '  backend:\n'
+            '    language: dart\n'
+            '    framework: dart\n'
+            '    packages:\n'
+            '      - id: fake-supervisor\n'
+            '        path: .\n'
+            '        roots: [lib, test]\n'
+            '    runner: {executable: dart, args: [test]}\n',
+      );
+      addTearDown(() => structuredWithoutTimeout.delete(recursive: true));
+      expect(
+        await ZukeCli(
+          processSupervisor: _FakeSupervisor(ProcessResult(1, 0, '', '')),
+        ).run(['test', '--root', structuredWithoutTimeout.path]),
+        2,
+      );
+    });
 
     test(
       'publishes a passing suite result through the same evidence boundary',
@@ -358,6 +407,11 @@ void main() {
           runners: '''
     - id: artifact-runner
       kind: test
+      target: backend
+      sourcePackage: fake-supervisor
+      sourceAdapter: dart-source
+      sourceCompatibilityId: dart-source-package-v1
+      runnerCompatibilityId: fake-supervisor-v1
       executable: dart
       evidenceTypes: [suite]
 ''',
@@ -400,25 +454,46 @@ Directory _workspace({
   String runners = '''
     - id: unit-runner
       kind: setup
+      target: backend
+      sourcePackage: fake-supervisor
+      sourceAdapter: dart-source
+      sourceCompatibilityId: dart-source-package-v1
+      runnerCompatibilityId: fake-supervisor-v1
       executable: dart
       args: [test, test]
       timeoutSeconds: 7
 ''',
-  String targets = '{}',
+  String targets = '''
+  backend:
+    language: dart
+    framework: dart
+    packages:
+      - id: fake-supervisor
+        path: .
+        roots: [lib, test]
+''',
 }) {
   final root = Directory.systemTemp.createTempSync('zuke_supervisor_');
   File('${root.path}${Platform.pathSeparator}zuke.yaml').writeAsStringSync('''
-schemaVersion: 2
+schemaVersion: 3
 workspace:
   name: fake-supervisor
   root: .
 specifications:
   features: [specs/features/**/*.feature]
-targets: $targets
+targets:
+$targets
 execution:
   runners:
 $runners
 ''');
+  File('${root.path}${Platform.pathSeparator}pubspec.yaml').writeAsStringSync(
+    '''
+name: fake_supervisor
+environment:
+  sdk: '>=3.0.0 <4.0.0'
+''',
+  );
   final features = Directory(
     '${root.path}${Platform.pathSeparator}specs${Platform.pathSeparator}features',
   )..createSync(recursive: true);
@@ -457,7 +532,7 @@ final class _EvidenceSupervisor implements ProcessSupervisor {
   @override
   Future<ProcessResult> run(ProcessRunRequest request) async {
     final directory = request.environment['ZUKE_RESULT_DIR']!;
-    ExecutionResultWriter().writeScenario(
+    const ExecutionResultWriter(identity: _runnerIdentity).writeScenario(
       directory,
       const ScenarioResult(
         executionId: 'evidence-run',
@@ -500,8 +575,9 @@ final class _ResultSupervisor implements ProcessSupervisor {
     final directory = request.environment['ZUKE_RESULT_DIR']!;
     for (var index = 0; index < artifacts.length; index++) {
       final json = switch (artifacts[index]) {
-        ScenarioResult value => value.toJson(),
-        SuiteResult value => value.toJson(),
+        ScenarioResult value =>
+          value.withSourceIdentity(_runnerIdentity).toJson(),
+        SuiteResult value => value.withSourceIdentity(_runnerIdentity).toJson(),
         _ => throw StateError('Unsupported test artifact'),
       };
       File(

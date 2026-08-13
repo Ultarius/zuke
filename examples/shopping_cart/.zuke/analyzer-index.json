@@ -1,7 +1,7 @@
 {
-  "schemaVersion": "zuke.analyzer-index.v2",
-  "inputDigest": "sha256:71d7311f46c8eac6ff540267d41c1ec5f98707603bc116185e988276d65cc2bb",
-  "generatedManifestDigest": "sha256:a7183987cc26a508437be66fc9aa2beb48896abb46733de6b14ea59300ceb8e1",
+  "kind": "zuke.analyzer-index",
+  "inputDigest": "sha256:e4c4fac86859b4cedc11a83e0ad05e5b6e40710e97849afc25a96a8e8ca024f3",
+  "generatedManifestDigest": "sha256:2f239e4d481e650d93d3180b876ddddc3e4d61e429f4f0d4c7b32c5e9f5df0f2",
   "generatedManifestPath": "lib/src/.zuke-generated.json",
   "inputs": [
     {
@@ -22,7 +22,7 @@
     },
     {
       "path": "specs/features/shopping_cart.feature",
-      "digest": "sha256:078f49cc3341be96243e39d114e47b7427dccd6474e1d3bdade4433370365a8c"
+      "digest": "sha256:5152364c71a28130c262668a71f9fefdb76ca08c92d0965c04cadb074038a5d1"
     },
     {
       "path": "specs/registry/pbis.yaml",
@@ -34,7 +34,7 @@
     },
     {
       "path": "zuke.yaml",
-      "digest": "sha256:5a58777b64a96a4255e252e8eabd922bbdc95d7491ed2187cacaac533fb3a273"
+      "digest": "sha256:3c9f33a44dec378df0cbb147cbac112cb87a98702392241344853159f7ca643c"
     }
   ],
   "inputPatterns": [

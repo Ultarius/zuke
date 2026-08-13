@@ -1,5 +1,5 @@
-import 'package:zuke_core/zuke_core.dart';
 import 'package:zuke_frontend/zuke_frontend.dart';
+import '../ir.dart';
 import 'dart:convert';
 import 'package:crypto/crypto.dart';
 
@@ -302,7 +302,7 @@ class DominanceValidator {
   }
 
   String _graphHash(IrGraph graph) =>
-      'sha256:${sha256.convert(utf8.encode(const JsonEncoder().convert(graph.toJson())))}';
+      'sha256:${sha256.convert(utf8.encode(canonicalJson(graph.toJson())))}';
 
   CoverageSemantics? _semantics(
     WorkspaceDiscoveryResult? workspace,

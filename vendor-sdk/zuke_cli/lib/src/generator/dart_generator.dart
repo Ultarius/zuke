@@ -395,8 +395,30 @@ class DartContractGenerator {
         buffer.writeln(
           '  static const $constName = ${_dartStringLiteral(rule.metadata.id!)};',
         );
+        buffer.writeln(
+          '  static const ${constName}Id = RuleId(${_dartStringLiteral(rule.metadata.id!)});',
+        );
       }
       buffer.writeln('}');
+
+      final featureControlIds =
+          rules
+              .expand((rule) => _effectiveControlIds(workspace, rule))
+              .toSet()
+              .toList()
+            ..sort();
+      if (featureControlIds.isNotEmpty) {
+        buffer.writeln();
+        buffer.writeln('abstract final class ${pascalName}ControlIds {');
+        final controlMembers = <String>{};
+        for (final controlId in featureControlIds) {
+          final member = _uniqueControlMember(controlId, controlMembers);
+          buffer.writeln(
+            '  static const $member = ControlId(${_dartStringLiteral(controlId)});',
+          );
+        }
+        buffer.writeln('}');
+      }
 
       // Canonical feature enum and aggregate catalog; aliases would provide a
       // second, drift-prone naming surface and are intentionally not emitted.
@@ -419,7 +441,7 @@ class DartContractGenerator {
           }
           buffer.writeln(
             '  $member(ScenarioId(${_dartStringLiteral(scenario.id)}), '
-            '${_dartStringLiteral(_ruleForScenario(rules, scenario.id, scenarioContracts))}, '
+            'RuleId(${_dartStringLiteral(_ruleForScenario(rules, scenario.id, scenarioContracts))}), '
             '${_dartStringLiteral(scenario.title)}, '
             '${_controlSetLiteral(scenario.controlIds)}),',
           );
@@ -429,9 +451,9 @@ class DartContractGenerator {
           '  const $featureScenarioType(this.id, this.requirementId, this.title, this.controlIds);',
         );
         buffer.writeln('  @override final ScenarioId id;');
-        buffer.writeln('  @override final String requirementId;');
+        buffer.writeln('  @override final RuleId requirementId;');
         buffer.writeln('  @override final String title;');
-        buffer.writeln('  @override final Set<String> controlIds;');
+        buffer.writeln('  @override final Set<ControlId> controlIds;');
         buffer.writeln('}');
         buffer.writeln();
         buffer.writeln('abstract final class ${pascalName}Scenarios {');
@@ -726,7 +748,7 @@ class DartContractGenerator {
 
   String _controlSetLiteral(Set<String> controls) {
     final sorted = controls.toList()..sort();
-    return '<String>{${sorted.map(_dartStringLiteral).join(', ')}}';
+    return '<ControlId>{${sorted.map((id) => 'ControlId(${_dartStringLiteral(id)})').join(', ')}}';
   }
 
   String _ruleForScenario(
@@ -835,6 +857,29 @@ class DartContractGenerator {
   }
 
   String _ruleIdToConst(String id) => _idToConst(id, 2);
+
+  String _controlIdToConst(String id) => _idToConst(id, 2);
+
+  /// Returns a deterministic, valid member name for a control ID.
+  ///
+  /// Control IDs commonly share a final semantic word (for example
+  /// `CTRL-CART-VALIDATION` and `CTRL-PROMO-VALIDATION`).  The short name is
+  /// useful for ordinary IDs, but it is not a sufficient namespace when two
+  /// controls collide.  Preserve the short name where possible and add the
+  /// first meaningful ID context only for a collision.
+  String _uniqueControlMember(String id, Set<String> used) {
+    final base = _controlIdToConst(id);
+    if (used.add(base)) return base;
+
+    final contextual = _safeIdent(_toCamel(id.split('-').skip(1).join('_')));
+    if (used.add(contextual)) return contextual;
+
+    var suffix = 2;
+    while (!used.add('$contextual$suffix')) {
+      suffix++;
+    }
+    return '$contextual$suffix';
+  }
 
   String _scnIdToConst(String id) => _idToConst(id, 2);
 

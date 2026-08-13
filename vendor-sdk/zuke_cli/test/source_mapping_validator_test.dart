@@ -1,4 +1,4 @@
-import 'package:zuke_core/zuke_core.dart';
+import 'package:zuke_cli/src/ir.dart';
 import 'package:zuke_cli/src/proof_engine.dart';
 import 'package:zuke_frontend/zuke_frontend.dart';
 import 'package:test/test.dart';
@@ -51,17 +51,17 @@ void main() {
         ],
       ),
     );
-    const output = AdapterOutput(
+    const output = IrAdapterOutput(
       adapter: AdapterDescriptor(id: 'fixture', version: '1'),
       inputDigest: 'fixture',
-      completeness: AdapterCompleteness(
+      completeness: IrAdapterCompleteness(
         annotationTargets: CompletenessValue.indeterminate,
       ),
       diagnostics: [
-        Diagnostic(
+        IrDiagnostic(
           code: 'EXTRACT-FIXTURE',
           message: 'resolver did not finish',
-          severity: DiagnosticSeverity.error,
+          severity: IrDiagnosticSeverity.error,
         ),
       ],
       symbols: [

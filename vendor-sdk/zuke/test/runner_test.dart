@@ -5,24 +5,46 @@ import 'package:crypto/crypto.dart';
 import 'package:test/test.dart';
 import 'package:zuke_annotations/zuke_annotations.dart';
 import 'package:zuke_frontend/zuke_frontend.dart';
+import 'package:zuke_core/zuke_core.dart';
 import 'package:zuke/runner.dart';
 
 class World extends MapScenarioWorld {}
 
+const _testSourcePackage = 'test-package';
+const _testSourceAdapter = 'dart-source';
+const _testSourceCompatibilityId = 'dart-source-package-v1';
+const _testIdentity = ExecutionSourceIdentity(
+  sourcePackage: _testSourcePackage,
+  sourceAdapter: _testSourceAdapter,
+  sourceCompatibilityId: _testSourceCompatibilityId,
+);
+
 enum _Contract implements ZukeScenarioContract {
-  correct(ScenarioId('SCN-CONTRACT-ONE'), 'RULE-CONTRACT-001', 'Correct title'),
-  missing(ScenarioId('SCN-CONTRACT-TWO'), 'RULE-CONTRACT-001', 'Correct title'),
-  drifted(ScenarioId('SCN-CONTRACT-ONE'), 'RULE-OTHER', 'Drifted title');
+  correct(
+    ScenarioId('SCN-CONTRACT-ONE'),
+    RuleId('RULE-CONTRACT-001'),
+    'Correct title',
+  ),
+  missing(
+    ScenarioId('SCN-CONTRACT-TWO'),
+    RuleId('RULE-CONTRACT-001'),
+    'Correct title',
+  ),
+  drifted(
+    ScenarioId('SCN-CONTRACT-ONE'),
+    RuleId('RULE-OTHER'),
+    'Drifted title',
+  );
 
   const _Contract(this.id, this.requirementId, this.title);
   @override
   final ScenarioId id;
   @override
-  final String requirementId;
+  final RuleId requirementId;
   @override
   final String title;
   @override
-  Set<String> get controlIds => const {};
+  Set<ControlId> get controlIds => const {};
 }
 
 void main() {
@@ -50,7 +72,7 @@ Feature: Contracts
 
       final resolved = resolveScenarioContract(feature, contract);
 
-      expect(resolved.rule.metadata.id, contract.requirementId);
+      expect(resolved.rule.metadata.id, contract.requirementId.value);
       expect(resolved.scenario.scenarioElement.title, contract.title);
     });
 
@@ -221,7 +243,7 @@ Feature: Run
     expect(first.status, ScenarioStatus.passed);
     expect(first.executionId, second.executionId);
     expect(first.evidenceType, 'gherkin-api');
-    expect(first.requirementId, 'RULE-RUN-001');
+    expect(first.requirementId, RuleId('RULE-RUN-001').value);
     expect(seen, ['one', 'two', 'one', 'two']);
 
     final releaseExecutor = ScenarioExecutor<World>(
@@ -409,12 +431,40 @@ Feature: Run
       profile: 'pullRequest',
       runnerId: 'runner',
       runnerCompatibilityId: 'runner-v1',
+      sourcePackage: _testSourcePackage,
+      sourceAdapter: _testSourceAdapter,
+      sourceCompatibilityId: _testSourceCompatibilityId,
       scenarioIds: [ScenarioId('SCN-RUN-001')],
     );
     final decoded = ScenarioResult.fromJson(result.toJson());
     expect(decoded.executionId, result.executionId);
     expect(decoded.status, ScenarioStatus.passed);
     expect(decoded.candidateId, 'SCN-RUN-001');
+  });
+
+  test('current result artifacts preserve target source identity', () {
+    const result = SuiteResult(
+      executionId: 'execution-v2',
+      status: SuiteStatus.passed,
+      requirementId: 'RULE-RUN-002',
+      evidenceType: 'websocket-contract',
+      target: 'contract',
+      candidateId: 'SCN-RUN-002',
+      profile: 'pullRequest',
+      runnerId: 'contract-runner',
+      runnerCompatibilityId: 'runner-v2',
+      sourcePackage: 'secret-society-contract',
+      sourceAdapter: 'dart-source',
+      sourceCompatibilityId: 'dart-source-package-v1',
+      resultDigest: 'sha256:result',
+    );
+
+    final json = result.toJson();
+    expect(json['kind'], 'zuke.suite-result');
+    final decoded = SuiteResult.fromJson(json);
+    expect(decoded.sourcePackage, 'secret-society-contract');
+    expect(decoded.sourceAdapter, 'dart-source');
+    expect(decoded.sourceCompatibilityId, 'dart-source-package-v1');
   });
 
   test('scenario execution reports ambiguity and action failures', () async {
@@ -484,6 +534,9 @@ Feature: Failures
       profile: 'pullRequest',
       runnerId: 'runner',
       runnerCompatibilityId: 'runner-v1',
+      sourcePackage: _testSourcePackage,
+      sourceAdapter: _testSourceAdapter,
+      sourceCompatibilityId: _testSourceCompatibilityId,
     ).toJson();
     final suite = const SuiteResult(
       executionId: 'suite',
@@ -495,6 +548,9 @@ Feature: Failures
       profile: 'pullRequest',
       runnerId: 'runner',
       runnerCompatibilityId: 'runner-v1',
+      sourcePackage: _testSourcePackage,
+      sourceAdapter: _testSourceAdapter,
+      sourceCompatibilityId: _testSourceCompatibilityId,
       resultDigest: 'sha256:result',
     ).toJson();
 
@@ -518,6 +574,39 @@ Feature: Failures
       () => SuiteResult.fromJson({...suite, 'status': 'unknown'}),
       throwsFormatException,
     );
+    expect(
+      () => ScenarioResult.fromJson({
+        ...scenario,
+        'kind': 'zuke.scenario-result.legacy',
+      }),
+      throwsFormatException,
+    );
+    expect(
+      () =>
+          SuiteResult.fromJson({...suite, 'kind': 'zuke.suite-result.legacy'}),
+      throwsFormatException,
+    );
+    expect(
+      () => const ScenarioResult(
+        executionId: 'missing-identity',
+        status: ScenarioStatus.passed,
+        requirementId: 'RULE-1',
+        evidenceType: 'domain-unit',
+        target: 'backend',
+        candidateId: 'candidate',
+        profile: 'pullRequest',
+        runnerId: 'runner',
+        runnerCompatibilityId: 'runner-v1',
+      ).toJson(),
+      throwsFormatException,
+    );
+    expect(
+      () => ExecutionResultWriter.fromEnvironment({
+        'ZUKE_SOURCE_PACKAGE': 'package',
+        'ZUKE_SOURCE_ADAPTER': 'adapter',
+      }),
+      throwsFormatException,
+    );
   });
 
   test('evidence and execution writers replace files atomically', () {
@@ -538,10 +627,14 @@ Feature: Failures
       evidenceType: 'domain-unit',
       target: 'backend',
       executionId: 'execution',
+      profile: 'pullRequest',
+      status: EvidenceStatus.passed,
       digests: digests,
-      candidateId: 'candidate',
       runnerId: 'runner',
       runnerCompatibilityId: 'runner-v1',
+      sourcePackage: _testSourcePackage,
+      sourceAdapter: _testSourceAdapter,
+      sourceCompatibilityId: _testSourceCompatibilityId,
     );
     const scenario = ScenarioResult(
       executionId: 'execution',
@@ -553,6 +646,9 @@ Feature: Failures
       profile: 'pullRequest',
       runnerId: 'runner',
       runnerCompatibilityId: 'runner-v1',
+      sourcePackage: _testSourcePackage,
+      sourceAdapter: _testSourceAdapter,
+      sourceCompatibilityId: _testSourceCompatibilityId,
     );
     const suite = SuiteResult(
       executionId: 'suite',
@@ -564,6 +660,9 @@ Feature: Failures
       profile: 'pullRequest',
       runnerId: 'runner',
       runnerCompatibilityId: 'runner-v1',
+      sourcePackage: _testSourcePackage,
+      sourceAdapter: _testSourceAdapter,
+      sourceCompatibilityId: _testSourceCompatibilityId,
       resultDigest: 'sha256:result',
     );
 
@@ -572,14 +671,12 @@ Feature: Failures
     const EvidenceWriter().write('${root.path}/envelopes/results.json', [
       evidence,
     ], buildId: 'build-1');
-    final scenarioFile = const ExecutionResultWriter().writeScenario(
-      '${root.path}/results',
-      scenario,
-    );
-    final suiteFile = const ExecutionResultWriter().writeSuite(
-      '${root.path}/results',
-      suite,
-    );
+    final scenarioFile = const ExecutionResultWriter(
+      identity: _testIdentity,
+    ).writeScenario('${root.path}/results', scenario);
+    final suiteFile = const ExecutionResultWriter(
+      identity: _testIdentity,
+    ).writeSuite('${root.path}/results', suite);
 
     expect(jsonDecode(scenarioFile.readAsStringSync()), scenario.toJson());
     expect(jsonDecode(suiteFile.readAsStringSync()), suite.toJson());
@@ -605,6 +702,7 @@ Feature: Failures
       outputDirectory: root.path,
       profile: 'test',
       runnerId: 'runner',
+      sourceIdentity: _testIdentity,
     );
 
     expect(files, hasLength(2));
@@ -620,5 +718,43 @@ Feature: Failures
     expect(results.map((result) => result.resultDigest).toSet(), {
       'sha256:${sha256.convert(utf8.encode('observed result'))}',
     });
+  });
+
+  test('suite evidence emitter preserves explicitly proved controls', () {
+    final root = Directory.systemTemp.createTempSync('zuke-runner-controls-');
+    addTearDown(() => root.deleteSync(recursive: true));
+
+    final files = const SuiteEvidenceEmitter().emitPassing(
+      requirementId: 'RULE-EMITTER-002',
+      scenarioId: const ScenarioId('SCN-EMITTER-TWO'),
+      evidenceTypes: const ['malformed-input-security'],
+      target: 'backend',
+      runnerCompatibilityId: 'runner-v1',
+      digestInput: 'control-backed result',
+      controlIds: const ['CTL-A', 'CTL-A', 'CTL-B'],
+      outputDirectory: root.path,
+      profile: 'test',
+      runnerId: 'runner',
+      sourceIdentity: _testIdentity,
+    );
+
+    expect(files, hasLength(1));
+    final result = SuiteResult.fromJson(
+      jsonDecode(files.single.readAsStringSync()),
+    );
+    expect(result.controlIds, ['CTL-A', 'CTL-B']);
+  });
+
+  test('unmanaged suite emission remains inert with runner metadata only', () {
+    final files = const SuiteEvidenceEmitter().emitPassing(
+      requirementId: 'RULE-EMITTER-UNMANAGED',
+      scenarioId: const ScenarioId('SCN-EMITTER-UNMANAGED'),
+      evidenceTypes: const ['api-contract'],
+      target: 'backend',
+      runnerCompatibilityId: 'runner-v1',
+      digestInput: 'unmanaged result',
+    );
+
+    expect(files, isEmpty);
   });
 }

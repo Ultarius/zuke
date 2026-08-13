@@ -10,14 +10,27 @@ void main() {
     try {
       Directory('${directory.path}/specs/features').createSync(recursive: true);
       File('${directory.path}/zuke.yaml').writeAsStringSync('''
-schemaVersion: 2
-workspace:
-  name: stale-probe
-  root: .
+schemaVersion: 3
 specifications:
   features: [specs/features/**/*.feature]
-targets: {}
+targets:
+  backend:
+    language: dart
+    framework: dart
+    packages:
+      - id: backend
+        path: .
+        roots: [lib]
+lock:
+  directory: assurance/locks
+  profiles: [pullRequest, merge, release, nightly]
 ''');
+      File('${directory.path}/pubspec.yaml').writeAsStringSync('''
+name: lock_probe
+environment:
+  sdk: ">=3.10.0 <4.0.0"
+''');
+      Directory('${directory.path}/lib').createSync(recursive: true);
       File('${directory.path}/specs/features/test.feature').writeAsStringSync(
         '''
 # spec-begin
@@ -46,7 +59,12 @@ Feature: Probe
 
       expect(result.exitCode, isNot(0));
       expect(result.stderr, contains('Specification lock is stale or missing'));
-      expect(File('${directory.path}/zuke.lock.json').existsSync(), isFalse);
+      expect(
+        File(
+          '${directory.path}/assurance/locks/pullRequest.lock.json',
+        ).existsSync(),
+        isFalse,
+      );
     } finally {
       if (directory.existsSync()) {
         directory.deleteSync(recursive: true);

@@ -6,6 +6,7 @@ import 'package:zuke_core/zuke_core.dart';
 import 'package:zuke_frontend/zuke_frontend.dart';
 
 import 'trust_bundle.dart';
+import 'ir.dart';
 
 /// Resolves and verifies externally enforced controls before the synchronous
 /// proof engine evaluates evidence eligibility.  A policy declaration is only

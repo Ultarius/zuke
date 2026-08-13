@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:test/test.dart';
@@ -24,6 +25,27 @@ void main() {
     test('runs doctor command', () async {
       final result = await runInProcessCli(['doctor', '--root', root.path]);
       expect(result.exitCode, isNotNull);
+    });
+
+    test('doctor JSON exposes the generated release contract', () async {
+      final result = await runInProcessCli([
+        'doctor',
+        '--root',
+        root.path,
+        '--format',
+        'json',
+      ]);
+      final decoded = jsonDecode(result.stdout) as Map<Object?, Object?>;
+      final details = decoded['release'] ?? decoded['details'];
+      final release = details is Map && details.containsKey('release')
+          ? details['release']
+          : details;
+      expect(release, isA<Map>());
+      expect(
+        (release as Map)['publicPackageVersions'],
+        containsPair('zuke_cli', '0.4.0'),
+      );
+      expect(release['operatingSystems'], contains('linux'));
     });
 
     test('runs affected command', () async {
@@ -58,7 +80,7 @@ void main() {
         'json',
       ]);
       expect(jsonRes.exitCode, 0);
-      expect(jsonRes.stdout, contains('"schemaVersion"'));
+      expect(jsonRes.stdout, contains('"kind":"zuke.command-result"'));
 
       final invalidRes = await runInProcessCli([
         'check',

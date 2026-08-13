@@ -6,11 +6,11 @@ abstract interface class ZukeScenarioContract {
   ScenarioId get id;
 
   /// Stable `RULE-*` identifier that owns this scenario.
-  String get requirementId;
+  RuleId get requirementId;
 
   /// Human-readable Gherkin scenario title.
   String get title;
 
   /// Effective direct and security-profile controls for this scenario's rule.
-  Set<String> get controlIds;
+  Set<ControlId> get controlIds;
 }

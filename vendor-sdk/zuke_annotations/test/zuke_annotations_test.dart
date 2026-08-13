@@ -4,7 +4,7 @@ import 'package:test/test.dart';
 enum _Scenario implements ZukeScenarioContract {
   success(
     ScenarioId('SCN-CART-SUCCESS-CHECKOUT'),
-    'RULE-CART-SUCCESSFUL-CHECKOUT',
+    RuleId('RULE-CART-SUCCESSFUL-CHECKOUT'),
     'Successfully place order with items in cart',
   );
 
@@ -12,11 +12,11 @@ enum _Scenario implements ZukeScenarioContract {
   @override
   final ScenarioId id;
   @override
-  final String requirementId;
+  final RuleId requirementId;
   @override
   final String title;
   @override
-  Set<String> get controlIds => const {};
+  Set<ControlId> get controlIds => const {};
 }
 
 void main() {
@@ -54,7 +54,7 @@ void main() {
     const contract = _Scenario.success;
 
     expect(contract.id.value, 'SCN-CART-SUCCESS-CHECKOUT');
-    expect(contract.requirementId, 'RULE-CART-SUCCESSFUL-CHECKOUT');
+    expect(contract.requirementId.value, 'RULE-CART-SUCCESSFUL-CHECKOUT');
     expect(contract.title, 'Successfully place order with items in cart');
     expect(contract.controlIds, isEmpty);
   });

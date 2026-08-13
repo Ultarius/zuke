@@ -3,7 +3,7 @@ import 'dart:io';
 
 import 'package:crypto/crypto.dart';
 import 'package:cryptography/cryptography.dart';
-import 'package:zuke_core/zuke_core.dart';
+import 'package:zuke_cli/src/ir.dart';
 import 'package:zuke_cli/src/proof_engine.dart';
 import 'package:zuke_frontend/zuke_frontend.dart';
 import 'package:zuke_cli/src/attestation_verification.dart';
@@ -64,15 +64,7 @@ void main() {
       final zukeText = zuke
           .readAsStringSync()
           .replaceAll('\r\n', '\n')
-          .replaceAll('\r', '\n')
-          .replaceFirst(
-            '  backend:\n    language: dart\n',
-            '  backend:\n'
-                '    language: dart\n'
-                '    packages:\n'
-                '      - path: .\n'
-                '        roots: [lib]\n',
-          );
+          .replaceAll('\r', '\n');
       zuke.writeAsStringSync(zukeText.replaceAll('\n', lineEnding));
       final repositoryRoot = _repositoryRoot().path.replaceAll('\\', '/');
       File('${dir.path}/pubspec.yaml').writeAsStringSync(
@@ -175,13 +167,15 @@ final application = ZukeHttpApplication(
 
         final lfLock =
             jsonDecode(
-                  File('${lfWorkspace.path}/zuke.lock.json').readAsStringSync(),
+                  File(
+                    '${lfWorkspace.path}/assurance/locks/pullRequest.lock.json',
+                  ).readAsStringSync(),
                 )
                 as Map<String, dynamic>;
         final crlfLock =
             jsonDecode(
                   File(
-                    '${crlfWorkspace.path}/zuke.lock.json',
+                    '${crlfWorkspace.path}/assurance/locks/pullRequest.lock.json',
                   ).readAsStringSync(),
                 )
                 as Map<String, dynamic>;
@@ -333,6 +327,19 @@ final application = ZukeHttpApplication(
       'signed attestation verification tolerates JSON line endings',
       () async {
         await populate(lfWorkspace, '\n');
+        final feature = File(
+          '${lfWorkspace.path}/specs/features/gateway.feature',
+        );
+        feature.writeAsStringSync(
+          feature.readAsStringSync().replaceFirst(
+            '# requiredEvidence: []',
+            '# requires:\n'
+                '#   - kind: control\n'
+                '#     id: CTRL-GATEWAY-RATE-LIMIT\n'
+                '#     target: backend\n'
+                '#     variant: default',
+          ),
+        );
         final attestation = File(
           '${lfWorkspace.path}/attestations/gateway.json',
         );
@@ -380,10 +387,10 @@ final application = ZukeHttpApplication(
 
         for (final wsPath in [lfRootPath, crlfRootPath]) {
           File(
-            '$wsPath/assurance-history/trust/ed25519-v2.json',
+            '$wsPath/assurance-history/trust/ed25519.json',
           ).writeAsStringSync(
             const JsonEncoder.withIndent('  ').convert({
-              'schemaVersion': 'zuke.ed25519-trust.v2',
+              'kind': 'zuke.ed25519-trust',
               'keys': [
                 {
                   'signerId': 'attestation-signer',
@@ -569,7 +576,7 @@ Directory _repositoryRoot() {
 }
 
 Map<String, Object?> _normalizedOutputJson(
-  AdapterOutput output,
+  IrAdapterOutput output,
   Directory workspace,
 ) {
   final json = <String, Object?>{

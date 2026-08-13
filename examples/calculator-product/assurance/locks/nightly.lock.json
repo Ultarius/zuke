@@ -1,0 +1,124 @@
+{
+  "kind": "zuke.lock",
+  "profile": "nightly",
+  "selectedScenarioIds": [
+    "SCN-CALC-P95"
+  ],
+  "selectionDigest": "sha256:a9dd8e6ad4c3eef948cf6deddb3f05463e3ab6a3a0ab406613f7160e9df67061",
+  "engineVersion": "0.1.0",
+  "workspace": "calculator-product",
+  "policy": {
+    "preset": "secure-product-v1",
+    "policyHash": "sha256:0e415690723d2589b09681eeb983daab39231d75e659f9754f94a51cea8556dd",
+    "evidenceRequirementsHash": "sha256:d63cef243ff1530bc5b8199c3812af46310998bf18f528bcec11d8e97c825b5f"
+  },
+  "policyHash": "sha256:0e415690723d2589b09681eeb983daab39231d75e659f9754f94a51cea8556dd",
+  "evidenceRequirementsHash": "sha256:d63cef243ff1530bc5b8199c3812af46310998bf18f528bcec11d8e97c825b5f",
+  "specificationDigestScope": "discovery-inputs-v1",
+  "specificationDigest": "sha256:45644574f84799c4dd8930d10c8fba4ec52aa8352dcfd01123a7afa04d0c0247",
+  "generatedManifestDigest": "sha256:93a855fd8152858600fddb02f9e20ac525804cf43a8f09ecd4672fe66191824d",
+  "features": {
+    "FEAT-CALC-001": {
+      "sourceHash": "sha256:0516a86d5b1caa3116a09adda52c3bc384740633772005f3259e0123133f02d1"
+    },
+    "FEAT-CALC-002": {
+      "sourceHash": "sha256:94272360e99f4b91d9fe198bb6d828bcf5f603d470c198f48c72cd9f0ee94720"
+    }
+  },
+  "fragments": [
+    {
+      "adapter": "zuke.dart",
+      "version": "1.0.0",
+      "compatibilityId": "dart-source-package-v1",
+      "package": "calculator_api",
+      "digest": "sha256:fdd6dcbc096bd215f837fb6fdaa2874b0ee77b5547fa6f09666824e1462b2420",
+      "completeness": {
+        "annotationTargets": "complete",
+        "generatedParts": "complete",
+        "routeRegistration": "complete",
+        "middlewareOrder": "complete",
+        "failureFlow": "complete",
+        "logFlow": "complete",
+        "dynamicRegistration": "complete",
+        "externalVisibility": "notApplicable"
+      }
+    },
+    {
+      "adapter": "zuke.dart",
+      "version": "1.0.0",
+      "compatibilityId": "dart-source-package-v1",
+      "package": "calculator_domain",
+      "digest": "sha256:64104c94a1e963ea009a7a367dd76cc8688808e93c153c3a9a9586dc9938ea13",
+      "completeness": {
+        "annotationTargets": "complete",
+        "generatedParts": "complete",
+        "routeRegistration": "notApplicable",
+        "middlewareOrder": "notApplicable",
+        "failureFlow": "notApplicable",
+        "logFlow": "notApplicable",
+        "dynamicRegistration": "notApplicable",
+        "externalVisibility": "notApplicable"
+      }
+    },
+    {
+      "adapter": "zuke.dart",
+      "version": "1.0.0",
+      "compatibilityId": "dart-source-package-v1",
+      "package": "calculator_mobile",
+      "digest": "sha256:e9fb1b1ca2ef0e061af5bcc34d1b908c20f79ce1e190051638caa88c74236858",
+      "completeness": {
+        "annotationTargets": "complete",
+        "generatedParts": "complete",
+        "routeRegistration": "notApplicable",
+        "middlewareOrder": "notApplicable",
+        "failureFlow": "notApplicable",
+        "logFlow": "notApplicable",
+        "dynamicRegistration": "notApplicable",
+        "externalVisibility": "notApplicable"
+      }
+    }
+  ],
+  "topologyOutputs": [],
+  "requirements": [
+    "RULE-CALC-ADDITION",
+    "RULE-CALC-SUBTRACTION",
+    "RULE-CALC-MULTIPLICATION",
+    "RULE-CALC-DIVISION",
+    "RULE-CALC-UI-VALIDATION",
+    "RULE-CALC-UI-FAILURE",
+    "RULE-CALC-VALIDATION",
+    "RULE-CALC-ACCESSIBILITY",
+    "RULE-CALC-PERFORMANCE",
+    "RULE-CALC-BODY-SIZE",
+    "RULE-CALC-RATE-LIMIT",
+    "RULE-CALC-ERROR-REDACTION"
+  ],
+  "attestations": [],
+  "controls": {
+    "CTRL-CALC-INPUT-VALIDATION": {
+      "assurance": "missing",
+      "coverageSemantics": "ingress-dominance",
+      "providerIds": []
+    },
+    "CTRL-CALC-ERROR-REDACTION": {
+      "assurance": "missing",
+      "coverageSemantics": "failure-to-public-egress",
+      "providerIds": []
+    },
+    "CTRL-CALC-BODY-SIZE": {
+      "assurance": "missing",
+      "coverageSemantics": "ingress-dominance",
+      "providerIds": []
+    },
+    "CTRL-CALC-RATE-LIMIT": {
+      "assurance": "missing",
+      "coverageSemantics": "ingress-dominance",
+      "providerIds": []
+    },
+    "CTRL-CALC-LOG-REDACTION": {
+      "assurance": "missing",
+      "coverageSemantics": "sensitive-data-to-log-sink",
+      "providerIds": []
+    }
+  }
+}

@@ -1,4 +1,4 @@
-schemaVersion: 2
+schemaVersion: 3
 
 workspace:
   name: calculator-product
@@ -13,10 +13,13 @@ specifications:
 targets:
   flutter:
     language: dart
+    framework: flutter
     packages:
-      - path: apps/calculator_mobile
+      - id: calculator-mobile
+        path: apps/calculator_mobile
         roots: [lib, test]
-      - path: packages/calculator_domain
+      - id: calculator-domain
+        path: packages/calculator_domain
         roots: [lib]
     contractOutput: packages/calculator_contracts/lib/src/generated
     contractExport: packages/calculator_contracts/lib/calculator_contracts.dart
@@ -24,8 +27,10 @@ targets:
 
   backend:
     language: dart
+    framework: dart
     packages:
-      - path: apps/calculator_api
+      - id: calculator-api
+        path: apps/calculator_api
         roots: [lib, bin, test]
     extractor: zuke-dart-http
 
@@ -64,6 +69,10 @@ execution:
     - id: calculator-api-build
       kind: setup
       target: backend
+      sourcePackage: calculator-api
+      sourceAdapter: dart-source
+      sourceCompatibilityId: dart-source-package-v1
+      runnerCompatibilityId: calculator-api-runner-v1
       executable: dart
       args: [analyze]
       workingDirectory: apps/calculator_api
@@ -71,6 +80,10 @@ execution:
     - id: calculator-api-tests
       kind: gherkin
       target: backend
+      sourcePackage: calculator-api
+      sourceAdapter: dart-source
+      sourceCompatibilityId: dart-source-package-v1
+      runnerCompatibilityId: calculator-api-gherkin-runner-v1
       evidenceTypes: [api-contract, gherkin-api, security-integration, logging-verification, performance]
       executable: dart
       args: [test, --reporter, expanded]
@@ -79,6 +92,10 @@ execution:
     - id: calculator-flutter-tests
       kind: gherkin
       target: flutter
+      sourcePackage: calculator-mobile
+      sourceAdapter: dart-source
+      sourceCompatibilityId: dart-source-package-v1
+      runnerCompatibilityId: calculator-mobile-runner-v1
       evidenceTypes: [domain-unit, flutter-widget, gherkin-ui, accessibility-integration]
       executable: flutter
       args: [test, --no-pub, --reporter, expanded]
@@ -98,11 +115,22 @@ evidence:
   records: generated/evidence/records
   observations: generated/evidence/runs
   includeSourceCode: false
+  types:
+    api-contract: {mode: record}
+    security-integration: {mode: record}
+    gherkin-api: {mode: record}
+    logging-verification: {mode: record}
+    performance: {mode: record}
+    domain-unit: {mode: record}
+    flutter-widget: {mode: record}
+    gherkin-ui: {mode: record}
+    accessibility-integration: {mode: record}
 
 trust:
-  bundle: assurance-history/trust/ed25519-v2.json
+  bundle: assurance-history/trust/ed25519.json
   algorithm: ed25519
 
 lock:
-  file: zuke.lock.json
+  directory: assurance/locks
+  profiles: [pullRequest, merge, release, nightly]
   requireCleanGeneration: true

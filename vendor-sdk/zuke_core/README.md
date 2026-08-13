@@ -5,7 +5,7 @@ package family.
 
 ## Support tier
 
-Supported Zuke infrastructure dependency; not a primary application package.
+Supported Zuke infrastructure dependency; applications normally use a primary SDK package.
 Most applications should use one of the primary packages instead:
 zuke_annotations, zuke_frontend, zuke_runner, zuke_runner_flutter,
 zuke_http_runtime, zuke_dart_build_hook, or zuke_cli.

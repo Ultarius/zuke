@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.3.0
+
+- Emit deterministic scenario and suite results with complete source
+  identity and reject legacy V1 artifacts.
+
 ## 0.2.0
 
 - Raised the supported `zuke_core` and `zuke_annotations` dependency floors

@@ -4,8 +4,9 @@
 `examples/shopping_cart` expands that setup with additional UI coverage, and
 `examples/calculator-product` is the advanced mixed Flutter, Dart HTTP,
 security-attestation, and release-history reference. The existing specialized
-SDK packages are in the hosted `0.1.0` preview line; the new `zuke` facade is
-intended to be published separately as the primary pure-Dart entry point.
+SDK packages are coordinated by the current release matrix in
+`docs/release-matrix.yaml`; analyzer-dependent extraction is isolated from the
+analyzer-free IR and adapter contracts.
 
 ---
 
@@ -21,16 +22,15 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  zuke_annotations: ^0.1.0
+  zuke_annotations: ^0.3.0
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
-  zuke_cli: ^0.2.0
-  zuke_runner_flutter: ^0.1.0
-  # Optional edit-time/build-time checks:
-  # zuke_analyzer: ^0.1.0
-  # zuke_dart_build_hook: ^0.1.0
+  zuke_cli: ^0.4.0
+  zuke_runner_flutter: ^0.3.0
+  # Optional hosted build-time check:
+  # zuke_dart_build_hook: ^0.3.0
 ```
 
 Application and generated code should use `zuke_annotations` when they only
@@ -41,8 +41,13 @@ binding keys, drivers, and vendor steps. Pure-Dart and backend tests should keep
 `zuke` owns the deterministic runner and HTTP test helpers while re-exporting
 the supported frontend and annotation APIs. This does not remove the narrower
 `zuke_annotations` production boundary. `zuke_http_runtime` remains an opt-in
-normal dependency for application-side HTTP registration. `zuke_runner` is a
-source-compatible transition package for existing `0.1.x` consumers.
+normal dependency for application-side HTTP registration. `zuke` is the
+primary SDK; `zuke_runner` remains a compatibility package for existing
+consumers. New code should import `package:zuke` directly. The compatibility
+package is retained only through the current coordinated release; its removal
+target is the next intentional breaking semver release after supported consumer
+imports have migrated and the hosted Linux/Windows certification lanes are
+green. No new API should be added to `zuke_runner`.
 
 For development from this repository, use `dart pub get` at the workspace root;
 the Pub workspace resolves these hosted constraints to the local packages.
@@ -113,7 +118,7 @@ Zuke expects a structured workspace layout. The standard project layout is:
 Create `zuke.yaml` at the root of your project:
 
 ```yaml
-schemaVersion: 2
+schemaVersion: 3
 
 workspace:
   name: my-app-product
@@ -128,8 +133,10 @@ specifications:
 targets:
   flutter:
     language: dart
+    framework: flutter
     packages:
-      - path: .
+      - id: my-app
+        path: .
         roots: [lib, test]
     contractOutput: lib/src/generated
     extractor: zuke-dart-resolved
@@ -165,6 +172,9 @@ execution:
     - id: my-app-flutter-tests
       kind: gherkin
       target: flutter
+      sourcePackage: my-app
+      sourceAdapter: flutter
+      sourceCompatibilityId: flutter-runner-v1
       evidenceTypes: [gherkin-ui]
       executable: flutter
       args: [test, --no-pub, --reporter, expanded]
@@ -186,11 +196,12 @@ evidence:
   includeSourceCode: false
 
 trust:
-  bundle: assurance-history/trust/ed25519-v2.json
+  bundle: assurance-history/trust/ed25519.json
   algorithm: ed25519
 
 lock:
-  file: zuke.lock.json
+  directory: assurance/locks
+  profiles: [pullRequest, merge, release, nightly]
   requireCleanGeneration: true
 ```
 
@@ -574,7 +585,7 @@ final executor = ScenarioExecutor<ShoppingCartWorld>(
   target: 'flutter',
   profile: profile,
   candidateId: contract.id,
-  controlIds: contract.controlIds,
+  controlIds: contract.controlIds.map((control) => control.value).toSet(),
   runnerId: 'my-app-flutter-tests',
   runnerCompatibilityId: 'my-app-flutter-tests-v1',
   digests: const {'runner': 'zuke-runner-flutter-v1'},
@@ -587,7 +598,13 @@ final result = await executor.executeScenario(
 );
 expect(result.status, ScenarioStatus.passed);
 
-const writer = ExecutionResultWriter();
+const writer = ExecutionResultWriter(
+  identity: ExecutionSourceIdentity(
+    sourcePackage: 'shopping-cart',
+    sourceAdapter: 'dart-source',
+    sourceCompatibilityId: 'dart-source-package-v1',
+  ),
+);
 writer.writeScenarioToEnvironment(result);
 ```
 
@@ -730,6 +747,9 @@ dart run zuke_cli:zuke validate --profile pullRequest
 dart run zuke_cli:zuke lock --profile pullRequest
 dart run zuke_cli:zuke lock --profile pullRequest --check
 dart run zuke_cli:zuke gate --profile pullRequest
+# Remove only repository-local test/temp_* directories; use --dry-run first if needed.
+dart run zuke_cli:zuke clean --root vendor-sdk/zuke_cli --dry-run
+dart run zuke_cli:zuke clean --root vendor-sdk/zuke_cli
 # For one or more workspaces, run isolated stages and emit one JSON envelope.
 dart run zuke_cli:zuke check --root examples/calculator-product --root examples/shopping_cart --profile pullRequest --jobs 2
 ```
@@ -739,9 +759,12 @@ dart run zuke_cli:zuke check --root examples/calculator-product --root examples/
 - **`generate`**: Writes typed contracts and `.zuke/analyzer-index.json`. Use `generate --check` in CI to ensure generated output is up to date.
 - **`test`**: Sets `ZUKE_SCENARIO_FILTER`, runs configured test runners, and prints the evidence-record count plus output and observation paths after publication.
 - **`validate`**: Validates requirement graphs, binding cardinality, and security evidence policies.
-- **`lock`**: Updates `zuke.lock.json` proof record (`lock --check` verifies no drift).
+- **`lock`**: Updates the selected `assurance/locks/<profile>.lock.json`
+  proof record (`lock --profile <name> --check` verifies no drift; use
+  `--all-profiles` for the official four-profile set).
 - **`gate`**: Combines validation, clean generation checks, test execution if evidence is missing, lock checking, and release trust checks into a single command.
-- **`check`**: Runs generation, configured runners, validation, lock synchronization, and an observational report for each supplied root. Roots can run concurrently; `--format json` emits exactly one `zuke.check.v1` document.
+- **`check`**: Runs generation, configured runners, validation, lock synchronization, and an observational report for each supplied root. Roots can run concurrently; `--format json` emits exactly one `kind: zuke.check` document.
+- **`clean`**: Removes only directories matching `test/temp_*` beneath the supplied root. It does not remove source, locks, generated contracts, evidence, caches, or build output. Use `--dry-run` to preview.
 
 ### Pull-request CI example
 
@@ -828,7 +851,7 @@ For release profiles, configure trust settings in `zuke.yaml`:
 
 ```yaml
 trust:
-  bundle: assurance-history/trust/ed25519-v2.json
+  bundle: assurance-history/trust/ed25519.json
   algorithm: ed25519
 ```
 
@@ -846,18 +869,18 @@ Create and verify history:
 ```sh
 dart run zuke_cli:zuke manifest create \
   --root . --profile release --signer-id <signer> --key-id <key>
-dart run zuke_cli:zuke manifest verify-v2 \
+dart run zuke_cli:zuke manifest verify \
   --root . --current --require-history
 dart run zuke_cli:zuke manifest export \
-  --root . --output dist/assurance-history.v2.json
+  --root . --output dist/assurance-history.json
 ```
 
 Verify exported history independently:
 
 ```sh
 dart run zuke_verifier:verify \
-  dist/assurance-history.v2.json \
-  assurance-history/trust/ed25519-v2.json
+  dist/assurance-history.json \
+  assurance-history/trust/ed25519.json
 ```
 
 ---

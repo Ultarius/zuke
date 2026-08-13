@@ -58,10 +58,10 @@ void main() {
       expect(control1.toString(), 'CTRL-CART-SEMANTICS');
     });
 
-    test('Constructors assert non-empty string in debug mode', () {
+    test('Parsers reject empty governed identifiers', () {
       expect(() => ScenarioId(''), throwsA(isA<AssertionError>()));
       expect(() => RuleId(''), throwsA(isA<AssertionError>()));
-      expect(() => ControlId(''), throwsA(isA<AssertionError>()));
+      expect(() => ControlId.parse(''), throwsA(isA<FormatException>()));
     });
   });
 }

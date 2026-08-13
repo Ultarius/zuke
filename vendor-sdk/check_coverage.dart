@@ -10,6 +10,7 @@ void main(List<String> arguments) {
     final report = CoverageChecker(
       options.root,
       package: options.package,
+      packageNames: options.packageNames,
     ).check();
     if (options.output != null) {
       final output = File(options.output!);
@@ -35,12 +36,14 @@ class _Options {
   final bool json;
   final String? output;
   final String? package;
+  final Set<String>? packageNames;
 
   const _Options({
     required this.root,
     required this.json,
     this.output,
     this.package,
+    this.packageNames,
   });
 
   static _Options parse(List<String> arguments) {
@@ -55,30 +58,60 @@ class _Options {
     if (format != null && format != 'json' && format != 'text') {
       throw FormatException('Unsupported --format value: $format');
     }
+    final package = value('--package');
+    final packageNames = _parsePackageNames(value('--packages'));
+    if (package != null && packageNames != null) {
+      throw FormatException('Use either --package or --packages, not both');
+    }
     return _Options(
       root: value('--root') ?? Directory.current.path,
       json: arguments.contains('--format=json') || format == 'json',
       output: value('--output'),
-      package: value('--package'),
+      package: package,
+      packageNames: packageNames,
     );
+  }
+
+  static Set<String>? _parsePackageNames(String? raw) {
+    if (raw == null) return null;
+    final names = raw.split(',').map((name) => name.trim()).toList();
+    if (names.any((name) => name.isEmpty)) {
+      throw const FormatException('--packages must contain non-empty names');
+    }
+    return names.toSet();
   }
 }
 
 class CoverageChecker {
   final Directory root;
   final String? package;
+  final Set<String>? packageNames;
 
-  CoverageChecker(String rootPath, {this.package})
-    : root = Directory(rootPath).absolute;
+  CoverageChecker(
+    String rootPath, {
+    this.package,
+    Iterable<String>? packageNames,
+  }) : packageNames = packageNames?.toSet(),
+       root = Directory(rootPath).absolute {
+    if (package != null && this.packageNames != null) {
+      throw ArgumentError('Use either package or packageNames, not both');
+    }
+  }
 
   CoverageReport check() {
     final packages = _discoverPackages();
-    if (package != null && !packages.containsKey(package)) {
-      throw FormatException('Unknown coverage package: $package');
+    final requested = packageNames ?? (package == null ? null : {package!});
+    if (requested != null) {
+      final unknown = requested.difference(packages.keys.toSet());
+      if (unknown.isNotEmpty) {
+        throw FormatException(
+          'Unknown coverage package(s): ${unknown.toList()..sort()}',
+        );
+      }
     }
-    final selected = package == null
+    final selected = requested == null
         ? packages
-        : {package!: packages[package!]!};
+        : {for (final name in requested) name: packages[name]!};
     final expected = <String, Set<String>>{};
     final behaviorLines = <String, int>{};
     for (final package in selected.values) {
@@ -189,17 +222,25 @@ class CoverageChecker {
   }
 
   bool _isPureReexport(File file) {
+    var inMultilineExport = false;
     for (final line in file.readAsLinesSync()) {
       final trimmed = line.trim();
+      if (inMultilineExport) {
+        if (trimmed.contains(';')) inMultilineExport = false;
+        continue;
+      }
       if (trimmed.isEmpty ||
           trimmed.startsWith('//') ||
           trimmed.startsWith('/*') ||
           trimmed.startsWith('*') ||
           trimmed.startsWith('*/') ||
           trimmed.startsWith('import ') ||
-          trimmed.startsWith('export ') ||
           trimmed.startsWith('library;') ||
           trimmed.startsWith('library ')) {
+        continue;
+      }
+      if (trimmed.startsWith('export ')) {
+        inMultilineExport = !trimmed.contains(';');
         continue;
       }
       return false;
@@ -220,7 +261,9 @@ class CoverageChecker {
       final normalized = file.path.replaceAll('\\', '/');
       if (!normalized.endsWith('.dart') ||
           normalized.endsWith('.g.dart') ||
-          normalized.contains('/generated/')) {
+          normalized.contains('/generated/') ||
+          _isCoverageIgnored(file) ||
+          _isPureReexport(file)) {
         continue;
       }
       for (final line in file.readAsLinesSync()) {
@@ -451,7 +494,7 @@ class CoverageReport {
       packages.every((package) => package.passed);
 
   Map<String, Object?> toJson() => {
-    'schemaVersion': 'zuke.coverage.v1',
+    'kind': 'zuke.coverage',
     'threshold': _threshold,
     'aggregate': {
       'covered': covered,

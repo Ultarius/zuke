@@ -33,7 +33,7 @@ Feature: Protect the calculator service from malformed and abusive requests
   #     target: backend
   #     cardinality: oneOrMore
   #     acceptableAssurance: [proven]
-  # requiredEvidence: [api-contract, security-integration, gherkin-api]
+  # requiredEvidence: [{type: api-contract, target: backend, sourcePackage: calculator-api, sourceAdapter: dart-source, variant: default}, {type: security-integration, target: backend, sourcePackage: calculator-api, sourceAdapter: dart-source, variant: default}, {type: gherkin-api, target: backend, sourcePackage: calculator-api, sourceAdapter: dart-source, variant: default}]
   # rule-spec-end
   @PBI-CALC-003 @RULE-CALC-BODY-SIZE
   Rule: Requests exceeding the body-size limit are rejected before evaluation
@@ -57,7 +57,7 @@ Feature: Protect the calculator service from malformed and abusive requests
   #     target: backend
   #     cardinality: oneOrMore
   #     acceptableAssurance: [proven]
-  # requiredEvidence: [security-integration, gherkin-api]
+  # requiredEvidence: [{type: security-integration, target: backend, sourcePackage: calculator-api, sourceAdapter: dart-source, variant: default}, {type: gherkin-api, target: backend, sourcePackage: calculator-api, sourceAdapter: dart-source, variant: default}]
   # rule-spec-end
   @PBI-CALC-003 @RULE-CALC-RATE-LIMIT
   Rule: Excessive requests from one rate-limit identity are temporarily rejected
@@ -84,7 +84,7 @@ Feature: Protect the calculator service from malformed and abusive requests
   #     target: backend
   #     cardinality: oneOrMore
   #     acceptableAssurance: [proven]
-  # requiredEvidence: [api-contract, security-integration, logging-verification, gherkin-api]
+  # requiredEvidence: [{type: api-contract, target: backend, sourcePackage: calculator-api, sourceAdapter: dart-source, variant: default}, {type: security-integration, target: backend, sourcePackage: calculator-api, sourceAdapter: dart-source, variant: default}, {type: logging-verification, target: backend, sourcePackage: calculator-api, sourceAdapter: dart-source, variant: default}, {type: gherkin-api, target: backend, sourcePackage: calculator-api, sourceAdapter: dart-source, variant: default}]
   # rule-spec-end
   @PBI-CALC-003 @RULE-CALC-ERROR-REDACTION
   Rule: Unexpected failures return a stable public error without internal details

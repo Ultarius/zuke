@@ -5,9 +5,35 @@ import 'package:yaml/yaml.dart';
 import 'types.dart';
 import 'gherkin_parser.dart';
 import 'metadata_extractor.dart';
+import 'config_models.dart';
+
+/// Base error raised when a workspace configuration cannot be used by the
+/// current frontend parser.
+sealed class WorkspaceConfigError implements Exception {
+  const WorkspaceConfigError(this.message);
+
+  final String message;
+
+  @override
+  String toString() => message;
+}
+
+/// Raised when a workspace uses a configuration schema from an older Zuke
+/// release. The CLI maps this to its migration diagnostic.
+final class LegacyWorkspaceConfigError extends WorkspaceConfigError {
+  const LegacyWorkspaceConfigError(super.message);
+}
+
+/// Raised when a current-looking workspace configuration is malformed.
+final class InvalidWorkspaceConfigError extends WorkspaceConfigError {
+  const InvalidWorkspaceConfigError(super.message);
+}
 
 /// Workspace configuration loaded from `zuke.yaml`.
 class ZukeConfig {
+  /// Configuration schema. Current consumers should use schema 3.
+  final int schemaVersion;
+
   /// Workspace root override.
   final String? root;
 
@@ -41,9 +67,6 @@ class ZukeConfig {
   /// Generated contract export path.
   final String? contractExport;
 
-  /// Specification lock path.
-  final String? lockFile;
-
   /// Evidence output path.
   final String? evidenceOutput;
 
@@ -53,8 +76,31 @@ class ZukeConfig {
   /// Runner execution configuration.
   final Map<String, dynamic> executionConfig;
 
+  /// Typed runner identities for execution and source publication.
+  final List<WorkspaceRunner> workspaceRunners;
+
+  /// V3 stable package identities grouped by target.
+  final Map<String, List<Map<String, dynamic>>> targetPackages;
+
+  /// Typed target/package identities for execution and source publication.
+  final Map<String, WorkspaceTarget> workspaceTargets;
+
+  /// Current framework selection grouped by target.
+  final Map<String, String> targetFrameworks;
+
+  /// Current registered evidence types and their satisfaction modes.
+  final Map<String, String> evidenceTypes;
+
+  /// V3 lock directory and official profile names.
+  final String? lockDirectory;
+  final List<String> lockProfiles;
+
+  /// Independent product coverage policy configuration.
+  final Map<String, dynamic> coverageConfig;
+
   /// Creates workspace configuration.
   const ZukeConfig({
+    this.schemaVersion = 3,
     this.root,
     this.featurePatterns = const ['specs/features/**/*.feature'],
     this.epicPatterns = const ['specs/epics/**/*.yaml'],
@@ -66,16 +112,52 @@ class ZukeConfig {
     this.targetsConfig = const {},
     this.contractOutput,
     this.contractExport,
-    this.lockFile,
     this.evidenceOutput,
     this.trustBundle,
     this.executionConfig = const {},
+    this.workspaceRunners = const [],
+    this.targetPackages = const {},
+    this.workspaceTargets = const {},
+    this.targetFrameworks = const {},
+    this.evidenceTypes = const {},
+    this.lockDirectory,
+    this.lockProfiles = const [],
+    this.coverageConfig = const {},
   });
 
   /// Parses [yamlContent] into workspace configuration.
   static ZukeConfig fromYaml(String yamlContent, {String? root}) {
-    final doc = loadYaml(yamlContent) as Map?;
-    if (doc == null) return ZukeConfig(root: root);
+    try {
+      return _fromYaml(yamlContent, root: root);
+    } on WorkspaceConfigError {
+      rethrow;
+    } on Object catch (error) {
+      throw InvalidWorkspaceConfigError(error.toString());
+    }
+  }
+
+  static ZukeConfig _fromYaml(String yamlContent, {String? root}) {
+    late final Object? loaded;
+    try {
+      loaded = loadYaml(yamlContent);
+    } on Object catch (error) {
+      throw InvalidWorkspaceConfigError('Unable to parse zuke.yaml: $error');
+    }
+    final doc = loaded as Map?;
+    if (doc == null) {
+      throw const InvalidWorkspaceConfigError(
+        'zuke.yaml must contain a mapping with schemaVersion: 3',
+      );
+    }
+
+    final schemaVersion = doc['schemaVersion'] is int
+        ? doc['schemaVersion'] as int
+        : 2;
+    if (schemaVersion != 3) {
+      throw const LegacyWorkspaceConfigError(
+        'Only current Zuke schemaVersion 3 configuration is supported; see docs/migration.md.',
+      );
+    }
 
     final specs = doc['specifications'] as Map? ?? {};
     final policies = doc['policies'] as Map? ?? {};
@@ -84,17 +166,87 @@ class ZukeConfig {
     final profilesRaw = policies['profiles'];
     if (profilesRaw is List) profiles = profilesRaw.cast<String>();
 
-    final rawTargets = doc['targets'] as Map? ?? {};
+    final rawTargetsValue = doc['targets'];
+    if (rawTargetsValue != null && rawTargetsValue is! Map) {
+      throw const FormatException('targets must be a mapping');
+    }
+    final rawTargets = rawTargetsValue as Map? ?? {};
     final targetsConfig = <String, dynamic>{};
     for (final key in rawTargets.keys) {
       targetsConfig[key.toString()] = rawTargets[key];
     }
 
     final lockSection = doc['lock'] as Map? ?? {};
+    final rawCoverage = doc['coverage'];
+    if (rawCoverage != null && rawCoverage is! Map) {
+      throw const FormatException('coverage must be a mapping');
+    }
     final evidenceSection = doc['evidence'] as Map? ?? {};
     final trustSection = doc['trust'] as Map? ?? {};
+    final rawExecutionValue = doc['execution'];
+    if (rawExecutionValue != null && rawExecutionValue is! Map) {
+      throw const FormatException('execution must be a mapping');
+    }
+    final rawExecution = rawExecutionValue is Map
+        ? Map<String, dynamic>.from(rawExecutionValue)
+        : const <String, dynamic>{};
+    final targetPackages = <String, List<Map<String, dynamic>>>{};
+    final targetFrameworks = <String, String>{};
+    for (final entry in targetsConfig.entries) {
+      final value = entry.value;
+      if (value is Map) {
+        final framework = value['framework'];
+        if (framework is String && framework.isNotEmpty) {
+          targetFrameworks[entry.key] = framework;
+        }
+        final packages = value['packages'];
+        if (packages is List) {
+          targetPackages[entry.key] = packages
+              .whereType<Map>()
+              .map((package) => Map<String, dynamic>.from(package))
+              .toList();
+        }
+      }
+    }
+    final evidenceTypes = <String, String>{};
+    final rawEvidenceTypes = evidenceSection['types'];
+    if (rawEvidenceTypes is Map) {
+      for (final entry in rawEvidenceTypes.entries) {
+        final value = entry.value;
+        final mode = value is Map ? value['mode'] : null;
+        if (entry.key is String && mode is String) {
+          evidenceTypes[entry.key as String] = mode;
+        }
+      }
+    }
+    final lockProfiles = (lockSection['profiles'] is List)
+        ? (lockSection['profiles'] as List).whereType<String>().toList()
+        : const <String>[];
+
+    _validateV3(
+      rawTargets,
+      rawExecution,
+      evidenceSection,
+      lockSection,
+      targetPackages,
+      targetFrameworks,
+      lockProfiles,
+    );
+
+    final workspaceTargets = <String, WorkspaceTarget>{
+      for (final entry in rawTargets.entries)
+        entry.key.toString(): WorkspaceTarget.fromMap(
+          entry.key.toString(),
+          Map<Object?, Object?>.from(entry.value as Map),
+        ),
+    };
+    final workspaceRunners = [
+      for (final runner in (rawExecution['runners'] as List? ?? const []))
+        WorkspaceRunner.fromMap(Map<Object?, Object?>.from(runner as Map)),
+    ];
 
     return ZukeConfig(
+      schemaVersion: schemaVersion,
       root: root,
       featurePatterns:
           _stringList(specs['features']) ?? ['specs/features/**/*.feature'],
@@ -113,13 +265,184 @@ class ZukeConfig {
       contractExport: rawTargets['flutter'] is Map
           ? (rawTargets['flutter'] as Map)['contractExport'] as String?
           : null,
-      lockFile: lockSection['file'] as String?,
       evidenceOutput: evidenceSection['output'] as String?,
       trustBundle: trustSection['bundle'] as String?,
-      executionConfig: doc['execution'] is Map
-          ? Map<String, dynamic>.from(doc['execution'] as Map)
+      executionConfig: rawExecution,
+      workspaceRunners: workspaceRunners,
+      targetPackages: targetPackages,
+      workspaceTargets: workspaceTargets,
+      targetFrameworks: targetFrameworks,
+      evidenceTypes: evidenceTypes,
+      lockDirectory: lockSection['directory'] as String?,
+      lockProfiles: lockProfiles,
+      coverageConfig: rawCoverage is Map
+          ? Map<String, dynamic>.from(rawCoverage)
           : const {},
     );
+  }
+
+  static void _validateV3(
+    Map targets,
+    Map<String, dynamic> execution,
+    Map evidence,
+    Map lock,
+    Map<String, List<Map<String, dynamic>>> targetPackages,
+    Map<String, String> targetFrameworks,
+    List<String> lockProfiles,
+  ) {
+    for (final entry in targets.entries) {
+      final targetId = entry.key.toString();
+      final target = entry.value;
+      if (target is! Map) {
+        throw FormatException('target $targetId must be a mapping');
+      }
+      if (target.containsKey('runner') || target.containsKey('testCommand')) {
+        throw FormatException(
+          'target $targetId must not declare runner or testCommand; '
+          'put execution identity under execution.runners',
+        );
+      }
+      String requiredTargetString(String key) {
+        final value = target[key];
+        if (value is! String || value.trim().isEmpty) {
+          throw FormatException('target $targetId requires non-empty $key');
+        }
+        return value;
+      }
+
+      requiredTargetString('language');
+      requiredTargetString('framework');
+      final packages = target['packages'];
+      if (packages is! List || packages.isEmpty) {
+        throw FormatException(
+          'target $targetId requires a non-empty packages list',
+        );
+      }
+      final ids = <String>{};
+      for (final item in packages) {
+        if (item is! Map) {
+          throw FormatException('target $targetId package must be a mapping');
+        }
+        final id = item['id'];
+        final path = item['path'];
+        final roots = item['roots'];
+        if (id is! String || id.trim().isEmpty || !ids.add(id)) {
+          throw FormatException(
+            'target $targetId packages require unique non-empty id values',
+          );
+        }
+        if (path is! String || path.trim().isEmpty) {
+          throw FormatException(
+            'target $targetId package $id requires a non-empty path',
+          );
+        }
+        if (roots is! List ||
+            roots.any((root) => root is! String || root.isEmpty)) {
+          throw FormatException(
+            'target $targetId package $id requires string roots',
+          );
+        }
+      }
+    }
+    if (targetPackages.length != targets.length ||
+        targetFrameworks.length != targets.length) {
+      throw const FormatException(
+        'Current targets must declare stable package and framework identities',
+      );
+    }
+
+    final runners = execution['runners'];
+    if (runners != null) {
+      if (runners is! List) {
+        throw const FormatException('execution.runners must be a list');
+      }
+      for (final item in runners) {
+        if (item is! Map) {
+          throw const FormatException('execution runner must be a mapping');
+        }
+        final id = item['id'];
+        if (id is! String || id.trim().isEmpty) {
+          throw const FormatException(
+            'execution runner requires a non-empty id',
+          );
+        }
+        for (final key in [
+          'target',
+          'sourcePackage',
+          'sourceAdapter',
+          'sourceCompatibilityId',
+          'runnerCompatibilityId',
+        ]) {
+          final value = item[key];
+          if (value is! String || value.trim().isEmpty) {
+            throw FormatException('runner $id requires non-empty $key');
+          }
+        }
+        final target = item['target'] as String;
+        final sourcePackage = item['sourcePackage'] as String;
+        final packages = targetPackages[target];
+        if (packages == null ||
+            !packages.any((package) => package['id'] == sourcePackage)) {
+          throw FormatException(
+            'runner $id sourcePackage $sourcePackage is not in target $target',
+          );
+        }
+        final evidenceTypes = item['evidenceTypes'];
+        if (evidenceTypes != null &&
+            (evidenceTypes is! List ||
+                evidenceTypes.any((type) => type is! String || type.isEmpty))) {
+          throw FormatException(
+            'runner $id evidenceTypes must be string values',
+          );
+        }
+      }
+    }
+
+    final rawEvidenceTypes = evidence['types'];
+    if (rawEvidenceTypes != null) {
+      if (rawEvidenceTypes is! Map) {
+        throw const FormatException('evidence.types must be a mapping');
+      }
+      for (final entry in rawEvidenceTypes.entries) {
+        final value = entry.value;
+        if (value is! Map ||
+            value['mode'] is! String ||
+            !const {
+              'record',
+              'scenario-record',
+              'control-backed',
+              'attestation',
+            }.contains(value['mode'])) {
+          throw FormatException(
+            'evidence type ${entry.key} has an unsupported mode',
+          );
+        }
+      }
+    }
+
+    // Minimal programmatic/configuration fixtures are useful to commands that
+    // do not read or write locks. Enforce the current lock shape when a lock
+    // section is present.
+    if (lock.isEmpty) return;
+    if (lock.containsKey('file')) {
+      throw const FormatException(
+        'Current lock configuration must not use lock.file; use the official profile lock directory',
+      );
+    }
+    final directory = lock['directory'];
+    if (directory is! String ||
+        directory.replaceAll('\\', '/') != 'assurance/locks' ||
+        lockProfiles.isEmpty) {
+      throw const FormatException(
+        'Current lock configuration requires directory assurance/locks and non-empty profiles',
+      );
+    }
+    if (lockProfiles.toSet().length != lockProfiles.length ||
+        lockProfiles.any((profile) => profile.trim().isEmpty)) {
+      throw const FormatException(
+        'Current lock profiles must be unique non-empty strings',
+      );
+    }
   }
 
   static List<String>? _stringList(dynamic value) {
@@ -178,14 +501,15 @@ class WorkspaceDiscovery {
     final configPath = '$root/zuke.yaml';
     final inputContents = <String, String>{};
     final configFile = File(configPath);
-    ZukeConfig config;
-    try {
-      final configContent = configFile.readAsStringSync();
-      inputContents[configFile.path] = configContent;
-      config = ZukeConfig.fromYaml(configContent, root: root);
-    } catch (_) {
-      config = ZukeConfig(root: root);
+    late final ZukeConfig config;
+    if (!configFile.existsSync()) {
+      throw InvalidWorkspaceConfigError(
+        'zuke.yaml not found at ${configFile.path}',
+      );
     }
+    final configContent = configFile.readAsStringSync();
+    inputContents[configFile.path] = configContent;
+    config = ZukeConfig.fromYaml(configContent, root: root);
 
     final errors = <String>[];
     final seenPhysicalPaths = <String, List<String>>{};
@@ -300,6 +624,8 @@ class WorkspaceDiscovery {
       }
     }
 
+    _validateEvidenceRequirements(config, features, errors);
+
     final inputPatterns = <String>{
       ...config.featurePatterns,
       ...config.epicPatterns,
@@ -326,6 +652,79 @@ class WorkspaceDiscovery {
       inputPatterns: List.unmodifiable(inputPatterns),
       patternInputPaths: Set.unmodifiable(patternInputPaths),
     );
+  }
+
+  void _validateEvidenceRequirements(
+    ZukeConfig config,
+    List<ParsedFeature> features,
+    List<String> errors,
+  ) {
+    final runners = (config.executionConfig['runners'] as List? ?? const [])
+        .whereType<Map>()
+        .toList();
+    for (final feature in features) {
+      for (final rule in feature.rules) {
+        final declared = rule.metadata.requiredEvidence ?? const <String>[];
+        final slots = rule.metadata.evidenceRequirements ?? const [];
+        if (declared.length != slots.length) {
+          errors.add(
+            '${rule.metadata.id ?? rule.ruleElement.title}: V3 requiredEvidence entries '
+            'must be typed maps with target, sourcePackage, sourceAdapter, '
+            'and variant',
+          );
+          continue;
+        }
+        for (final slot in slots) {
+          final type = slot['type'] ?? slot['evidenceType'];
+          final target = slot['target'];
+          final sourcePackage = slot['sourcePackage'];
+          final sourceAdapter = slot['sourceAdapter'];
+          final variant = slot['variant'];
+          if ([
+            type,
+            target,
+            sourcePackage,
+            sourceAdapter,
+            variant,
+          ].any((value) => value == null || value.isEmpty)) {
+            errors.add(
+              '${rule.metadata.id ?? rule.ruleElement.title}: incomplete V3 evidence slot',
+            );
+            continue;
+          }
+          if (!config.evidenceTypes.containsKey(type)) {
+            errors.add(
+              '${rule.metadata.id ?? rule.ruleElement.title}: unknown evidence type $type',
+            );
+          }
+          final packageConfigured =
+              config.targetPackages[target]?.any(
+                (package) => package['id'] == sourcePackage,
+              ) ??
+              false;
+          if (!packageConfigured) {
+            errors.add(
+              '${rule.metadata.id ?? rule.ruleElement.title}: source package '
+              '$sourcePackage is not configured for target $target',
+            );
+          }
+          final runnerConfigured = runners.any((runner) {
+            final types = (runner['evidenceTypes'] as List? ?? const [])
+                .whereType<String>();
+            return runner['target'] == target &&
+                runner['sourcePackage'] == sourcePackage &&
+                runner['sourceAdapter'] == sourceAdapter &&
+                types.contains(type);
+          });
+          if (!runnerConfigured) {
+            errors.add(
+              '${rule.metadata.id ?? rule.ruleElement.title}: no runner is configured '
+              'for evidence slot $type/$target/$sourcePackage/$sourceAdapter',
+            );
+          }
+        }
+      }
+    }
   }
 
   /// Reject patterns that can escape the workspace root.

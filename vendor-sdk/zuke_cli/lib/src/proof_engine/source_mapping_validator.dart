@@ -1,5 +1,5 @@
-import 'package:zuke_core/zuke_core.dart';
 import 'package:zuke_frontend/zuke_frontend.dart';
+import '../ir.dart';
 
 import 'validator.dart';
 
@@ -9,7 +9,7 @@ import 'validator.dart';
 class SourceMappingValidator {
   ValidationResult validate(
     WorkspaceDiscoveryResult workspace,
-    List<AdapterOutput> outputs,
+    List<IrAdapterOutput> outputs,
   ) {
     final errors = <ValidationMessage>[];
     final rules = <String>{};

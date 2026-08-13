@@ -1,14 +1,17 @@
-import 'dart:async';
 import 'dart:convert';
+import 'dart:async';
 import 'dart:io';
 
 import 'package:args/args.dart';
+import 'package:zuke_core/zuke_core.dart';
 import 'package:zuke_frontend/zuke_frontend.dart';
 
 import 'generate_command.dart';
 import 'lock_command.dart';
 import 'report_command.dart';
 import 'validate_command.dart';
+import 'command_result.dart';
+import 'configuration_preflight.dart';
 
 /// Runs the complete verification pipeline for one or more workspaces.
 ///
@@ -32,6 +35,7 @@ class CheckCommand {
     final jobs = _jobs(args['jobs'] as String? ?? '');
     final profile = args['profile'] as String? ?? 'pullRequest';
     final json = (args['format'] as String? ?? 'text') == 'json';
+    final summaryFile = args['summary-file'] as String?;
     final results = await _runBounded(
       roots,
       jobs: jobs < roots.length ? jobs : roots.length,
@@ -46,14 +50,33 @@ class CheckCommand {
     );
     final succeeded = results.every((result) => result.status == 'passed');
     if (json) {
-      stdout.writeln(
-        jsonEncode({
-          'schemaVersion': 'zuke.check.v1',
-          'status': succeeded ? 'passed' : 'failed',
+      final commandResult = CommandResult(
+        command: 'check',
+        stage: 'check',
+        exitCode: succeeded ? 0 : 1,
+        status: succeeded ? CommandStatus.passed : CommandStatus.failed,
+        eligible: succeeded,
+        diagnostics: [
+          for (final workspace in results)
+            for (final stage in workspace.stages)
+              if (stage.status == 'failed') ...[
+                ...stage.diagnostics,
+                gateDiagnostic(
+                  stage: stage.name,
+                  message:
+                      'Check stage ${stage.name} failed for ${workspace.root}.',
+                  profile: profile,
+                ),
+              ],
+        ],
+        details: {
           'profile': profile,
-          'workspaces': results.map((result) => result.toJson()).toList(),
-        }),
+          'workspaces': results.map(_safeWorkspaceJson).toList(),
+        },
       );
+      final encoded = encodeCommandResult(commandResult);
+      stdout.write(encoded);
+      writeCommandSummaryBytes(summaryFile, encoded);
     } else {
       for (final result in results) {
         stdout.writeln('\nCheck [${result.root}]: ${result.status}');
@@ -71,6 +94,15 @@ class CheckCommand {
     return succeeded ? 0 : 1;
   }
 
+  Map<String, Object?> _safeWorkspaceJson(_WorkspaceResult result) => {
+    'root': result.root,
+    'status': result.status,
+    'stages': [
+      for (final stage in result.stages)
+        {'name': stage.name, ...stage.safeJson()},
+    ],
+  };
+
   Future<_WorkspaceResult> _verify(
     String root, {
     required String profile,
@@ -79,7 +111,7 @@ class CheckCommand {
     final stages = <_StageResult>[];
     WorkspaceDiscoveryResult initial;
     try {
-      initial = WorkspaceDiscovery().discover(root);
+      initial = requireCurrentWorkspace(root);
     } catch (error) {
       stages.add(_StageResult.failed('generate', stderr: '$error\n'));
       stages.addAll(_skipped(['test', 'validate', 'lock', 'inputStability']));
@@ -132,7 +164,7 @@ class CheckCommand {
 
   _StageResult _inputsStable(WorkspaceDiscoveryResult initial, String root) {
     try {
-      final refreshed = WorkspaceDiscovery().discover(root);
+      final refreshed = requireCurrentWorkspace(root);
       if (_sameInputs(initial.inputContents, refreshed.inputContents)) {
         return _StageResult.passed('inputStability');
       }
@@ -236,7 +268,11 @@ ArgResults _reportArgs(String root) =>
           ..addFlag('quiet'))
         .parse(['--root', root, '--quiet']);
 
-Future<_StageResult> _stage(String name, Future<int> Function() action) async {
+Future<_StageResult> _stage(
+  String name,
+  Future<int> Function() action, {
+  List<Diagnostic> Function()? diagnostics,
+}) async {
   final stdoutBuffer = StringBuffer();
   final stderrBuffer = StringBuffer();
   late int code;
@@ -253,19 +289,25 @@ Future<_StageResult> _stage(String name, Future<int> Function() action) async {
   return _StageResult(
     name,
     code == 0 ? 'passed' : 'failed',
+    code,
     stdoutBuffer.toString(),
     stderrBuffer.toString(),
+    diagnostics: diagnostics?.call() ?? const [],
   );
 }
 
 /// A configured runner intentionally replaces profile evidence. Lock output
-Future<_StageResult> _checkLock(String root, String profile) async => _stage(
-  'lock',
-  () => LockCommand(_lockArgs(root, profile, check: true)).execute(),
-);
+Future<_StageResult> _checkLock(String root, String profile) async {
+  final command = LockCommand(_lockArgs(root, profile, check: true));
+  return _stage(
+    'lock',
+    command.execute,
+    diagnostics: () => command.diagnostics,
+  );
+}
 
 List<_StageResult> _skipped(List<String> names) =>
-    names.map((name) => _StageResult(name, 'skipped', '', '')).toList();
+    names.map((name) => _StageResult(name, 'skipped', 0, '', '')).toList();
 
 Future<List<_WorkspaceResult>> _runBounded(
   List<String> roots, {
@@ -314,18 +356,37 @@ final class _WorkspaceResult {
 final class _StageResult {
   final String name;
   final String status;
+  final int exitCode;
   final String stdout;
   final String stderr;
-  const _StageResult(this.name, this.status, this.stdout, this.stderr);
+  final List<Diagnostic> diagnostics;
+
+  _StageResult(
+    this.name,
+    this.status,
+    this.exitCode,
+    this.stdout,
+    this.stderr, {
+    List<Diagnostic> diagnostics = const [],
+  }) : diagnostics = List.unmodifiable(diagnostics);
+
   factory _StageResult.passed(String name) =>
-      _StageResult(name, 'passed', '', '');
+      _StageResult(name, 'passed', 0, '', '');
   factory _StageResult.failed(String name, {required String stderr}) =>
-      _StageResult(name, 'failed', '', stderr);
+      _StageResult(name, 'failed', 1, '', stderr);
   Map<String, Object?> toJson() => {
     'status': status,
-    if (stdout.isNotEmpty) 'stdout': stdout,
-    if (stderr.isNotEmpty) 'stderr': stderr,
+    'exitCode': exitCode,
+    'eligible': status == 'passed',
+    'remediation': status == 'failed'
+        ? 'Inspect the stage diagnostics and resolve the reported failure.'
+        : '',
+    'diagnostics': diagnostics
+        .map((diagnostic) => diagnostic.toJson())
+        .toList(),
   };
+
+  Map<String, Object?> safeJson() => toJson();
 }
 
 final class _BufferStdout implements Stdout {

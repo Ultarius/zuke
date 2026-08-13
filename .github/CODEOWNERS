@@ -2,7 +2,7 @@
 /examples/calculator-product/specs/ @Ultarius
 /examples/calculator-product/policies/ @Ultarius
 /examples/calculator-product/zuke.yaml @Ultarius
-/examples/calculator-product/zuke.lock.json @Ultarius
+/examples/calculator-product/assurance/locks/ @Ultarius
 /vendor-sdk/manifest_schema/ @Ultarius
 /examples/calculator-product/assurance-history/trust/ @Ultarius
 /.github/workflows/ @Ultarius

@@ -19,7 +19,7 @@ void main() {
     });
 
     test('affected selects rule IDs from changed feature files', () async {
-      File('${tempDir.path}/zuke.yaml').writeAsStringSync('''schemaVersion: 2
+      File('${tempDir.path}/zuke.yaml').writeAsStringSync('''schemaVersion: 3
 workspace:
   name: test-workspace
   root: .

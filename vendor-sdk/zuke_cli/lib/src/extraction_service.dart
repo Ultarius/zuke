@@ -3,16 +3,21 @@ import 'dart:async';
 import 'dart:io';
 import 'package:crypto/crypto.dart';
 
+import 'dart_extractor.dart';
 import 'package:zuke_core/zuke_core.dart';
 import 'package:zuke_frontend/zuke_frontend.dart';
+import 'dart_frog_adapter.dart';
+import 'ir.dart';
 
 class WorkspaceExtraction {
-  final List<AdapterOutput> outputs;
+  final List<IrAdapterOutput> outputs;
+  final List<AdapterOutput> topologyOutputs;
   final List<EvidenceRecord> evidenceRecords;
   final List<String> errors;
 
   const WorkspaceExtraction({
     this.outputs = const [],
+    this.topologyOutputs = const [],
     this.evidenceRecords = const [],
     this.errors = const [],
   });
@@ -31,33 +36,70 @@ class ExtractionService {
     bool includeEvidence = true,
   }) async {
     final root = workspace.config.root!;
-    final outputs = <AdapterOutput>[];
+    final outputs = <IrAdapterOutput>[];
+    final topologyOutputs = <AdapterOutput>[];
     final errors = <String>[];
     for (final target in workspace.config.targetsConfig.entries) {
       final targetConfig = target.value;
       if (targetConfig is! Map) continue;
       final language = targetConfig['language'];
       if (language == 'dart') {
+        final framework = targetConfig['framework'] as String?;
         final packages = targetConfig['packages'];
         if (packages is! List) continue;
         for (final package in packages) {
           if (package is! Map || package['path'] is! String) continue;
-          final packageRoot = _join(root, package['path'] as String);
-          if (!Directory(packageRoot).existsSync()) {
+          final packageId =
+              package['id'] as String? ?? package['path'] as String;
+          final packageDirectory = Directory(
+            _join(root, package['path'] as String),
+          );
+          if (!packageDirectory.existsSync()) {
+            final packageRoot = packageDirectory.absolute.path;
             errors.add('target package not found: $packageRoot');
             continue;
           }
+          final packageRoot = packageDirectory.resolveSymbolicLinksSync();
           final roots =
               (package['roots'] as List?)?.whereType<String>().toList() ??
               const ['lib'];
+          if (framework == 'dart-frog') {
+            final topology = await const DartFrogAdapter().extract(
+              AdapterRequest(
+                workspaceRoot: root,
+                targetId: target.key,
+                packageId: packageId,
+                packageRoot: packageRoot,
+                configuredRoots: roots,
+              ),
+            );
+            topologyOutputs.add(topology);
+            // The adapter output is retained for reporting and also projected
+            // into the canonical IR consumed by the proof engine.
+            // Keeping this bridge here prevents a successful adapter run from
+            // becoming diagnostics-only evidence.
+            outputs.add(_topologyAdapterOutput(topology, packageRoot));
+            errors.addAll(
+              topology.diagnostics
+                  .where(
+                    (diagnostic) =>
+                        diagnostic.severity == DiagnosticSeverity.error,
+                  )
+                  .map(
+                    (diagnostic) => '${diagnostic.code}: ${diagnostic.message}',
+                  ),
+            );
+          }
           final cacheKey = _sourceDigest(
             packageRoot,
             roots,
-            'dart-http-v3',
-            DartExtractor.compatibilityId,
+            framework == 'dart-frog' ? 'dart-frog' : 'dart-http-v3',
+            framework == 'dart-frog'
+                ? dartFrogCompatibilityId
+                : DartExtractor.compatibilityId,
           );
           final cached = _loadCached(root, 'dart', cacheKey);
-          AdapterOutput output;
+          IrAdapterOutput output;
           if (cached != null) {
             output = cached;
           } else {
@@ -78,6 +120,15 @@ class ExtractionService {
               continue;
             }
           }
+          // The configured package id is the stable assurance identity. The
+          // analyzer may report the pubspec name, which may differ from that
+          // identity, so bind the output to the configured namespace before
+          // it enters the shared source catalog.
+          output = _withConfiguredPackageIdentity(
+            output,
+            packageId,
+            packageRoot,
+          );
           if (output.graph != null) {
             errors.addAll(output.graph!.validate());
           }
@@ -94,6 +145,7 @@ class ExtractionService {
     final evidence = evidenceLoad.records;
     return WorkspaceExtraction(
       outputs: outputs,
+      topologyOutputs: topologyOutputs,
       evidenceRecords: evidence,
       errors: errors,
     );
@@ -103,6 +155,22 @@ class ExtractionService {
       '$root${Platform.pathSeparator}$relative'
           .replaceAll('/', Platform.pathSeparator)
           .replaceAll('\\', Platform.pathSeparator);
+
+  IrAdapterOutput _withConfiguredPackageIdentity(
+    IrAdapterOutput output,
+    String packageId,
+    String packageRoot,
+  ) => IrAdapterOutput(
+    adapter: output.adapter,
+    completeness: output.completeness,
+    symbols: output.symbols,
+    inputDigest: output.inputDigest,
+    diagnostics: output.diagnostics,
+    packageName: packageId,
+    packageRoot: packageRoot,
+    graph: output.graph,
+    evidenceRecords: output.evidenceRecords,
+  );
 
   String _sourceDigest(
     String root,
@@ -144,6 +212,137 @@ class ExtractionService {
       bytes.add(0);
     }
     return sha256.convert(bytes).toString();
+  }
+
+  IrAdapterOutput _topologyAdapterOutput(
+    AdapterOutput output,
+    String packageRoot,
+  ) {
+    CompletenessValue completeness(CompletenessStatus status) =>
+        switch (status) {
+          CompletenessStatus.complete => CompletenessValue.complete,
+          CompletenessStatus.indeterminate => CompletenessValue.indeterminate,
+          CompletenessStatus.incomplete => CompletenessValue.notVisible,
+        };
+
+    final nodes = <IrNode>[];
+    final edges = <IrEdge>[];
+    for (final node in output.nodes) {
+      final isMiddleware = node.kind == 'middleware';
+      final kind = isMiddleware ? NodeKind.provider : NodeKind.entryPoint;
+      nodes.add(
+        IrNode(
+          id: node.id,
+          kind: kind,
+          target: output.targetId,
+          role: isMiddleware ? 'provider' : 'ingress',
+          properties: {
+            ...node.attributes,
+            'topologyKind': node.kind,
+            'sourceAdapter': output.sourceAdapter,
+            'sourceCompatibilityId': output.compatibilityId,
+            if (isMiddleware && node.attributes['controlId'] is String)
+              'controlId': node.attributes['controlId'],
+          },
+        ),
+      );
+    }
+    final routeNodes = output.nodes
+        .where((node) => node.kind == 'route' || node.kind == 'websocket-route')
+        .toList();
+    final middlewareNodes =
+        output.nodes.where((node) => node.kind == 'middleware').toList()..sort(
+          (left, right) => ((left.attributes['incomingOrder'] as int?) ?? 0)
+              .compareTo((right.attributes['incomingOrder'] as int?) ?? 0),
+        );
+    for (final alias in output.nodes.where(
+      (node) => node.kind == 'route-alias',
+    )) {
+      final target = alias.attributes['target'];
+      if (target is String) {
+        edges.add(
+          IrEdge(sourceId: alias.id, targetId: target, kind: EdgeKind.routesTo),
+        );
+      }
+    }
+    if (middlewareNodes.isNotEmpty) {
+      for (final route in routeNodes) {
+        edges.add(
+          IrEdge(
+            sourceId: route.id,
+            targetId: middlewareNodes.first.id,
+            kind: EdgeKind.precedes,
+          ),
+        );
+      }
+      for (var index = 1; index < middlewareNodes.length; index++) {
+        edges.add(
+          IrEdge(
+            sourceId: middlewareNodes[index - 1].id,
+            targetId: middlewareNodes[index].id,
+            kind: EdgeKind.precedes,
+          ),
+        );
+      }
+    }
+    return IrAdapterOutput(
+      adapter: AdapterDescriptor(
+        id: output.sourceAdapter,
+        version: '2',
+        compatibilityId: output.compatibilityId,
+      ),
+      completeness: IrAdapterCompleteness(
+        graph: GraphCompleteness(
+          routeRegistration: completeness(
+            output.completeness.routeRegistration,
+          ),
+          middlewareOrder: completeness(output.completeness.middlewareOrder),
+          failureFlow: completeness(output.completeness.failureFlow),
+          logFlow: completeness(output.completeness.logFlow),
+          dynamicRegistration: completeness(
+            output.completeness.dynamicRegistration,
+          ),
+          externalVisibility: completeness(
+            output.completeness.externalVisibility,
+          ),
+        ),
+      ),
+      symbols: const [],
+      inputDigest: output.compatibilityId,
+      diagnostics: output.diagnostics
+          .map(
+            (diagnostic) => IrDiagnostic(
+              code: diagnostic.code,
+              message: diagnostic.message,
+              severity: switch (diagnostic.severity) {
+                DiagnosticSeverity.error => IrDiagnosticSeverity.error,
+                DiagnosticSeverity.warning => IrDiagnosticSeverity.warning,
+                DiagnosticSeverity.info => IrDiagnosticSeverity.info,
+              },
+            ),
+          )
+          .toList(),
+      packageName: output.packageId,
+      packageRoot: packageRoot,
+      graph: IrGraph(
+        nodes: nodes,
+        edges: edges,
+        completeness: GraphCompleteness(
+          routeRegistration: completeness(
+            output.completeness.routeRegistration,
+          ),
+          middlewareOrder: completeness(output.completeness.middlewareOrder),
+          failureFlow: completeness(output.completeness.failureFlow),
+          logFlow: completeness(output.completeness.logFlow),
+          dynamicRegistration: completeness(
+            output.completeness.dynamicRegistration,
+          ),
+          externalVisibility: completeness(
+            output.completeness.externalVisibility,
+          ),
+        ),
+      ),
+    );
   }
 
   String _cachePath(String root, String adapter, String key) =>
@@ -206,12 +405,12 @@ class ExtractionService {
     return _EvidenceLoad(records, errors);
   }
 
-  AdapterOutput? _loadCached(String root, String adapter, String key) {
+  IrAdapterOutput? _loadCached(String root, String adapter, String key) {
     final file = File(_cachePath(root, adapter, key));
     if (!file.existsSync()) return null;
     try {
       final value = jsonDecode(file.readAsStringSync());
-      if (value is! Map || value['schemaVersion'] != 'zuke.cache.v1') {
+      if (value is! Map || value['kind'] != 'zuke.cache') {
         return null;
       }
       final adapterMap = value['adapter'];
@@ -229,13 +428,13 @@ class ExtractionService {
           .map(_symbolFromJson)
           .toList();
       final completeness = value['completeness'] as Map? ?? const {};
-      final output = AdapterOutput(
+      final output = IrAdapterOutput(
         adapter: AdapterInfo(
           id: adapterMap['id'] as String,
           version: adapterMap['version'] as String,
           compatibilityId: adapterMap['compatibilityId'] as String? ?? '',
         ),
-        completeness: AdapterCompleteness(
+        completeness: IrAdapterCompleteness(
           annotationTargets: _completeness(completeness['annotationTargets']),
           generatedParts: _completeness(completeness['generatedParts']),
           graph: GraphCompleteness(
@@ -258,10 +457,10 @@ class ExtractionService {
         diagnostics: (value['errors'] as List? ?? const [])
             .whereType<String>()
             .map(
-              (message) => Diagnostic(
+              (message) => IrDiagnostic(
                 code: 'CACHE-EXTRACT-001',
                 message: message,
-                severity: DiagnosticSeverity.error,
+                severity: IrDiagnosticSeverity.error,
               ),
             )
             .toList(),
@@ -366,7 +565,7 @@ class ExtractionService {
     String root,
     String adapter,
     String key,
-    AdapterOutput output,
+    IrAdapterOutput output,
   ) {
     if (output.errors.isNotEmpty) return;
     final file = File(_cachePath(root, adapter, key));
@@ -374,7 +573,7 @@ class ExtractionService {
     final temporary = File('${file.path}.tmp');
     temporary.writeAsStringSync(
       const JsonEncoder.withIndent('  ').convert({
-            'schemaVersion': 'zuke.cache.v1',
+            'kind': 'zuke.cache',
             'adapter': {
               'id': output.adapter.id,
               'version': output.adapter.version,

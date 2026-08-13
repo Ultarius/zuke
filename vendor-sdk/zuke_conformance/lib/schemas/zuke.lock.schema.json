@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/Ultarius/zuke/blob/main/vendor-sdk/zuke_conformance/lib/schemas/zuke.lock.schema.json",
+  "type": "object",
+  "required": ["kind", "profile", "engineVersion", "workspace", "policy", "features", "controls"],
+  "properties": {
+    "kind": {"const": "zuke.lock"},
+    "profile": {"type": "string", "minLength": 1},
+    "engineVersion": {"type": "string", "minLength": 1},
+    "workspace": {"type": "string", "minLength": 1},
+    "policy": {
+      "type": "object",
+      "required": ["preset", "policyHash", "evidenceRequirementsHash"],
+      "properties": {
+        "preset": {"type": "string", "minLength": 1},
+        "policyHash": {"type": "string", "pattern": "^sha256:[a-f0-9]{64}$"},
+        "evidenceRequirementsHash": {"type": "string", "pattern": "^sha256:[a-f0-9]{64}$"}
+      },
+      "additionalProperties": false
+    },
+    "features": {"type": "object"},
+    "controls": {"type": "object"}
+  },
+  "additionalProperties": true
+}

@@ -6,6 +6,7 @@ import 'package:zuke/http.dart';
 import 'package:test/test.dart';
 
 void main() {
+  final selectedScenarios = scenarioFilterFromEnvironment(Platform.environment);
   test(
     'calculator API Gherkin scenario executes through the HTTP driver',
     () async {
@@ -20,7 +21,9 @@ void main() {
           .features
           .single;
       final rule = feature.rules.firstWhere(
-        (r) => r.metadata.id == AdditionScenarios.addIntegersApi.requirementId,
+        (r) =>
+            r.metadata.id ==
+            AdditionScenarios.addIntegersApi.requirementId.value,
       );
       final scenario = rule.scenarios.firstWhere(
         (s) =>
@@ -140,7 +143,7 @@ void main() {
         profile: Platform.environment['ZUKE_PROFILE'] ?? 'pullRequest',
         candidateId: AdditionScenarios.addIntegersApi.id,
         runnerId: 'calculator-api-tests',
-        runnerCompatibilityId: 'calculator-api-tests-v1',
+        runnerCompatibilityId: 'calculator-api-gherkin-runner-v1',
         digests: const {'runner': 'zuke-runner-http-v1'},
       );
       final results = await executor.executeScenario(
@@ -150,10 +153,20 @@ void main() {
         MapScenarioWorld.new,
       );
       expect(results.status, ScenarioStatus.passed);
-      const ExecutionResultWriter().writeScenarioToEnvironment(results);
+      const ExecutionResultWriter(
+        identity: ExecutionSourceIdentity(
+          sourcePackage: 'calculator-api',
+          sourceAdapter: 'dart-source',
+          sourceCompatibilityId: 'dart-source-package-v1',
+        ),
+      ).writeScenarioToEnvironment(results);
       // The test produces a raw scenario result only. Zuke CLI binds it
       // to current workspace digests before publishing semantic evidence.
       await driver.dispose(MapScenarioWorld());
     },
+    skip: !shouldRunScenario(
+      AdditionScenarios.addIntegersApi.id.value,
+      selectedScenarios,
+    ),
   );
 }

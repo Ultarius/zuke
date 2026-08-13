@@ -1,6 +1,6 @@
 name: bootstrap-zuke-shopping-history
 
-# Create the first trusted shopping-cart V2 record through the existing release
+# Create the first trusted shopping-cart record through the existing release
 # signing environment and open a reviewable PR containing the signed record.
 on:
   workflow_dispatch:
@@ -55,8 +55,8 @@ jobs:
           SIGNER_KEY_ID: ${{ vars.RELEASE_SIGNER_KEY_ID || 'default' }}
         run: |
           dart --suppress-analytics run zuke_cli:zuke manifest create --root examples/shopping_cart --profile release --signer-id shopping-cart-release-signer-v1 --key-id "$SIGNER_KEY_ID"
-          dart --suppress-analytics run zuke_cli:zuke manifest verify-v2 --root examples/shopping_cart --current
-          dart --suppress-analytics run zuke_cli:zuke manifest export --root examples/shopping_cart --output dist/zuke-shopping-cart-assurance-history.v2.json
+          dart --suppress-analytics run zuke_cli:zuke manifest verify --root examples/shopping_cart --current
+          dart --suppress-analytics run zuke_cli:zuke manifest export --root examples/shopping_cart --output dist/zuke-shopping-cart-assurance-history.json
       - name: Open PR with signed shopping history
         shell: bash
         env:
@@ -68,7 +68,7 @@ jobs:
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git switch -c "$branch"
-          git add examples/shopping_cart/assurance-history/v2
+          git add examples/shopping_cart/assurance-history/records
           if git diff --cached --quiet; then
             echo 'No signed shopping history record was generated.' >&2
             exit 1
@@ -80,18 +80,18 @@ jobs:
           if [[ -n "$pr_number" ]]; then
             gh pr edit "$pr_number" \
               --title 'chore: add signed shopping cart assurance genesis' \
-              --body 'This PR adds the first Zuke V2 signed assurance record for the shopping-cart example. It was produced through the release-signing OIDC workflow.'
+              --body 'This PR adds the first signed assurance record for the shopping-cart example. It was produced through the release-signing OIDC workflow.'
           else
             gh pr create \
               --base "$DEFAULT_BRANCH" \
               --head "$branch" \
               --title 'chore: add signed shopping cart assurance genesis' \
-              --body 'This PR adds the first Zuke V2 signed assurance record for the shopping-cart example. It was produced through the release-signing OIDC workflow.'
+              --body 'This PR adds the first signed assurance record for the shopping-cart example. It was produced through the release-signing OIDC workflow.'
           fi
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
           name: zuke-shopping-cart-genesis-history
           retention-days: 30
           path: |
-            examples/shopping_cart/assurance-history/v2/
-            dist/zuke-shopping-cart-assurance-history.v2.json
+            examples/shopping_cart/assurance-history/records/
+            dist/zuke-shopping-cart-assurance-history.json

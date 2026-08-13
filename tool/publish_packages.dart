@@ -1,21 +1,64 @@
 import 'dart:convert';
 import 'dart:io';
 
-/// The packages released to pub.dev, in dependency order.
-const _publishablePackages = <String>[
-  'zuke_core',
-  'zuke_annotations',
-  'zuke_frontend',
-  'zuke',
-  'zuke_runner',
-  'zuke_runner_flutter',
-  'zuke_http_runtime',
-  'zuke_dart_build_hook',
-  'zuke_cli',
-];
+import '../vendor-sdk/check_docs.dart';
+import 'release_matrix.dart';
 
 Future<void> main(List<String> args) async {
-  final options = _PublishOptions.parse(args);
+  final root = Directory.current.absolute;
+  late final ReleaseMatrix matrix;
+  try {
+    matrix = readReleaseMatrix(root);
+  } on Object catch (error) {
+    stderr.writeln('Release matrix preflight failed: $error');
+    exitCode = 1;
+    return;
+  }
+  final documentationFailures = DocumentationChecker(root).check();
+  if (documentationFailures.isNotEmpty) {
+    stderr.writeln('Publication boundary preflight failed:');
+    for (final failure in documentationFailures) {
+      stderr.writeln('- $failure');
+    }
+    exitCode = 1;
+    return;
+  }
+  final generatedContractCheck = Process.runSync(
+    Platform.resolvedExecutable,
+    const [
+      '--suppress-analytics',
+      'run',
+      'tool/generate_release_contract.dart',
+      '--check',
+    ],
+    workingDirectory: root.path,
+    runInShell: Platform.isWindows,
+  );
+  if (generatedContractCheck.exitCode != 0) {
+    stderr.writeln('Generated release contract preflight failed:');
+    stderr.write(generatedContractCheck.stdout);
+    stderr.write(generatedContractCheck.stderr);
+    exitCode = 1;
+    return;
+  }
+  final boundaryCheck = Process.runSync(
+    Platform.resolvedExecutable,
+    const [
+      '--suppress-analytics',
+      'run',
+      'tool/check_framework_boundaries.dart',
+    ],
+    workingDirectory: root.path,
+    runInShell: Platform.isWindows,
+  );
+  if (boundaryCheck.exitCode != 0) {
+    stderr.writeln('Framework boundary preflight failed:');
+    stderr.write(boundaryCheck.stdout);
+    stderr.write(boundaryCheck.stderr);
+    exitCode = 1;
+    return;
+  }
+  final options = _PublishOptions.parse(args, matrix.publicationOrder);
   if (options.error != null) {
     stderr.writeln(options.error);
     _printUsage();
@@ -38,7 +81,6 @@ Future<void> main(List<String> args) async {
     'Command: dart pub publish${options.publish ? '' : ' --dry-run'}$warningFlag',
   );
 
-  final root = Directory.current.absolute;
   final targets = <_PublishTarget>[];
   var skipped = 0;
   final versionChecker = options.publish ? _PubDevVersionChecker() : null;
@@ -47,7 +89,7 @@ Future<void> main(List<String> args) async {
     for (final package in packages) {
       late final _PublishTarget target;
       try {
-        target = _readPublishTarget(root, package);
+        target = _readPublishTarget(root, package, matrix);
         if (versionChecker != null &&
             await versionChecker.contains(target.package, target.version)) {
           stdout.writeln(
@@ -89,7 +131,7 @@ Future<void> main(List<String> args) async {
 
   for (final target in targets) {
     stdout.writeln('\n==> ${target.package} ${target.version}');
-    final command = <String>['pub', 'publish'];
+    final command = <String>['--suppress-analytics', 'pub', 'publish'];
     if (!options.publish) command.add('--dry-run');
     if (options.ignoreWarnings) command.add('--ignore-warnings');
 
@@ -110,7 +152,11 @@ Future<void> main(List<String> args) async {
   stdout.writeln('\nAll selected Zuke packages completed successfully.');
 }
 
-_PublishTarget _readPublishTarget(Directory root, String package) {
+_PublishTarget _readPublishTarget(
+  Directory root,
+  String package,
+  ReleaseMatrix matrix,
+) {
   final packageDirectory = Directory(
     '${root.path}${Platform.pathSeparator}vendor-sdk${Platform.pathSeparator}$package',
   );
@@ -144,9 +190,20 @@ _PublishTarget _readPublishTarget(Directory root, String package) {
     throw StateError('Missing package version in ${pubspec.path}: $package');
   }
 
+  final actualVersion = versionMatch.group(1)!;
+  final expectedVersion = matrix.versions[package];
+  if (expectedVersion == null) {
+    throw StateError('$package is absent from the release matrix');
+  }
+  if (actualVersion != expectedVersion) {
+    throw StateError(
+      '$package is $actualVersion but the release matrix requires $expectedVersion',
+    );
+  }
+
   return _PublishTarget(
     package: package,
-    version: versionMatch.group(1)!,
+    version: actualVersion,
     directory: packageDirectory,
   );
 }
@@ -223,7 +280,10 @@ class _PublishOptions {
   final List<String> packages;
   final String? error;
 
-  factory _PublishOptions.parse(List<String> args) {
+  factory _PublishOptions.parse(
+    List<String> args,
+    List<String> publishablePackages,
+  ) {
     var help = false;
     var publish = false;
     var dryRun = false;
@@ -267,17 +327,17 @@ class _PublishOptions {
     if (ignoreWarnings && publish) {
       error = '--ignore-warnings is only valid with --dry-run.';
     }
-    if (selected.any((package) => !_publishablePackages.contains(package))) {
+    if (selected.any((package) => !publishablePackages.contains(package))) {
       final invalid = selected
-          .where((package) => !_publishablePackages.contains(package))
+          .where((package) => !publishablePackages.contains(package))
           .join(', ');
       error = 'Not a publishable Zuke package: $invalid';
     }
 
     final selectedSet = selected.toSet();
     final packages = selected.isEmpty
-        ? _publishablePackages
-        : _publishablePackages
+        ? publishablePackages
+        : publishablePackages
               .where(selectedSet.contains)
               .toList(growable: false);
     return _PublishOptions(

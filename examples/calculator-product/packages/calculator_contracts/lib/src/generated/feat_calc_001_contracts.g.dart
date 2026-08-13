@@ -164,112 +164,126 @@ abstract interface class FeatCalc001FlutterDriver<W> {
 
 abstract final class FeatCalc001RequirementIds {
   static const addition = 'RULE-CALC-ADDITION';
+  static const additionId = RuleId('RULE-CALC-ADDITION');
   static const subtraction = 'RULE-CALC-SUBTRACTION';
+  static const subtractionId = RuleId('RULE-CALC-SUBTRACTION');
   static const multiplication = 'RULE-CALC-MULTIPLICATION';
+  static const multiplicationId = RuleId('RULE-CALC-MULTIPLICATION');
   static const division = 'RULE-CALC-DIVISION';
+  static const divisionId = RuleId('RULE-CALC-DIVISION');
   static const uiValidation = 'RULE-CALC-UI-VALIDATION';
+  static const uiValidationId = RuleId('RULE-CALC-UI-VALIDATION');
   static const uiFailure = 'RULE-CALC-UI-FAILURE';
+  static const uiFailureId = RuleId('RULE-CALC-UI-FAILURE');
   static const validation = 'RULE-CALC-VALIDATION';
+  static const validationId = RuleId('RULE-CALC-VALIDATION');
   static const accessibility = 'RULE-CALC-ACCESSIBILITY';
+  static const accessibilityId = RuleId('RULE-CALC-ACCESSIBILITY');
   static const performance = 'RULE-CALC-PERFORMANCE';
+  static const performanceId = RuleId('RULE-CALC-PERFORMANCE');
+}
+
+abstract final class FeatCalc001ControlIds {
+  static const errorRedaction = ControlId('CTRL-CALC-ERROR-REDACTION');
+  static const inputValidation = ControlId('CTRL-CALC-INPUT-VALIDATION');
 }
 
 enum FeatCalc001Scenario implements ZukeScenarioContract {
   addIntegersApi(
     ScenarioId('SCN-CALC-ADD-INTEGERS-API'),
-    'RULE-CALC-ADDITION',
+    RuleId('RULE-CALC-ADDITION'),
     'Add two positive integers through the API',
-    <String>{},
+    <ControlId>{},
   ),
   addIntegersUi(
     ScenarioId('SCN-CALC-ADD-INTEGERS-UI'),
-    'RULE-CALC-ADDITION',
+    RuleId('RULE-CALC-ADDITION'),
     'Add two positive integers in the UI',
-    <String>{},
+    <ControlId>{},
   ),
   addValues(
     ScenarioId('SCN-CALC-ADD-VALUES'),
-    'RULE-CALC-ADDITION',
+    RuleId('RULE-CALC-ADDITION'),
     'Add representative valid operands',
-    <String>{},
+    <ControlId>{},
   ),
   subtract(
     ScenarioId('SCN-CALC-SUBTRACT'),
-    'RULE-CALC-SUBTRACTION',
+    RuleId('RULE-CALC-SUBTRACTION'),
     'Subtract a larger second operand',
-    <String>{},
+    <ControlId>{},
   ),
   multiply(
     ScenarioId('SCN-CALC-MULTIPLY'),
-    'RULE-CALC-MULTIPLICATION',
+    RuleId('RULE-CALC-MULTIPLICATION'),
     'Multiply decimal operands',
-    <String>{},
+    <ControlId>{},
   ),
   divide(
     ScenarioId('SCN-CALC-DIVIDE'),
-    'RULE-CALC-DIVISION',
+    RuleId('RULE-CALC-DIVISION'),
     'Divide two exactly divisible integers',
-    <String>{'CTRL-CALC-ERROR-REDACTION'},
+    <ControlId>{ControlId('CTRL-CALC-ERROR-REDACTION')},
   ),
   divideDecimal(
     ScenarioId('SCN-CALC-DIVIDE-DECIMAL'),
-    'RULE-CALC-DIVISION',
+    RuleId('RULE-CALC-DIVISION'),
     'Divide operands producing a decimal result',
-    <String>{'CTRL-CALC-ERROR-REDACTION'},
+    <ControlId>{ControlId('CTRL-CALC-ERROR-REDACTION')},
   ),
   divideZero(
     ScenarioId('SCN-CALC-DIVIDE-ZERO'),
-    'RULE-CALC-DIVISION',
+    RuleId('RULE-CALC-DIVISION'),
     'Reject division by zero without leaking an internal error',
-    <String>{'CTRL-CALC-ERROR-REDACTION'},
+    <ControlId>{ControlId('CTRL-CALC-ERROR-REDACTION')},
   ),
   missingFirst(
     ScenarioId('SCN-CALC-MISSING-FIRST'),
-    'RULE-CALC-UI-VALIDATION',
+    RuleId('RULE-CALC-UI-VALIDATION'),
     'Reject a calculation with no first operand in Flutter',
-    <String>{},
+    <ControlId>{},
   ),
   missingOperator(
     ScenarioId('SCN-CALC-MISSING-OPERATOR'),
-    'RULE-CALC-UI-VALIDATION',
+    RuleId('RULE-CALC-UI-VALIDATION'),
     'Reject a calculation with no selected operator in Flutter',
-    <String>{},
+    <ControlId>{},
   ),
   missingSecond(
     ScenarioId('SCN-CALC-MISSING-SECOND'),
-    'RULE-CALC-UI-VALIDATION',
+    RuleId('RULE-CALC-UI-VALIDATION'),
     'Reject a calculation with no second operand in Flutter',
-    <String>{},
+    <ControlId>{},
   ),
   calculationFailed(
     ScenarioId('SCN-CALC-CALCULATION-FAILED'),
-    'RULE-CALC-UI-FAILURE',
+    RuleId('RULE-CALC-UI-FAILURE'),
     'Show a generic message when the calculator service fails unexpectedly',
-    <String>{},
+    <ControlId>{},
   ),
   badOperator(
     ScenarioId('SCN-CALC-BAD-OPERATOR'),
-    'RULE-CALC-VALIDATION',
+    RuleId('RULE-CALC-VALIDATION'),
     'Reject an operator outside the registered operator set',
-    <String>{'CTRL-CALC-INPUT-VALIDATION'},
+    <ControlId>{ControlId('CTRL-CALC-INPUT-VALIDATION')},
   ),
   badOperand(
     ScenarioId('SCN-CALC-BAD-OPERAND'),
-    'RULE-CALC-VALIDATION',
+    RuleId('RULE-CALC-VALIDATION'),
     'Reject non-numeric operand input',
-    <String>{'CTRL-CALC-INPUT-VALIDATION'},
+    <ControlId>{ControlId('CTRL-CALC-INPUT-VALIDATION')},
   ),
   accessible(
     ScenarioId('SCN-CALC-ACCESSIBLE'),
-    'RULE-CALC-ACCESSIBILITY',
+    RuleId('RULE-CALC-ACCESSIBILITY'),
     'Complete a calculation using accessible controls',
-    <String>{},
+    <ControlId>{},
   ),
   p95(
     ScenarioId('SCN-CALC-P95'),
-    'RULE-CALC-PERFORMANCE',
+    RuleId('RULE-CALC-PERFORMANCE'),
     'Standard load satisfies the p95 latency budget',
-    <String>{},
+    <ControlId>{},
   );
 
   const FeatCalc001Scenario(
@@ -281,11 +295,11 @@ enum FeatCalc001Scenario implements ZukeScenarioContract {
   @override
   final ScenarioId id;
   @override
-  final String requirementId;
+  final RuleId requirementId;
   @override
   final String title;
   @override
-  final Set<String> controlIds;
+  final Set<ControlId> controlIds;
 }
 
 abstract final class FeatCalc001Scenarios {

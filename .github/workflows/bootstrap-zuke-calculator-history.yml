@@ -53,13 +53,13 @@ jobs:
       - name: Create and verify Calculator genesis release record
         run: |
           dart --suppress-analytics run zuke_cli:zuke manifest create --root examples/calculator-product --profile release --signer-id calculator-release-signer-v1 --key-id "${{ vars.RELEASE_SIGNER_KEY_ID }}"
-          dart --suppress-analytics run zuke_cli:zuke manifest verify-v2 --root examples/calculator-product --current
-          dart --suppress-analytics run zuke_cli:zuke manifest export --root examples/calculator-product --output dist/zuke-calculator-assurance-history.v2.json
+          dart --suppress-analytics run zuke_cli:zuke manifest verify --root examples/calculator-product --current
+          dart --suppress-analytics run zuke_cli:zuke manifest export --root examples/calculator-product --output dist/zuke-calculator-assurance-history.json
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
           name: zuke-calculator-genesis-history
           retention-days: 30
           path: |
-            examples/calculator-product/assurance-history/v2/
-            examples/calculator-product/zuke.lock.json
-            dist/zuke-calculator-assurance-history.v2.json
+            examples/calculator-product/assurance-history/records/
+            examples/calculator-product/assurance/locks/release.lock.json
+            dist/zuke-calculator-assurance-history.json

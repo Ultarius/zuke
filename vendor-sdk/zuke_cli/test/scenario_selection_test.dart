@@ -108,7 +108,7 @@ void main() {
     );
     selection.writeAtomic(file);
     final json = jsonDecode(file.readAsStringSync()) as Map<String, Object?>;
-    expect(json['schemaVersion'], ScenarioSelection.schemaVersion);
+    expect(json['kind'], ScenarioSelection.kind);
     expect(json['digest'], selection.digest);
     expect(json['scenarioIds'], selection.scenarioIds);
   });
@@ -154,13 +154,18 @@ void main() {
     );
   });
 
-  test('leaves runner-owned legacy workspaces unfiltered', () {
-    const legacy = WorkspaceDiscoveryResult(
+  test('leaves runner-managed workspaces unfiltered', () {
+    const runnerManaged = WorkspaceDiscoveryResult(
       config: ZukeConfig(executionConfig: {'runners': []}),
       data: MetadataExtractorResult(),
     );
 
-    expect(const ScenarioSelector().select(legacy, 'pullRequest'), isEmpty);
+    final selection = const ScenarioSelector().resolve(
+      runnerManaged,
+      'pullRequest',
+    );
+    expect(selection.scenarioIds, isEmpty);
+    expect(selection.toJson()['selectionMode'], 'runner-managed');
   });
 
   test(

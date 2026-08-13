@@ -2,11 +2,12 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:args/args.dart';
-import 'package:zuke_frontend/zuke_frontend.dart';
 
 import 'extraction_service.dart';
 import 'proof_engine.dart';
 import 'reporter.dart';
+import 'lock_path.dart';
+import 'configuration_preflight.dart';
 
 class ReportCommand {
   final ArgResults args;
@@ -23,8 +24,7 @@ class ReportCommand {
       if (!quiet) stdout.writeln(message);
     }
 
-    final discovery = WorkspaceDiscovery();
-    final workspace = discovery.discover(root);
+    final workspace = requireCurrentWorkspace(root);
     final extraction = await ExtractionService().extract(workspace);
 
     final validation = ValidatorEngine().validate(
@@ -180,7 +180,7 @@ class ReportCommand {
     final registriesMap = Map<String, Object?>.from(workspace.data.registries);
 
     Map<String, Object?> lockDigests = {};
-    final lockFile = File('$root/zuke.lock.json');
+    final lockFile = File(resolveProfileLockPath(root, 'pullRequest'));
     if (lockFile.existsSync()) {
       try {
         final lockJson = jsonDecode(lockFile.readAsStringSync());

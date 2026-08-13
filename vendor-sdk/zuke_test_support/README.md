@@ -1,3 +1,3 @@
 # zuke_test_support
 
-Repository-only tooling; not published to pub.dev.
+Repository-only test support; not published to pub.dev.

@@ -9,7 +9,14 @@ final class ZukeFeatureLoader {
 
   static ParsedFeature load(String feature, {String? workspaceRoot}) {
     final root = _resolveRoot(workspaceRoot);
-    final workspace = WorkspaceDiscovery().discover(root.path);
+    late final WorkspaceDiscoveryResult workspace;
+    try {
+      workspace = WorkspaceDiscovery().discover(root.path);
+    } on WorkspaceConfigError catch (error) {
+      throw StateError(
+        'Zuke workspace configuration is invalid at ${root.path}: ${error.message}',
+      );
+    }
     final requested = feature.replaceAll('\\', '/');
     final matches = workspace.data.features.where((candidate) {
       final source = candidate.metadata.source.file.replaceAll('\\', '/');

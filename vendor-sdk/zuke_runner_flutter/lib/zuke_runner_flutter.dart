@@ -2,12 +2,15 @@
 library;
 
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 
+import 'package:crypto/crypto.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:zuke_annotations/zuke_annotations.dart';
 import 'package:zuke_frontend/zuke_frontend.dart';
+import 'package:zuke_core/zuke_core.dart';
 import 'package:zuke/runner.dart';
 
 import 'src/flutter_binding_key.dart';
@@ -16,6 +19,119 @@ export 'package:zuke_annotations/zuke_annotations.dart';
 export 'package:zuke_frontend/zuke_frontend.dart';
 export 'package:zuke/runner.dart';
 export 'src/flutter_binding_key.dart';
+
+final _registeredFlutterScenarioCases = <String>{};
+final _registeredFlutterScenarioIds = <String>{};
+
+/// Registers a normal Flutter widget test that publishes evidence only when
+/// the test process is managed by the Zuke CLI.
+void zukeTestWidgets(
+  String description,
+  Future<void> Function(WidgetTester tester) body, {
+  required ZukeScenarioContract scenario,
+  Iterable<String> evidenceTypes = const [],
+  Set<ControlId> provedControls = const {},
+  String? caseId,
+  bool? skip,
+  Timeout? timeout,
+  dynamic tags,
+  bool semanticsEnabled = true,
+  TestVariant<Object?> variant = const DefaultTestVariant(),
+  int? retry,
+}) {
+  final context = RunnerExecutionContext.fromEnvironment(Platform.environment);
+  final selectedScenarios = scenarioFilterFromEnvironment(Platform.environment);
+  final scenarioSelected = shouldRunScenario(
+    scenario.id.value,
+    selectedScenarios,
+  );
+  final types = evidenceTypes.toSet().toList();
+  if (context != null) {
+    if (types.isEmpty) {
+      throw ArgumentError.value(
+        evidenceTypes,
+        'evidenceTypes',
+        'Managed Zuke widget tests must declare at least one evidence type.',
+      );
+    }
+    final invalidControls = provedControls
+        .where((control) => !scenario.controlIds.contains(control))
+        .map((control) => control.value)
+        .toList(growable: false);
+    if (invalidControls.isNotEmpty) {
+      throw ArgumentError(
+        'Proved controls are not declared by ${scenario.id.value}: '
+        '${invalidControls.join(', ')}',
+      );
+    }
+    if (caseId != null && caseId.trim().isEmpty) {
+      throw ArgumentError.value(caseId, 'caseId', 'must be non-empty');
+    }
+    final scenarioAlreadyRegistered = _registeredFlutterScenarioIds.contains(
+      scenario.id.value,
+    );
+    if (scenarioAlreadyRegistered &&
+        (caseId == null || caseId.trim().isEmpty)) {
+      throw ArgumentError(
+        'Scenario ${scenario.id.value} is registered more than once; '
+        'provide a stable caseId for each case.',
+      );
+    }
+    final key = '${scenario.id.value}|${caseId ?? ''}';
+    if (!_registeredFlutterScenarioCases.add(key)) {
+      throw ArgumentError(
+        'Scenario ${scenario.id.value} case ${caseId ?? '(default)'} '
+        'is registered more than once.',
+      );
+    }
+    _registeredFlutterScenarioIds.add(scenario.id.value);
+  }
+
+  testWidgets(
+    description,
+    (tester) async {
+      await body(tester);
+      if (context == null) return;
+      final sortedTypes = [...types]..sort();
+      final digestInput = canonicalJson({
+        'scenarioId': scenario.id.value,
+        'requirementId': scenario.requirementId.value,
+        'title': scenario.title,
+        'controlIds':
+            scenario.controlIds.map((control) => control.value).toList()
+              ..sort(),
+        'provedControls':
+            provedControls.map((control) => control.value).toList()..sort(),
+        'evidenceTypes': sortedTypes,
+        'caseId': caseId,
+        'profile': context.profile,
+        'target': context.target,
+        'runnerId': context.runnerId,
+        'runnerCompatibilityId': context.runnerCompatibilityId,
+        'sourceIdentity': context.sourceIdentity.toJson(),
+      });
+      const SuiteEvidenceEmitter().emitPassing(
+        requirementId: scenario.requirementId.value,
+        scenarioId: scenario.id,
+        evidenceTypes: sortedTypes,
+        target: context.target,
+        runnerCompatibilityId: context.runnerCompatibilityId,
+        digestInput: sha256.convert(utf8.encode(digestInput)).toString(),
+        controlIds: provedControls.map((control) => control.value),
+        profile: context.profile,
+        runnerId: context.runnerId,
+        outputDirectory: context.resultDirectory,
+        sourceIdentity: context.sourceIdentity,
+      );
+    },
+    skip: skip ?? !scenarioSelected,
+    timeout: timeout,
+    tags: tags,
+    semanticsEnabled: semanticsEnabled,
+    variant: variant,
+    retry: retry,
+  );
+}
 
 abstract class FlutterScenarioDriver<W extends ScenarioWorld>
     extends FlutterDriverFactory<W> {
@@ -84,6 +200,10 @@ final class ZukeFlutterEvidenceHarness {
   /// Environment used for scenario selection and evidence output.
   final Map<String, String>? environment;
 
+  /// Source identity required by current evidence records. When omitted it is
+  /// loaded from the effective environment at test registration time.
+  final ExecutionSourceIdentity? sourceIdentity;
+
   /// Creates an evidence harness.
   const ZukeFlutterEvidenceHarness({
     required this.runnerCompatibilityId,
@@ -94,17 +214,23 @@ final class ZukeFlutterEvidenceHarness {
     this.runnerId,
     this.outputDirectory,
     this.environment,
+    this.sourceIdentity,
   });
 
   /// Registers all [cases] as widget tests.
   void registerAll(Iterable<FlutterEvidenceCase> cases) {
     final effectiveEnvironment = environment ?? Platform.environment;
+    final context = RunnerExecutionContext.fromEnvironment(
+      effectiveEnvironment,
+    );
+    final managed =
+        context != null || sourceIdentity != null || outputDirectory != null;
     final selected = scenarioFilterFromEnvironment(effectiveEnvironment);
     for (final evidenceCase in cases) {
       final evidenceTypes = (evidenceCase.evidenceTypes ?? defaultEvidenceTypes)
           .toSet()
           .toList(growable: false);
-      if (evidenceTypes.isEmpty) {
+      if (managed && evidenceTypes.isEmpty) {
         throw ArgumentError.value(
           evidenceTypes,
           'evidenceTypes',
@@ -115,17 +241,25 @@ final class ZukeFlutterEvidenceHarness {
         '${evidenceCase.scenario.id}: ${evidenceCase.scenario.title}',
         (tester) async {
           final digestInput = await evidenceCase.body(tester);
+          if (!managed) return;
+          final identity = sourceIdentity ?? context?.sourceIdentity;
+          if (identity == null) {
+            throw const FormatException(
+              'Managed Flutter evidence is missing source identity.',
+            );
+          }
           const SuiteEvidenceEmitter().emitPassing(
-            requirementId: evidenceCase.scenario.requirementId,
+            requirementId: evidenceCase.scenario.requirementId.value,
             scenarioId: evidenceCase.scenario.id,
             evidenceTypes: evidenceTypes,
             target: target,
             variant: variant,
-            profile: profile ?? effectiveEnvironment['ZUKE_PROFILE'],
-            runnerId: runnerId ?? effectiveEnvironment['ZUKE_RUNNER_ID'],
+            profile: profile ?? context?.profile,
+            runnerId: runnerId ?? context?.runnerId,
             runnerCompatibilityId: runnerCompatibilityId,
-            outputDirectory: outputDirectory,
+            outputDirectory: outputDirectory ?? context?.resultDirectory,
             digestInput: digestInput,
+            sourceIdentity: identity,
           );
         },
         skip: !shouldRunScenario(evidenceCase.scenario.id.value, selected),
@@ -175,6 +309,9 @@ final class ZukeFlutterHarness<W extends ScenarioWorld> {
   /// Optional output directory for results.
   final String? resultDirectory;
 
+  /// Source identity required by current scenario results.
+  final ExecutionSourceIdentity? sourceIdentity;
+
   /// Creates a generated-scenario Flutter harness.
   const ZukeFlutterHarness({
     required this.feature,
@@ -188,11 +325,23 @@ final class ZukeFlutterHarness<W extends ScenarioWorld> {
     this.evidenceType = 'gherkin-ui',
     this.target = 'flutter',
     this.resultDirectory,
+    this.sourceIdentity,
   });
 
   void registerAll() {
-    final selected = scenarioFilterFromEnvironment(Platform.environment);
-    final profile = Platform.environment['ZUKE_PROFILE'] ?? 'pullRequest';
+    final environment = Platform.environment;
+    final context = RunnerExecutionContext.fromEnvironment(environment);
+    final identity = sourceIdentity ?? context?.sourceIdentity;
+    final managed =
+        context != null || sourceIdentity != null || resultDirectory != null;
+    if (managed && identity == null) {
+      throw const FormatException(
+        'Managed Flutter harness is missing source identity.',
+      );
+    }
+    final selected = scenarioFilterFromEnvironment(environment);
+    final profile =
+        context?.profile ?? environment['ZUKE_PROFILE'] ?? 'pullRequest';
     for (final contract in scenarios) {
       // Resolve before test execution so feature/contract drift is surfaced at
       // registration instead of as a late unresolved step.
@@ -203,8 +352,16 @@ final class ZukeFlutterHarness<W extends ScenarioWorld> {
             : ' (${exampleCase.displayLabel})';
         testWidgets(
           '${contract.id}: ${contract.title}$suffix',
-          (tester) =>
-              _execute(tester, contract, resolved, profile, exampleCase),
+          (tester) => _execute(
+            tester,
+            contract,
+            resolved,
+            profile,
+            exampleCase,
+            context: context,
+            identity: identity,
+            managed: managed,
+          ),
           skip: !shouldRunScenario(contract.id.value, selected),
         );
       }
@@ -216,8 +373,11 @@ final class ZukeFlutterHarness<W extends ScenarioWorld> {
     ZukeScenarioContract contract,
     ResolvedScenarioContract resolved,
     String profile,
-    ScenarioExampleCase exampleCase,
-  ) async {
+    ScenarioExampleCase exampleCase, {
+    required RunnerExecutionContext? context,
+    required ExecutionSourceIdentity? identity,
+    required bool managed,
+  }) async {
     final semantics = tester.ensureSemantics();
     W? world;
     try {
@@ -228,9 +388,10 @@ final class ZukeFlutterHarness<W extends ScenarioWorld> {
         target: target,
         profile: profile,
         candidateId: contract.id,
-        controlIds: contract.controlIds,
+        controlIds: contract.controlIds.map((control) => control.value).toSet(),
         runnerId: runnerId,
         runnerCompatibilityId: runnerCompatibilityId,
+        sourceIdentity: identity,
         digests: digests,
       );
       final result = await executor.executeScenario(
@@ -246,8 +407,15 @@ final class ZukeFlutterHarness<W extends ScenarioWorld> {
         print(result.toJson());
       }
       expect(result.status, ScenarioStatus.passed);
-      const writer = ExecutionResultWriter();
-      final directory = resultDirectory;
+      if (!managed) return;
+      final managedIdentity = identity;
+      if (managedIdentity == null) {
+        throw const FormatException(
+          'Managed Flutter harness is missing source identity.',
+        );
+      }
+      final writer = ExecutionResultWriter(identity: managedIdentity);
+      final directory = resultDirectory ?? context?.resultDirectory;
       if (directory == null) {
         writer.writeScenarioToEnvironment(result);
       } else {

@@ -1,0 +1,14 @@
+{
+  "kind": "zuke.ed25519-trust",
+  "keys": [
+    {
+      "signerId": "shopping-cart-release-signer-v1",
+      "keyId": "default",
+      "algorithm": "Ed25519",
+      "publicKey": "cg1HrQPFS2eH/Uq7hTqVTAX/D2WybLkUXmXqSENpCUc=",
+      "fingerprint": "sha256:d9c31774d76f0ab2e52e245eccede8dd7ae167202d19be5454ae90509d14f77e",
+      "usages": ["release"],
+      "status": "active"
+    }
+  ]
+}

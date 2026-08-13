@@ -2,10 +2,10 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'package:args/args.dart';
+import 'package:zuke_core/zuke_core.dart';
 import 'package:crypto/crypto.dart';
 import 'package:yaml/yaml.dart';
 import 'package:yaml_edit/yaml_edit.dart';
-import 'package:zuke_core/zuke_core.dart' show EvidenceStatus, canonicalJson;
 import 'package:zuke_frontend/zuke_frontend.dart';
 import 'package:zuke/runner.dart';
 import 'extraction_service.dart';
@@ -23,10 +23,16 @@ import 'attestation_command.dart';
 import 'generator.dart';
 import 'proof_engine.dart';
 import 'report_command.dart';
+import 'clean_command.dart';
+import 'coverage_command.dart';
+import 'configuration_preflight.dart';
 import 'process_supervisor.dart';
 import 'tool_invocation.dart';
 import 'watch_coordinator.dart';
 import 'test_run_summary.dart';
+import 'command_result.dart';
+import 'generated/release_contract.dart';
+import 'source_output_catalog.dart';
 
 const _runnerModeNames = ['auto', 'cli', 'directSnapshot'];
 
@@ -52,13 +58,23 @@ class _EvidencePublication {
   });
 }
 
+void _writeSemanticEvidenceAtomic(String directory, EvidenceRecord record) {
+  final root = Directory(directory)..createSync(recursive: true);
+  final encoded =
+      '${const JsonEncoder.withIndent('  ').convert(record.toJson())}\n';
+  final digest = sha256.convert(utf8.encode(encoded)).toString();
+  final semantic = File('${root.path}${Platform.pathSeparator}$digest.json');
+  writeCommandResult(semantic, encoded);
+}
+
 class ZukeCli {
   final String version;
   final ProcessSupervisor processSupervisor;
   late final ArgParser parser;
 
-  ZukeCli({this.version = '0.1.0', ProcessSupervisor? processSupervisor})
-    : processSupervisor = processSupervisor ?? const LocalProcessSupervisor() {
+  ZukeCli({String? version, ProcessSupervisor? processSupervisor})
+    : version = version ?? releasePublicPackageVersions['zuke_cli']!,
+      processSupervisor = processSupervisor ?? const LocalProcessSupervisor() {
     parser = ArgParser()
       ..addFlag('help', abbr: 'h', help: 'Show help')
       ..addFlag('version', abbr: 'v', help: 'Show version')
@@ -95,6 +111,7 @@ class ZukeCli {
           ..addOption('root', abbr: 'r')
           ..addOption('profile', defaultsTo: 'pullRequest')
           ..addFlag('check')
+          ..addFlag('all-profiles')
           // Reserved for composed commands which must keep stdout structured.
           ..addFlag('quiet', hide: true),
       )
@@ -103,7 +120,10 @@ class ZukeCli {
         ArgParser()
           ..addOption('root', abbr: 'r')
           ..addOption('profile')
+          ..addFlag('all-profiles')
           ..addOption('format', allowed: ['text', 'json'], defaultsTo: 'text')
+          ..addOption('summary-file')
+          ..addOption('artifact-dir')
           ..addOption('runner-mode', allowed: _runnerModeNames),
       )
       ..addCommand(
@@ -113,6 +133,7 @@ class ZukeCli {
           ..addOption('profile', defaultsTo: 'pullRequest')
           ..addOption('jobs', defaultsTo: '1')
           ..addOption('format', allowed: ['text', 'json'], defaultsTo: 'text')
+          ..addOption('summary-file')
           ..addOption('runner-mode', allowed: _runnerModeNames),
       )
       ..addCommand(
@@ -127,7 +148,7 @@ class ZukeCli {
               ..addOption('profile', defaultsTo: 'release'),
           )
           ..addCommand(
-            'verify-v2',
+            'verify',
             ArgParser()
               ..addOption('root')
               ..addOption('head')
@@ -174,7 +195,18 @@ class ZukeCli {
       ..addCommand(
         'doctor',
         ArgParser()
-          ..addOption('root', abbr: 'r', help: 'Workspace root directory'),
+          ..addOption('root', abbr: 'r', help: 'Workspace root directory')
+          ..addOption('format', allowed: ['text', 'json'], defaultsTo: 'text')
+          ..addOption('summary-file'),
+      )
+      ..addCommand(
+        'clean',
+        ArgParser()
+          ..addOption('root', abbr: 'r', help: 'Directory to clean')
+          ..addFlag(
+            'dry-run',
+            help: 'List test temporary directories without removing them',
+          ),
       )
       ..addCommand(
         'init',
@@ -228,6 +260,18 @@ class ZukeCli {
           ..addOption('format', allowed: ['text', 'json'], defaultsTo: 'text')
           ..addOption('runner-mode', allowed: _runnerModeNames),
       );
+    parser.addCommand(
+      'coverage',
+      ArgParser()
+        ..addOption('root', abbr: 'r')
+        ..addOption('input')
+        ..addOption('changed-since')
+        ..addOption('minimum')
+        ..addOption('changed-line-minimum')
+        ..addOption('baseline')
+        ..addOption('output')
+        ..addOption('format', allowed: ['text', 'json'], defaultsTo: 'text'),
+    );
   }
 
   Future<int> run(List<String> args) async {
@@ -257,6 +301,8 @@ class ZukeCli {
           return await GenerateCommand(command).execute();
         case 'doctor':
           return await _runDoctor(command);
+        case 'clean':
+          return CleanCommand(command).execute();
         case 'extract':
           if (command.command?.name == 'dart') {
             return await ExtractDartCommand(command.command!).execute();
@@ -277,7 +323,7 @@ class ZukeCli {
           if (command.command?.name == 'create') {
             final sub = command.command!;
             final root = sub['root'] as String? ?? Directory.current.path;
-            final path = await ManifestCommand.createV2(
+            final path = await ManifestCommand.create(
               root: root,
               signerId: sub['signer-id'] as String,
               keyId: sub['key-id'] as String? ?? 'default',
@@ -286,22 +332,20 @@ class ZukeCli {
             print(path);
             return 0;
           }
-          if (command.command?.name == 'verify-v2') {
+          if (command.command?.name == 'verify') {
             final sub = command.command!;
-            final valid = await ManifestCommand.verifyV2(
+            final valid = await ManifestCommand.verify(
               sub['root'] as String? ?? Directory.current.path,
               head: sub['head'] as String?,
               current: sub['current'] as bool? ?? false,
               requireHistory: sub['require-history'] as bool? ?? false,
             );
-            print(
-              valid ? 'V2 release chain valid.' : 'V2 release chain invalid.',
-            );
+            print(valid ? 'Release chain valid.' : 'Release chain invalid.');
             return valid ? 0 : 1;
           }
           if (command.command?.name == 'export') {
             final sub = command.command!;
-            await ManifestCommand.exportV2(
+            await ManifestCommand.export(
               sub['root'] as String? ?? Directory.current.path,
               sub['output'] as String,
               head: sub['head'] as String?,
@@ -335,7 +379,9 @@ class ZukeCli {
         case 'affected':
           return _runAffected(command);
         case 'test':
-          return _runTests(command);
+          return await _runTests(command);
+        case 'coverage':
+          return await CoverageCommand(command).execute();
         default:
           _printHelp();
           return 0;
@@ -362,17 +408,19 @@ Usage:
   zuke extract dart Extract resolved Dart annotations
   zuke trace RULE-ID Show requirement trace
   zuke report       Emit compiled spec model JSON (zuke-model.json)
-  zuke lock         Write or check the specification lock
+  zuke lock --profile <name>|--all-profiles  Write or check profile locks
   zuke gate         Run validate, generation, and lock gates
   zuke check        Verify one or more workspaces with isolated stage output
-  zuke manifest create|verify-v2|export  Manage trusted Ed25519 history
+  zuke manifest create|verify|export  Manage trusted Ed25519 history
   zuke attestation create           Create a signed external-control attestation
   zuke gateway canonicalize-apim    Canonicalize APIM gateway evidence
   zuke doctor       Diagnose project setup
+  zuke clean        Remove Zuke test temporary directories
   zuke init         Create a starter configuration
   zuke watch        Run generation and validation once
   zuke affected     List requirements affected by a git change
   zuke test         Run configured verification suites
+  zuke coverage     Evaluate LCOV as an independent quality gate
   zuke --help       Show this help
   zuke --version    Show version
 ''');
@@ -380,37 +428,108 @@ Usage:
 
   Future<int> _runDoctor(ArgResults cmd) async {
     final root = cmd['root'] as String? ?? Directory.current.path;
-    print('Checking project setup...');
-
-    final configFile = File('$root/zuke.yaml');
-    if (!configFile.existsSync()) {
-      stderr.writeln('  ERROR: zuke.yaml not found');
-      return 1;
+    final jsonMode = (cmd['format'] as String? ?? 'text') == 'json';
+    final diagnostics = <Diagnostic>[];
+    final releaseDetails = <String, Object?>{
+      'publicPackageVersions': Map<String, String>.from(
+        releasePublicPackageVersions,
+      ),
+      'retiredPackages': releaseRetiredPackages.toList()..sort(),
+      'operatingSystems': releaseSupportedOperatingSystems,
+      'compatibilityIds': Map<String, String>.from(releaseCompatibilityIds),
+    };
+    int finish(int code) {
+      final result = CommandResult(
+        command: 'doctor',
+        stage: 'doctor',
+        exitCode: code,
+        status: code == 0 ? CommandStatus.passed : CommandStatus.failed,
+        eligible: code == 0,
+        diagnostics: diagnostics,
+        details: {'release': releaseDetails},
+      );
+      final encoded = encodeCommandResult(result);
+      if (jsonMode) {
+        stdout.write(encoded);
+      }
+      writeCommandSummaryBytes(cmd['summary-file'] as String?, encoded);
+      return code;
     }
-    print('  zuke.yaml: found');
+
+    if (jsonMode) {
+      // Keep JSON mode free of human-readable preamble output.
+    } else {
+      print('Checking project setup...');
+    }
+
+    final configurationDiagnostics = const ConfigurationPreflight().diagnose(
+      root,
+    );
+    diagnostics.addAll(configurationDiagnostics);
+    if (configurationDiagnostics.any(
+      (diagnostic) => diagnostic.severity == DiagnosticSeverity.error,
+    )) {
+      if (!jsonMode) {
+        for (final diagnostic in configurationDiagnostics) {
+          stderr.writeln('  ERROR [${diagnostic.code}]: ${diagnostic.message}');
+          if (diagnostic.remediation.isNotEmpty) {
+            stderr.writeln('  Remediation: ${diagnostic.remediation}');
+          }
+        }
+      }
+      return finish(1);
+    }
+    if (!jsonMode) print('  zuke.yaml: found');
 
     final featuresDir = Directory('$root/specs/features');
     if (!featuresDir.existsSync()) {
-      stderr.writeln('  ERROR: specs/features/ directory not found');
-      return 1;
+      diagnostics.add(
+        const Diagnostic(
+          code: 'ZK-DOCTOR-002',
+          stage: 'doctor',
+          severity: DiagnosticSeverity.error,
+          owner: DiagnosticOwner.project,
+          message: 'specs/features/ directory not found',
+          remediation:
+              'Add the current specification feature directory before running Zuke.',
+        ),
+      );
+      if (!jsonMode) {
+        stderr.writeln('  ERROR: specs/features/ directory not found');
+      }
+      return finish(1);
     }
     final featureCount = featuresDir
         .listSync()
         .where((f) => f.path.endsWith('.feature'))
         .length;
-    print('  Feature files: $featureCount found');
+    if (!jsonMode) print('  Feature files: $featureCount found');
 
     final retiredFile = File('$root/specs/registry/retired-ids.yaml');
     if (!retiredFile.existsSync()) {
-      stderr.writeln(
-        '  [ZUKE-DOCTOR-001] WARNING: specs/registry/retired-ids.yaml not found (retired ID governance inactive)',
+      diagnostics.add(
+        const Diagnostic(
+          code: 'ZUKE-DOCTOR-001',
+          stage: 'doctor',
+          severity: DiagnosticSeverity.warning,
+          owner: DiagnosticOwner.project,
+          message:
+              'specs/registry/retired-ids.yaml not found (retired ID governance inactive)',
+          remediation:
+              'Add the retired ID registry if the workspace uses ID retirement governance.',
+        ),
       );
+      if (!jsonMode) {
+        stderr.writeln(
+          '  [ZUKE-DOCTOR-001] WARNING: specs/registry/retired-ids.yaml not found (retired ID governance inactive)',
+        );
+      }
     } else {
-      print('  specs/registry/retired-ids.yaml: found');
+      if (!jsonMode) print('  specs/registry/retired-ids.yaml: found');
     }
 
-    print('Doctor check complete.');
-    return 0;
+    if (!jsonMode) print('Doctor check complete.');
+    return finish(0);
   }
 
   int _runInit(ArgResults cmd) {
@@ -434,7 +553,7 @@ Usage:
       if (adoption != 0) return adoption;
     }
     final config =
-        '''schemaVersion: 2\nworkspace:\n  name: ${Directory(root).uri.pathSegments.where((s) => s.isNotEmpty).last}\n  root: .\nspecifications:\n  features: [specs/features/**/*.feature]\ntargets: {}\ntrust:\n  bundle: assurance-history/trust/ed25519-v2.json\n  algorithm: ed25519\n''';
+        '''schemaVersion: 3\nworkspace:\n  name: ${Directory(root).uri.pathSegments.where((s) => s.isNotEmpty).last}\n  root: .\nspecifications:\n  features: [specs/features/**/*.feature]\ntargets: {}\ntrust:\n  bundle: assurance-history/trust/ed25519.json\n  algorithm: ed25519\n''';
     if (dryRun) {
       print('Would create ${file.path}');
       return 0;
@@ -704,7 +823,7 @@ Future<void> main(List<String> arguments) => zuke.build(arguments);
 
   Future<int> _runAffected(ArgResults cmd) async {
     final root = cmd['root'] as String? ?? Directory.current.path;
-    final workspace = WorkspaceDiscovery().discover(root);
+    final workspace = requireCurrentWorkspace(root);
     final ref = cmd['changed-since'] as String?;
     if (ref != null && ref.isNotEmpty) {
       final changed = Process.runSync('git', [
@@ -772,7 +891,7 @@ Future<void> main(List<String> arguments) => zuke.build(arguments);
 
   Future<int> _runTests(ArgResults cmd) async {
     final root = cmd['root'] as String? ?? Directory.current.path;
-    final workspace = WorkspaceDiscovery().discover(root);
+    final workspace = requireCurrentWorkspace(root);
     final profile = cmd['profile'] as String? ?? 'pullRequest';
     final jsonMode = (cmd['format'] as String? ?? 'text') == 'json';
     final quiet =
@@ -803,6 +922,39 @@ Future<void> main(List<String> arguments) => zuke.build(arguments);
           }
           final runnerId = runner['id'] as String?;
           if (runnerId == null || runnerId.isEmpty) return 2;
+          final runnerTarget = runner['target']?.toString();
+          final runnerSourcePackage = runner['sourcePackage']?.toString();
+          final runnerSourceAdapter = runner['sourceAdapter']?.toString();
+          final runnerSourceCompatibilityId = runner['sourceCompatibilityId']
+              ?.toString();
+          final runnerCompatibilityId = runner['runnerCompatibilityId']
+              ?.toString();
+          if (runnerTarget == null ||
+              runnerTarget.isEmpty ||
+              runnerSourcePackage == null ||
+              runnerSourcePackage.isEmpty ||
+              runnerSourceAdapter == null ||
+              runnerSourceAdapter.isEmpty ||
+              runnerSourceCompatibilityId == null ||
+              runnerSourceCompatibilityId.isEmpty ||
+              runnerCompatibilityId == null ||
+              runnerCompatibilityId.isEmpty) {
+            throw StateError(
+              'Runner $runnerId must declare target, sourcePackage, '
+              'sourceAdapter, sourceCompatibilityId, and '
+              'runnerCompatibilityId',
+            );
+          }
+          if (!_targetContainsPackage(
+            workspace,
+            runnerTarget,
+            runnerSourcePackage,
+          )) {
+            throw StateError(
+              'Runner $runnerId source package $runnerSourcePackage is not '
+              'configured for target $runnerTarget',
+            );
+          }
           final runnerKind = runner['kind'] as String? ?? 'test';
           if (runnerKind != 'setup' &&
               runnerKind != 'test' &&
@@ -851,6 +1003,11 @@ Future<void> main(List<String> arguments) => zuke.build(arguments);
                   'ZUKE_RESULT_DIR': resultDirectory.path,
                   'ZUKE_RUNNER_ID': runnerId,
                   'ZUKE_PROFILE': profile,
+                  'ZUKE_TARGET': runnerTarget,
+                  'ZUKE_SOURCE_PACKAGE': runnerSourcePackage,
+                  'ZUKE_SOURCE_ADAPTER': runnerSourceAdapter,
+                  'ZUKE_SOURCE_COMPATIBILITY_ID': runnerSourceCompatibilityId,
+                  'ZUKE_RUNNER_COMPATIBILITY_ID': runnerCompatibilityId,
                   if (scenarioFilter.isNotEmpty)
                     'ZUKE_SCENARIO_FILTER': scenarioFilter.join(','),
                   'ZUKE_SELECTION_DIGEST': selection.digest,
@@ -877,8 +1034,13 @@ Future<void> main(List<String> arguments) => zuke.build(arguments);
             if (jsonMode) {
               stdout.writeln(
                 const JsonEncoder().convert({
-                  'schemaVersion': 'zuke.test-run.v1',
+                  'kind': 'zuke.command-result',
+                  'command': 'test',
+                  'stage': 'test',
+                  'exitCode': result.exitCode,
                   'status': 'failed',
+                  'eligible': false,
+                  'diagnostics': const <Object?>[],
                   'profile': profile,
                 }),
               );
@@ -890,6 +1052,10 @@ Future<void> main(List<String> arguments) => zuke.build(arguments);
               resultDirectory,
               expectedRunnerId: runnerId,
               expectedProfile: profile,
+              expectedTarget: runnerTarget,
+              expectedSourcePackage: runnerSourcePackage,
+              expectedSourceAdapter: runnerSourceAdapter,
+              expectedSourceCompatibilityId: runnerSourceCompatibilityId,
             );
             final configuredEvidenceTypes =
                 ((runner['evidenceTypes'] as List?) ?? const [])
@@ -989,8 +1155,13 @@ Future<void> main(List<String> arguments) => zuke.build(arguments);
           if (jsonMode) {
             stdout.writeln(
               const JsonEncoder().convert({
-                'schemaVersion': 'zuke.test-run.v1',
+                'kind': 'zuke.command-result',
+                'command': 'test',
+                'stage': 'test',
+                'exitCode': result.exitCode,
                 'status': 'failed',
+                'eligible': false,
+                'diagnostics': const <Object?>[],
                 'profile': profile,
               }),
             );
@@ -1099,10 +1270,9 @@ Future<void> main(List<String> arguments) => zuke.build(arguments);
       '${directory.path}.publish-${pid}-${DateTime.now().microsecondsSinceEpoch}',
     );
     final backup = Directory('${staging.path}.previous');
-    const writer = EvidenceWriter();
     try {
       for (final record in records) {
-        writer.writeAtomic(staging.path, record);
+        _writeSemanticEvidenceAtomic(staging.path, record);
       }
       if (directory.existsSync()) await _renameDirectory(directory, backup);
       try {
@@ -1123,7 +1293,7 @@ Future<void> main(List<String> arguments) => zuke.build(arguments);
               .toList()
             ..sort();
       final observation = <String, Object?>{
-        'schemaVersion': 'zuke.evidence-observation.v1',
+        'kind': 'zuke.evidence-observation',
         'profile': profile,
         'observedAt': DateTime.now().toUtc().toIso8601String(),
         'recordDigests': recordDigests,
@@ -1171,6 +1341,10 @@ Future<void> main(List<String> arguments) => zuke.build(arguments);
     Directory directory, {
     required String expectedRunnerId,
     required String expectedProfile,
+    String? expectedTarget,
+    String? expectedSourcePackage,
+    String? expectedSourceAdapter,
+    String? expectedSourceCompatibilityId,
   }) {
     final artifacts = <ExecutionResult>[];
     final executionIds = <String>{};
@@ -1187,9 +1361,9 @@ Future<void> main(List<String> arguments) => zuke.build(arguments);
         throw StateError('Result artifact is not an object: ${file.path}');
       }
       final json = Map<String, Object?>.from(decoded);
-      final ExecutionResult artifact = switch (json['schemaVersion']) {
-        'zuke.scenario-result.v1' => ScenarioResult.fromJson(json),
-        'zuke.suite-result.v1' => SuiteResult.fromJson(json),
+      final ExecutionResult artifact = switch (json['kind']) {
+        'zuke.scenario-result' => ScenarioResult.fromJson(json),
+        'zuke.suite-result' => SuiteResult.fromJson(json),
         _ => throw StateError(
           'Unsupported result artifact schema in ${file.path}',
         ),
@@ -1206,6 +1380,34 @@ Future<void> main(List<String> arguments) => zuke.build(arguments);
           '${artifact.profile} != $expectedProfile',
         );
       }
+      if (expectedTarget != null && artifact.target != expectedTarget) {
+        throw StateError(
+          'Result artifact target mismatch in ${file.path}: '
+          '${artifact.target} != $expectedTarget',
+        );
+      }
+      if (expectedSourcePackage != null &&
+          artifact.sourcePackage != expectedSourcePackage) {
+        throw StateError(
+          'Result artifact source package mismatch in ${file.path}: '
+          '${artifact.sourcePackage ?? '(missing)'} != $expectedSourcePackage',
+        );
+      }
+      if (expectedSourceAdapter != null &&
+          artifact.sourceAdapter != expectedSourceAdapter) {
+        throw StateError(
+          'Result artifact source adapter mismatch in ${file.path}: '
+          '${artifact.sourceAdapter ?? '(missing)'} != $expectedSourceAdapter',
+        );
+      }
+      if (expectedSourceCompatibilityId != null &&
+          artifact.sourceCompatibilityId != expectedSourceCompatibilityId) {
+        throw StateError(
+          'Result artifact source compatibility mismatch in ${file.path}: '
+          '${artifact.sourceCompatibilityId ?? '(missing)'} != '
+          '$expectedSourceCompatibilityId',
+        );
+      }
       final executionId = artifact.executionId;
       if (!executionIds.add(executionId)) {
         throw StateError('Duplicate execution result: $executionId');
@@ -1214,6 +1416,16 @@ Future<void> main(List<String> arguments) => zuke.build(arguments);
     }
     return artifacts;
   }
+
+  bool _targetContainsPackage(
+    WorkspaceDiscoveryResult workspace,
+    String target,
+    String packageId,
+  ) =>
+      workspace.config.targetPackages[target]?.any(
+        (package) => package['id'] == packageId,
+      ) ??
+      false;
 
   Future<List<EvidenceRecord>> _recordsFromArtifacts(
     WorkspaceDiscoveryResult workspace,
@@ -1234,6 +1446,10 @@ Future<void> main(List<String> arguments) => zuke.build(arguments);
         '${extraction.errors.join('; ')}',
       );
     }
+    final sourceCatalog = SourceOutputCatalog.build(
+      workspace,
+      extraction.outputs,
+    );
     final generated = DartContractGenerator().generate(
       workspace: workspace,
       outputDir: workspace.config.contractOutput ?? 'lib/src/generated',
@@ -1264,19 +1480,19 @@ Future<void> main(List<String> arguments) => zuke.build(arguments);
       }
       final requirementId = artifact.requirementId;
       final target = artifact.target;
-      final matchingOutputs = extraction.outputs.where(
-        (output) => output.symbols.any(
-          (symbol) =>
-              symbol.target == target &&
-              symbol.requirementIds.contains(requirementId),
-        ),
-      );
-      final sourceDigest = matchingOutputs.isEmpty
-          ? WorkspaceDigest.computeFiltered(
-              workspace.config.root!,
-              (path) => path.endsWith('.dart') && !path.contains('/build/'),
-            )
-          : _normalizeHash(matchingOutputs.first.inputDigest);
+      final SourceOutputResolution sourceResolution;
+      try {
+        sourceResolution = sourceCatalog.resolve(
+          target: target,
+          sourcePackage: artifact.sourcePackage ?? '',
+          sourceAdapter: artifact.sourceAdapter ?? '',
+          sourceCompatibilityId: artifact.sourceCompatibilityId ?? '',
+        );
+      } on SourceResolveFailure catch (failure) {
+        throw FormatException('$failure');
+      }
+      final sourceOutput = sourceResolution.output;
+      final sourceDigest = _normalizeHash(sourceOutput.inputDigest);
       final artifactJson = Map<String, Object?>.from(artifact.toJson())
         ..remove('profile');
       final record = EvidenceRecord(
@@ -1299,6 +1515,9 @@ Future<void> main(List<String> arguments) => zuke.build(arguments);
         profile: profile,
         runnerId: artifact.runnerId,
         runnerCompatibilityId: artifact.runnerCompatibilityId,
+        sourcePackage: artifact.sourcePackage,
+        sourceAdapter: artifact.sourceAdapter,
+        sourceCompatibilityId: artifact.sourceCompatibilityId,
         attachmentDigests: artifact.attachmentDigests,
       );
       final key = [
@@ -1306,6 +1525,8 @@ Future<void> main(List<String> arguments) => zuke.build(arguments);
         record.evidenceType,
         record.target,
         record.variant,
+        record.sourcePackage,
+        record.sourceAdapter,
         record.executionId,
       ].join('|');
       if (!evidenceKeys.add(key)) {

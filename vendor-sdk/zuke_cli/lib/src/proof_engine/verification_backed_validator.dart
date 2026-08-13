@@ -1,5 +1,5 @@
-import 'package:zuke_core/zuke_core.dart';
 import 'package:zuke_frontend/zuke_frontend.dart';
+import '../ir.dart';
 
 import 'validator.dart';
 
@@ -9,7 +9,7 @@ import 'validator.dart';
 class VerificationBackedValidator {
   ValidationResult validate(
     WorkspaceDiscoveryResult workspace,
-    List<AdapterOutput> outputs,
+    List<IrAdapterOutput> outputs,
     List<EvidenceRecord> evidence,
   ) {
     final proofs = <ControlProofResult>[];
@@ -184,7 +184,7 @@ class VerificationBackedValidator {
 
 class _Provider {
   final ExtractedSymbol symbol;
-  final AdapterCompleteness completeness;
+  final IrAdapterCompleteness completeness;
   const _Provider(this.symbol, this.completeness);
 }
 

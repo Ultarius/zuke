@@ -4,7 +4,7 @@ import 'dart:io';
 import 'package:zuke_core/zuke_core.dart';
 import 'package:zuke_frontend/zuke_frontend.dart';
 
-const _defaultTrustBundle = 'assurance-history/trust/ed25519-v2.json';
+const _defaultTrustBundle = 'assurance-history/trust/ed25519.json';
 
 File configuredTrustBundle(String root, {String? configuredPath}) {
   final relativePath = configuredPath ?? _trustBundlePathFromConfig(root);
@@ -27,11 +27,17 @@ File configuredTrustBundle(String root, {String? configuredPath}) {
 String _trustBundlePathFromConfig(String root) {
   final configFile = File('${Directory(root).absolute.path}/zuke.yaml');
   if (!configFile.existsSync()) return _defaultTrustBundle;
-  return ZukeConfig.fromYaml(
-        configFile.readAsStringSync(),
-        root: root,
-      ).trustBundle ??
-      _defaultTrustBundle;
+  try {
+    return ZukeConfig.fromYaml(
+          configFile.readAsStringSync(),
+          root: root,
+        ).trustBundle ??
+        _defaultTrustBundle;
+  } on WorkspaceConfigError catch (error) {
+    throw FormatException(
+      'Current workspace configuration is invalid: ${error.message}',
+    );
+  }
 }
 
 TrustBundle loadTrustBundle(String root, {String? configuredPath}) {

@@ -1,0 +1,44 @@
+name: hosted-consumer-certification
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  hosted-consumer-certification:
+    name: Hosted consumer certification (${{ matrix.platform }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 35
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            platform: linux
+          - os: windows-latest
+            platform: windows
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2
+        with:
+          flutter-version: '3.44.8'
+          channel: stable
+          cache: true
+      - name: Resolve framework tooling
+        run: dart --suppress-analytics pub get
+      - name: Certify the exact hosted package tuple
+        run: >-
+          dart --suppress-analytics run tool/check_hosted_consumer.dart
+          --platform ${{ matrix.platform }}
+          --output generated/hosted-consumer-certification-${{ matrix.platform }}.json
+      - name: Upload hosted consumer result
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: hosted-consumer-certification-${{ matrix.platform }}-${{ github.run_id }}
+          if-no-files-found: warn
+          path: generated/hosted-consumer-certification-${{ matrix.platform }}.json

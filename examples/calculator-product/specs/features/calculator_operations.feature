@@ -71,7 +71,7 @@ Feature: Evaluate basic arithmetic operations
 
   # rule-spec-begin
   # id: RULE-CALC-ADDITION
-  # requiredEvidence: [domain-unit, flutter-widget, api-contract, gherkin-api, gherkin-ui]
+  # requiredEvidence: [{type: domain-unit, target: flutter, sourcePackage: calculator-mobile, sourceAdapter: dart-source, variant: default}, {type: flutter-widget, target: flutter, sourcePackage: calculator-mobile, sourceAdapter: dart-source, variant: default}, {type: api-contract, target: backend, sourcePackage: calculator-api, sourceAdapter: dart-source, variant: default}, {type: gherkin-api, target: backend, sourcePackage: calculator-api, sourceAdapter: dart-source, variant: default}, {type: gherkin-ui, target: flutter, sourcePackage: calculator-mobile, sourceAdapter: dart-source, variant: default}]
   # rule-spec-end
   @PBI-CALC-001 @RULE-CALC-ADDITION
   Rule: Addition returns the arithmetic sum of two valid operands
@@ -114,7 +114,7 @@ Feature: Evaluate basic arithmetic operations
 
   # rule-spec-begin
   # id: RULE-CALC-SUBTRACTION
-  # requiredEvidence: [domain-unit, flutter-widget, api-contract, gherkin-api, gherkin-ui]
+  # requiredEvidence: [{type: domain-unit, target: flutter, sourcePackage: calculator-mobile, sourceAdapter: dart-source, variant: default}, {type: flutter-widget, target: flutter, sourcePackage: calculator-mobile, sourceAdapter: dart-source, variant: default}, {type: api-contract, target: backend, sourcePackage: calculator-api, sourceAdapter: dart-source, variant: default}, {type: gherkin-api, target: backend, sourcePackage: calculator-api, sourceAdapter: dart-source, variant: default}, {type: gherkin-ui, target: flutter, sourcePackage: calculator-mobile, sourceAdapter: dart-source, variant: default}]
   # rule-spec-end
   @PBI-CALC-001 @RULE-CALC-SUBTRACTION
   Rule: Subtraction returns the second operand subtracted from the first operand
@@ -131,7 +131,7 @@ Feature: Evaluate basic arithmetic operations
 
   # rule-spec-begin
   # id: RULE-CALC-MULTIPLICATION
-  # requiredEvidence: [domain-unit, flutter-widget, api-contract, gherkin-api, gherkin-ui]
+  # requiredEvidence: [{type: domain-unit, target: flutter, sourcePackage: calculator-mobile, sourceAdapter: dart-source, variant: default}, {type: flutter-widget, target: flutter, sourcePackage: calculator-mobile, sourceAdapter: dart-source, variant: default}, {type: api-contract, target: backend, sourcePackage: calculator-api, sourceAdapter: dart-source, variant: default}, {type: gherkin-api, target: backend, sourcePackage: calculator-api, sourceAdapter: dart-source, variant: default}, {type: gherkin-ui, target: flutter, sourcePackage: calculator-mobile, sourceAdapter: dart-source, variant: default}]
   # rule-spec-end
   @PBI-CALC-001 @RULE-CALC-MULTIPLICATION
   Rule: Multiplication returns the arithmetic product of two valid operands
@@ -153,7 +153,7 @@ Feature: Evaluate basic arithmetic operations
   #     id: CTRL-CALC-ERROR-REDACTION
   #     target: backend
   #     cardinality: oneOrMore
-  # requiredEvidence: [domain-unit, flutter-widget, api-contract, security-integration, gherkin-api, gherkin-ui]
+  # requiredEvidence: [{type: domain-unit, target: flutter, sourcePackage: calculator-mobile, sourceAdapter: dart-source, variant: default}, {type: flutter-widget, target: flutter, sourcePackage: calculator-mobile, sourceAdapter: dart-source, variant: default}, {type: api-contract, target: backend, sourcePackage: calculator-api, sourceAdapter: dart-source, variant: default}, {type: security-integration, target: backend, sourcePackage: calculator-api, sourceAdapter: dart-source, variant: default}, {type: gherkin-api, target: backend, sourcePackage: calculator-api, sourceAdapter: dart-source, variant: default}, {type: gherkin-ui, target: flutter, sourcePackage: calculator-mobile, sourceAdapter: dart-source, variant: default}]
   # rule-spec-end
   @PBI-CALC-002 @RULE-CALC-DIVISION
   Rule: Division returns the first operand divided by a non-zero second operand
@@ -194,7 +194,7 @@ Feature: Evaluate basic arithmetic operations
 
   # rule-spec-begin
   # id: RULE-CALC-UI-VALIDATION
-  # requiredEvidence: [flutter-widget, gherkin-ui]
+  # requiredEvidence: [{type: flutter-widget, target: flutter, sourcePackage: calculator-mobile, sourceAdapter: dart-source, variant: default}, {type: gherkin-ui, target: flutter, sourcePackage: calculator-mobile, sourceAdapter: dart-source, variant: default}]
   # rule-spec-end
   @PBI-CALC-002 @RULE-CALC-UI-VALIDATION
   Rule: Flutter validates required operands before submitting
@@ -230,7 +230,7 @@ Feature: Evaluate basic arithmetic operations
 
   # rule-spec-begin
   # id: RULE-CALC-UI-FAILURE
-  # requiredEvidence: [flutter-widget, gherkin-ui]
+  # requiredEvidence: [{type: flutter-widget, target: flutter, sourcePackage: calculator-mobile, sourceAdapter: dart-source, variant: default}, {type: gherkin-ui, target: flutter, sourcePackage: calculator-mobile, sourceAdapter: dart-source, variant: default}]
   # rule-spec-end
   @PBI-CALC-002 @RULE-CALC-UI-FAILURE
   Rule: Flutter presents a safe generic message for unexpected calculation failures
@@ -248,7 +248,7 @@ Feature: Evaluate basic arithmetic operations
   #     id: CTRL-CALC-INPUT-VALIDATION
   #     target: backend
   #     cardinality: oneOrMore
-  # requiredEvidence: [domain-unit, api-contract, security-integration, gherkin-api]
+  # requiredEvidence: [{type: domain-unit, target: flutter, sourcePackage: calculator-mobile, sourceAdapter: dart-source, variant: default}, {type: api-contract, target: backend, sourcePackage: calculator-api, sourceAdapter: dart-source, variant: default}, {type: security-integration, target: backend, sourcePackage: calculator-api, sourceAdapter: dart-source, variant: default}, {type: gherkin-api, target: backend, sourcePackage: calculator-api, sourceAdapter: dart-source, variant: default}]
   # rule-spec-end
   @PBI-CALC-002 @RULE-CALC-VALIDATION
   Rule: Only supported finite numeric operands and operators are accepted
@@ -285,7 +285,7 @@ Feature: Evaluate basic arithmetic operations
 
   # rule-spec-begin
   # id: RULE-CALC-ACCESSIBILITY
-  # requiredEvidence: [flutter-widget, accessibility-integration, gherkin-ui]
+  # requiredEvidence: [{type: flutter-widget, target: flutter, sourcePackage: calculator-mobile, sourceAdapter: dart-source, variant: default}, {type: accessibility-integration, target: flutter, sourcePackage: calculator-mobile, sourceAdapter: dart-source, variant: default}, {type: gherkin-ui, target: flutter, sourcePackage: calculator-mobile, sourceAdapter: dart-source, variant: default}]
   # rule-spec-end
   @PBI-CALC-002 @RULE-CALC-ACCESSIBILITY
   Rule: Calculator controls expose understandable accessible names and results
@@ -304,7 +304,7 @@ Feature: Evaluate basic arithmetic operations
 
   # rule-spec-begin
   # id: RULE-CALC-PERFORMANCE
-  # requiredEvidence: [performance]
+  # requiredEvidence: [{type: performance, target: backend, sourcePackage: calculator-api, sourceAdapter: dart-source, variant: default}]
   # rule-spec-end
   @PBI-CALC-002 @RULE-CALC-PERFORMANCE
   Rule: Calculation latency remains within the service budget

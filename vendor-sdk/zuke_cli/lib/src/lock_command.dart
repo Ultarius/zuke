@@ -3,14 +3,17 @@ import 'dart:io';
 
 import 'package:crypto/crypto.dart';
 import 'package:args/args.dart';
-import 'package:zuke_frontend/zuke_frontend.dart';
 import 'package:zuke_core/zuke_core.dart';
+import 'package:zuke_frontend/zuke_frontend.dart';
 
 import 'extraction_service.dart';
 import 'attestation_verification.dart';
 import 'scenario_selection.dart';
 import 'generator.dart';
 import 'proof_engine.dart';
+import 'ir.dart';
+import 'lock_path.dart';
+import 'configuration_preflight.dart';
 
 /// Immutable inputs for one lock calculation.
 ///
@@ -30,16 +33,72 @@ final class WorkspaceContext {
 
 class LockCommand {
   final ArgResults args;
+  List<Diagnostic> diagnostics = const [];
 
   LockCommand(this.args);
 
   Future<int> execute() async {
+    diagnostics = const [];
+    final requestedRoot = args['root'] as String? ?? Directory.current.path;
+    final allProfiles =
+        args.options.contains('all-profiles') &&
+        (args['all-profiles'] as bool? ?? false);
+    if (allProfiles) {
+      var result = 0;
+      final profiles = _configuredProfiles(requestedRoot);
+      for (final profile in profiles) {
+        final profileArgs = ArgParser()
+          ..addOption('root')
+          ..addOption('profile')
+          ..addFlag('check')
+          ..addFlag('quiet');
+        final values = <String>[
+          '--root',
+          requestedRoot,
+          '--profile',
+          profile,
+          if (args['check'] as bool? ?? false) '--check',
+          if (args.options.contains('quiet') &&
+              (args['quiet'] as bool? ?? false))
+            '--quiet',
+        ];
+        result |= await LockCommand(profileArgs.parse(values)).execute();
+      }
+      return result;
+    }
     final root = Directory(
       Directory(
         args['root'] as String? ?? Directory.current.path,
       ).absolute.resolveSymbolicLinksSync(),
     );
-    final workspace = WorkspaceDiscovery().discover(root.path);
+    final legacyLockPaths = [
+      File(resolveLegacyRootLockPath(root.path)),
+      File('${root.path}/zuke.lock'),
+    ];
+    final legacyLock = legacyLockPaths.firstWhere(
+      (file) => file.existsSync(),
+      orElse: () => File(''),
+    );
+    if (legacyLock.path.isNotEmpty) {
+      diagnostics = [
+        Diagnostic(
+          code: 'ZK-LOCK-LEGACY-FORMAT',
+          stage: 'lock',
+          severity: DiagnosticSeverity.error,
+          owner: DiagnosticOwner.zuke,
+          message: '${legacyLock.path} is a legacy lock path.',
+          remediation:
+              'Remove the legacy lock and regenerate the current profile lock.',
+        ),
+      ];
+      stderr.writeln(
+        'ZK-LOCK-LEGACY-FORMAT: ${legacyLock.path} is a legacy lock path; '
+        'remove it and regenerate assurance/locks/<profile>.lock.json with '
+        'the current Zuke CLI.',
+      );
+      return 1;
+    }
+    final workspace = requireCurrentWorkspace(root.path);
     final profile = args['profile'] as String? ?? 'pullRequest';
     final extraction = await ExtractionService().extract(workspace);
     final verifiedAttestations = await AttestationVerification().verify(
@@ -84,16 +143,49 @@ class LockCommand {
       extraction: extraction,
     );
     final lockContent = await buildLock(context, validation, profile: profile);
-    final path =
-        '${root.path}/${workspace.config.lockFile ?? 'zuke.lock.json'}';
+    final path = resolveProfileLockPath(root.path, profile);
     final file = File(path);
     final check = args['check'] as bool? ?? false;
     final quiet =
         args.options.contains('quiet') && (args['quiet'] as bool? ?? false);
     if (check) {
       final current = file.existsSync() ? file.readAsStringSync() : null;
+      if (current != null) {
+        try {
+          final decoded = jsonDecode(current);
+          if (decoded is! Map ||
+              decoded['kind'] != 'zuke.lock' ||
+              decoded.containsKey('schemaVersion') ||
+              decoded.containsKey('formatVersion')) {
+            diagnostics = [_legacyLockDiagnostic()];
+            stderr.writeln(
+              'ZK-LOCK-LEGACY-FORMAT: the lock is not a current lock; regenerate it with the current Zuke CLI.',
+            );
+            return 1;
+          }
+        } on FormatException {
+          diagnostics = [_legacyLockDiagnostic()];
+          stderr.writeln(
+            'ZK-LOCK-LEGACY-FORMAT: the lock is malformed; regenerate it with the current Zuke CLI.',
+          );
+          return 1;
+        }
+      }
       if (current != lockContent) {
-        stderr.writeln('Specification lock is stale or missing: $path');
+        diagnostics = [
+          Diagnostic(
+            code: 'ZK-LOCK-STALE',
+            stage: 'lock',
+            severity: DiagnosticSeverity.error,
+            owner: DiagnosticOwner.project,
+            message: 'Specification lock is stale or missing: $path',
+            remediation:
+                'Generate the profile lock in a reviewed change, then verify it with --check.',
+          ),
+        ];
+        stderr.writeln(
+          'ZK-LOCK-STALE: Specification lock is stale or missing: $path',
+        );
         if (current != null) {
           stderr.writeln(
             '  expected sha256:${sha256.convert(utf8.encode(lockContent))}',
@@ -113,6 +205,26 @@ class LockCommand {
     return 0;
   }
 
+  Diagnostic _legacyLockDiagnostic() => const Diagnostic(
+    code: 'ZK-LOCK-LEGACY-FORMAT',
+    stage: 'lock',
+    severity: DiagnosticSeverity.error,
+    owner: DiagnosticOwner.zuke,
+    message: 'The lock is not a current lock artifact.',
+    remediation:
+        'Remove the legacy lock and regenerate the current profile lock.',
+  );
+
+  List<String> _configuredProfiles(String root) {
+    try {
+      final profiles = requireCurrentWorkspace(root).config.lockProfiles;
+      if (profiles.isNotEmpty) return profiles;
+    } on Object {
+      // Let the normal single-profile path report the configuration failure.
+    }
+    return const ['pullRequest', 'merge', 'release', 'nightly'];
+  }
+
   Future<String> buildLock(
     WorkspaceContext context,
     ValidationResult validation, {
@@ -121,6 +233,7 @@ class LockCommand {
     final root = context.root;
     final workspace = context.workspace;
     final extraction = context.extraction;
+    final selection = const ScenarioSelector().resolve(workspace, profile);
     final workspaceName = root.uri.pathSegments
         .where((segment) => segment.isNotEmpty)
         .last;
@@ -232,10 +345,13 @@ class LockCommand {
 
     final policyHash = 'sha256:${sha256.convert(utf8.encode(policyJson))}';
     final evidenceRequirementsHash =
-        'sha256:${sha256.convert(utf8.encode(const JsonEncoder().convert(evidenceRequirements)))}';
+        'sha256:${sha256.convert(utf8.encode(canonicalJson(evidenceRequirements)))}';
 
     final data = <String, dynamic>{
-      'formatVersion': 1,
+      'kind': 'zuke.lock',
+      'profile': profile,
+      'selectedScenarioIds': selection.scenarioIds,
+      'selectionDigest': selection.digest,
       'engineVersion': report.engineVersion,
       'workspace': workspaceName,
       'policy': {
@@ -254,6 +370,9 @@ class LockCommand {
           entry.key: {'sourceHash': entry.value},
       },
       'fragments': fragments,
+      'topologyOutputs': extraction.topologyOutputs
+          .map((output) => output.toJson())
+          .toList(),
       'requirements': workspace.data.features
           .expand((feature) => feature.rules)
           .where((rule) => rule.metadata.id != null)

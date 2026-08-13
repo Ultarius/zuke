@@ -268,66 +268,77 @@ abstract interface class FeatCart001FlutterDriver<W> {
 
 abstract final class FeatCart001RequirementIds {
   static const itemManagement = 'RULE-CART-ITEM-MANAGEMENT';
+  static const itemManagementId = RuleId('RULE-CART-ITEM-MANAGEMENT');
   static const promoDiscount = 'RULE-CART-PROMO-DISCOUNT';
+  static const promoDiscountId = RuleId('RULE-CART-PROMO-DISCOUNT');
   static const emptyCheckout = 'RULE-CART-EMPTY-CHECKOUT';
+  static const emptyCheckoutId = RuleId('RULE-CART-EMPTY-CHECKOUT');
   static const successfulCheckout = 'RULE-CART-SUCCESSFUL-CHECKOUT';
+  static const successfulCheckoutId = RuleId('RULE-CART-SUCCESSFUL-CHECKOUT');
   static const accessibility = 'RULE-CART-ACCESSIBILITY';
+  static const accessibilityId = RuleId('RULE-CART-ACCESSIBILITY');
+}
+
+abstract final class FeatCart001ControlIds {
+  static const accessible = ControlId('CTRL-CART-ACCESSIBLE');
+  static const validation = ControlId('CTRL-CART-VALIDATION');
+  static const promoValidation = ControlId('CTRL-PROMO-VALIDATION');
 }
 
 enum FeatCart001Scenario implements ZukeScenarioContract {
   addItem(
     ScenarioId('SCN-CART-ADD-ITEM'),
-    'RULE-CART-ITEM-MANAGEMENT',
+    RuleId('RULE-CART-ITEM-MANAGEMENT'),
     'Add item to cart and verify updated subtotal',
-    <String>{'CTRL-CART-VALIDATION'},
+    <ControlId>{ControlId('CTRL-CART-VALIDATION')},
   ),
   addSecondItem(
     ScenarioId('SCN-CART-ADD-SECOND-ITEM'),
-    'RULE-CART-ITEM-MANAGEMENT',
+    RuleId('RULE-CART-ITEM-MANAGEMENT'),
     'Add same item twice and verify updated quantity and subtotal',
-    <String>{'CTRL-CART-VALIDATION'},
+    <ControlId>{ControlId('CTRL-CART-VALIDATION')},
   ),
   applyPromo(
     ScenarioId('SCN-CART-APPLY-PROMO'),
-    'RULE-CART-PROMO-DISCOUNT',
+    RuleId('RULE-CART-PROMO-DISCOUNT'),
     'Apply valid discount code and recalculate grand total',
-    <String>{'CTRL-PROMO-VALIDATION'},
+    <ControlId>{ControlId('CTRL-PROMO-VALIDATION')},
   ),
   invalidPromo(
     ScenarioId('SCN-CART-INVALID-PROMO'),
-    'RULE-CART-PROMO-DISCOUNT',
+    RuleId('RULE-CART-PROMO-DISCOUNT'),
     'Reject an invalid promo code',
-    <String>{'CTRL-PROMO-VALIDATION'},
+    <ControlId>{ControlId('CTRL-PROMO-VALIDATION')},
   ),
   promoEmptyCart(
     ScenarioId('SCN-CART-PROMO-EMPTY-CART'),
-    'RULE-CART-PROMO-DISCOUNT',
+    RuleId('RULE-CART-PROMO-DISCOUNT'),
     'Reject promo code on empty cart',
-    <String>{'CTRL-PROMO-VALIDATION'},
+    <ControlId>{ControlId('CTRL-PROMO-VALIDATION')},
   ),
   emptyPromo(
     ScenarioId('SCN-CART-EMPTY-PROMO'),
-    'RULE-CART-PROMO-DISCOUNT',
+    RuleId('RULE-CART-PROMO-DISCOUNT'),
     'Reject submitting an empty promo code',
-    <String>{'CTRL-PROMO-VALIDATION'},
+    <ControlId>{ControlId('CTRL-PROMO-VALIDATION')},
   ),
   emptyCheckout(
     ScenarioId('SCN-CART-EMPTY-CHECKOUT'),
-    'RULE-CART-EMPTY-CHECKOUT',
+    RuleId('RULE-CART-EMPTY-CHECKOUT'),
     'Prevent checkout when the cart is empty',
-    <String>{'CTRL-CART-VALIDATION'},
+    <ControlId>{ControlId('CTRL-CART-VALIDATION')},
   ),
   successCheckout(
     ScenarioId('SCN-CART-SUCCESS-CHECKOUT'),
-    'RULE-CART-SUCCESSFUL-CHECKOUT',
+    RuleId('RULE-CART-SUCCESSFUL-CHECKOUT'),
     'Successfully place order with items in cart and reset promo state',
-    <String>{'CTRL-CART-VALIDATION'},
+    <ControlId>{ControlId('CTRL-CART-VALIDATION')},
   ),
   accessible(
     ScenarioId('SCN-CART-ACCESSIBLE'),
-    'RULE-CART-ACCESSIBILITY',
+    RuleId('RULE-CART-ACCESSIBILITY'),
     'Expose total order summary via semantics handle',
-    <String>{'CTRL-CART-ACCESSIBLE'},
+    <ControlId>{ControlId('CTRL-CART-ACCESSIBLE')},
   );
 
   const FeatCart001Scenario(
@@ -339,11 +350,11 @@ enum FeatCart001Scenario implements ZukeScenarioContract {
   @override
   final ScenarioId id;
   @override
-  final String requirementId;
+  final RuleId requirementId;
   @override
   final String title;
   @override
-  final Set<String> controlIds;
+  final Set<ControlId> controlIds;
 }
 
 abstract final class FeatCart001Scenarios {

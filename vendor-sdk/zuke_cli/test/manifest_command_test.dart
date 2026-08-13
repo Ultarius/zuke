@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:test/test.dart';
@@ -34,12 +35,12 @@ void main() {
       expect(result.exitCode, 1);
     });
 
-    test('manifest verify-v2 validates history chain', () async {
+    test('manifest verify validates history chain', () async {
       await runInProcessCli(['generate', '--root', root.path]);
 
       final result = await runInProcessCli([
         'manifest',
-        'verify-v2',
+        'verify',
         '--root',
         root.path,
       ]);
@@ -47,6 +48,48 @@ void main() {
       // Returns 0 when no release records or valid chain
       expect(result.exitCode, 0);
     });
+
+    test('manifest commands reject legacy history paths', () async {
+      await runInProcessCli(['generate', '--root', root.path]);
+      final legacy = File('${root.path}/assurance-history/export.json')
+        ..createSync(recursive: true)
+        ..writeAsStringSync(
+          jsonEncode({'schemaVersion': 1, 'manifests': <String>[]}),
+        );
+
+      final result = await runInProcessCli([
+        'manifest',
+        'verify',
+        '--root',
+        root.path,
+      ]);
+
+      expect(result.exitCode, 2);
+      expect(result.stderr, contains('ZK-HISTORY-LEGACY-FORMAT'));
+      expect(legacy.existsSync(), isTrue);
+    });
+
+    test(
+      'manifest commands reject legacy trust filenames in current paths',
+      () async {
+        await runInProcessCli(['generate', '--root', root.path]);
+        final legacy =
+            File('${root.path}/assurance-history/trust/ed25519-v2.json')
+              ..createSync(recursive: true)
+              ..writeAsStringSync('{}');
+
+        final result = await runInProcessCli([
+          'manifest',
+          'verify',
+          '--root',
+          root.path,
+        ]);
+
+        expect(result.exitCode, 2);
+        expect(result.stderr, contains('ZK-HISTORY-LEGACY-FORMAT'));
+        expect(legacy.existsSync(), isTrue);
+      },
+    );
 
     test('manifest create rejects unknown signer', () async {
       await runInProcessCli(['generate', '--root', root.path]);

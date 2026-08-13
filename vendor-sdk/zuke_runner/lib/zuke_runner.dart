@@ -2,3 +2,4 @@
 library;
 
 export 'package:zuke/runner.dart';
+export 'src/zuke_test.dart';

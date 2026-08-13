@@ -1,7 +1,7 @@
 import 'dart:io';
 
 import 'package:zuke_cli/src/tool_invocation.dart';
-import 'package:zuke_test_support/zuke_test_support.dart';
+import 'support/temporary_directory.dart';
 import 'package:test/test.dart';
 
 void main() {

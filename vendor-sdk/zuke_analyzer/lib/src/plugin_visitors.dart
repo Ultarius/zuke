@@ -1,6 +1,6 @@
 import 'package:analyzer/dart/ast/ast.dart';
 import 'package:analyzer/dart/ast/visitor.dart';
-import 'package:zuke_core/inspection.dart';
+import 'package:zuke_cli/tooling.dart';
 
 typedef AnnotationReporter = void Function(Annotation annotation);
 

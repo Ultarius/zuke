@@ -67,7 +67,7 @@ jobs:
           dart --suppress-analytics run zuke_cli:zuke validate --root examples/calculator-product --profile ${{ inputs.profile }} --format json
           dart --suppress-analytics run zuke_cli:zuke lock --root examples/calculator-product --profile ${{ inputs.profile }}
       - run: dart --suppress-analytics run zuke_cli:zuke check --root examples/calculator-product --profile ${{ inputs.profile }} --jobs 1 --format json
-      - run: dart --suppress-analytics run zuke_cli:zuke manifest verify-v2 --root examples/calculator-product
+      - run: dart --suppress-analytics run zuke_cli:zuke manifest verify --root examples/calculator-product
       - name: Coverage check
         run: dart --suppress-analytics run melos run coverage:check
       - name: Upload assurance artifacts
@@ -77,7 +77,10 @@ jobs:
           name: zuke-calculator-product-assurance-${{ matrix.os }}
           path: |
             examples/calculator-product/generated/
-            examples/calculator-product/zuke.lock.json
+            examples/calculator-product/assurance/locks/${{ inputs.profile }}.lock.json
             examples/calculator-product/assurance-history/
             vendor-sdk/*/coverage/lcov.info
             examples/calculator-product/**/coverage/lcov.info
+      - name: Clean Zuke test temporary directories
+        if: always()
+        run: dart --suppress-analytics run zuke_cli:zuke clean --root .

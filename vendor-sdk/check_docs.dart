@@ -2,6 +2,8 @@ import 'dart:io';
 
 import 'package:yaml/yaml.dart';
 
+import '../tool/release_matrix.dart';
+
 /// Checks public documentation, active SDK manifests, and retired identities.
 void main() {
   final failures = DocumentationChecker(Directory.current).check();
@@ -32,53 +34,31 @@ class DocumentationChecker {
     'vendor-sdk/spec_cli/bin',
     '--root calculator-product',
   ];
-  static const _tiers = <String, String>{
-    'zuke': 'Primary Zuke pure-Dart SDK.',
-    'zuke_core':
-        'Supported Zuke infrastructure dependency; not a primary application package.',
-    'zuke_annotations': 'Supported application-facing public API.',
-    'zuke_frontend': 'Supported application-facing public API.',
-    'zuke_runner': 'Compatibility package for the primary Zuke SDK.',
-    'zuke_runner_flutter': 'Supported application-facing public API.',
-    'zuke_http_runtime': 'Supported application-facing public API.',
-    'zuke_cli': 'Supported application-facing public API.',
-    'zuke_dart_build_hook': 'Supported application-facing public API.',
-    'zuke_analyzer': 'Repository-only tooling; not published to pub.dev.',
-    'zuke_conformance': 'Repository-only tooling; not published to pub.dev.',
-    'zuke_verifier': 'Repository-only tooling; not published to pub.dev.',
-    'zuke_test_support': 'Repository-only tooling; not published to pub.dev.',
-  };
-
-  static const _publishedPackages = <String>{
-    'zuke',
-    'zuke_core',
-    'zuke_annotations',
-    'zuke_frontend',
-    'zuke_runner',
-    'zuke_runner_flutter',
-    'zuke_http_runtime',
-    'zuke_dart_build_hook',
-    'zuke_cli',
-  };
-
-  static const _packageVersions = <String, String>{
-    'zuke_runner': '0.1.1',
-    'zuke_runner_flutter': '0.1.1',
-    'zuke_cli': '0.2.0',
-  };
-
-  static const _dependencyConstraints = <String, String>{'zuke_cli': '^0.2.0'};
-
   List<String> check() {
     final failures = <String>[];
     final activePackages = _activePackages(failures);
+    final matrix = _releaseMatrix(failures);
     _checkLinks(failures);
     _checkRetiredIdentities(failures);
     _checkRawScenarioIds(failures);
     _checkGuideFences(failures);
-    _checkActivePubspecs(activePackages, failures);
-    _checkReadmeTiers(activePackages, failures);
+    _checkActivePubspecs(activePackages, matrix, failures);
+    _checkPackageImportsAndCycles(activePackages, matrix, failures);
+    _checkReadmeTiers(activePackages, matrix, failures);
+    _checkRetiredPackages(matrix, failures);
+    _checkLockDocumentation(failures);
+    _checkCurrentProductLanguage(failures);
+    _checkCurrentArtifactDiscriminators(failures);
     return failures;
+  }
+
+  ReleaseMatrix _releaseMatrix(List<String> failures) {
+    try {
+      return readReleaseMatrix(root);
+    } on Object catch (error) {
+      failures.add('invalid docs/release-matrix.yaml: $error');
+      return const ReleaseMatrix.empty();
+    }
   }
 
   Map<String, Directory> _activePackages(List<String> failures) {
@@ -118,11 +98,6 @@ class DocumentationChecker {
       } else {
         result[name] = directory;
       }
-    }
-    if (result.length != _tiers.length) {
-      failures.add(
-        'expected ${_tiers.length} active SDK packages, found ${result.length}',
-      );
     }
     return result;
   }
@@ -305,6 +280,7 @@ class DocumentationChecker {
 
   void _checkActivePubspecs(
     Map<String, Directory> packages,
+    ReleaseMatrix matrix,
     List<String> failures,
   ) {
     for (final entry in packages.entries) {
@@ -313,7 +289,15 @@ class DocumentationChecker {
       );
       final contents = pubspec.readAsStringSync();
       final relative = _relative(pubspec);
-      final expectedVersion = _packageVersions[entry.key] ?? '0.1.0';
+      final release = matrix.packages[entry.key];
+      if (release == null) {
+        failures.add(
+          '${entry.key}: active SDK package is missing from the release matrix',
+        );
+        continue;
+      }
+      final packageYaml = loadYaml(contents);
+      final expectedVersion = release.version;
       if (!RegExp(
         '^version:\\s*${RegExp.escape(expectedVersion)}\\s*\$',
         multiLine: true,
@@ -330,51 +314,92 @@ class DocumentationChecker {
           '$relative: active SDK package must use resolution: workspace',
         );
       }
-      final isPublished = _publishedPackages.contains(entry.key);
       final publishesNowhere = RegExp(
         r'^publish_to:\s*none\s*$',
         multiLine: true,
       ).hasMatch(contents);
-      if (isPublished &&
-          RegExp(r'^publish_to:', multiLine: true).hasMatch(contents)) {
+      if (release.publish && publishesNowhere) {
         failures.add(
-          '$relative: published SDK package must not declare publish_to',
+          '$relative: published package must not declare publish_to: none',
         );
-      } else if (!isPublished && !publishesNowhere) {
+      } else if (!release.publish && !publishesNowhere) {
         failures.add(
-          '$relative: repository-only SDK package must declare publish_to: none',
-        );
-      }
-      if (RegExp(r'path\s*:').hasMatch(contents)) {
-        failures.add(
-          '$relative: active SDK package must not use a path dependency',
+          '$relative: internal package must declare publish_to: none',
         );
       }
-      final packageYaml = loadYaml(contents);
-      for (final internal in packages.keys) {
-        for (final section in ['dependencies', 'dev_dependencies']) {
-          final dependencies = packageYaml is Map ? packageYaml[section] : null;
-          if (dependencies is! Map || !dependencies.containsKey(internal)) {
-            continue;
+      for (final section in ['dependencies', 'dev_dependencies']) {
+        final dependencies = packageYaml is Map ? packageYaml[section] : null;
+        if (dependencies is! Map) continue;
+        for (final dependency in dependencies.entries) {
+          if (dependency.value is Map &&
+              (dependency.value as Map).containsKey('path')) {
+            if (release.publish) {
+              failures.add(
+                '$relative: published package must not use a path dependency for ${dependency.key}',
+              );
+            }
           }
-          final declared = dependencies[internal];
-          final expectedConstraint =
-              _dependencyConstraints[internal] ?? '^0.1.0';
-          if (declared?.toString() != expectedConstraint) {
-            failures.add('$relative: $internal must use $expectedConstraint');
+          final dependencyName = dependency.key.toString();
+          final dependencyRelease = matrix.packages[dependencyName];
+          if (release.publish &&
+              dependencyRelease != null &&
+              !dependencyRelease.publish) {
+            failures.add(
+              '$relative: published package depends on internal package $dependencyName',
+            );
+          }
+          if (release.publish &&
+              matrix.retiredPackages.contains(dependencyName)) {
+            failures.add(
+              '$relative: published package depends on retired package $dependencyName',
+            );
           }
         }
       }
+    }
+
+    final activeNames = packages.keys.toSet();
+    final matrixNames = matrix.packages.keys.toSet();
+    final missingFromMatrix = activeNames.difference(matrixNames);
+    for (final name in missingFromMatrix) {
+      failures.add(
+        '$name: active SDK package is missing from the release matrix',
+      );
+    }
+    final missingFromWorkspace = matrixNames
+        .difference(activeNames)
+        .where((name) => !matrix.retiredPackages.contains(name));
+    for (final name in missingFromWorkspace) {
+      failures.add(
+        '$name: release-matrix package is not an active workspace package',
+      );
+    }
+
+    final expectedOrder = matrix.packages.values
+        .where((release) => release.releaseAction == 'publish')
+        .map((release) => release.name)
+        .toSet();
+    final actualOrder = matrix.publicationOrder.toSet();
+    if (actualOrder.length != matrix.publicationOrder.length) {
+      failures.add('release matrix publicationOrder contains duplicates');
+    }
+    if (!identical(expectedOrder, actualOrder) &&
+        (expectedOrder.length != actualOrder.length ||
+            !expectedOrder.containsAll(actualOrder))) {
+      failures.add(
+        'release matrix publicationOrder must contain exactly the packages with releaseAction: publish',
+      );
     }
   }
 
   void _checkReadmeTiers(
     Map<String, Directory> packages,
+    ReleaseMatrix matrix,
     List<String> failures,
   ) {
     for (final entry in packages.entries) {
-      final expected = _tiers[entry.key];
-      if (expected == null) {
+      final release = matrix.packages[entry.key];
+      if (release == null) {
         failures.add('no support-tier contract configured for ${entry.key}');
         continue;
       }
@@ -382,9 +407,244 @@ class DocumentationChecker {
         '${entry.value.path}${Platform.pathSeparator}README.md',
       );
       if (!readme.existsSync() ||
-          !readme.readAsStringSync().contains(expected)) {
+          !readme.readAsStringSync().contains(release.supportStatement)) {
         failures.add(
-          '${_relative(readme)}: missing support-tier contract `$expected`',
+          '${_relative(readme)}: missing support-tier contract `${release.supportStatement}`',
+        );
+      }
+    }
+  }
+
+  void _checkPackageImportsAndCycles(
+    Map<String, Directory> packages,
+    ReleaseMatrix matrix,
+    List<String> failures,
+  ) {
+    final graph = <String, Set<String>>{};
+    for (final entry in packages.entries) {
+      final packageName = entry.key;
+      final release = matrix.packages[packageName];
+      if (release == null) continue;
+      final dependencies = <String>{};
+      final pubspec = File(
+        '${entry.value.path}${Platform.pathSeparator}pubspec.yaml',
+      );
+      final yaml = loadYaml(pubspec.readAsStringSync());
+      for (final section in ['dependencies', 'dev_dependencies']) {
+        final raw = yaml is Map ? yaml[section] : null;
+        if (raw is! Map) continue;
+        for (final dependency in raw.keys) {
+          final dependencyName = dependency.toString();
+          if (packages.containsKey(dependencyName)) {
+            dependencies.add(dependencyName);
+          }
+          final dependencyRelease = matrix.packages[dependencyName];
+          if (release.publish &&
+              dependencyRelease != null &&
+              !dependencyRelease.publish) {
+            failures.add(
+              '${_relative(pubspec)}: published package references internal package $dependencyName',
+            );
+          }
+        }
+      }
+      graph[packageName] = dependencies;
+
+      final lib = Directory('${entry.value.path}${Platform.pathSeparator}lib');
+      if (!lib.existsSync()) continue;
+      for (final file
+          in lib
+              .listSync(recursive: true, followLinks: false)
+              .whereType<File>()) {
+        final contents = file.readAsStringSync();
+        final imports = RegExp(
+          r"package:([A-Za-z0-9_]+?)/",
+        ).allMatches(contents);
+        for (final match in imports) {
+          final imported = match.group(1)!;
+          if (matrix.retiredPackages.contains(imported)) {
+            failures.add(
+              '${_relative(file)}: imports retired package $imported',
+            );
+          }
+          final importedRelease = matrix.packages[imported];
+          if (release.publish &&
+              importedRelease != null &&
+              !importedRelease.publish) {
+            failures.add(
+              '${_relative(file)}: published package imports internal package $imported',
+            );
+          }
+          if (packageName == 'zuke_core' &&
+              (imported == 'analyzer' || imported == 'dart_extractor')) {
+            failures.add(
+              '${_relative(file)}: zuke_core must remain analyzer/extractor-free',
+            );
+          }
+        }
+      }
+    }
+
+    final visiting = <String>{};
+    final visited = <String>{};
+    void visit(String packageName, List<String> path) {
+      if (visiting.contains(packageName)) {
+        final cycleStart = path.indexOf(packageName);
+        final cycle = [
+          ...path.skip(cycleStart < 0 ? 0 : cycleStart),
+          packageName,
+        ];
+        failures.add('package dependency cycle: ${cycle.join(' -> ')}');
+        return;
+      }
+      if (!visited.add(packageName)) return;
+      visiting.add(packageName);
+      for (final dependency in graph[packageName] ?? const <String>{}) {
+        visit(dependency, [...path, packageName]);
+      }
+      visiting.remove(packageName);
+    }
+
+    for (final packageName in graph.keys) {
+      visit(packageName, const []);
+    }
+  }
+
+  void _checkRetiredPackages(ReleaseMatrix matrix, List<String> failures) {
+    for (final name in matrix.retiredPackages) {
+      final directory = Directory(
+        '${root.path}${Platform.pathSeparator}vendor-sdk${Platform.pathSeparator}$name',
+      );
+      if (!directory.existsSync()) continue;
+      final pubspec = File(
+        '${directory.path}${Platform.pathSeparator}pubspec.yaml',
+      );
+      if (!pubspec.existsSync()) continue;
+      final yaml = loadYaml(pubspec.readAsStringSync());
+      if (yaml is! Map || yaml['publish_to']?.toString() != 'none') {
+        failures.add('$name: retired package must declare publish_to: none');
+      }
+    }
+  }
+
+  void _checkLockDocumentation(List<String> failures) {
+    final legacyLock = RegExp(r'\bzuke\.lock(?:\.v\d+|\.json)\b');
+    final missingProfile = RegExp(
+      r'\bzuke\s+lock\b(?![^\n]*(?:--profile|--all-profiles))',
+    );
+    for (final file in _allFiles().where((file) {
+      final path = file.path.toLowerCase();
+      return path.endsWith('.md') ||
+          path.endsWith('.yaml') ||
+          path.endsWith('.yml');
+    })) {
+      final relative = _relative(file);
+      final contents = file.readAsStringSync();
+      final isMigrationGuide =
+          relative.replaceAll('\\', '/') == 'docs/migration.md';
+      if (legacyLock.hasMatch(contents) && !isMigrationGuide) {
+        failures.add(
+          '$relative: legacy/versioned lock names are forbidden; use assurance/locks/<profile>.lock.json',
+        );
+      }
+      for (final line in contents.split('\n')) {
+        if (missingProfile.hasMatch(line)) {
+          failures.add(
+            '$relative: zuke lock commands must specify --profile or --all-profiles',
+          );
+        }
+      }
+    }
+  }
+
+  void _checkCurrentProductLanguage(List<String> failures) {
+    final migration = File(
+      '${root.path}${Platform.pathSeparator}docs${Platform.pathSeparator}migration.md',
+    );
+    if (!migration.existsSync()) {
+      failures.add('missing docs/migration.md');
+    } else {
+      final contents = migration.readAsStringSync();
+      if (!contents.startsWith('# Migrating to the Current Zuke Release')) {
+        failures.add('docs/migration.md must use the current migration title');
+      }
+      for (final required in [
+        'previous package versions pinned',
+        'schema 3',
+        'sourcePackage',
+        'sourceAdapter',
+        'assurance/locks/pullRequest.lock.json',
+        'regenerate',
+        'retired package',
+      ]) {
+        if (!contents.toLowerCase().contains(required.toLowerCase())) {
+          failures.add(
+            'docs/migration.md is missing required migration guidance: $required',
+          );
+        }
+      }
+    }
+
+    final forbidden = <RegExp>[
+      RegExp(r'\bzuke-v2\b', caseSensitive: false),
+      RegExp(r'\bverify-v2\b', caseSensitive: false),
+      RegExp(r'\bv2\.dart\b', caseSensitive: false),
+      RegExp(r'\bCommandResultV2\b', caseSensitive: false),
+      RegExp(r'\bDiagnosticV2\b', caseSensitive: false),
+      RegExp(r'\bAdapterOutputV2\b', caseSensitive: false),
+      RegExp(r'\bEvidenceRecordV2\b', caseSensitive: false),
+      RegExp(r'\bzuke\.lock\.v\d+\b', caseSensitive: false),
+      RegExp(r'assurance-history/v2', caseSensitive: false),
+      RegExp(
+        r'\bV2\s+(?:SDK|primary|contracts?|workspace|product|release|history|facade|result)',
+        caseSensitive: false,
+      ),
+    ];
+    for (final file in _allFiles().where((candidate) {
+      final relative = _relative(candidate).toLowerCase();
+      if (!(relative.endsWith('.dart') ||
+          relative.endsWith('.md') ||
+          relative.endsWith('.yaml') ||
+          relative.endsWith('.yml'))) {
+        return false;
+      }
+      if (relative.contains('/test/') ||
+          relative == 'vendor-sdk/check_docs.dart') {
+        return false;
+      }
+      return true;
+    })) {
+      final relative = _relative(file);
+      final contents = file.readAsStringSync();
+      for (final pattern in forbidden) {
+        final historicalMigrationReference =
+            relative.replaceAll('\\', '/') == 'docs/migration.md' &&
+            pattern.pattern == r'assurance-history/v2';
+        if (pattern.hasMatch(contents) && !historicalMigrationReference) {
+          failures.add(
+            '$relative: product-facing legacy/V2 terminology is forbidden (${pattern.pattern})',
+          );
+        }
+      }
+    }
+  }
+
+  void _checkCurrentArtifactDiscriminators(List<String> failures) {
+    final versioned = RegExp(
+      r'''['"]schemaVersion['"]\s*:\s*['"]zuke\.[^'"]+\.v\d+['"]''',
+    );
+    for (final file in _allFiles().where((candidate) {
+      final relative = _relative(candidate).replaceAll('\\', '/');
+      return relative.startsWith('vendor-sdk/') &&
+          relative.endsWith('.dart') &&
+          !relative.contains('/test/') &&
+          relative != 'vendor-sdk/check_docs.dart';
+    })) {
+      final relative = _relative(file);
+      if (versioned.hasMatch(file.readAsStringSync())) {
+        failures.add(
+          '$relative: current Zuke artifacts must use an unversioned kind, '
+          'not a versioned schemaVersion discriminator',
         );
       }
     }

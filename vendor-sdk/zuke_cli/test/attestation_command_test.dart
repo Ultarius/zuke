@@ -110,12 +110,10 @@ providers:
         );
 
         _writeWorkspace(root, _completeProvider);
-        final trust = File(
-          '${root.path}/assurance-history/trust/ed25519-v2.json',
-        );
+        final trust = File('${root.path}/assurance-history/trust/ed25519.json');
         trust.parent.createSync(recursive: true);
         trust.writeAsStringSync(
-          jsonEncode({'schemaVersion': 'zuke.ed25519-trust.v2', 'keys': []}),
+          jsonEncode({'kind': 'zuke.ed25519-trust', 'keys': []}),
         );
         await expectLater(
           _currentCommand(root, evidence).create(),
@@ -134,13 +132,11 @@ providers:
           _completeProvider.replaceFirst('owner: team\n', ''),
         );
         final publicKey = List<int>.filled(32, 7);
-        final trust = File(
-          '${root.path}/assurance-history/trust/ed25519-v2.json',
-        );
+        final trust = File('${root.path}/assurance-history/trust/ed25519.json');
         trust.parent.createSync(recursive: true);
         trust.writeAsStringSync(
           jsonEncode({
-            'schemaVersion': 'zuke.ed25519-trust.v2',
+            'kind': 'zuke.ed25519-trust',
             'keys': [
               {
                 'signerId': 'attestation-signer',
@@ -170,13 +166,11 @@ providers:
       final keyPair = await algorithm.newKeyPairFromSeed(_signingSeed);
       final publicKey = await keyPair.extractPublicKey();
       final fingerprint = 'sha256:${sha256.convert(publicKey.bytes)}';
-      final trust = File(
-        '${root.path}/assurance-history/trust/ed25519-v2.json',
-      );
+      final trust = File('${root.path}/assurance-history/trust/ed25519.json');
       trust.parent.createSync(recursive: true);
       trust.writeAsStringSync(
         jsonEncode({
-          'schemaVersion': 'zuke.ed25519-trust.v2',
+          'kind': 'zuke.ed25519-trust',
           'keys': [
             {
               'signerId': 'attestation-signer',
@@ -232,8 +226,8 @@ providers:
       );
       expect(document.existsSync(), isTrue);
       expect(
-        jsonDecode(document.readAsStringSync())['schemaVersion'],
-        'zuke.external-attestation.v1',
+        jsonDecode(document.readAsStringSync())['kind'],
+        'zuke.external-attestation',
       );
       expect(
         File('${root.path}/policies/attestations.yaml').readAsStringSync(),
@@ -270,14 +264,14 @@ final _signingSeed = _hex(
 
 void _writeWorkspace(Directory root, String policy) {
   File('${root.path}/zuke.yaml').writeAsStringSync('''
-schemaVersion: 2
+schemaVersion: 3
 specifications:
   features: [specs/features/**/*.feature]
   controls: [specs/controls/**/*.yaml]
 policies:
   project: policies/attestations.yaml
 trust:
-  bundle: assurance-history/trust/ed25519-v2.json
+  bundle: assurance-history/trust/ed25519.json
 ''');
   final feature = File('${root.path}/specs/features/gateway.feature');
   feature.parent.createSync(recursive: true);

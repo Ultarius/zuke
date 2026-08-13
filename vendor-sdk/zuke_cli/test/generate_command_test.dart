@@ -4,7 +4,7 @@ import 'dart:io';
 import 'package:args/args.dart';
 import 'package:zuke_cli/zuke_cli.dart';
 import 'package:test/test.dart';
-import 'package:zuke_core/inspection.dart';
+import 'package:zuke_cli/tooling.dart';
 import 'cli_test_helper.dart';
 
 void main() {
@@ -282,10 +282,7 @@ String finderFor(FeatTest001FlutterBinding binding) => switch (binding) {
         expect(await _run(root), 0);
         final index = File('${root.path}/.zuke/analyzer-index.json');
         expect(index.existsSync(), isTrue);
-        expect(
-          jsonDecode(index.readAsStringSync())['schemaVersion'],
-          ZukeIndex.schemaVersion,
-        );
+        expect(jsonDecode(index.readAsStringSync())['kind'], ZukeIndex.kind);
 
         final feature = File('${root.path}/specs/features/fixture.feature');
         feature.writeAsStringSync('${feature.readAsStringSync()}\n# changed\n');
@@ -342,7 +339,7 @@ environment:
   sdk: '>=3.10.0 <4.0.0'
 ''');
   File('${root.path}/zuke.yaml').writeAsStringSync('''
-schemaVersion: 2
+schemaVersion: 3
 workspace:
   name: generator-fixture
   root: .
@@ -351,6 +348,11 @@ specifications:
 targets:
   flutter:
     language: dart
+    framework: flutter
+    packages:
+      - id: generator-fixture
+        path: .
+        roots: [lib, test]
     contractOutput: packages/contracts/lib/src/generated
 ''');
   final features = Directory('${root.path}/specs/features')

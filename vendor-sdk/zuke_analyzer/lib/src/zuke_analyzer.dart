@@ -1,7 +1,6 @@
 import 'dart:io';
 
-import 'package:zuke_core/zuke_core.dart';
-import 'package:zuke_core/inspection.dart';
+import 'package:zuke_cli/tooling.dart';
 
 class ZukeAnalyzer {
   Future<List<ZukeDiagnostic>> analyzePackage(String packageRoot) async {

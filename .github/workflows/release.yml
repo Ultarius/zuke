@@ -76,28 +76,28 @@ jobs:
       - name: Revalidate authoritative evidence
         run: |
           dart --suppress-analytics run zuke_cli:zuke validate --root examples/calculator-product --profile release --format json
-          dart --suppress-analytics run zuke_cli:zuke lock --root examples/calculator-product --check
-          dart --suppress-analytics run zuke_cli:zuke gate --root examples/calculator-product --profile release --format json
+          dart --suppress-analytics run zuke_cli:zuke lock --root examples/calculator-product --profile release --check
+          dart --suppress-analytics run zuke_cli:zuke gate --root examples/calculator-product --all-profiles --format json
           dart --suppress-analytics run zuke_cli:zuke validate --root examples/shopping_cart --profile release --format json
           dart --suppress-analytics run zuke_cli:zuke lock --root examples/shopping_cart --profile release --check
-          dart --suppress-analytics run zuke_cli:zuke gate --root examples/shopping_cart --profile release --format json
+          dart --suppress-analytics run zuke_cli:zuke gate --root examples/shopping_cart --all-profiles --format json
       - name: Create and verify signed release record
         run: |
           git diff --exit-code
           git diff --cached --exit-code
           dart --suppress-analytics run zuke_cli:zuke manifest create --root examples/calculator-product --signer-id calculator-release-signer-v1 --key-id "${{ vars.RELEASE_SIGNER_KEY_ID }}"
-          dart --suppress-analytics run zuke_cli:zuke manifest verify-v2 --root examples/calculator-product --current
-          dart --suppress-analytics run zuke_cli:zuke manifest export --root examples/calculator-product --output dist/zuke-calculator-assurance-history.v2.json
+          dart --suppress-analytics run zuke_cli:zuke manifest verify --root examples/calculator-product --current
+          dart --suppress-analytics run zuke_cli:zuke manifest export --root examples/calculator-product --output dist/zuke-calculator-assurance-history.json
           dart --suppress-analytics run zuke_cli:zuke manifest create --root examples/shopping_cart --profile release --signer-id shopping-cart-release-signer-v1 --key-id "${{ vars.RELEASE_SIGNER_KEY_ID }}"
-          dart --suppress-analytics run zuke_cli:zuke manifest verify-v2 --root examples/shopping_cart --current
-          dart --suppress-analytics run zuke_cli:zuke manifest export --root examples/shopping_cart --output dist/zuke-shopping-cart-assurance-history.v2.json
+          dart --suppress-analytics run zuke_cli:zuke manifest verify --root examples/shopping_cart --current
+          dart --suppress-analytics run zuke_cli:zuke manifest export --root examples/shopping_cart --output dist/zuke-shopping-cart-assurance-history.json
       - name: Upload signed assurance history
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
           name: zuke-signed-assurance-release
           retention-days: 90
           path: |
-            examples/calculator-product/assurance-history/v2/
-            dist/zuke-calculator-assurance-history.v2.json
-            examples/shopping_cart/assurance-history/v2/
-            dist/zuke-shopping-cart-assurance-history.v2.json
+            examples/calculator-product/assurance-history/records/
+            dist/zuke-calculator-assurance-history.json
+            examples/shopping_cart/assurance-history/records/
+            dist/zuke-shopping-cart-assurance-history.json

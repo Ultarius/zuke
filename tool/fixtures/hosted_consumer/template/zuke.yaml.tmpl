@@ -1,0 +1,47 @@
+schemaVersion: 3
+workspace:
+  name: zuke-hosted-consumer-fixture
+  root: .
+specifications:
+  features: [specs/features/**/*.feature]
+targets:
+  fixture:
+    language: dart
+    framework: dart
+    packages:
+      - id: hosted-consumer
+        path: .
+        roots: [lib, test]
+    contractOutput: lib/src/generated
+    contractExport: lib/hosted_consumer.dart
+execution:
+  runners:
+    - id: hosted-consumer-tests
+      kind: dart
+      target: fixture
+      sourcePackage: hosted-consumer
+      sourceAdapter: dart-source
+      sourceCompatibilityId: {{SOURCE_COMPATIBILITY_ID}}
+      runnerCompatibilityId: {{RUNNER_COMPATIBILITY_ID}}
+      evidenceTypes: [domain-unit]
+      executable: dart
+      args: [test]
+      workingDirectory: .
+      timeoutSeconds: 120
+  pullRequest:
+    tagExpression: '@pr'
+  merge:
+    tagExpression: '@pr or @merge'
+  release:
+    tagExpression: '@pr or @merge or @release'
+  nightly:
+    tagExpression: '@nightly'
+evidence:
+  types:
+    domain-unit:
+      mode: record
+  output: generated/evidence
+  includeSourceCode: false
+lock:
+  directory: assurance/locks
+  profiles: [pullRequest, merge, release, nightly]

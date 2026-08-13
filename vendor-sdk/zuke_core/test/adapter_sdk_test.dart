@@ -1,22 +1,22 @@
-import 'package:zuke_core/zuke_core.dart';
+import 'package:zuke_core/src/internal_adapter.dart';
 import 'package:test/test.dart';
 
 void main() {
   test('CanonicalFragment fromOutput creates fragment', () {
-    final output = AdapterOutput(
+    final output = IrAdapterOutput(
       adapter: AdapterDescriptor(
         id: 'test-adapter',
         version: '1.0.0',
         compatibilityId: 'test',
       ),
-      completeness: AdapterCompleteness(),
+      completeness: IrAdapterCompleteness(),
       symbols: [],
       inputDigest: 'abc123',
       packageName: 'test_package',
       packageRoot: '/tmp/test',
     );
     final fragment = CanonicalFragment.fromOutput(output);
-    expect(fragment.schemaVersion, 'zuke.trace.v1');
+    expect(fragment.kind, 'zuke.adapter-fragment');
     expect(fragment.packageName, 'test_package');
   });
 

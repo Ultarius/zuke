@@ -2,8 +2,65 @@ import 'dart:io';
 import 'package:test/test.dart';
 import 'package:crypto/crypto.dart';
 import 'package:zuke_frontend/zuke_frontend.dart';
-import 'package:zuke_core/zuke_core.dart';
+import 'package:zuke_cli/src/ir.dart';
 import 'package:zuke_cli/src/proof_engine.dart';
+
+const _backendDomainSlot = <String, String>{
+  'type': 'domain-unit',
+  'target': 'backend',
+  'sourcePackage': 'backend',
+  'sourceAdapter': 'dart-source',
+  'variant': 'default',
+};
+const _flutterWidgetSlot = <String, String>{
+  'type': 'flutter-widget',
+  'target': 'flutter',
+  'sourcePackage': 'flutter',
+  'sourceAdapter': 'dart-source',
+  'variant': 'default',
+};
+const _backendApiSlot = <String, String>{
+  'type': 'api-contract',
+  'target': 'backend',
+  'sourcePackage': 'backend',
+  'sourceAdapter': 'dart-source',
+  'variant': 'default',
+};
+const _backendSecuritySlot = <String, String>{
+  'type': 'security-integration',
+  'target': 'backend',
+  'sourcePackage': 'backend',
+  'sourceAdapter': 'dart-source',
+  'variant': 'default',
+};
+const _flutterAccessibilitySlot = <String, String>{
+  'type': 'accessibility-integration',
+  'target': 'flutter',
+  'sourcePackage': 'flutter',
+  'sourceAdapter': 'dart-source',
+  'variant': 'default',
+};
+const _backendPerformanceSlot = <String, String>{
+  'type': 'performance',
+  'target': 'backend',
+  'sourcePackage': 'backend',
+  'sourceAdapter': 'dart-source',
+  'variant': 'default',
+};
+const _backendGherkinSlot = <String, String>{
+  'type': 'gherkin-api',
+  'target': 'backend',
+  'sourcePackage': 'backend',
+  'sourceAdapter': 'dart-source',
+  'variant': 'default',
+};
+const _flutterGherkinSlot = <String, String>{
+  'type': 'gherkin-ui',
+  'target': 'flutter',
+  'sourcePackage': 'flutter',
+  'sourceAdapter': 'dart-source',
+  'variant': 'default',
+};
 
 void main() {
   group('Variant/slot propagation', () {
@@ -180,6 +237,7 @@ void main() {
                   metadata: const ParsedMetadata(
                     id: 'RULE-1',
                     requiredEvidence: ['domain-unit'],
+                    evidenceRequirements: [_backendDomainSlot],
                     source: SourceLocation(file: 'a.feature', line: 5),
                   ),
                   scenarios: [],
@@ -194,7 +252,10 @@ void main() {
         requirementId: 'RULE-1',
         evidenceType: 'domain-unit',
         target: 'backend',
+        sourcePackage: 'backend',
+        sourceAdapter: 'dart-source',
         executionId: 'exec-1',
+        profile: 'pullRequest',
         status: EvidenceStatus.passed,
       );
 
@@ -213,7 +274,10 @@ void main() {
         requirementId: 'RULE-UNMAPPED',
         evidenceType: 'domain-unit',
         target: 'backend',
+        sourcePackage: 'backend',
+        sourceAdapter: 'dart-source',
         executionId: 'exec-1',
+        profile: 'pullRequest',
         status: EvidenceStatus.passed,
       );
 
@@ -253,6 +317,7 @@ void main() {
                   metadata: const ParsedMetadata(
                     id: 'RULE-1',
                     requiredEvidence: ['domain-unit'],
+                    evidenceRequirements: [_backendDomainSlot],
                     source: SourceLocation(file: 'a.feature', line: 5),
                   ),
                   scenarios: [],
@@ -267,7 +332,10 @@ void main() {
         requirementId: 'RULE-1',
         evidenceType: 'domain-unit',
         target: 'backend',
+        sourcePackage: 'backend',
+        sourceAdapter: 'dart-source',
         executionId: 'exec-1',
+        profile: 'pullRequest',
         status: EvidenceStatus.skipped,
       );
 
@@ -302,6 +370,7 @@ void main() {
                   metadata: const ParsedMetadata(
                     id: 'RULE-1',
                     requiredEvidence: ['domain-unit'],
+                    evidenceRequirements: [_backendDomainSlot],
                     source: SourceLocation(file: 'a.feature', line: 5),
                   ),
                   scenarios: [],
@@ -352,6 +421,16 @@ void main() {
                       'gherkin-api',
                       'gherkin-ui',
                     ],
+                    evidenceRequirements: [
+                      _backendDomainSlot,
+                      _flutterWidgetSlot,
+                      _backendApiSlot,
+                      _backendSecuritySlot,
+                      _flutterAccessibilitySlot,
+                      _backendPerformanceSlot,
+                      _backendGherkinSlot,
+                      _flutterGherkinSlot,
+                    ],
                     requires: [ParsedControlRef(id: 'CONTROL-1')],
                     source: SourceLocation(file: 'a.feature', line: 5),
                   ),
@@ -367,56 +446,80 @@ void main() {
         requirementId: 'RULE-1',
         evidenceType: 'domain-unit',
         target: 'backend',
+        sourcePackage: 'backend',
+        sourceAdapter: 'dart-source',
         executionId: 'exec-domain',
+        profile: 'pullRequest',
         status: EvidenceStatus.passed,
       );
       final recordFlutter = EvidenceRecord(
         requirementId: 'RULE-1',
         evidenceType: 'flutter-widget',
         target: 'flutter',
+        sourcePackage: 'flutter',
+        sourceAdapter: 'dart-source',
         executionId: 'exec-flutter',
+        profile: 'pullRequest',
         status: EvidenceStatus.passed,
       );
       final recordApi = EvidenceRecord(
         requirementId: 'RULE-1',
         evidenceType: 'api-contract',
         target: 'backend',
+        sourcePackage: 'backend',
+        sourceAdapter: 'dart-source',
         executionId: 'exec-api',
+        profile: 'pullRequest',
         status: EvidenceStatus.passed,
       );
       final recordSecurity = EvidenceRecord(
         requirementId: 'RULE-1',
         evidenceType: 'security-integration',
         target: 'backend',
+        sourcePackage: 'backend',
+        sourceAdapter: 'dart-source',
         executionId: 'exec-security',
+        profile: 'pullRequest',
         status: EvidenceStatus.passed,
       );
       final recordAccessibility = EvidenceRecord(
         requirementId: 'RULE-1',
         evidenceType: 'accessibility-integration',
         target: 'flutter',
+        sourcePackage: 'flutter',
+        sourceAdapter: 'dart-source',
         executionId: 'exec-a11y',
+        profile: 'pullRequest',
         status: EvidenceStatus.passed,
       );
       final recordPerf = EvidenceRecord(
         requirementId: 'RULE-1',
         evidenceType: 'performance',
         target: 'backend',
+        sourcePackage: 'backend',
+        sourceAdapter: 'dart-source',
         executionId: 'exec-perf',
+        profile: 'pullRequest',
         status: EvidenceStatus.passed,
       );
       final recordGherkinApi = EvidenceRecord(
         requirementId: 'RULE-1',
         evidenceType: 'gherkin-api',
         target: 'backend',
+        sourcePackage: 'backend',
+        sourceAdapter: 'dart-source',
         executionId: 'exec-gherkin-api',
+        profile: 'pullRequest',
         status: EvidenceStatus.passed,
       );
       final recordGherkinUi = EvidenceRecord(
         requirementId: 'RULE-1',
         evidenceType: 'gherkin-ui',
         target: 'flutter',
+        sourcePackage: 'flutter',
+        sourceAdapter: 'dart-source',
         executionId: 'exec-gherkin-ui',
+        profile: 'pullRequest',
         status: EvidenceStatus.passed,
       );
 
@@ -473,6 +576,7 @@ void main() {
                   metadata: const ParsedMetadata(
                     id: 'RULE-1',
                     requiredEvidence: ['domain-unit'],
+                    evidenceRequirements: [_backendDomainSlot],
                     source: SourceLocation(file: 'a.feature', line: 5),
                   ),
                   scenarios: [],
@@ -487,7 +591,10 @@ void main() {
         requirementId: 'RULE-1',
         evidenceType: 'domain-unit',
         target: 'backend',
+        sourcePackage: 'backend',
+        sourceAdapter: 'dart-source',
         executionId: 'exec-1',
+        profile: 'pullRequest',
         status: EvidenceStatus.passed,
         digests: {
           'contract':
@@ -531,6 +638,7 @@ void main() {
                   metadata: const ParsedMetadata(
                     id: 'RULE-1',
                     requiredEvidence: ['domain-unit'],
+                    evidenceRequirements: [_backendDomainSlot],
                     source: SourceLocation(file: 'a.feature', line: 5),
                   ),
                   scenarios: [],
@@ -545,7 +653,10 @@ void main() {
         requirementId: 'RULE-1',
         evidenceType: 'domain-unit',
         target: 'backend',
+        sourcePackage: 'backend',
+        sourceAdapter: 'dart-source',
         executionId: 'exec-skipped',
+        profile: 'pullRequest',
         status: EvidenceStatus.skipped,
       );
 
@@ -553,7 +664,10 @@ void main() {
         requirementId: 'RULE-1',
         evidenceType: 'domain-unit',
         target: 'backend',
+        sourcePackage: 'backend',
+        sourceAdapter: 'dart-source',
         executionId: 'exec-stale',
+        profile: 'pullRequest',
         status: EvidenceStatus.passed,
         digests: {
           'contract':
@@ -626,6 +740,7 @@ void main() {
                     metadata: ParsedMetadata(
                       id: 'RULE-1',
                       requiredEvidence: ['domain-unit'],
+                      evidenceRequirements: const [_backendDomainSlot],
                       source: SourceLocation(file: featurePath, line: 2),
                     ),
                     scenarios: [],
@@ -640,9 +755,13 @@ void main() {
           requirementId: 'RULE-1',
           evidenceType: 'domain-unit',
           target: 'backend',
+          sourcePackage: 'backend',
+          sourceAdapter: 'dart-source',
           executionId: 'exec-1',
+          profile: 'pullRequest',
           status: EvidenceStatus.passed,
           digests: {
+            'source': initialDigest,
             'contract':
                 'sha256:0000000000000000000000000000000000000000000000000000000000000000',
             'specification': initialDigest,
@@ -657,6 +776,12 @@ void main() {
         );
         expect(
           result.errors.any((e) => e.code == 'ZUKE-EVIDENCE-STALE'),
+          isTrue,
+        );
+        expect(
+          result.errors.any(
+            (e) => e.code == 'ZK-EVIDENCE-SLOT-IDENTITY-MISSING',
+          ),
           isTrue,
         );
       } finally {
@@ -705,7 +830,10 @@ void main() {
         requirementId: 'RULE-ORPHAN',
         evidenceType: 'domain-unit',
         target: 'backend',
+        sourcePackage: 'backend',
+        sourceAdapter: 'dart-source',
         executionId: 'exec-orphan',
+        profile: 'pullRequest',
         status: EvidenceStatus.passed,
       );
 
@@ -742,6 +870,7 @@ void main() {
                     metadata: const ParsedMetadata(
                       id: 'RULE-1',
                       requiredEvidence: ['domain-unit'],
+                      evidenceRequirements: [_backendDomainSlot],
                       source: SourceLocation(file: 'a.feature', line: 5),
                     ),
                     scenarios: [],
@@ -752,12 +881,12 @@ void main() {
           ),
         );
 
-        final adapterOutput = AdapterOutput(
+        final adapterOutput = IrAdapterOutput(
           adapter: const AdapterDescriptor(
             id: 'test-adapter',
             version: '1.0.0',
           ),
-          completeness: const AdapterCompleteness(),
+          completeness: const IrAdapterCompleteness(),
           symbols: [
             ExtractedSymbol(
               kind: 'binding',
@@ -782,7 +911,10 @@ void main() {
           requirementId: 'RULE-1',
           evidenceType: 'domain-unit',
           target: 'backend',
+          sourcePackage: 'backend',
+          sourceAdapter: 'dart-source',
           executionId: 'exec-1',
+          profile: 'pullRequest',
           status: EvidenceStatus.passed,
           digests: {
             'source':
@@ -802,6 +934,72 @@ void main() {
           isTrue,
         );
       },
+    );
+  });
+
+  test('registered record evidence mode satisfies a custom target slot', () {
+    const slot = <String, String>{
+      'type': 'dashboard-behavior',
+      'target': 'dashboard',
+      'sourcePackage': 'dashboard',
+      'sourceAdapter': 'jaspr',
+      'variant': 'default',
+    };
+    final workspace = WorkspaceDiscoveryResult(
+      config: const ZukeConfig(evidenceTypes: {'dashboard-behavior': 'record'}),
+      data: MetadataExtractorResult(
+        features: [
+          ParsedFeature(
+            tags: const [],
+            featureElement: const GherkinElement(
+              keyword: GherkinKeyword.feature,
+              title: 'Dashboard',
+              source: SourceLocation(file: 'dashboard.feature', line: 1),
+            ),
+            metadata: const ParsedMetadata(
+              id: 'FEAT-DASHBOARD',
+              source: SourceLocation(file: 'dashboard.feature', line: 1),
+            ),
+            rules: [
+              ParsedRule(
+                tags: const [],
+                ruleElement: const GherkinElement(
+                  keyword: GherkinKeyword.rule,
+                  title: 'Dashboard behavior',
+                  source: SourceLocation(file: 'dashboard.feature', line: 5),
+                ),
+                metadata: const ParsedMetadata(
+                  id: 'RULE-DASHBOARD-BEHAVIOR',
+                  requiredEvidence: ['dashboard-behavior'],
+                  evidenceRequirements: [slot],
+                  source: SourceLocation(file: 'dashboard.feature', line: 5),
+                ),
+                scenarios: const [],
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+    final result = EvidenceValidator().validate(
+      workspace,
+      records: [
+        const EvidenceRecord(
+          requirementId: 'RULE-DASHBOARD-BEHAVIOR',
+          evidenceType: 'dashboard-behavior',
+          target: 'dashboard',
+          variant: 'default',
+          sourcePackage: 'dashboard',
+          sourceAdapter: 'jaspr',
+          executionId: 'dashboard-exec',
+          profile: 'pullRequest',
+          status: EvidenceStatus.passed,
+        ),
+      ],
+    );
+    expect(
+      result.errors.any((error) => error.code == 'ZUKE-EVID-003'),
+      isFalse,
     );
   });
 }

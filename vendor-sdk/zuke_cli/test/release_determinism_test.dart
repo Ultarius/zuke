@@ -106,14 +106,14 @@ void main() {
 
       final verify = await _runManifestVerify(clone);
       expect(verify.exitCode, 0, reason: '${verify.stdout}\n${verify.stderr}');
-      expect(verify.stdout, contains('V2 release chain valid.'));
+      expect(verify.stdout, contains('Release chain valid.'));
     },
     timeout: const Timeout(Duration(minutes: 2)),
   );
 }
 
 void _replaceReleaseTrustKey(Directory root, List<int> publicKey) {
-  final file = File('${root.path}/assurance-history/trust/ed25519-v2.json');
+  final file = File('${root.path}/assurance-history/trust/ed25519.json');
   final bundle = jsonDecode(file.readAsStringSync()) as Map<String, dynamic>;
   final keys = (bundle['keys'] as List).cast<Map<String, dynamic>>();
   final release = keys.firstWhere((key) => key['signerId'] == 'release-signer');
@@ -150,7 +150,7 @@ Future<ProcessResult> _runManifestCreate(
 }
 
 Future<ProcessResult> _runManifestVerify(Directory root) {
-  return _runZuke(['manifest', 'verify-v2', '--root', root.path, '--current']);
+  return _runZuke(['manifest', 'verify', '--root', root.path, '--current']);
 }
 
 Future<ProcessResult> _runZuke(List<String> args, {_SigningServer? server}) {

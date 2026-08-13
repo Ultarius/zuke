@@ -1,7 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:zuke_core/zuke_core.dart';
+import 'package:zuke_cli/src/ir.dart';
 import 'package:crypto/crypto.dart';
 import 'package:cryptography/cryptography.dart';
 import 'package:zuke_frontend/zuke_frontend.dart';
@@ -259,7 +259,7 @@ WorkspaceDiscoveryResult _workspace(
   return WorkspaceDiscoveryResult(
     config: ZukeConfig(
       root: root.path,
-      trustBundle: 'assurance-history/trust/ed25519-v2.json',
+      trustBundle: 'assurance-history/trust/ed25519.json',
     ),
     data: MetadataExtractorResult(
       controls: const {
@@ -349,7 +349,7 @@ Map<String, Object?> _body(
 }
 
 class _SignerFixture {
-  static const _domain = 'Zuke external control attestation v1\u0000';
+  static const _domain = 'Zuke external control attestation\u0000';
   static final _seed = _hex(
     '9d61b19deffd5a60ba844af492ec2cc44449c5697b326919703bac031cae7f60',
   );
@@ -364,13 +364,11 @@ class _SignerFixture {
     final algorithm = Ed25519();
     final keyPair = await algorithm.newKeyPairFromSeed(_seed);
     final publicKey = await keyPair.extractPublicKey();
-    final trustFile = File(
-      '${root.path}/assurance-history/trust/ed25519-v2.json',
-    );
+    final trustFile = File('${root.path}/assurance-history/trust/ed25519.json');
     trustFile.parent.createSync(recursive: true);
     trustFile.writeAsStringSync(
       jsonEncode({
-        'schemaVersion': 'zuke.ed25519-trust.v2',
+        'kind': 'zuke.ed25519-trust',
         'keys': [
           {
             'signerId': 'attestation-signer',
@@ -389,7 +387,7 @@ class _SignerFixture {
 
   Future<void> writeRecord(File target, Map<String, Object?> body) async {
     final unsigned = <String, Object?>{
-      'schemaVersion': 'zuke.external-attestation.v1',
+      'kind': 'zuke.external-attestation',
       'signer': {
         'signerId': 'attestation-signer',
         'keyId': 'default',

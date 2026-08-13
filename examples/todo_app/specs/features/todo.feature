@@ -65,7 +65,7 @@ Feature: Todo List Application
 
   # rule-spec-begin
   # id: RULE-TODO-ADD-ITEM
-  # requiredEvidence: [gherkin-ui]
+  # requiredEvidence: [{type: gherkin-ui, target: flutter, sourcePackage: todo-app, sourceAdapter: dart-source, variant: default}]
   # securityProfile: todo-validation-profile
   # rule-spec-end
   @RULE-TODO-ADD-ITEM
@@ -106,7 +106,7 @@ Feature: Todo List Application
 
   # rule-spec-begin
   # id: RULE-TODO-COMPLETE-ITEM
-  # requiredEvidence: [gherkin-ui]
+  # requiredEvidence: [{type: gherkin-ui, target: flutter, sourcePackage: todo-app, sourceAdapter: dart-source, variant: default}]
   # securityProfile: todo-validation-profile
   # rule-spec-end
   @RULE-TODO-COMPLETE-ITEM

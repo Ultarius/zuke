@@ -1,35 +1,30 @@
 import 'dart:convert';
 import 'package:crypto/crypto.dart';
 import 'package:zuke_frontend/zuke_frontend.dart';
-import 'package:zuke_core/zuke_core.dart';
-import 'package:zuke_core/zuke_core.dart' as ir;
+import '../ir.dart' as ir;
+import '../ir.dart';
 
 import '../generator.dart';
 import 'workspace_digest.dart';
 import 'validator.dart';
+import '../source_output_catalog.dart';
 
-const _evidenceTargets = <String, String>{
-  'domain-unit': 'backend',
-  'flutter-widget': 'flutter',
-  'api-contract': 'backend',
-  'gherkin-api': 'backend',
-  'gherkin-ui': 'flutter',
-  'security-integration': 'backend',
-  'logging-verification': 'backend',
-  'accessibility-integration': 'flutter',
-  'performance': 'backend',
-  'attestation-freshness': 'edge',
-};
+final class _SourceOutputLookup {
+  const _SourceOutputLookup({this.output, this.failure});
+
+  final IrAdapterOutput? output;
+  final SourceResolveFailure? failure;
+}
 
 class EvidenceValidator {
   ValidationResult validate(
     WorkspaceDiscoveryResult workspace, {
     List<EvidenceRecord> records = const [],
     List<ControlProofResult> controlProofs = const [],
-    List<AdapterOutput> outputs = const [],
+    List<IrAdapterOutput> outputs = const [],
 
     /// The exact scenario IDs selected by the configured execution profile.
-    /// A null value retains legacy runner-owned selection behaviour.
+    /// A null value means the caller is running without profile filtering.
     List<String>? selectedScenarioIds,
   }) {
     final errors = <ValidationMessage>[];
@@ -60,9 +55,10 @@ class EvidenceValidator {
                 path.endsWith('zuke.yaml'),
           )
         : null;
+    final sourceCatalog = SourceOutputCatalog.build(workspace, outputs);
 
     // B2: Build valid mappings to check for unmapped records
-    final validMappings = <String>{}; // Contains "ruleId|evidenceType|target"
+    final validMappings = <String>{};
     final ruleById = <String, ParsedRule>{};
     final featureByRuleId = <String, ParsedFeature>{};
     for (final feature in workspace.data.features) {
@@ -73,9 +69,43 @@ class EvidenceValidator {
         featureByRuleId[id] = feature;
         final requiredEvidence = rule.metadata.requiredEvidence ?? const [];
         for (final type in requiredEvidence) {
-          final expectedTarget = _evidenceTargets[type];
-          if (expectedTarget == null) continue;
-          validMappings.add('$id|$type|$expectedTarget');
+          final slots = rule.metadata.evidenceRequirements
+              ?.where(
+                (slot) => slot['type'] == type || slot['evidenceType'] == type,
+              )
+              .toList();
+          if (slots != null && slots.isNotEmpty) {
+            for (final slot in slots) {
+              final expectedTarget = _nonEmpty(slot['target']);
+              final sourcePackage = _nonEmpty(slot['sourcePackage']);
+              final sourceAdapter = _nonEmpty(slot['sourceAdapter']);
+              if (expectedTarget == null ||
+                  sourcePackage == null ||
+                  sourceAdapter == null) {
+                errors.add(
+                  ValidationMessage(
+                    code: 'ZK-EVIDENCE-SLOT-IDENTITY-MISSING',
+                    message:
+                        'Evidence slot for requirement "$id" and type "$type" '
+                        'must declare target, sourcePackage, and sourceAdapter.',
+                    severity: Severity.error,
+                    source: rule.metadata.source,
+                  ),
+                );
+                continue;
+              }
+              validMappings.add(
+                _mappingKey(
+                  id,
+                  type,
+                  expectedTarget,
+                  slot['variant'] ?? 'default',
+                  sourcePackage,
+                  sourceAdapter,
+                ),
+              );
+            }
+          }
         }
       }
     }
@@ -87,7 +117,14 @@ class EvidenceValidator {
       final target = record.target;
 
       // ZUKE-EVIDENCE-005: Reject unmapped records
-      final mappingKey = '$id|$type|$target';
+      final mappingKey = _mappingKey(
+        id,
+        type,
+        target,
+        record.variant,
+        record.sourcePackage,
+        record.sourceAdapter,
+      );
       if (!validMappings.contains(mappingKey)) {
         errors.add(
           ValidationMessage(
@@ -184,18 +221,30 @@ class EvidenceValidator {
 
       // 3. Source digest (code-annotation mapping digest)
       if (record.digests.containsKey('source')) {
-        AdapterOutput? output;
-        for (final candidate in outputs) {
-          if (candidate.symbols.any(
-            (symbol) =>
-                (symbol.target == null || symbol.target == target) &&
-                (symbol.requirementIds.contains(id) || symbol.bindingId == id),
-          )) {
-            output = candidate;
-            break;
+        final lookup = _sourceOutputForRecord(sourceCatalog, record);
+        final output = lookup.output;
+        if (output == null) {
+          final failure = lookup.failure;
+          if (failure != null) {
+            errors.add(
+              ValidationMessage(
+                code: failure.code,
+                message: failure.message,
+                severity: Severity.error,
+                source: rule.metadata.source,
+              ),
+            );
           }
-        }
-        if (output != null) {
+          errors.add(
+            ValidationMessage(
+              code: 'ZUKE-EVIDENCE-STALE',
+              message:
+                  'No source extraction matches the evidence identity for $id ($type)',
+              severity: Severity.error,
+              source: rule.metadata.source,
+            ),
+          );
+        } else {
           final sourceDigest = output.inputDigest.startsWith('sha256:')
               ? output.inputDigest
               : 'sha256:${output.inputDigest}';
@@ -329,7 +378,7 @@ class EvidenceValidator {
             contractDigest,
             specificationDigest,
             mappingDigest,
-            outputs,
+            sourceCatalog,
           )) {
             errors.add(
               ValidationMessage(
@@ -354,9 +403,21 @@ class EvidenceValidator {
     String contractDigest,
     String? specificationDigest,
     String? mappingDigest,
-    List<AdapterOutput> outputs,
+    SourceOutputCatalog sourceCatalog,
   ) {
     final id = record.requirementId;
+
+    final slots = _slotsForRequirement(workspace, id, record.evidenceType);
+    if (slots.isNotEmpty &&
+        !slots.any(
+          (slot) =>
+              record.target == slot['target'] &&
+              record.variant == (slot['variant'] ?? 'default') &&
+              record.sourcePackage == slot['sourcePackage'] &&
+              record.sourceAdapter == slot['sourceAdapter'],
+        )) {
+      return true;
+    }
 
     if (record.digests.containsKey('contract') &&
         record.digests['contract'] != contractDigest) {
@@ -370,17 +431,10 @@ class EvidenceValidator {
       return true;
     }
     if (record.digests.containsKey('source')) {
-      AdapterOutput? output;
-      for (final candidate in outputs) {
-        if (candidate.symbols.any(
-          (symbol) =>
-              symbol.requirementIds.contains(id) || symbol.bindingId == id,
-        )) {
-          output = candidate;
-          break;
-        }
-      }
-      if (output != null) {
+      final output = _sourceOutputForRecord(sourceCatalog, record).output;
+      if (output == null) {
+        return true;
+      } else {
         final sourceDigest = output.inputDigest.startsWith('sha256:')
             ? output.inputDigest
             : 'sha256:${output.inputDigest}';
@@ -393,6 +447,42 @@ class EvidenceValidator {
     return false;
   }
 
+  _SourceOutputLookup _sourceOutputForRecord(
+    SourceOutputCatalog sourceCatalog,
+    EvidenceRecord record,
+  ) {
+    final sourcePackage = record.sourcePackage;
+    final sourceAdapter = record.sourceAdapter;
+    final compatibilityId = record.sourceCompatibilityId;
+    if (sourcePackage == null ||
+        sourcePackage.isEmpty ||
+        sourceAdapter == null ||
+        sourceAdapter.isEmpty ||
+        compatibilityId == null ||
+        compatibilityId.isEmpty) {
+      return const _SourceOutputLookup(
+        failure: SourceResolveFailure(
+          code: 'ZK-EVIDENCE-SLOT-IDENTITY-MISSING',
+          message: 'Evidence source identity is incomplete.',
+        ),
+      );
+    }
+    try {
+      return _SourceOutputLookup(
+        output: sourceCatalog
+            .resolve(
+              target: record.target,
+              sourcePackage: sourcePackage,
+              sourceAdapter: sourceAdapter,
+              sourceCompatibilityId: compatibilityId,
+            )
+            .output,
+      );
+    } on SourceResolveFailure catch (failure) {
+      return _SourceOutputLookup(failure: failure);
+    }
+  }
+
   bool _isSatisfied(
     String type,
     ParsedFeature feature,
@@ -403,7 +493,7 @@ class EvidenceValidator {
     String contractDigest,
     String? specificationDigest,
     String? mappingDigest,
-    List<AdapterOutput> outputs,
+    SourceOutputCatalog sourceCatalog,
   ) {
     final id = rule.metadata.id;
     final executionEvidence = records
@@ -414,24 +504,128 @@ class EvidenceValidator {
             contractDigest,
             specificationDigest,
             mappingDigest,
-            outputs,
+            sourceCatalog,
           ),
         )
         .toList();
+    final slots = _slotsForRule(rule, type);
+    if (slots.isEmpty) return false;
+    // A requirement may intentionally be evidenced by multiple independent
+    // target/package slots. Every exact slot must be satisfied; selecting the
+    // first slot would allow one component to hide another.
+    if (slots.any(
+      (slot) =>
+          _nonEmpty(slot['target']) == null ||
+          _nonEmpty(slot['sourcePackage']) == null ||
+          _nonEmpty(slot['sourceAdapter']) == null,
+    )) {
+      return false;
+    }
+    final configuredMode = workspace.config.evidenceTypes[type];
+    return slots.every(
+      (slot) => _isSingleSlotSatisfied(
+        type: type,
+        mode: configuredMode,
+        rule: rule,
+        records: executionEvidence,
+        controlProofs: controlProofs,
+        requirementId: id,
+        target: slot['target']!,
+        variant: slot['variant'] ?? 'default',
+        sourcePackage: slot['sourcePackage']!,
+        sourceAdapter: slot['sourceAdapter']!,
+      ),
+    );
+  }
+
+  bool _isSingleSlotSatisfied({
+    required String type,
+    required String? mode,
+    required ParsedRule rule,
+    required List<EvidenceRecord> records,
+    required List<ControlProofResult> controlProofs,
+    required String? requirementId,
+    required String target,
+    required String variant,
+    required String sourcePackage,
+    required String sourceAdapter,
+  }) {
+    if (mode != null && !_builtInEvidenceTypes.contains(type)) {
+      return _isConfiguredEvidenceSatisfied(
+        mode: mode,
+        rule: rule,
+        records: records,
+        controlProofs: controlProofs,
+        requirementId: requirementId,
+        evidenceType: type,
+        target: target,
+        variant: variant,
+        sourcePackage: sourcePackage,
+        sourceAdapter: sourceAdapter,
+      );
+    }
     switch (type) {
       case 'domain-unit':
-        return _hasPassedEvidence(executionEvidence, id, type, 'backend');
+        return _hasPassedEvidence(
+          records,
+          requirementId,
+          type,
+          target,
+          variant: variant,
+          sourcePackage: sourcePackage,
+          sourceAdapter: sourceAdapter,
+        );
       case 'flutter-widget':
       case 'accessibility-integration':
-        return _hasPassedEvidence(executionEvidence, id, type, 'flutter');
+        return _hasPassedEvidence(
+          records,
+          requirementId,
+          type,
+          target,
+          variant: variant,
+          sourcePackage: sourcePackage,
+          sourceAdapter: sourceAdapter,
+        );
       case 'api-contract':
-        return _hasPassedEvidence(executionEvidence, id, type, 'backend');
+        return _hasPassedEvidence(
+          records,
+          requirementId,
+          type,
+          target,
+          variant: variant,
+          sourcePackage: sourcePackage,
+          sourceAdapter: sourceAdapter,
+        );
       case 'performance':
-        return _hasPassedEvidence(executionEvidence, id, type, 'backend');
+        return _hasPassedEvidence(
+          records,
+          requirementId,
+          type,
+          target,
+          variant: variant,
+          sourcePackage: sourcePackage,
+          sourceAdapter: sourceAdapter,
+        );
       case 'gherkin-api':
-        return _hasExecutedEvidence(rule, executionEvidence, 'gherkin-api');
+        return _hasExecutedEvidence(
+          rule,
+          records,
+          'gherkin-api',
+          target: target,
+          variant: variant,
+          sourcePackage: sourcePackage,
+          sourceAdapter: sourceAdapter,
+        );
       case 'gherkin-ui':
-        return _hasExecutedEvidence(rule, executionEvidence, 'gherkin-ui');
+        return _hasExecutedEvidence(
+          rule,
+          records,
+          'gherkin-ui',
+          target: target,
+          variant: variant,
+          sourcePackage: sourcePackage,
+          sourceAdapter: sourceAdapter,
+        );
       case 'security-integration':
         return (rule.metadata.requires ?? const <ParsedControlRef>[]).every(
               (control) => controlProofs.any(
@@ -444,14 +638,22 @@ class EvidenceValidator {
             ) &&
             _hasExecutedEvidence(
               rule,
-              executionEvidence,
+              records,
               'security-integration',
+              target: target,
+              variant: variant,
+              sourcePackage: sourcePackage,
+              sourceAdapter: sourceAdapter,
             );
       case 'logging-verification':
         return _hasExecutedEvidence(
           rule,
-          executionEvidence,
+          records,
           'logging-verification',
+          target: target,
+          variant: variant,
+          sourcePackage: sourcePackage,
+          sourceAdapter: sourceAdapter,
         );
       case 'attestation-freshness':
         return (rule.metadata.requires ?? const <ParsedControlRef>[]).any(
@@ -466,17 +668,91 @@ class EvidenceValidator {
     }
   }
 
+  bool _isConfiguredEvidenceSatisfied({
+    required String mode,
+    required ParsedRule rule,
+    required List<EvidenceRecord> records,
+    required List<ControlProofResult> controlProofs,
+    required String? requirementId,
+    required String evidenceType,
+    required String? target,
+    required String variant,
+    required String? sourcePackage,
+    required String? sourceAdapter,
+  }) {
+    if (target == null || target.isEmpty) return false;
+    final record = switch (mode) {
+      'record' => _hasPassedEvidence(
+        records,
+        requirementId,
+        evidenceType,
+        target,
+        variant: variant,
+        sourcePackage: sourcePackage,
+        sourceAdapter: sourceAdapter,
+      ),
+      'scenario-record' => _hasExecutedEvidence(
+        rule,
+        records,
+        evidenceType,
+        target: target,
+        variant: variant,
+        sourcePackage: sourcePackage,
+        sourceAdapter: sourceAdapter,
+      ),
+      'control-backed' =>
+        _hasExecutedEvidence(
+              rule,
+              records,
+              evidenceType,
+              target: target,
+              variant: variant,
+              sourcePackage: sourcePackage,
+              sourceAdapter: sourceAdapter,
+            ) &&
+            (rule.metadata.requires?.isNotEmpty ?? false) &&
+            rule.metadata.requires!.every(
+              (control) => controlProofs.any(
+                (proof) =>
+                    proof.controlId == control.id &&
+                    (proof.status == ProofStatus.proven ||
+                        proof.status == ProofStatus.verified ||
+                        proof.status == ProofStatus.attested),
+              ),
+            ),
+      'attestation' =>
+        (rule.metadata.requires?.isNotEmpty ?? false) &&
+            rule.metadata.requires!.every(
+              (control) => controlProofs.any(
+                (proof) =>
+                    proof.controlId == control.id &&
+                    proof.status == ProofStatus.attested,
+              ),
+            ),
+      _ => false,
+    };
+    return record;
+  }
+
   bool _hasExecutedEvidence(
     ParsedRule rule,
     List<EvidenceRecord> records,
-    String evidenceType,
-  ) {
+    String evidenceType, {
+    String? target,
+    String variant = 'default',
+    String? sourcePackage,
+    String? sourceAdapter,
+  }) {
     final id = rule.metadata.id;
-    if (id == null) return false;
+    if (id == null || target == null) return false;
     return records.any((record) {
       return record.requirementId == id &&
           record.evidenceType == evidenceType &&
-          record.status == EvidenceStatus.passed;
+          record.status == EvidenceStatus.passed &&
+          record.target == target &&
+          record.variant == variant &&
+          (sourcePackage == null || record.sourcePackage == sourcePackage) &&
+          (sourceAdapter == null || record.sourceAdapter == sourceAdapter);
     });
   }
 
@@ -484,14 +760,57 @@ class EvidenceValidator {
     Iterable<EvidenceRecord> records,
     String? requirementId,
     String evidenceType,
-    String target,
-  ) => records.any(
+    String target, {
+    String variant = 'default',
+    String? sourcePackage,
+    String? sourceAdapter,
+  }) => records.any(
     (record) =>
         record.requirementId == requirementId &&
         record.evidenceType == evidenceType &&
         record.target == target &&
-        record.status == EvidenceStatus.passed,
+        record.status == EvidenceStatus.passed &&
+        record.variant == variant &&
+        (sourcePackage == null || record.sourcePackage == sourcePackage) &&
+        (sourceAdapter == null || record.sourceAdapter == sourceAdapter),
   );
+
+  List<Map<String, String>> _slotsForRule(
+    ParsedRule rule,
+    String evidenceType,
+  ) => [
+    for (final slot in rule.metadata.evidenceRequirements ?? const [])
+      if (slot['type'] == evidenceType || slot['evidenceType'] == evidenceType)
+        slot,
+  ];
+
+  List<Map<String, String>> _slotsForRequirement(
+    WorkspaceDiscoveryResult workspace,
+    String requirementId,
+    String evidenceType,
+  ) {
+    for (final feature in workspace.data.features) {
+      for (final rule in feature.rules) {
+        if (rule.metadata.id != requirementId) continue;
+        return _slotsForRule(rule, evidenceType);
+      }
+    }
+    return const [];
+  }
+
+  String _mappingKey(
+    String requirementId,
+    String evidenceType,
+    String target,
+    String variant,
+    String? sourcePackage,
+    String? sourceAdapter,
+  ) =>
+      '$requirementId|$evidenceType|$target|$variant|'
+      '${sourcePackage ?? '(missing)'}|${sourceAdapter ?? '(missing)'}';
+
+  String? _nonEmpty(String? value) =>
+      value == null || value.isEmpty ? null : value;
 
   Map<String, ParsedRule> _scenarioRules(WorkspaceDiscoveryResult workspace) {
     final result = <String, ParsedRule>{};
@@ -543,3 +862,16 @@ class EvidenceValidator {
     );
   }
 }
+
+const _builtInEvidenceTypes = <String>{
+  'domain-unit',
+  'flutter-widget',
+  'accessibility-integration',
+  'api-contract',
+  'performance',
+  'gherkin-api',
+  'gherkin-ui',
+  'security-integration',
+  'logging-verification',
+  'attestation-freshness',
+};

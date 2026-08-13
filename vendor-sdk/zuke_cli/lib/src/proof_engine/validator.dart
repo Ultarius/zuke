@@ -1,5 +1,4 @@
 import 'package:zuke_frontend/zuke_frontend.dart';
-import 'package:zuke_core/zuke_core.dart';
 import 'identity_validator.dart';
 import 'reference_resolver.dart';
 import 'cardinality_validator.dart';
@@ -7,10 +6,11 @@ import 'evidence_validator.dart';
 import 'source_mapping_validator.dart';
 import 'dominance_validator.dart';
 import 'verification_backed_validator.dart';
-import 'package:zuke_core/zuke_core.dart' as ir;
+import '../ir.dart' as ir;
+import '../ir.dart';
 
-typedef ValidationMessage = ir.Diagnostic;
-typedef Severity = ir.DiagnosticSeverity;
+typedef ValidationMessage = ir.IrDiagnostic;
+typedef Severity = ir.IrDiagnosticSeverity;
 
 class ValidationResult {
   final List<ValidationMessage> errors;
@@ -111,7 +111,7 @@ class ValidatorEngine {
     WorkspaceDiscoveryResult workspace, {
     List<ExtractedSymbol> extractedSymbols = const [],
     IrGraph? irGraph,
-    List<AdapterOutput> outputs = const [],
+    List<IrAdapterOutput> outputs = const [],
     List<ir.EvidenceRecord> evidenceRecords = const [],
     List<ControlProofResult> verifiedAttestationProofs = const [],
     String profile = 'pullRequest',
@@ -143,11 +143,11 @@ class ValidatorEngine {
     final effectiveOutputs = outputs.isNotEmpty
         ? outputs
         : extractedSymbols.isEmpty
-        ? const <AdapterOutput>[]
+        ? const <IrAdapterOutput>[]
         : [
-            AdapterOutput(
+            IrAdapterOutput(
               adapter: const AdapterInfo(id: 'zuke.compat', version: '1.0.0'),
-              completeness: const AdapterCompleteness(),
+              completeness: const IrAdapterCompleteness(),
               symbols: extractedSymbols,
               inputDigest: '',
             ),

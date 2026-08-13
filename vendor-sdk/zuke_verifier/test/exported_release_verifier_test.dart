@@ -46,7 +46,7 @@ void main() {
     final keyPair = await Ed25519().newKeyPairFromSeed(seed);
     final publicKey = await keyPair.extractPublicKey();
     final trust = TrustBundle.fromJson({
-      'schemaVersion': 'zuke.ed25519-trust.v2',
+      'kind': 'zuke.ed25519-trust',
       'keys': [
         {
           'signerId': 'release-test',
@@ -76,7 +76,7 @@ void main() {
     );
 
     final result = await const ExportedReleaseVerifier().verify({
-      'schemaVersion': 'zuke.behavioral-assurance-release.v2.export',
+      'kind': 'zuke.behavioral-assurance-release-export',
       'chain': [head, previous],
     }, trust);
 
@@ -128,7 +128,7 @@ void main() {
       final keyPair = await Ed25519().newKeyPairFromSeed(seed);
       final publicKey = await keyPair.extractPublicKey();
       final trust = TrustBundle.fromJson({
-        'schemaVersion': 'zuke.ed25519-trust.v2',
+        'kind': 'zuke.ed25519-trust',
         'keys': [
           {
             'signerId': 'release-test',
@@ -155,7 +155,7 @@ void main() {
       );
 
       final result = await const ExportedReleaseVerifier().verify({
-        'schemaVersion': 'zuke.behavioral-assurance-release.v2.export',
+        'kind': 'zuke.behavioral-assurance-release-export',
         'chain': [first, second],
       }, trust);
 
@@ -179,7 +179,7 @@ void main() {
 
     test('rejects an empty chain', () async {
       final result = await verifier.verify({
-        'schemaVersion': 'zuke.behavioral-assurance-release.v2.export',
+        'kind': 'zuke.behavioral-assurance-release-export',
         'chain': const [],
       }, emptyTrust);
       expect(result.valid, isFalse);
@@ -188,7 +188,7 @@ void main() {
 
     test('rejects malformed records before any trust decision', () async {
       final result = await verifier.verify({
-        'schemaVersion': 'zuke.behavioral-assurance-release.v2.export',
+        'kind': 'zuke.behavioral-assurance-release-export',
         'chain': [
           {'recordDigest': 'not-a-digest'},
         ],
