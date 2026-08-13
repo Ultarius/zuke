@@ -35,6 +35,7 @@ void main() {
           evidenceType: 'gherkin-api',
           target: 'backend',
           executionId: 'execution-1',
+          profile: 'pullRequest',
         ),
       ],
     );

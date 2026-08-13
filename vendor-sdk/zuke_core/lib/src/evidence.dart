@@ -71,7 +71,7 @@ final class EvidenceRecord {
     this.controlIds = const [],
     this.digests = const {},
     this.candidateId,
-    this.profile = 'pullRequest',
+    required this.profile,
     this.runnerId,
     this.runnerCompatibilityId,
     this.sourcePackage,
@@ -125,6 +125,16 @@ final class EvidenceRecord {
       }
       return value;
     }
+
+    // Validate the record's top-level identity before inspecting nested
+    // content. This gives malformed records a stable, actionable failure
+    // when more than one field is invalid, rather than making the reported
+    // error depend on the order of deeper parsing.
+    required('requirementId');
+    required('evidenceType');
+    required('target');
+    required('variant');
+    required('executionId');
 
     List<String> strings(String key) {
       final value = json[key] ?? const [];

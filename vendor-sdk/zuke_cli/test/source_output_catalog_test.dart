@@ -15,14 +15,26 @@ void main() {
     workspace = WorkspaceDiscoveryResult(
       config: ZukeConfig(
         root: root.path,
+        // Keep this deliberately stale. The catalog must use the typed model,
+        // not the legacy map projection.
         targetPackages: {
           'backend': [
             {
-              'id': 'backend',
-              'path': '.',
-              'roots': ['lib'],
+              'id': 'stale-map-package',
+              'path': 'missing',
+              'roots': ['wrong'],
             },
           ],
+        },
+        workspaceTargets: {
+          'backend': WorkspaceTarget(
+            id: 'backend',
+            language: 'dart',
+            framework: 'dart-frog',
+            packages: const [
+              WorkspacePackage(id: 'backend', path: '.', roots: ['lib']),
+            ],
+          ),
         },
       ),
       data: const MetadataExtractorResult(features: []),
@@ -143,4 +155,36 @@ void main() {
       ),
     );
   });
+
+  test(
+    'does not attribute an out-of-root output with a wrong or missing package',
+    () {
+      final outside = Directory.systemTemp.createTempSync(
+        'zuke-source-outside-unidentified-',
+      );
+      addTearDown(() => outside.deleteSync(recursive: true));
+
+      for (final packageName in <String?>['other-package', null]) {
+        final catalog = SourceOutputCatalog.build(workspace, [
+          output(packageName: packageName, packageRoot: outside.path),
+        ]);
+
+        expect(
+          () => catalog.resolve(
+            target: 'backend',
+            sourcePackage: 'backend',
+            sourceAdapter: 'dart-source',
+            sourceCompatibilityId: releaseDartSourceCompatibilityId,
+          ),
+          throwsA(
+            isA<SourceResolveFailure>().having(
+              (failure) => failure.code,
+              'code',
+              'ZK-SOURCE-NO-MATCH',
+            ),
+          ),
+        );
+      }
+    },
+  );
 }

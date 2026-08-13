@@ -46,6 +46,7 @@ dev_dependencies:
   # package. See that file for information about deactivating specific lint
   # rules and activating additional ones.
   flutter_lints: ^6.0.0
+  zuke_runner: ^0.3.0
   zuke_runner_flutter: ^0.3.0
 
 # For information on the generic Dart part of this file, see the

@@ -1,22 +1,10 @@
-import 'dart:convert';
 import 'dart:io';
 
 import 'package:calculator_contracts/calculator_contracts.dart';
 import 'package:calculator_domain/calculator_domain.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:zuke_runner/zuke_runner.dart' show zukeTest;
 import 'package:zuke_runner_flutter/zuke_runner_flutter.dart';
-
-void _emit(ZukeScenarioContract contract, Object result) {
-  const SuiteEvidenceEmitter().emitPassing(
-    requirementId: contract.requirementId.value,
-    scenarioId: contract.id,
-    evidenceTypes: const ['domain-unit'],
-    target: 'flutter',
-    runnerCompatibilityId: 'calculator-flutter-tests-v1',
-    digestInput: jsonEncode(result),
-    runnerId: 'calculator-flutter-tests',
-  );
-}
 
 @VerifiesRequirement(
   [
@@ -74,7 +62,7 @@ void main() {
           expected: '5',
         ),
       ]) {
-    test(
+    zukeTest(
       '${testCase.contract.id}: ${testCase.contract.title}',
       () {
         final result = Calculator().evaluate(
@@ -85,13 +73,14 @@ void main() {
           ),
         );
         expect(result.result, testCase.expected);
-        _emit(testCase.contract, {'result': result.result});
       },
+      scenario: testCase.contract,
+      evidenceTypes: const ['domain-unit'],
       skip: skipScenario(testCase.contract),
     );
   }
 
-  test(
+  zukeTest(
     '${DivisionScenarios.divideZero.id}: ${DivisionScenarios.divideZero.title}',
     () {
       final result = Calculator().evaluate(
@@ -102,12 +91,13 @@ void main() {
         ),
       );
       expect(result.errorCode, 'DIVISION_BY_ZERO');
-      _emit(DivisionScenarios.divideZero, {'errorCode': result.errorCode});
     },
+    scenario: DivisionScenarios.divideZero,
+    evidenceTypes: const ['domain-unit'],
     skip: skipScenario(DivisionScenarios.divideZero),
   );
 
-  test(
+  zukeTest(
     '${ValidationScenarios.badOperand.id}: ${ValidationScenarios.badOperand.title}',
     () {
       final parser = FiniteOperandParser();
@@ -119,8 +109,9 @@ void main() {
       ]) {
         expect(() => parser.parse(input), throwsFormatException);
       }
-      _emit(ValidationScenarios.badOperand, {'rejected': true});
     },
+    scenario: ValidationScenarios.badOperand,
+    evidenceTypes: const ['domain-unit'],
     skip: skipScenario(ValidationScenarios.badOperand),
   );
 }

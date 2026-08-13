@@ -120,7 +120,7 @@ void main() {
         profile: Platform.environment['ZUKE_PROFILE'] ?? 'pullRequest',
         candidateId: AdditionScenarios.addIntegersUi.id,
         runnerId: 'calculator-flutter-tests',
-        runnerCompatibilityId: 'calculator-flutter-tests-v1',
+        runnerCompatibilityId: 'calculator-mobile-runner-v1',
         digests: const {'runner': 'zuke-runner-flutter-v1'},
       );
       final result = await executor.executeScenario(

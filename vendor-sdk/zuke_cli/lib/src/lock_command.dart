@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:crypto/crypto.dart';
 import 'package:args/args.dart';
+import 'package:zuke_core/zuke_core.dart';
 import 'package:zuke_frontend/zuke_frontend.dart';
 
 import 'extraction_service.dart';
@@ -32,10 +33,12 @@ final class WorkspaceContext {
 
 class LockCommand {
   final ArgResults args;
+  List<Diagnostic> diagnostics = const [];
 
   LockCommand(this.args);
 
   Future<int> execute() async {
+    diagnostics = const [];
     final requestedRoot = args['root'] as String? ?? Directory.current.path;
     final allProfiles =
         args.options.contains('all-profiles') &&
@@ -77,6 +80,17 @@ class LockCommand {
       orElse: () => File(''),
     );
     if (legacyLock.path.isNotEmpty) {
+      diagnostics = [
+        Diagnostic(
+          code: 'ZK-LOCK-LEGACY-FORMAT',
+          stage: 'lock',
+          severity: DiagnosticSeverity.error,
+          owner: DiagnosticOwner.zuke,
+          message: '${legacyLock.path} is a legacy lock path.',
+          remediation:
+              'Remove the legacy lock and regenerate the current profile lock.',
+        ),
+      ];
       stderr.writeln(
         'ZK-LOCK-LEGACY-FORMAT: ${legacyLock.path} is a legacy lock path; '
         'remove it and regenerate assurance/locks/<profile>.lock.json with '
@@ -143,12 +157,14 @@ class LockCommand {
               decoded['kind'] != 'zuke.lock' ||
               decoded.containsKey('schemaVersion') ||
               decoded.containsKey('formatVersion')) {
+            diagnostics = [_legacyLockDiagnostic()];
             stderr.writeln(
               'ZK-LOCK-LEGACY-FORMAT: the lock is not a current lock; regenerate it with the current Zuke CLI.',
             );
             return 1;
           }
         } on FormatException {
+          diagnostics = [_legacyLockDiagnostic()];
           stderr.writeln(
             'ZK-LOCK-LEGACY-FORMAT: the lock is malformed; regenerate it with the current Zuke CLI.',
           );
@@ -156,7 +172,20 @@ class LockCommand {
         }
       }
       if (current != lockContent) {
-        stderr.writeln('Specification lock is stale or missing: $path');
+        diagnostics = [
+          Diagnostic(
+            code: 'ZK-LOCK-STALE',
+            stage: 'lock',
+            severity: DiagnosticSeverity.error,
+            owner: DiagnosticOwner.project,
+            message: 'Specification lock is stale or missing: $path',
+            remediation:
+                'Generate the profile lock in a reviewed change, then verify it with --check.',
+          ),
+        ];
+        stderr.writeln(
+          'ZK-LOCK-STALE: Specification lock is stale or missing: $path',
+        );
         if (current != null) {
           stderr.writeln(
             '  expected sha256:${sha256.convert(utf8.encode(lockContent))}',
@@ -175,6 +204,16 @@ class LockCommand {
     if (!quiet) stdout.writeln('Wrote $path');
     return 0;
   }
+
+  Diagnostic _legacyLockDiagnostic() => const Diagnostic(
+    code: 'ZK-LOCK-LEGACY-FORMAT',
+    stage: 'lock',
+    severity: DiagnosticSeverity.error,
+    owner: DiagnosticOwner.zuke,
+    message: 'The lock is not a current lock artifact.',
+    remediation:
+        'Remove the legacy lock and regenerate the current profile lock.',
+  );
 
   List<String> _configuredProfiles(String root) {
     try {

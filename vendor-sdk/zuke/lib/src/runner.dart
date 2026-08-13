@@ -5,6 +5,7 @@ import 'dart:io';
 import 'package:crypto/crypto.dart';
 import 'package:zuke_frontend/zuke_frontend.dart';
 import 'package:zuke_core/zuke_core.dart';
+import 'package:zuke_core/src/atomic_file_writer.dart';
 import 'step_arguments.dart';
 
 abstract class ScenarioWorld {
@@ -679,48 +680,11 @@ class ExecutionResultWriter {
 }
 
 void _writeEncodedAtomically(File destination, String encoded) {
-  destination.parent.createSync(recursive: true);
-  final bytes = utf8.encode(encoded);
-  final temporary = File(
-    '${destination.path}.tmp-${pid}-${DateTime.now().microsecondsSinceEpoch}',
+  writeBytesAtomically(
+    destination,
+    utf8.encode(encoded),
+    conflictCode: 'ZK-EVIDENCE-WRITE-CONFLICT',
   );
-  try {
-    final handle = temporary.openSync(mode: FileMode.write);
-    try {
-      handle.writeFromSync(bytes);
-      handle.flushSync();
-    } finally {
-      handle.closeSync();
-    }
-    if (destination.existsSync()) {
-      final existing = destination.readAsBytesSync();
-      if (_bytesEqual(existing, bytes)) return;
-      throw const FormatException(
-        'ZK-EVIDENCE-WRITE-CONFLICT: destination contains different bytes',
-      );
-    }
-    try {
-      temporary.renameSync(destination.path);
-    } on FileSystemException {
-      if (!destination.existsSync()) rethrow;
-      final existing = destination.readAsBytesSync();
-      if (!_bytesEqual(existing, bytes)) {
-        throw const FormatException(
-          'ZK-EVIDENCE-WRITE-CONFLICT: destination contains different bytes',
-        );
-      }
-    }
-  } finally {
-    if (temporary.existsSync()) temporary.deleteSync();
-  }
-}
-
-bool _bytesEqual(List<int> left, List<int> right) {
-  if (left.length != right.length) return false;
-  for (var index = 0; index < left.length; index++) {
-    if (left[index] != right[index]) return false;
-  }
-  return true;
 }
 
 /// Emits deterministic passed suite evidence for non-Gherkin test bodies.

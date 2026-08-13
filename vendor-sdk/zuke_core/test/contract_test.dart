@@ -298,4 +298,19 @@ void main() {
       throwsFormatException,
     );
   });
+
+  test('incomplete in-memory evidence cannot become a persisted record', () {
+    const incomplete = EvidenceRecord(
+      requirementId: 'RULE-1',
+      evidenceType: 'contract',
+      target: 'contract',
+      executionId: 'exec-1',
+      profile: 'pullRequest',
+    );
+
+    expect(
+      () => EvidenceRecord.fromJson(incomplete.toJson()),
+      throwsFormatException,
+    );
+  });
 }

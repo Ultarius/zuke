@@ -71,7 +71,7 @@ Future<void> _calculate(
 )
 void main() {
   const evidenceHarness = ZukeFlutterEvidenceHarness(
-    runnerCompatibilityId: 'calculator-flutter-tests-v1',
+    runnerCompatibilityId: 'calculator-mobile-runner-v1',
     defaultEvidenceTypes: ['flutter-widget', 'gherkin-ui'],
   );
 

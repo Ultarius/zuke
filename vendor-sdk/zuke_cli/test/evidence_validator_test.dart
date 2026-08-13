@@ -255,6 +255,7 @@ void main() {
         sourcePackage: 'backend',
         sourceAdapter: 'dart-source',
         executionId: 'exec-1',
+        profile: 'pullRequest',
         status: EvidenceStatus.passed,
       );
 
@@ -276,6 +277,7 @@ void main() {
         sourcePackage: 'backend',
         sourceAdapter: 'dart-source',
         executionId: 'exec-1',
+        profile: 'pullRequest',
         status: EvidenceStatus.passed,
       );
 
@@ -333,6 +335,7 @@ void main() {
         sourcePackage: 'backend',
         sourceAdapter: 'dart-source',
         executionId: 'exec-1',
+        profile: 'pullRequest',
         status: EvidenceStatus.skipped,
       );
 
@@ -446,6 +449,7 @@ void main() {
         sourcePackage: 'backend',
         sourceAdapter: 'dart-source',
         executionId: 'exec-domain',
+        profile: 'pullRequest',
         status: EvidenceStatus.passed,
       );
       final recordFlutter = EvidenceRecord(
@@ -455,6 +459,7 @@ void main() {
         sourcePackage: 'flutter',
         sourceAdapter: 'dart-source',
         executionId: 'exec-flutter',
+        profile: 'pullRequest',
         status: EvidenceStatus.passed,
       );
       final recordApi = EvidenceRecord(
@@ -464,6 +469,7 @@ void main() {
         sourcePackage: 'backend',
         sourceAdapter: 'dart-source',
         executionId: 'exec-api',
+        profile: 'pullRequest',
         status: EvidenceStatus.passed,
       );
       final recordSecurity = EvidenceRecord(
@@ -473,6 +479,7 @@ void main() {
         sourcePackage: 'backend',
         sourceAdapter: 'dart-source',
         executionId: 'exec-security',
+        profile: 'pullRequest',
         status: EvidenceStatus.passed,
       );
       final recordAccessibility = EvidenceRecord(
@@ -482,6 +489,7 @@ void main() {
         sourcePackage: 'flutter',
         sourceAdapter: 'dart-source',
         executionId: 'exec-a11y',
+        profile: 'pullRequest',
         status: EvidenceStatus.passed,
       );
       final recordPerf = EvidenceRecord(
@@ -491,6 +499,7 @@ void main() {
         sourcePackage: 'backend',
         sourceAdapter: 'dart-source',
         executionId: 'exec-perf',
+        profile: 'pullRequest',
         status: EvidenceStatus.passed,
       );
       final recordGherkinApi = EvidenceRecord(
@@ -500,6 +509,7 @@ void main() {
         sourcePackage: 'backend',
         sourceAdapter: 'dart-source',
         executionId: 'exec-gherkin-api',
+        profile: 'pullRequest',
         status: EvidenceStatus.passed,
       );
       final recordGherkinUi = EvidenceRecord(
@@ -509,6 +519,7 @@ void main() {
         sourcePackage: 'flutter',
         sourceAdapter: 'dart-source',
         executionId: 'exec-gherkin-ui',
+        profile: 'pullRequest',
         status: EvidenceStatus.passed,
       );
 
@@ -583,6 +594,7 @@ void main() {
         sourcePackage: 'backend',
         sourceAdapter: 'dart-source',
         executionId: 'exec-1',
+        profile: 'pullRequest',
         status: EvidenceStatus.passed,
         digests: {
           'contract':
@@ -644,6 +656,7 @@ void main() {
         sourcePackage: 'backend',
         sourceAdapter: 'dart-source',
         executionId: 'exec-skipped',
+        profile: 'pullRequest',
         status: EvidenceStatus.skipped,
       );
 
@@ -654,6 +667,7 @@ void main() {
         sourcePackage: 'backend',
         sourceAdapter: 'dart-source',
         executionId: 'exec-stale',
+        profile: 'pullRequest',
         status: EvidenceStatus.passed,
         digests: {
           'contract':
@@ -744,6 +758,7 @@ void main() {
           sourcePackage: 'backend',
           sourceAdapter: 'dart-source',
           executionId: 'exec-1',
+          profile: 'pullRequest',
           status: EvidenceStatus.passed,
           digests: {
             'source': initialDigest,
@@ -818,6 +833,7 @@ void main() {
         sourcePackage: 'backend',
         sourceAdapter: 'dart-source',
         executionId: 'exec-orphan',
+        profile: 'pullRequest',
         status: EvidenceStatus.passed,
       );
 
@@ -898,6 +914,7 @@ void main() {
           sourcePackage: 'backend',
           sourceAdapter: 'dart-source',
           executionId: 'exec-1',
+          profile: 'pullRequest',
           status: EvidenceStatus.passed,
           digests: {
             'source':
@@ -975,6 +992,7 @@ void main() {
           sourcePackage: 'dashboard',
           sourceAdapter: 'jaspr',
           executionId: 'dashboard-exec',
+          profile: 'pullRequest',
           status: EvidenceStatus.passed,
         ),
       ],

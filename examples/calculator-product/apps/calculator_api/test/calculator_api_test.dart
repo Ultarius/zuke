@@ -20,9 +20,8 @@ void _emit(
     scenarioId: scenarioId,
     evidenceTypes: [evidenceType],
     target: target,
-    runnerCompatibilityId: 'calculator-api-tests-v1',
+    runnerCompatibilityId: 'calculator-api-gherkin-runner-v1',
     digestInput: jsonEncode(result),
-    runnerId: 'calculator-api-tests',
   );
 }
 
@@ -75,9 +74,8 @@ void _emitApiScenario(
         ? const ['api-contract', 'gherkin-api', 'security-integration']
         : const ['api-contract', 'gherkin-api'],
     target: 'backend',
-    runnerCompatibilityId: 'calculator-api-tests-v1',
+    runnerCompatibilityId: 'calculator-api-gherkin-runner-v1',
     digestInput: jsonEncode(result),
-    runnerId: 'calculator-api-tests',
   );
 }
 

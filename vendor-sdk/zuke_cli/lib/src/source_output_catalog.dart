@@ -67,17 +67,11 @@ final class SourceOutputCatalog {
       );
     }
 
-    for (final targetEntry in workspace.config.targetPackages.entries) {
+    for (final targetEntry in workspace.config.workspaceTargets.entries) {
       final targetId = targetEntry.key;
-      for (final package in targetEntry.value) {
-        final packageId = package['id'];
-        final packagePath = package['path'];
-        if (packageId is! String ||
-            packageId.isEmpty ||
-            packagePath is! String ||
-            packagePath.isEmpty) {
-          continue;
-        }
+      for (final package in targetEntry.value.packages) {
+        final packageId = package.id;
+        final packagePath = package.path;
         final packageKey = _packageKey(targetId, packageId);
         knownPackages.add(packageKey);
         final packageRoot = _canonicalPath(path.join(root, packagePath));
@@ -90,6 +84,10 @@ final class SourceOutputCatalog {
           if (outputRoot == null || outputRoot.isEmpty) continue;
           final canonicalOutputRoot = _canonicalPath(outputRoot);
           if (!_isWithin(canonicalOutputRoot, packageRoot)) {
+            // An output is attributable to an escape only when it explicitly
+            // claims this configured package. A missing or different package
+            // identity cannot safely be assigned to this root and therefore
+            // remains a normal no-match failure.
             if (output.packageName == packageId) {
               outOfRootPackages.add(packageKey);
             }

@@ -133,6 +133,7 @@ void main() {
           evidenceType: 'domain-unit',
           target: 'backend',
           executionId: 'run-1',
+          profile: 'pullRequest',
           digests: _digests(),
           candidateId: 'SCN-TEST-001',
           runnerId: 'unit-runner',

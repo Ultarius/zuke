@@ -744,4 +744,17 @@ Feature: Failures
     );
     expect(result.controlIds, ['CTL-A', 'CTL-B']);
   });
+
+  test('unmanaged suite emission remains inert with runner metadata only', () {
+    final files = const SuiteEvidenceEmitter().emitPassing(
+      requirementId: 'RULE-EMITTER-UNMANAGED',
+      scenarioId: const ScenarioId('SCN-EMITTER-UNMANAGED'),
+      evidenceTypes: const ['api-contract'],
+      target: 'backend',
+      runnerCompatibilityId: 'runner-v1',
+      digestInput: 'unmanaged result',
+    );
+
+    expect(files, isEmpty);
+  });
 }

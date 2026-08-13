@@ -143,7 +143,7 @@ void main() {
         profile: Platform.environment['ZUKE_PROFILE'] ?? 'pullRequest',
         candidateId: AdditionScenarios.addIntegersApi.id,
         runnerId: 'calculator-api-tests',
-        runnerCompatibilityId: 'calculator-api-tests-v1',
+        runnerCompatibilityId: 'calculator-api-gherkin-runner-v1',
         digests: const {'runner': 'zuke-runner-http-v1'},
       );
       final results = await executor.executeScenario(

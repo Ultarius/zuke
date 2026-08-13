@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'support/temporary_directory.dart';
 import 'package:test/test.dart';
+import 'package:zuke_core/zuke_core.dart';
 import 'helpers/eligible_workspace.dart';
 import 'cli_test_helper.dart';
 
@@ -98,7 +99,12 @@ void main() {
         expect(lockFile.readAsStringSync(), equals(originalContent));
 
         // 3. Make lock file stale by modifying it
-        lockFile.writeAsStringSync('$originalContent\n// modified\n');
+        final modifiedLock = Map<String, Object?>.from(
+          jsonDecode(originalContent) as Map,
+        )..['policyHash'] = 'sha256:${List.filled(64, '0').join()}';
+        lockFile.writeAsStringSync(
+          '${const JsonEncoder.withIndent('  ').convert(modifiedLock)}\n',
+        );
 
         // 4. Run check command on stale lock — must FAIL, not overwrite
         final checkStaleResult = await runInProcessCli([
@@ -107,8 +113,29 @@ void main() {
           root.path,
           '--profile',
           'pullRequest',
+          '--format',
+          'json',
         ]);
         expect(checkStaleResult.exitCode, 1);
+
+        final commandResult = CommandResult.fromJson(
+          Map<Object?, Object?>.from(
+            jsonDecode(checkStaleResult.stdout) as Map,
+          ),
+        );
+        final workspaces = commandResult.details['workspaces'] as List;
+        final workspace = Map<Object?, Object?>.from(workspaces.single as Map);
+        final stages = (workspace['stages'] as List)
+            .cast<Map<Object?, Object?>>();
+        final lockStage = stages.singleWhere(
+          (stage) => stage['name'] == 'lock',
+        );
+        final diagnostics = (lockStage['diagnostics'] as List)
+            .cast<Map<Object?, Object?>>();
+        expect(
+          diagnostics.map((diagnostic) => diagnostic['code']),
+          contains('ZK-LOCK-STALE'),
+        );
       },
     );
   });

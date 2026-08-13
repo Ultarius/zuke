@@ -1,6 +1,6 @@
 {
   "kind": "zuke.analyzer-index",
-  "inputDigest": "sha256:95d60dcdb468fa477c7c539ffb1ef1215178a98232a4ef3bc2c5fa97ef31d4e5",
+  "inputDigest": "sha256:e4c4fac86859b4cedc11a83e0ad05e5b6e40710e97849afc25a96a8e8ca024f3",
   "generatedManifestDigest": "sha256:2f239e4d481e650d93d3180b876ddddc3e4d61e429f4f0d4c7b32c5e9f5df0f2",
   "generatedManifestPath": "lib/src/.zuke-generated.json",
   "inputs": [
@@ -22,7 +22,7 @@
     },
     {
       "path": "specs/features/shopping_cart.feature",
-      "digest": "sha256:b4a7016dc1cf61b95fadeb2938d5d93903bea979c2e102514482e161469fcba1"
+      "digest": "sha256:5152364c71a28130c262668a71f9fefdb76ca08c92d0965c04cadb074038a5d1"
     },
     {
       "path": "specs/registry/pbis.yaml",
@@ -34,7 +34,7 @@
     },
     {
       "path": "zuke.yaml",
-      "digest": "sha256:b438820a5ca18c60b3ab41904160b8bcd99266eea9eb529d80f0144188d9df57"
+      "digest": "sha256:3c9f33a44dec378df0cbb147cbac112cb87a98702392241344853159f7ca643c"
     }
   ],
   "inputPatterns": [

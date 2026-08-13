@@ -59,13 +59,15 @@ class CheckCommand {
         diagnostics: [
           for (final workspace in results)
             for (final stage in workspace.stages)
-              if (stage.status == 'failed')
+              if (stage.status == 'failed') ...[
+                ...stage.diagnostics,
                 gateDiagnostic(
                   stage: stage.name,
                   message:
                       'Check stage ${stage.name} failed for ${workspace.root}.',
                   profile: profile,
                 ),
+              ],
         ],
         details: {
           'profile': profile,
@@ -266,7 +268,11 @@ ArgResults _reportArgs(String root) =>
           ..addFlag('quiet'))
         .parse(['--root', root, '--quiet']);
 
-Future<_StageResult> _stage(String name, Future<int> Function() action) async {
+Future<_StageResult> _stage(
+  String name,
+  Future<int> Function() action, {
+  List<Diagnostic> Function()? diagnostics,
+}) async {
   final stdoutBuffer = StringBuffer();
   final stderrBuffer = StringBuffer();
   late int code;
@@ -283,19 +289,25 @@ Future<_StageResult> _stage(String name, Future<int> Function() action) async {
   return _StageResult(
     name,
     code == 0 ? 'passed' : 'failed',
+    code,
     stdoutBuffer.toString(),
     stderrBuffer.toString(),
+    diagnostics: diagnostics?.call() ?? const [],
   );
 }
 
 /// A configured runner intentionally replaces profile evidence. Lock output
-Future<_StageResult> _checkLock(String root, String profile) async => _stage(
-  'lock',
-  () => LockCommand(_lockArgs(root, profile, check: true)).execute(),
-);
+Future<_StageResult> _checkLock(String root, String profile) async {
+  final command = LockCommand(_lockArgs(root, profile, check: true));
+  return _stage(
+    'lock',
+    command.execute,
+    diagnostics: () => command.diagnostics,
+  );
+}
 
 List<_StageResult> _skipped(List<String> names) =>
-    names.map((name) => _StageResult(name, 'skipped', '', '')).toList();
+    names.map((name) => _StageResult(name, 'skipped', 0, '', '')).toList();
 
 Future<List<_WorkspaceResult>> _runBounded(
   List<String> roots, {
@@ -344,21 +356,34 @@ final class _WorkspaceResult {
 final class _StageResult {
   final String name;
   final String status;
+  final int exitCode;
   final String stdout;
   final String stderr;
-  const _StageResult(this.name, this.status, this.stdout, this.stderr);
+  final List<Diagnostic> diagnostics;
+
+  _StageResult(
+    this.name,
+    this.status,
+    this.exitCode,
+    this.stdout,
+    this.stderr, {
+    List<Diagnostic> diagnostics = const [],
+  }) : diagnostics = List.unmodifiable(diagnostics);
+
   factory _StageResult.passed(String name) =>
-      _StageResult(name, 'passed', '', '');
+      _StageResult(name, 'passed', 0, '', '');
   factory _StageResult.failed(String name, {required String stderr}) =>
-      _StageResult(name, 'failed', '', stderr);
+      _StageResult(name, 'failed', 1, '', stderr);
   Map<String, Object?> toJson() => {
     'status': status,
-    'exitCode': status == 'failed' ? 1 : 0,
+    'exitCode': exitCode,
     'eligible': status == 'passed',
     'remediation': status == 'failed'
         ? 'Inspect the stage diagnostics and resolve the reported failure.'
         : '',
-    'diagnostics': const <Object?>[],
+    'diagnostics': diagnostics
+        .map((diagnostic) => diagnostic.toJson())
+        .toList(),
   };
 
   Map<String, Object?> safeJson() => toJson();
