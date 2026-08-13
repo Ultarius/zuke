@@ -4,6 +4,7 @@ workspace:
   root: .
 specifications:
   features: [specs/features/**/*.feature]
+  epics: [specs/epics/**/*.yaml]
 targets:
   fixture:
     language: dart
@@ -13,11 +14,10 @@ targets:
         path: .
         roots: [lib, test]
     contractOutput: lib/src/generated
-    contractExport: lib/hosted_consumer.dart
 execution:
   runners:
     - id: hosted-consumer-tests
-      kind: dart
+      kind: test
       target: fixture
       sourcePackage: hosted-consumer
       sourceAdapter: dart-source

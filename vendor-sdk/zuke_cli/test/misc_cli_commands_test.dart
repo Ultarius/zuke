@@ -43,7 +43,7 @@ void main() {
       expect(release, isA<Map>());
       expect(
         (release as Map)['publicPackageVersions'],
-        containsPair('zuke_cli', '0.4.0'),
+        containsPair('zuke_cli', '0.4.1'),
       );
       expect(release['operatingSystems'], contains('linux'));
     });

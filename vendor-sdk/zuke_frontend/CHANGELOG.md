@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.2.1
+
+- Read generated contract output and export paths from the configured target,
+  rather than assuming a Flutter target exists.
+
 ## 0.2.0
 
 - Added strict schemaVersion 3 workspace configuration with stable targets,

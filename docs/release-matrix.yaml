@@ -24,13 +24,13 @@ packages:
     supportStatement: Supported application-facing annotation API.
     bumpReason: Coordinated current core contract dependency.
   zuke_frontend:
-    version: 0.2.0
-    previousVersion: 0.1.1
+    version: 0.2.1
+    previousVersion: 0.2.0
     publish: true
     releaseAction: publish
     tier: Narrow SDK
     supportStatement: Supported frontend and configuration API.
-    bumpReason: Current configuration and contract compatibility.
+    bumpReason: Patch release for configured-target contract export discovery.
   zuke:
     version: 0.3.0
     previousVersion: 0.2.0
@@ -64,13 +64,13 @@ packages:
     supportStatement: Supported application-facing HTTP runtime boundary.
     bumpReason: Existing hosted version remains compatible with this release.
   zuke_cli:
-    version: 0.4.0
-    previousVersion: 0.3.0
+    version: 0.4.1
+    previousVersion: 0.4.0
     publish: true
     releaseAction: publish
     tier: Specialized SDK
     supportStatement: Supported CLI for generation, extraction, validation, locks, and gates.
-    bumpReason: Consolidated hosted toolchain and native Dart Frog extraction.
+    bumpReason: Patch release for sequential-profile evidence retention and canonical Dart Frog topology source digests.
   zuke_dart_build_hook:
     version: 0.3.0
     previousVersion: 0.2.0
@@ -120,6 +120,7 @@ retiredPackages:
   zuke_generator: Consolidated into zuke_cli generator.
   zuke_reporter: Consolidated into zuke_cli reporter.
   zuke_adapter_dart_frog: Consolidated into the zuke_cli Dart Frog adapter.
+  zuke_flutter_runtime: Superseded by the hosted zuke_runner_flutter package.
 compatibilityIds:
   dart-frog: dart-frog-gen-2-route-topology-v1
   dart-source: dart-source-package-v1

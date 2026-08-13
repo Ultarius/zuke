@@ -20,11 +20,26 @@ void main() {
     expect(DocumentationChecker(root).check(), isEmpty);
   });
 
+  test(
+    'accepts a retired package that has been removed from the workspace',
+    () {
+      final matrix = File('${root.path}/docs/release-matrix.yaml');
+      matrix.writeAsStringSync(
+        matrix.readAsStringSync().replaceFirst(
+          'retiredPackages: {}',
+          'retiredPackages:\n  removed_package: Consolidated into zuke_cli.',
+        ),
+      );
+
+      expect(DocumentationChecker(root).check(), isEmpty);
+    },
+  );
+
   test('rejects path dependencies and retired identities', () {
     File(
       '${root.path}/vendor-sdk/zuke_frontend/pubspec.yaml',
     ).writeAsStringSync(
-      'name: zuke_frontend\nversion: 0.2.0\nresolution: workspace\n'
+      'name: zuke_frontend\nversion: 0.2.1\nresolution: workspace\n'
       'dependencies:\n  yaml:\n    path: ../yaml\n',
     );
     File(

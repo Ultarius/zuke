@@ -41,7 +41,18 @@ void main() {
     expect(pubspec, contains('zuke_core: 0.3.0'));
     expect(pubspec, isNot(contains('{{')));
     expect(config, contains('dart-source-package-v1'));
+    expect(config, contains('kind: test'));
     expect(config, contains('schemaVersion: 3'));
+    expect(
+      File(
+        destination.path +
+            Platform.pathSeparator +
+            'lib' +
+            Platform.pathSeparator +
+            'hosted_consumer.dart',
+      ).readAsStringSync(),
+      contains("src/generated/feat_hosted_001_contracts.g.dart"),
+    );
     expect(
       File(
         destination.path +

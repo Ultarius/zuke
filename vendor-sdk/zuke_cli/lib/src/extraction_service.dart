@@ -63,6 +63,18 @@ class ExtractionService {
           final roots =
               (package['roots'] as List?)?.whereType<String>().toList() ??
               const ['lib'];
+          // The source digest is also the identity of the source snapshot
+          // used by the projected topology output.  Keep it in the same
+          // digest format as the analyzer output; publication normalizes the
+          // value to the canonical sha256:<hex> wire form.
+          final inputDigest = _sourceDigest(
+            packageRoot,
+            roots,
+            framework == 'dart-frog' ? 'dart-frog' : 'dart-http-v3',
+            framework == 'dart-frog'
+                ? dartFrogCompatibilityId
+                : DartExtractor.compatibilityId,
+          );
           if (framework == 'dart-frog') {
             final topology = await const DartFrogAdapter().extract(
               AdapterRequest(
@@ -78,7 +90,9 @@ class ExtractionService {
             // into the canonical IR consumed by the proof engine.
             // Keeping this bridge here prevents a successful adapter run from
             // becoming diagnostics-only evidence.
-            outputs.add(_topologyAdapterOutput(topology, packageRoot));
+            outputs.add(
+              _topologyAdapterOutput(topology, packageRoot, inputDigest),
+            );
             errors.addAll(
               topology.diagnostics
                   .where(
@@ -90,14 +104,7 @@ class ExtractionService {
                   ),
             );
           }
-          final cacheKey = _sourceDigest(
-            packageRoot,
-            roots,
-            framework == 'dart-frog' ? 'dart-frog' : 'dart-http-v3',
-            framework == 'dart-frog'
-                ? dartFrogCompatibilityId
-                : DartExtractor.compatibilityId,
-          );
+          final cacheKey = inputDigest;
           final cached = _loadCached(root, 'dart', cacheKey);
           IrAdapterOutput output;
           if (cached != null) {
@@ -217,6 +224,7 @@ class ExtractionService {
   IrAdapterOutput _topologyAdapterOutput(
     AdapterOutput output,
     String packageRoot,
+    String inputDigest,
   ) {
     CompletenessValue completeness(CompletenessStatus status) =>
         switch (status) {
@@ -308,7 +316,7 @@ class ExtractionService {
         ),
       ),
       symbols: const [],
-      inputDigest: output.compatibilityId,
+      inputDigest: inputDigest,
       diagnostics: output.diagnostics
           .map(
             (diagnostic) => IrDiagnostic(

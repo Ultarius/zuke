@@ -27,7 +27,7 @@ dependencies:
 dev_dependencies:
   flutter_test:
     sdk: flutter
-  zuke_cli: ^0.4.0
+  zuke_cli: ^0.4.1
   zuke_runner_flutter: ^0.3.0
   # Optional hosted build-time check:
   # zuke_dart_build_hook: ^0.3.0

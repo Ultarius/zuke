@@ -6,7 +6,7 @@ Gherkin feature parsing and specification compilation.
 
 ```yaml
 dependencies:
-  zuke_frontend: ^0.2.0
+  zuke_frontend: ^0.2.1
 ```
 
 ## Support tier

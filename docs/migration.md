@@ -23,7 +23,7 @@ dev_dependencies:
 
   # Current set:
   zuke: ^0.3.0
-  zuke_cli: ^0.4.0
+  zuke_cli: ^0.4.1
   zuke_runner_flutter: ^0.3.0
 ```
 
@@ -44,6 +44,7 @@ Implementation modules are now folded into the supported hosted packages:
 | `zuke_generator` | `zuke_cli` |
 | `zuke_reporter` | `zuke_cli` |
 | `zuke_adapter_dart_frog` | `zuke_cli` |
+| `zuke_flutter_runtime` | `zuke_runner_flutter` |
 | `zuke_analyzer`, `zuke_conformance`, `zuke_verifier`, `zuke_test_support` | repository-only tooling |
 
 Applications should depend on the public facades and should not import these

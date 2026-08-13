@@ -235,6 +235,14 @@ Handler middleware(Handler handler) => handler;
           ),
           isTrue,
         );
+        expect(
+          topologyProjection.inputDigest,
+          matches(RegExp(r'^[a-f0-9]{64}$')),
+        );
+        expect(
+          topologyProjection.inputDigest,
+          isNot(equals(topologyProjection.adapter.compatibilityId)),
+        );
       },
     );
 

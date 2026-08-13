@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.4.1
+
+- Retain successfully published evidence from other profiles when sequential
+  profile runs share an evidence directory.
+- Use the canonical source snapshot digest for projected Dart Frog topology
+  outputs so strict evidence serialization accepts native topology evidence.
+
 ## 0.4.0
 
 - Consolidated analyzer-backed tooling, typed current contracts, profile locks,

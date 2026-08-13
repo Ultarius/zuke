@@ -1266,12 +1266,22 @@ Future<void> main(List<String> arguments) => zuke.build(arguments);
       );
     }
 
+    // Profile runs share the configured evidence directory. Replace only the
+    // current profile's records so sequential profile execution retains the
+    // independently proved records needed by later validation and lock
+    // construction. Malformed files are intentionally not carried forward;
+    // the successful current run replaces the publication set atomically.
+    final retainedRecords = _loadPublishedEvidence(
+      directory,
+    ).where((record) => record.profile != profile).toList(growable: false);
+    final publishedRecords = <EvidenceRecord>[...retainedRecords, ...records];
+
     final staging = Directory(
       '${directory.path}.publish-${pid}-${DateTime.now().microsecondsSinceEpoch}',
     );
     final backup = Directory('${staging.path}.previous');
     try {
-      for (final record in records) {
+      for (final record in publishedRecords) {
         _writeSemanticEvidenceAtomic(staging.path, record);
       }
       if (directory.existsSync()) await _renameDirectory(directory, backup);
@@ -1321,6 +1331,31 @@ Future<void> main(List<String> arguments) => zuke.build(arguments);
     } finally {
       if (staging.existsSync()) staging.deleteSync(recursive: true);
     }
+  }
+
+  List<EvidenceRecord> _loadPublishedEvidence(Directory directory) {
+    if (!directory.existsSync()) return const [];
+    final files =
+        directory
+            .listSync()
+            .whereType<File>()
+            .where((file) => file.path.endsWith('.json'))
+            .toList()
+          ..sort((left, right) => left.path.compareTo(right.path));
+    final records = <EvidenceRecord>[];
+    for (final file in files) {
+      try {
+        final decoded = jsonDecode(file.readAsStringSync());
+        if (decoded is! Map) continue;
+        records.add(
+          EvidenceRecord.fromJson(Map<Object?, Object?>.from(decoded)),
+        );
+      } on Object {
+        // A fresh successful profile run is allowed to replace malformed
+        // prior publication files instead of carrying them forward.
+      }
+    }
+    return records;
   }
 
   Future<void> _renameDirectory(Directory source, Directory destination) async {

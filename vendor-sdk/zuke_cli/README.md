@@ -16,7 +16,7 @@ runs release gates for the primary `zuke` SDK.
 
 ```yaml
 dev_dependencies:
-  zuke_cli: ^0.4.0
+  zuke_cli: ^0.4.1
 ```
 
 Projects that regenerate non-Flutter steps with the current CLI should add

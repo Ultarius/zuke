@@ -86,4 +86,23 @@ lock:
     expect(config.targetPackages['backend']!.single['id'], 'backend');
     expect(config.lockProfiles, ['pullRequest', 'release']);
   });
+
+  test('reads generated contract paths from the configured target', () {
+    final config = ZukeConfig.fromYaml('''
+schemaVersion: 3
+targets:
+  fixture:
+    language: dart
+    framework: dart
+    contractOutput: lib/src/generated
+    contractExport: lib/fixture_contracts.dart
+    packages:
+      - id: fixture
+        path: .
+        roots: [lib, test]
+''');
+
+    expect(config.contractOutput, 'lib/src/generated');
+    expect(config.contractExport, 'lib/fixture_contracts.dart');
+  });
 }

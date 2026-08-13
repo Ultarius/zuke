@@ -11,12 +11,12 @@ const releaseDartSourceCompatibilityId = 'dart-source-package-v1';
 const releasePublicPackageVersions = <String, String>{
   'zuke_core': '0.3.0',
   'zuke_annotations': '0.3.0',
-  'zuke_frontend': '0.2.0',
+  'zuke_frontend': '0.2.1',
   'zuke': '0.3.0',
   'zuke_runner': '0.3.0',
   'zuke_runner_flutter': '0.3.0',
   'zuke_http_runtime': '0.1.1',
-  'zuke_cli': '0.4.0',
+  'zuke_cli': '0.4.1',
   'zuke_dart_build_hook': '0.3.0',
 };
 
@@ -28,6 +28,7 @@ const releaseRetiredPackages = <String>{
   'evidence_ledger',
   'proof_engine',
   'zuke_adapter_dart_frog',
+  'zuke_flutter_runtime',
   'zuke_generator',
   'zuke_reporter',
 };

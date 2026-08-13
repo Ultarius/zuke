@@ -47,7 +47,17 @@ final class HostedConsumerFixture {
       'specs/features/consumer.feature',
       variables,
     );
+    _renderText(
+      'specs/epics/EPIC-HOSTED-001.yaml',
+      'specs/epics/EPIC-HOSTED-001.yaml',
+      variables,
+    );
     _renderText('lib/calculator.dart', 'lib/calculator.dart', variables);
+    _renderText(
+      'lib/hosted_consumer.dart',
+      'lib/hosted_consumer.dart',
+      variables,
+    );
     _renderText(
       'test/consumer_test.dart.tmpl',
       'test/consumer_test.dart',

@@ -245,6 +245,15 @@ class ZukeConfig {
         WorkspaceRunner.fromMap(Map<Object?, Object?>.from(runner as Map)),
     ];
 
+    String? targetOption(String key) {
+      for (final target in rawTargets.values) {
+        if (target is! Map) continue;
+        final value = target[key];
+        if (value is String && value.trim().isNotEmpty) return value;
+      }
+      return null;
+    }
+
     return ZukeConfig(
       schemaVersion: schemaVersion,
       root: root,
@@ -259,12 +268,8 @@ class ZukeConfig {
       preset: policies['preset'] as String?,
       profilePatterns: profiles ?? [],
       targetsConfig: targetsConfig,
-      contractOutput: rawTargets['flutter'] is Map
-          ? (rawTargets['flutter'] as Map)['contractOutput'] as String?
-          : null,
-      contractExport: rawTargets['flutter'] is Map
-          ? (rawTargets['flutter'] as Map)['contractExport'] as String?
-          : null,
+      contractOutput: targetOption('contractOutput'),
+      contractExport: targetOption('contractExport'),
       evidenceOutput: evidenceSection['output'] as String?,
       trustBundle: trustSection['bundle'] as String?,
       executionConfig: rawExecution,

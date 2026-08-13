@@ -160,6 +160,44 @@ void main() {
       );
     });
 
+    test('retains evidence from earlier sequential profiles', () async {
+      final root = _workspace();
+      addTearDown(() => root.delete(recursive: true));
+      final config = File('${root.path}/zuke.yaml');
+      config.writeAsStringSync(
+        config.readAsStringSync().replaceFirst(
+          'kind: setup',
+          'kind: test\n      evidenceTypes: [domain-unit]',
+        ),
+      );
+      final cli = ZukeCli(processSupervisor: _ProfileEvidenceSupervisor());
+
+      expect(
+        await cli.run([
+          'test',
+          '--root',
+          root.path,
+          '--profile',
+          'pullRequest',
+        ]),
+        0,
+      );
+      expect(
+        await cli.run(['test', '--root', root.path, '--profile', 'merge']),
+        0,
+      );
+
+      final records = Directory('${root.path}/generated/evidence/records')
+          .listSync()
+          .whereType<File>()
+          .map((file) {
+            final json = jsonDecode(file.readAsStringSync());
+            return json['profile'] as String;
+          })
+          .toSet();
+      expect(records, containsAll({'pullRequest', 'merge'}));
+    });
+
     test('fails closed for malformed configured runner declarations', () async {
       final cases = <({String runner, int exitCode})>[
         (
@@ -545,6 +583,34 @@ final class _EvidenceSupervisor implements ProcessSupervisor {
         runnerId: 'unit-runner',
         runnerCompatibilityId: 'unit-runner-v1',
         scenarioIds: [ScenarioId('SCN-SUPERVISOR-001')],
+      ),
+    );
+    return ProcessResult(1, 0, 'ok', '');
+  }
+}
+
+final class _ProfileEvidenceSupervisor implements ProcessSupervisor {
+  @override
+  Future<ProcessResult> run(ProcessRunRequest request) async {
+    final profile = request.environment['ZUKE_PROFILE']!;
+    const identity = ExecutionSourceIdentity(
+      sourcePackage: 'fake-supervisor',
+      sourceAdapter: 'dart-source',
+      sourceCompatibilityId: 'dart-source-package-v1',
+    );
+    ExecutionResultWriter(identity: identity).writeScenario(
+      request.environment['ZUKE_RESULT_DIR']!,
+      ScenarioResult(
+        executionId: 'evidence-$profile',
+        status: ScenarioStatus.passed,
+        requirementId: 'RULE-SUPERVISOR-001',
+        evidenceType: 'domain-unit',
+        target: 'backend',
+        candidateId: 'SCN-SUPERVISOR-001',
+        profile: profile,
+        runnerId: 'unit-runner',
+        runnerCompatibilityId: 'unit-runner-v1',
+        scenarioIds: const [ScenarioId('SCN-SUPERVISOR-001')],
       ),
     );
     return ProcessResult(1, 0, 'ok', '');

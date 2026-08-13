@@ -35,7 +35,7 @@ dependencies:
   zuke_http_runtime: ^0.1.1 # Optional: inspect a real HTTP application
 
 dev_dependencies:
-  zuke_cli: ^0.4.0
+  zuke_cli: ^0.4.1
 ```
 
 For a Flutter application, the narrow dependency layout remains valid and is
@@ -48,7 +48,7 @@ dependencies:
 
 dev_dependencies:
   zuke_runner_flutter: ^0.3.0
-  zuke_cli: ^0.4.0
+  zuke_cli: ^0.4.1
 ```
 
 For strict backend separation, keep annotation and application registration
