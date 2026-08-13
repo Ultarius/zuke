@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.3.1
+
+- Include profile, runner, target, and case identity in emitted suite result
+  and scenario result execution IDs so retained evidence from sequential
+  profile runs cannot collide during validation.
+
 ## 0.3.0
 
 - Emit deterministic scenario and suite results with complete source

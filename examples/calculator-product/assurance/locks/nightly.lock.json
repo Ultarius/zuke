@@ -15,11 +15,11 @@
   "policyHash": "sha256:0e415690723d2589b09681eeb983daab39231d75e659f9754f94a51cea8556dd",
   "evidenceRequirementsHash": "sha256:d63cef243ff1530bc5b8199c3812af46310998bf18f528bcec11d8e97c825b5f",
   "specificationDigestScope": "discovery-inputs-v1",
-  "specificationDigest": "sha256:45644574f84799c4dd8930d10c8fba4ec52aa8352dcfd01123a7afa04d0c0247",
-  "generatedManifestDigest": "sha256:93a855fd8152858600fddb02f9e20ac525804cf43a8f09ecd4672fe66191824d",
+  "specificationDigest": "sha256:16b44b1a1806e7cccce9d31c7c6f4acd13cab7b471ee2d6eb4e5dfa19dc6e246",
+  "generatedManifestDigest": "sha256:b7946474c87077afe8e19de2c58a8c75c1f9a92faf24a32a4ffa00c17b882045",
   "features": {
     "FEAT-CALC-001": {
-      "sourceHash": "sha256:0516a86d5b1caa3116a09adda52c3bc384740633772005f3259e0123133f02d1"
+      "sourceHash": "sha256:183d15a2570568c150bc219174aefc487b6b6eb9eedc88e9883610e6a25de3e1"
     },
     "FEAT-CALC-002": {
       "sourceHash": "sha256:94272360e99f4b91d9fe198bb6d828bcf5f603d470c198f48c72cd9f0ee94720"
@@ -30,8 +30,8 @@
       "adapter": "zuke.dart",
       "version": "1.0.0",
       "compatibilityId": "dart-source-package-v1",
-      "package": "calculator_api",
-      "digest": "sha256:fdd6dcbc096bd215f837fb6fdaa2874b0ee77b5547fa6f09666824e1462b2420",
+      "package": "calculator-api",
+      "digest": "sha256:6783eea500630cb22ac73f7258fd3fb617105a69cd74c11decddd51f4974955d",
       "completeness": {
         "annotationTargets": "complete",
         "generatedParts": "complete",
@@ -47,7 +47,7 @@
       "adapter": "zuke.dart",
       "version": "1.0.0",
       "compatibilityId": "dart-source-package-v1",
-      "package": "calculator_domain",
+      "package": "calculator-domain",
       "digest": "sha256:64104c94a1e963ea009a7a367dd76cc8688808e93c153c3a9a9586dc9938ea13",
       "completeness": {
         "annotationTargets": "complete",
@@ -64,8 +64,8 @@
       "adapter": "zuke.dart",
       "version": "1.0.0",
       "compatibilityId": "dart-source-package-v1",
-      "package": "calculator_mobile",
-      "digest": "sha256:e9fb1b1ca2ef0e061af5bcc34d1b908c20f79ce1e190051638caa88c74236858",
+      "package": "calculator-mobile",
+      "digest": "sha256:80e0700d793c28805df818fc989b6baf37f00e6dddefe55f33d02f356bc2912b",
       "completeness": {
         "annotationTargets": "complete",
         "generatedParts": "complete",

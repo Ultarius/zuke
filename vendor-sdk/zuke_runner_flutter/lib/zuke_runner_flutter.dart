@@ -122,6 +122,7 @@ void zukeTestWidgets(
         runnerId: context.runnerId,
         outputDirectory: context.resultDirectory,
         sourceIdentity: context.sourceIdentity,
+        caseId: caseId,
       );
     },
     skip: skip ?? !scenarioSelected,

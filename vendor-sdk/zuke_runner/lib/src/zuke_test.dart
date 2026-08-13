@@ -118,6 +118,7 @@ void zukeTest(
         runnerId: context.runnerId,
         outputDirectory: context.resultDirectory,
         sourceIdentity: context.sourceIdentity,
+        caseId: caseId,
       );
     },
     testOn: testOn,

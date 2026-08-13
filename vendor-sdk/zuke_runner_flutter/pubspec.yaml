@@ -1,6 +1,6 @@
 name: zuke_runner_flutter
 description: Flutter testWidgets integration boundary for Zuke scenarios.
-version: 0.3.0
+version: 0.3.1
 environment:
   sdk: '>=3.10.0 <4.0.0'
 resolution: workspace

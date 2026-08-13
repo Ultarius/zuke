@@ -63,8 +63,8 @@ open a new terminal before continuing.
 
 The supported hosted package tuple is defined by `docs/release-matrix.yaml`. The
 public release surface contains nine packages: `zuke_core` 0.3.0,
-`zuke_annotations` 0.3.0, `zuke_frontend` 0.2.1, `zuke` 0.3.0,
-`zuke_runner` 0.3.0, `zuke_runner_flutter` 0.3.0, `zuke_http_runtime` 0.1.1,
+`zuke_annotations` 0.3.0, `zuke_frontend` 0.2.1, `zuke` 0.3.1,
+`zuke_runner` 0.3.1, `zuke_runner_flutter` 0.3.1, `zuke_http_runtime` 0.1.1,
 `zuke_cli` 0.4.1, and `zuke_dart_build_hook` 0.3.0. Repository-only packages
 such as `zuke_analyzer` are not hosted dependencies.
 

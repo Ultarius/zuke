@@ -21,11 +21,11 @@
   "policyHash": "sha256:2ecf0ad85e8443672156e6401da6ee9b051e07f39960a8734cc1241c5bd48ea7",
   "evidenceRequirementsHash": "sha256:efb6f1a9ca22e0cfccb01d9097c4062a4442559136cb82e8dccfcf9820e09a9f",
   "specificationDigestScope": "discovery-inputs-v1",
-  "specificationDigest": "sha256:700824409a268dec952b7ff4503c0eae1d3d6c4352ec4476707c55762e6d7dc2",
+  "specificationDigest": "sha256:a9650fdcb8f6f8aa315674bc45dd3b535c55ef08d7d03589dad2a003e407aab0",
   "generatedManifestDigest": "sha256:0d35e5961f9422d3df46451d7cc361bd69907c051c20da98c4a98a59243b2712",
   "features": {
     "FEAT-TODO-001": {
-      "sourceHash": "sha256:49ca73a032984b65bf46338207eea876752df4489490d780bae28ae08b8c2c41"
+      "sourceHash": "sha256:855c6a45b269144ed99942329344ab358a0661a70947798e1373267039cc33eb"
     }
   },
   "fragments": [
@@ -33,8 +33,8 @@
       "adapter": "zuke.dart",
       "version": "1.0.0",
       "compatibilityId": "dart-source-package-v1",
-      "package": "todo_app",
-      "digest": "sha256:8e060c102974c299fabe5939d2234d915acef65d03f099f2df6750080fba42dc",
+      "package": "todo-app",
+      "digest": "sha256:905554c749289879ff3000803ef4f2cfd84f36474e15715ee95bda629ab317dc",
       "completeness": {
         "annotationTargets": "complete",
         "generatedParts": "complete",
@@ -61,14 +61,14 @@
         "package:todo_app/src/todo_controller.dart#TodoController"
       ],
       "evidenceDigests": [
-        "sha256:017e97fd97e4e99e097e1966900f5e3ccfb8bf232b2ec7173502edb4504be8d7",
         "sha256:0d35e5961f9422d3df46451d7cc361bd69907c051c20da98c4a98a59243b2712",
-        "sha256:1f840bddae62773f6883c946c0afec4d20819158b8cb9963b249382f43aeda2b",
-        "sha256:4074aa83bc1d53b9cfa63666e91899cff14c158047dda72f7ce42efa758cfed3",
-        "sha256:4b7ef1f110218f9a300133d876eadd1681ba859e7202de156e5a6f9e99cef420",
-        "sha256:8e060c102974c299fabe5939d2234d915acef65d03f099f2df6750080fba42dc",
-        "sha256:a5cf4f6f7bdc5cd71ac0301f990968a4e85fb1f4304041f25948ec5f2b6f0b00",
-        "sha256:f84ac10c9d91d6d45ce44cc91edf9796b528a56ec9a0f469a8afd54d52a28140"
+        "sha256:2071e9fcfc1333d520cdbe2e2032968c2cda316c9ddccbf40363943afd6d1c5c",
+        "sha256:5780bb66265c00c03900e85c71143b519956ab5e2022b8a986a59c713ba26a1a",
+        "sha256:732d0c363726c35bd8b82dc38a4a67987cb21c4ecd36816ccb42490767b79668",
+        "sha256:905554c749289879ff3000803ef4f2cfd84f36474e15715ee95bda629ab317dc",
+        "sha256:aa9f1996f70578caef850226272452b89a727b7938e608df922f12d03bef0af2",
+        "sha256:c10f785ac7dc44b93e8f46506dfead109e4fe88b9e8e19625216813ee9e79e16",
+        "sha256:e341c6486000244d2a638654ad4d2ca00eb6d90f80ea234e4fc2911f287f6a0b"
       ],
       "coverage": "verified",
       "graphHash": null,
@@ -86,12 +86,12 @@
       ],
       "evidenceDigests": [
         "sha256:0d35e5961f9422d3df46451d7cc361bd69907c051c20da98c4a98a59243b2712",
-        "sha256:1b11fda66db2e1b9dfb82a3caf6af0eaaabfd091889a3f6d8da0c0b775fd11a3",
-        "sha256:1f840bddae62773f6883c946c0afec4d20819158b8cb9963b249382f43aeda2b",
-        "sha256:28ac02bbb5dbf88e39cd22aca05843abc6e258e870ef8b3fb516deda9d903c02",
-        "sha256:65ca57761c29e9441d1ef0f01ab7269df2e68df34ae4c88be9ae2f9ab239775d",
-        "sha256:8e060c102974c299fabe5939d2234d915acef65d03f099f2df6750080fba42dc",
-        "sha256:a5cf4f6f7bdc5cd71ac0301f990968a4e85fb1f4304041f25948ec5f2b6f0b00"
+        "sha256:5780bb66265c00c03900e85c71143b519956ab5e2022b8a986a59c713ba26a1a",
+        "sha256:6358b433737d201b18de607ada555cb7c7fef2e39d5c6b7b3a8e58fffc140715",
+        "sha256:732d0c363726c35bd8b82dc38a4a67987cb21c4ecd36816ccb42490767b79668",
+        "sha256:905554c749289879ff3000803ef4f2cfd84f36474e15715ee95bda629ab317dc",
+        "sha256:9e07643b708b8d2d780f2beea529ebf2527990906f8c749b85c80740818f3606",
+        "sha256:f279ae37d53ab9f8d12a93e7c8b34b9d59fda9d8da9ea6d3bba411673c492c77"
       ],
       "coverage": "verified",
       "graphHash": null,

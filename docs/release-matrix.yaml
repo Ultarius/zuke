@@ -32,29 +32,29 @@ packages:
     supportStatement: Supported frontend and configuration API.
     bumpReason: Patch release for configured-target contract export discovery.
   zuke:
-    version: 0.3.0
-    previousVersion: 0.2.0
+    version: 0.3.1
+    previousVersion: 0.3.0
     publish: true
     releaseAction: publish
     tier: Primary SDK
     supportStatement: Primary pure-Dart Zuke SDK and supported current facade.
-    bumpReason: Current facade and deterministic assurance contracts.
+    bumpReason: Patch release for profile-scoped suite and scenario evidence execution identities.
   zuke_runner:
-    version: 0.3.0
-    previousVersion: 0.2.0
+    version: 0.3.1
+    previousVersion: 0.3.0
     publish: true
     releaseAction: publish
     tier: Compatibility
     supportStatement: Compatibility package for the primary Zuke SDK.
-    bumpReason: Coordinated primary SDK dependency floor.
+    bumpReason: Patch release for profile- and case-scoped suite evidence execution identities.
   zuke_runner_flutter:
-    version: 0.3.0
-    previousVersion: 0.2.0
+    version: 0.3.1
+    previousVersion: 0.3.0
     publish: true
     releaseAction: publish
     tier: Specialized SDK
     supportStatement: Supported Flutter testWidgets integration boundary.
-    bumpReason: Current result identity and Flutter compatibility tuple.
+    bumpReason: Patch release for profile- and case-scoped widget evidence execution identities.
   zuke_http_runtime:
     version: 0.1.1
     previousVersion: 0.1.1

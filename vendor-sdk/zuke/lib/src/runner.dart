@@ -707,6 +707,7 @@ final class SuiteEvidenceEmitter {
     String? profile,
     String? runnerId,
     ExecutionSourceIdentity? sourceIdentity,
+    String? caseId,
   }) {
     final managedContext = RunnerExecutionContext.fromEnvironment(
       Platform.environment,
@@ -769,8 +770,18 @@ final class SuiteEvidenceEmitter {
     final writer = ExecutionResultWriter(identity: identity);
     final files = <File>[];
     for (final evidenceType in evidenceTypes.toSet()) {
+      final executionId = _suiteExecutionId(
+        profile: effectiveProfile,
+        requirementId: requirementId,
+        scenarioId: scenarioId,
+        evidenceType: evidenceType,
+        target: target,
+        variant: variant,
+        runnerCompatibilityId: runnerCompatibilityId,
+        caseId: caseId,
+      );
       final result = SuiteResult(
-        executionId: 'exec-$evidenceType-$requirementId-${scenarioId.value}',
+        executionId: executionId,
         status: SuiteStatus.passed,
         requirementId: requirementId,
         evidenceType: evidenceType,
@@ -790,6 +801,29 @@ final class SuiteEvidenceEmitter {
       files.add(writer.writeSuite(effectiveOutputDirectory, result));
     }
     return files;
+  }
+
+  String _suiteExecutionId({
+    required String profile,
+    required String requirementId,
+    required ScenarioId scenarioId,
+    required String evidenceType,
+    required String target,
+    required String variant,
+    required String runnerCompatibilityId,
+    required String? caseId,
+  }) {
+    final identity = canonicalJson({
+      'profile': profile,
+      'requirementId': requirementId,
+      'scenarioId': scenarioId.value,
+      'evidenceType': evidenceType,
+      'target': target,
+      'variant': variant,
+      'runnerCompatibilityId': runnerCompatibilityId,
+      'caseId': caseId,
+    });
+    return 'exec-${sha256.convert(utf8.encode(identity))}';
   }
 }
 
@@ -1080,7 +1114,8 @@ class ScenarioExecutor<W extends ScenarioWorld> {
     final input =
         '$stableFeature\x00$stableRule\x00$stableScenario\x00'
         '${examplesTitle ?? ''}\x00$examplesIndex\x00$rowIndex\x00'
-        '$rowIdentity\x00$target\x00$variant\x00$digestIdentity';
+        '$rowIdentity\x00$profile\x00$target\x00$variant\x00'
+        '$digestIdentity';
     return sha256.convert(utf8.encode(input)).toString();
   }
 

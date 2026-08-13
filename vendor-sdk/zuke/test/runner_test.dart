@@ -257,7 +257,7 @@ Feature: Run
       feature.rules.single,
       World.new,
     )).single;
-    expect(release.executionId, first.executionId);
+    expect(release.executionId, isNot(first.executionId));
     expect(release.profile, 'release');
   });
 
@@ -743,6 +743,56 @@ Feature: Failures
       jsonDecode(files.single.readAsStringSync()),
     );
     expect(result.controlIds, ['CTL-A', 'CTL-B']);
+  });
+
+  test('suite evidence execution IDs are scoped to the profile', () {
+    final pullRequestRoot = Directory.systemTemp.createTempSync(
+      'zuke-runner-profile-pr-',
+    );
+    final mergeRoot = Directory.systemTemp.createTempSync(
+      'zuke-runner-profile-merge-',
+    );
+    addTearDown(() {
+      pullRequestRoot.deleteSync(recursive: true);
+      mergeRoot.deleteSync(recursive: true);
+    });
+
+    final pullRequest = const SuiteEvidenceEmitter()
+        .emitPassing(
+          requirementId: 'RULE-PROFILE-001',
+          scenarioId: const ScenarioId('SCN-PROFILE-001'),
+          evidenceTypes: const ['domain-unit'],
+          target: 'backend',
+          runnerCompatibilityId: 'runner-v1',
+          digestInput: 'profile-sensitive result',
+          outputDirectory: pullRequestRoot.path,
+          profile: 'pullRequest',
+          runnerId: 'runner',
+          sourceIdentity: _testIdentity,
+        )
+        .single;
+    final merge = const SuiteEvidenceEmitter()
+        .emitPassing(
+          requirementId: 'RULE-PROFILE-001',
+          scenarioId: const ScenarioId('SCN-PROFILE-001'),
+          evidenceTypes: const ['domain-unit'],
+          target: 'backend',
+          runnerCompatibilityId: 'runner-v1',
+          digestInput: 'profile-sensitive result',
+          outputDirectory: mergeRoot.path,
+          profile: 'merge',
+          runnerId: 'runner',
+          sourceIdentity: _testIdentity,
+        )
+        .single;
+
+    final pullRequestResult = SuiteResult.fromJson(
+      jsonDecode(pullRequest.readAsStringSync()),
+    );
+    final mergeResult = SuiteResult.fromJson(
+      jsonDecode(merge.readAsStringSync()),
+    );
+    expect(mergeResult.executionId, isNot(pullRequestResult.executionId));
   });
 
   test('unmanaged suite emission remains inert with runner metadata only', () {

@@ -41,7 +41,7 @@
       "version": "1.0.0",
       "compatibilityId": "dart-source-package-v1",
       "package": "calculator-api",
-      "digest": "sha256:20a762262219dc737a148387c8b798a412904124af7f16bfc12aff22739b4b57",
+      "digest": "sha256:6783eea500630cb22ac73f7258fd3fb617105a69cd74c11decddd51f4974955d",
       "completeness": {
         "annotationTargets": "complete",
         "generatedParts": "complete",
