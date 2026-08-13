@@ -1,5 +1,5 @@
 import 'ir.dart';
-import 'validation.dart';
+import '../evidence.dart';
 
 /// Diagnostic severities are shared by adapters, validators, and reporters.
 enum IrDiagnosticSeverity { error, warning, info }
@@ -155,7 +155,7 @@ class IrAdapterOutput {
   final String? packageName;
   final String? packageRoot;
   final IrGraph? graph;
-  final List<SemanticEvidenceRecord> evidenceRecords;
+  final List<EvidenceRecord> evidenceRecords;
 
   const IrAdapterOutput({
     required this.adapter,

@@ -32,7 +32,7 @@ class ValidationResult {
   bool get passed => errors.isEmpty;
 
   ir.ValidationReport toReport({
-    List<ir.SemanticEvidenceRecord> evidence = const [],
+    List<ir.EvidenceRecord> evidence = const [],
     String workspace = '',
     String profile = 'pullRequest',
     Map<String, String> graphHashes = const {},
@@ -112,7 +112,7 @@ class ValidatorEngine {
     List<ExtractedSymbol> extractedSymbols = const [],
     IrGraph? irGraph,
     List<IrAdapterOutput> outputs = const [],
-    List<ir.SemanticEvidenceRecord> evidenceRecords = const [],
+    List<ir.EvidenceRecord> evidenceRecords = const [],
     List<ControlProofResult> verifiedAttestationProofs = const [],
     String profile = 'pullRequest',
     List<String>? selectedScenarioIds,

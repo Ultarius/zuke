@@ -202,18 +202,14 @@ Future<Set<String>> _runtimeDependencyClosure(
   String packageName,
   List<String> failures,
 ) async {
-  final result = await Process.run(
-    Platform.resolvedExecutable,
-    const [
-      '--suppress-analytics',
-      'pub',
-      'deps',
-      '--json',
-      '-C',
-      'vendor-sdk/zuke_core',
-    ],
-    workingDirectory: root.path,
-  );
+  final result = await Process.run(Platform.resolvedExecutable, const [
+    '--suppress-analytics',
+    'pub',
+    'deps',
+    '--json',
+    '-C',
+    'vendor-sdk/zuke_core',
+  ], workingDirectory: root.path);
   if (result.exitCode != 0) {
     failures.add(
       'unable to inspect the zuke_core runtime dependency graph: '
@@ -248,9 +244,7 @@ Future<Set<String>> _runtimeDependencyClosure(
   }
 
   final closure = <String>{};
-  final pending = <String>[
-    ..._stringList(rootPackage['directDependencies']),
-  ];
+  final pending = <String>[..._stringList(rootPackage['directDependencies'])];
   while (pending.isNotEmpty) {
     final dependency = pending.removeLast();
     if (!closure.add(dependency)) continue;
@@ -266,14 +260,11 @@ Future<Set<String>> _runtimeDependencyClosure(
   return closure;
 }
 
-List<String> _stringList(Object? value) => value is List
-    ? value.whereType<String>().toList()
-    : const <String>[];
+List<String> _stringList(Object? value) =>
+    value is List ? value.whereType<String>().toList() : const <String>[];
 
-String _singleLine(Object? value) => value
-    .toString()
-    .replaceAll(RegExp(r'\s+'), ' ')
-    .trim();
+String _singleLine(Object? value) =>
+    value.toString().replaceAll(RegExp(r'\s+'), ' ').trim();
 
 void _findCycles(Map<String, Set<String>> graph, List<String> failures) {
   final visiting = <String>{};

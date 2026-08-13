@@ -540,7 +540,9 @@ class DocumentationChecker {
     })) {
       final relative = _relative(file);
       final contents = file.readAsStringSync();
-      if (legacyLock.hasMatch(contents)) {
+      final isMigrationGuide =
+          relative.replaceAll('\\', '/') == 'docs/migration.md';
+      if (legacyLock.hasMatch(contents) && !isMigrationGuide) {
         failures.add(
           '$relative: legacy/versioned lock names are forbidden; use assurance/locks/<profile>.lock.json',
         );
@@ -615,7 +617,10 @@ class DocumentationChecker {
       final relative = _relative(file);
       final contents = file.readAsStringSync();
       for (final pattern in forbidden) {
-        if (pattern.hasMatch(contents)) {
+        final historicalMigrationReference =
+            relative.replaceAll('\\', '/') == 'docs/migration.md' &&
+            pattern.pattern == r'assurance-history/v2';
+        if (pattern.hasMatch(contents) && !historicalMigrationReference) {
           failures.add(
             '$relative: product-facing legacy/V2 terminology is forbidden (${pattern.pattern})',
           );

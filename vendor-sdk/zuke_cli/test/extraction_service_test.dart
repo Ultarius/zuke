@@ -128,7 +128,7 @@ void main() {
       () async {
         _writePackage(tempDir);
         final evidence = Directory('${tempDir.path}/evidence')..createSync();
-        final record = SemanticEvidenceRecord(
+        final record = EvidenceRecord(
           requirementId: 'RULE-TEST-001',
           evidenceType: 'domain-unit',
           target: 'backend',

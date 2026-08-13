@@ -11,8 +11,8 @@ import 'package:zuke/runner.dart';
 class World extends MapScenarioWorld {}
 
 const _testSourcePackage = 'test-package';
-const _testSourceAdapter = 'dart-test';
-const _testSourceCompatibilityId = 'dart-test-v2';
+const _testSourceAdapter = 'dart-source';
+const _testSourceCompatibilityId = 'dart-source-package-v1';
 const _testIdentity = ExecutionSourceIdentity(
   sourcePackage: _testSourcePackage,
   sourceAdapter: _testSourceAdapter,
@@ -454,8 +454,8 @@ Feature: Run
       runnerId: 'contract-runner',
       runnerCompatibilityId: 'runner-v2',
       sourcePackage: 'secret-society-contract',
-      sourceAdapter: 'dart',
-      sourceCompatibilityId: 'dart-contract-runner-v2',
+      sourceAdapter: 'dart-source',
+      sourceCompatibilityId: 'dart-source-package-v1',
       resultDigest: 'sha256:result',
     );
 
@@ -463,8 +463,8 @@ Feature: Run
     expect(json['kind'], 'zuke.suite-result');
     final decoded = SuiteResult.fromJson(json);
     expect(decoded.sourcePackage, 'secret-society-contract');
-    expect(decoded.sourceAdapter, 'dart');
-    expect(decoded.sourceCompatibilityId, 'dart-contract-runner-v2');
+    expect(decoded.sourceAdapter, 'dart-source');
+    expect(decoded.sourceCompatibilityId, 'dart-source-package-v1');
   });
 
   test('scenario execution reports ambiguity and action failures', () async {
@@ -628,8 +628,8 @@ Feature: Failures
       target: 'backend',
       executionId: 'execution',
       profile: 'pullRequest',
-      status: 'passed',
-      sourceDigest: digests['source']!,
+      status: EvidenceStatus.passed,
+      digests: digests,
       runnerId: 'runner',
       runnerCompatibilityId: 'runner-v1',
       sourcePackage: _testSourcePackage,

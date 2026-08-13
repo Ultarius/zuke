@@ -4,4 +4,5 @@
 /// evidence ledger owned by `zuke_cli`.
 library;
 
+export 'signing_domains.dart';
 export 'release_signing_impl.dart';

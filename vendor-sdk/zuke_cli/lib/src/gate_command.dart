@@ -3,7 +3,6 @@ import 'dart:io';
 
 import 'package:args/args.dart';
 import 'package:zuke_core/zuke_core.dart';
-import 'package:zuke_frontend/zuke_frontend.dart';
 
 import 'generate_command.dart';
 import 'lock_command.dart';
@@ -100,12 +99,13 @@ class GateCommand {
           ],
         },
       );
+      final encoded = encodeCommandResult(result);
       if (jsonMode) {
-        stdout.writeln(jsonEncode(result.toJson()));
+        stdout.write(encoded);
       }
-      writeCommandSummary(args['summary-file'] as String?, result);
+      writeCommandSummaryBytes(args['summary-file'] as String?, encoded);
       if (artifactDiagnostic == null) {
-        _writeArtifactSummary(args['artifact-dir'] as String?, result);
+        _writeArtifactSummary(args['artifact-dir'] as String?, encoded);
       }
       return finalExitCode;
     }
@@ -242,9 +242,9 @@ class GateCommand {
         diagnostics: [artifactDiagnostic],
         details: const {'profiles': <Object?>[]},
       );
-      final encoded = jsonEncode(result.toJson());
-      stdout.writeln(encoded);
-      writeCommandSummary(args['summary-file'] as String?, result);
+      final encoded = encodeCommandResult(result);
+      stdout.write(encoded);
+      writeCommandSummaryBytes(args['summary-file'] as String?, encoded);
       return 1;
     }
     final profiles = _profilesFor(root);
@@ -303,7 +303,7 @@ class GateCommand {
                 'profile': profile,
               });
             } else {
-              profileResults.add(parsed.toJson());
+              profileResults.add({'profile': profile, ...parsed.toJson()});
             }
           } on FormatException catch (error) {
             profileResults.add({
@@ -366,16 +366,16 @@ class GateCommand {
       diagnostics: diagnostics,
       details: {'profiles': profileResults},
     );
-    final encoded = jsonEncode(result.toJson());
-    stdout.writeln(encoded);
-    writeCommandSummary(args['summary-file'] as String?, result);
-    _writeArtifactSummary(args['artifact-dir'] as String?, result);
+    final encoded = encodeCommandResult(result);
+    stdout.write(encoded);
+    writeCommandSummaryBytes(args['summary-file'] as String?, encoded);
+    _writeArtifactSummary(args['artifact-dir'] as String?, encoded);
     return failed ? 1 : 0;
   }
 
   List<String> _profilesFor(String root) {
     try {
-      final profiles = WorkspaceDiscovery().discover(root).config.lockProfiles;
+      final profiles = requireCurrentWorkspace(root).config.lockProfiles;
       if (profiles.isNotEmpty) return profiles;
     } on Object {
       // The individual profile result reports the configuration failure.
@@ -408,8 +408,8 @@ class GateCommand {
 
   bool _inputStable(String root) {
     try {
-      final first = WorkspaceDiscovery().discover(root).inputContents;
-      final second = WorkspaceDiscovery().discover(root).inputContents;
+      final first = requireCurrentWorkspace(root).inputContents;
+      final second = requireCurrentWorkspace(root).inputContents;
       if (first.length != second.length) return false;
       for (final entry in first.entries) {
         if (second[entry.key] != entry.value) return false;
@@ -420,7 +420,7 @@ class GateCommand {
     }
   }
 
-  void _writeArtifactSummary(String? directory, CommandResult result) {
+  void _writeArtifactSummary(String? directory, String encoded) {
     if (directory == null || directory.isEmpty) return;
     final dir = Directory(directory);
     final unsafe = _unsafeArtifactEntry(dir);
@@ -431,9 +431,7 @@ class GateCommand {
       );
     }
     dir.createSync(recursive: true);
-    File(
-      '${dir.path}/command-result.json',
-    ).writeAsStringSync(jsonEncode(result.toJson()) + '\n');
+    writeCommandResult(File('${dir.path}/command-result.json'), encoded);
   }
 
   Diagnostic? _artifactSafetyDiagnostic(String? directory) {
@@ -473,7 +471,7 @@ class GateCommand {
 
   int _checkTrustEligibility(String root) {
     try {
-      final workspace = WorkspaceDiscovery().discover(root);
+      final workspace = requireCurrentWorkspace(root);
       final trustFile = configuredTrustBundle(
         root,
         configuredPath: workspace.config.trustBundle,

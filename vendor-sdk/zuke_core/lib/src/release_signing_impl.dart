@@ -4,12 +4,11 @@ library;
 import 'dart:convert';
 import 'package:crypto/crypto.dart';
 import 'package:cryptography/cryptography.dart';
-import 'canonical_json.dart';
+import 'signing_domains.dart';
 
 /// Deterministic Ed25519 release-record signer. Private key material is
 /// supplied by the caller and is never persisted by this package.
 class Ed25519ReleaseSigner {
-  static const _domain = 'Zuke behavioral assurance release\u0000';
   final Ed25519 algorithm;
   Ed25519ReleaseSigner({Ed25519? algorithm})
     : algorithm = algorithm ?? Ed25519();
@@ -50,7 +49,7 @@ class Ed25519ReleaseSigner {
       'signer': {'signerId': signerId, 'keyId': keyId, 'algorithm': 'Ed25519'},
       'body': body,
     };
-    final bytes = utf8.encode('$_domain${canonicalJson(unsigned)}');
+    final bytes = releaseSigningPayload(unsigned);
     final digest = sha256.convert(bytes).toString();
     final keyPair = await algorithm.newKeyPairFromSeed(seed);
     final signature = await algorithm.sign(bytes, keyPair: keyPair);
@@ -78,7 +77,7 @@ class Ed25519ReleaseSigner {
       'signer': signer,
       'body': record['body'],
     };
-    final bytes = utf8.encode('$_domain${canonicalJson(unsigned)}');
+    final bytes = releaseSigningPayload(unsigned);
     if (sha256.convert(bytes).toString() != expectedDigest) return false;
     if (trustedPublicKey == null) return false;
     final signature = Signature(
@@ -240,7 +239,6 @@ class TrustedReleaseVerifier {
 
 /// Verifies a separately signed external-control attestation.
 class SignedAttestationVerifier {
-  static const _domain = 'Zuke external control attestation\u0000';
   final Ed25519 algorithm;
 
   SignedAttestationVerifier({Ed25519? algorithm})
@@ -294,7 +292,7 @@ class SignedAttestationVerifier {
       'signer': signer,
       'body': body,
     };
-    final bytes = utf8.encode('$_domain${canonicalJson(unsigned)}');
+    final bytes = attestationSigningPayload(unsigned);
     final signature = Signature(
       base64Decode(signatureText),
       publicKey: SimplePublicKey(key.publicKey, type: KeyPairType.ed25519),

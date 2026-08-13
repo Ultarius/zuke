@@ -10,7 +10,7 @@ class VerificationBackedValidator {
   ValidationResult validate(
     WorkspaceDiscoveryResult workspace,
     List<IrAdapterOutput> outputs,
-    List<SemanticEvidenceRecord> evidence,
+    List<EvidenceRecord> evidence,
   ) {
     final proofs = <ControlProofResult>[];
     final providers = <_Provider>[];
@@ -163,7 +163,7 @@ class VerificationBackedValidator {
     return result.values.toList();
   }
 
-  bool _hasRequiredDigests(SemanticEvidenceRecord record) =>
+  bool _hasRequiredDigests(EvidenceRecord record) =>
       const [
         'source',
         'contract',

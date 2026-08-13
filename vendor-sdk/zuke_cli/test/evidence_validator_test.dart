@@ -9,56 +9,56 @@ const _backendDomainSlot = <String, String>{
   'type': 'domain-unit',
   'target': 'backend',
   'sourcePackage': 'backend',
-  'sourceAdapter': 'dart-test',
+  'sourceAdapter': 'dart-source',
   'variant': 'default',
 };
 const _flutterWidgetSlot = <String, String>{
   'type': 'flutter-widget',
   'target': 'flutter',
   'sourcePackage': 'flutter',
-  'sourceAdapter': 'flutter-test',
+  'sourceAdapter': 'dart-source',
   'variant': 'default',
 };
 const _backendApiSlot = <String, String>{
   'type': 'api-contract',
   'target': 'backend',
   'sourcePackage': 'backend',
-  'sourceAdapter': 'dart-test',
+  'sourceAdapter': 'dart-source',
   'variant': 'default',
 };
 const _backendSecuritySlot = <String, String>{
   'type': 'security-integration',
   'target': 'backend',
   'sourcePackage': 'backend',
-  'sourceAdapter': 'dart-test',
+  'sourceAdapter': 'dart-source',
   'variant': 'default',
 };
 const _flutterAccessibilitySlot = <String, String>{
   'type': 'accessibility-integration',
   'target': 'flutter',
   'sourcePackage': 'flutter',
-  'sourceAdapter': 'flutter-test',
+  'sourceAdapter': 'dart-source',
   'variant': 'default',
 };
 const _backendPerformanceSlot = <String, String>{
   'type': 'performance',
   'target': 'backend',
   'sourcePackage': 'backend',
-  'sourceAdapter': 'dart-test',
+  'sourceAdapter': 'dart-source',
   'variant': 'default',
 };
 const _backendGherkinSlot = <String, String>{
   'type': 'gherkin-api',
   'target': 'backend',
   'sourcePackage': 'backend',
-  'sourceAdapter': 'dart-test',
+  'sourceAdapter': 'dart-source',
   'variant': 'default',
 };
 const _flutterGherkinSlot = <String, String>{
   'type': 'gherkin-ui',
   'target': 'flutter',
   'sourcePackage': 'flutter',
-  'sourceAdapter': 'flutter-test',
+  'sourceAdapter': 'dart-source',
   'variant': 'default',
 };
 
@@ -248,12 +248,12 @@ void main() {
         ),
       );
 
-      final record = SemanticEvidenceRecord(
+      final record = EvidenceRecord(
         requirementId: 'RULE-1',
         evidenceType: 'domain-unit',
         target: 'backend',
         sourcePackage: 'backend',
-        sourceAdapter: 'dart-test',
+        sourceAdapter: 'dart-source',
         executionId: 'exec-1',
         status: EvidenceStatus.passed,
       );
@@ -269,12 +269,12 @@ void main() {
         data: MetadataExtractorResult(features: []),
       );
 
-      final record = SemanticEvidenceRecord(
+      final record = EvidenceRecord(
         requirementId: 'RULE-UNMAPPED',
         evidenceType: 'domain-unit',
         target: 'backend',
         sourcePackage: 'backend',
-        sourceAdapter: 'dart-test',
+        sourceAdapter: 'dart-source',
         executionId: 'exec-1',
         status: EvidenceStatus.passed,
       );
@@ -326,12 +326,12 @@ void main() {
         ),
       );
 
-      final record = SemanticEvidenceRecord(
+      final record = EvidenceRecord(
         requirementId: 'RULE-1',
         evidenceType: 'domain-unit',
         target: 'backend',
         sourcePackage: 'backend',
-        sourceAdapter: 'dart-test',
+        sourceAdapter: 'dart-source',
         executionId: 'exec-1',
         status: EvidenceStatus.skipped,
       );
@@ -439,75 +439,75 @@ void main() {
         ),
       );
 
-      final record = SemanticEvidenceRecord(
+      final record = EvidenceRecord(
         requirementId: 'RULE-1',
         evidenceType: 'domain-unit',
         target: 'backend',
         sourcePackage: 'backend',
-        sourceAdapter: 'dart-test',
+        sourceAdapter: 'dart-source',
         executionId: 'exec-domain',
         status: EvidenceStatus.passed,
       );
-      final recordFlutter = SemanticEvidenceRecord(
+      final recordFlutter = EvidenceRecord(
         requirementId: 'RULE-1',
         evidenceType: 'flutter-widget',
         target: 'flutter',
         sourcePackage: 'flutter',
-        sourceAdapter: 'flutter-test',
+        sourceAdapter: 'dart-source',
         executionId: 'exec-flutter',
         status: EvidenceStatus.passed,
       );
-      final recordApi = SemanticEvidenceRecord(
+      final recordApi = EvidenceRecord(
         requirementId: 'RULE-1',
         evidenceType: 'api-contract',
         target: 'backend',
         sourcePackage: 'backend',
-        sourceAdapter: 'dart-test',
+        sourceAdapter: 'dart-source',
         executionId: 'exec-api',
         status: EvidenceStatus.passed,
       );
-      final recordSecurity = SemanticEvidenceRecord(
+      final recordSecurity = EvidenceRecord(
         requirementId: 'RULE-1',
         evidenceType: 'security-integration',
         target: 'backend',
         sourcePackage: 'backend',
-        sourceAdapter: 'dart-test',
+        sourceAdapter: 'dart-source',
         executionId: 'exec-security',
         status: EvidenceStatus.passed,
       );
-      final recordAccessibility = SemanticEvidenceRecord(
+      final recordAccessibility = EvidenceRecord(
         requirementId: 'RULE-1',
         evidenceType: 'accessibility-integration',
         target: 'flutter',
         sourcePackage: 'flutter',
-        sourceAdapter: 'flutter-test',
+        sourceAdapter: 'dart-source',
         executionId: 'exec-a11y',
         status: EvidenceStatus.passed,
       );
-      final recordPerf = SemanticEvidenceRecord(
+      final recordPerf = EvidenceRecord(
         requirementId: 'RULE-1',
         evidenceType: 'performance',
         target: 'backend',
         sourcePackage: 'backend',
-        sourceAdapter: 'dart-test',
+        sourceAdapter: 'dart-source',
         executionId: 'exec-perf',
         status: EvidenceStatus.passed,
       );
-      final recordGherkinApi = SemanticEvidenceRecord(
+      final recordGherkinApi = EvidenceRecord(
         requirementId: 'RULE-1',
         evidenceType: 'gherkin-api',
         target: 'backend',
         sourcePackage: 'backend',
-        sourceAdapter: 'dart-test',
+        sourceAdapter: 'dart-source',
         executionId: 'exec-gherkin-api',
         status: EvidenceStatus.passed,
       );
-      final recordGherkinUi = SemanticEvidenceRecord(
+      final recordGherkinUi = EvidenceRecord(
         requirementId: 'RULE-1',
         evidenceType: 'gherkin-ui',
         target: 'flutter',
         sourcePackage: 'flutter',
-        sourceAdapter: 'flutter-test',
+        sourceAdapter: 'dart-source',
         executionId: 'exec-gherkin-ui',
         status: EvidenceStatus.passed,
       );
@@ -576,12 +576,12 @@ void main() {
         ),
       );
 
-      final record = SemanticEvidenceRecord(
+      final record = EvidenceRecord(
         requirementId: 'RULE-1',
         evidenceType: 'domain-unit',
         target: 'backend',
         sourcePackage: 'backend',
-        sourceAdapter: 'dart-test',
+        sourceAdapter: 'dart-source',
         executionId: 'exec-1',
         status: EvidenceStatus.passed,
         digests: {
@@ -637,22 +637,22 @@ void main() {
         ),
       );
 
-      final skippedRecord = SemanticEvidenceRecord(
+      final skippedRecord = EvidenceRecord(
         requirementId: 'RULE-1',
         evidenceType: 'domain-unit',
         target: 'backend',
         sourcePackage: 'backend',
-        sourceAdapter: 'dart-test',
+        sourceAdapter: 'dart-source',
         executionId: 'exec-skipped',
         status: EvidenceStatus.skipped,
       );
 
-      final staleRecord = SemanticEvidenceRecord(
+      final staleRecord = EvidenceRecord(
         requirementId: 'RULE-1',
         evidenceType: 'domain-unit',
         target: 'backend',
         sourcePackage: 'backend',
-        sourceAdapter: 'dart-test',
+        sourceAdapter: 'dart-source',
         executionId: 'exec-stale',
         status: EvidenceStatus.passed,
         digests: {
@@ -737,15 +737,16 @@ void main() {
           ),
         );
 
-        final record = SemanticEvidenceRecord(
+        final record = EvidenceRecord(
           requirementId: 'RULE-1',
           evidenceType: 'domain-unit',
           target: 'backend',
           sourcePackage: 'backend',
-          sourceAdapter: 'dart-test',
+          sourceAdapter: 'dart-source',
           executionId: 'exec-1',
           status: EvidenceStatus.passed,
           digests: {
+            'source': initialDigest,
             'contract':
                 'sha256:0000000000000000000000000000000000000000000000000000000000000000',
             'specification': initialDigest,
@@ -760,6 +761,12 @@ void main() {
         );
         expect(
           result.errors.any((e) => e.code == 'ZUKE-EVIDENCE-STALE'),
+          isTrue,
+        );
+        expect(
+          result.errors.any(
+            (e) => e.code == 'ZK-EVIDENCE-SLOT-IDENTITY-MISSING',
+          ),
           isTrue,
         );
       } finally {
@@ -804,12 +811,12 @@ void main() {
         ),
       );
 
-      final record = SemanticEvidenceRecord(
+      final record = EvidenceRecord(
         requirementId: 'RULE-ORPHAN',
         evidenceType: 'domain-unit',
         target: 'backend',
         sourcePackage: 'backend',
-        sourceAdapter: 'dart-test',
+        sourceAdapter: 'dart-source',
         executionId: 'exec-orphan',
         status: EvidenceStatus.passed,
       );
@@ -884,12 +891,12 @@ void main() {
           inputDigest: 'original-digest-value',
         );
 
-        final record = SemanticEvidenceRecord(
+        final record = EvidenceRecord(
           requirementId: 'RULE-1',
           evidenceType: 'domain-unit',
           target: 'backend',
           sourcePackage: 'backend',
-          sourceAdapter: 'dart-test',
+          sourceAdapter: 'dart-source',
           executionId: 'exec-1',
           status: EvidenceStatus.passed,
           digests: {
@@ -960,7 +967,7 @@ void main() {
     final result = EvidenceValidator().validate(
       workspace,
       records: [
-        const SemanticEvidenceRecord(
+        const EvidenceRecord(
           requirementId: 'RULE-DASHBOARD-BEHAVIOR',
           evidenceType: 'dashboard-behavior',
           target: 'dashboard',

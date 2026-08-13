@@ -93,8 +93,8 @@ execution:
       kind: gherkin
       target: flutter
       sourcePackage: calculator-mobile
-      sourceAdapter: flutter-test
-      sourceCompatibilityId: flutter-test-v1
+      sourceAdapter: dart-source
+      sourceCompatibilityId: dart-source-package-v1
       runnerCompatibilityId: calculator-mobile-runner-v1
       evidenceTypes: [domain-unit, flutter-widget, gherkin-ui, accessibility-integration]
       executable: flutter

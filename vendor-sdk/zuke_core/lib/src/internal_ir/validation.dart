@@ -1,6 +1,6 @@
 import 'ir.dart';
 import 'adapter_models.dart';
-import '../scenario_id.dart';
+import '../evidence.dart';
 
 enum ProofStatus {
   proven,
@@ -11,8 +11,6 @@ enum ProofStatus {
   missing,
   expired,
 }
-
-enum EvidenceStatus { passed, failed, skipped }
 
 /// Stable wire representation.  Do not use `CoverageSemantics.name` in a
 /// persisted artifact: enum spelling is an implementation detail while these
@@ -83,159 +81,15 @@ class ControlProofResult {
   };
 }
 
-class SemanticEvidenceRecord {
-  final String requirementId;
-  final String evidenceType;
-  final String target;
-  final String variant;
-  final String executionId;
-  final EvidenceStatus status;
-  final List<ScenarioId> scenarioIds;
-  final List<String> controlIds;
-  final Map<String, String> digests;
-  final String? candidateId;
-  final String profile;
-  final String? runnerId;
-  final String? runnerCompatibilityId;
-  final String? sourcePackage;
-  final String? sourceAdapter;
-  final String? sourceCompatibilityId;
-  final List<String> attachmentDigests;
-
-  const SemanticEvidenceRecord({
-    required this.requirementId,
-    required this.evidenceType,
-    required this.target,
-    this.variant = 'default',
-    required this.executionId,
-    this.status = EvidenceStatus.passed,
-    this.scenarioIds = const [],
-    this.controlIds = const [],
-    this.digests = const {},
-    this.candidateId,
-    this.profile = 'pullRequest',
-    this.runnerId,
-    this.runnerCompatibilityId,
-    this.sourcePackage,
-    this.sourceAdapter,
-    this.sourceCompatibilityId,
-    this.attachmentDigests = const [],
-  });
-
-  Map<String, Object?> toJson() => {
-    'kind': 'zuke.evidence-record',
-    'requirementId': requirementId,
-    'evidenceType': evidenceType,
-    'target': target,
-    'variant': variant,
-    'executionId': executionId,
-    'status': status.name,
-    'scenarioIds': scenarioIds.map((id) => id.value).toList()..sort(),
-    'controlIds': [...controlIds]..sort(),
-    if (digests.isNotEmpty) 'digests': digests,
-    if (candidateId != null) 'candidateId': candidateId,
-    'profile': profile,
-    if (runnerId != null) 'runnerId': runnerId,
-    if (runnerCompatibilityId != null)
-      'runnerCompatibilityId': runnerCompatibilityId,
-    if (sourcePackage != null) 'sourcePackage': sourcePackage,
-    if (sourceAdapter != null) 'sourceAdapter': sourceAdapter,
-    if (sourceCompatibilityId != null)
-      'sourceCompatibilityId': sourceCompatibilityId,
-    if (attachmentDigests.isNotEmpty)
-      'attachmentDigests': [...attachmentDigests]..sort(),
-  };
-
-  /// Validates the semantic record at the filesystem boundary.  A record
-  /// which merely resembles evidence must not silently acquire defaults that
-  /// allow it to satisfy a required-evidence slot.
-  factory SemanticEvidenceRecord.fromJson(Map<String, Object?> json) {
-    if (json['kind'] != 'zuke.evidence-record') {
-      throw const FormatException(
-        'Unsupported evidence record format; regenerate with the current Zuke CLI',
-      );
-    }
-    String required(String key) {
-      final value = json[key];
-      if (value is! String || value.isEmpty) {
-        throw FormatException('Evidence record requires non-empty $key');
-      }
-      return value;
-    }
-
-    final status = switch (required('status')) {
-      'passed' => EvidenceStatus.passed,
-      'failed' => EvidenceStatus.failed,
-      'skipped' => EvidenceStatus.skipped,
-      final value => throw FormatException('Unknown evidence status: $value'),
-    };
-    final digests = <String, String>{};
-    final rawDigests = json['digests'];
-    if (rawDigests is! Map) {
-      throw const FormatException('Evidence digests must be an object');
-    }
-    for (final entry in rawDigests.entries) {
-      if (entry.key is! String || entry.value is! String) {
-        throw const FormatException('Evidence digest entries must be strings');
-      }
-      if (!RegExp(r'^sha256:[a-f0-9]{64}$').hasMatch(entry.value as String)) {
-        throw FormatException('Invalid evidence digest for ${entry.key}');
-      }
-      digests[entry.key as String] = entry.value as String;
-    }
-    for (final key in const [
-      'source',
-      'contract',
-      'mapping',
-      'specificationIndex',
-      'result',
-    ]) {
-      if (!digests.containsKey(key)) {
-        throw FormatException('Evidence record is missing $key digest');
-      }
-    }
-    List<String> strings(String key) {
-      final value = json[key] ?? const [];
-      if (value is! List || value.any((item) => item is! String)) {
-        throw FormatException('Evidence $key must be a string list');
-      }
-      return value.cast<String>();
-    }
-
-    final sourcePackage = required('sourcePackage');
-    final sourceAdapter = required('sourceAdapter');
-    final sourceCompatibilityId = required('sourceCompatibilityId');
-    return SemanticEvidenceRecord(
-      requirementId: required('requirementId'),
-      evidenceType: required('evidenceType'),
-      target: required('target'),
-      variant: required('variant'),
-      executionId: required('executionId'),
-      status: status,
-      scenarioIds: [
-        for (final id in strings('scenarioIds')) ScenarioId.parse(id),
-      ],
-      controlIds: strings('controlIds'),
-      digests: digests,
-      candidateId: required('candidateId'),
-      profile: required('profile'),
-      runnerId: required('runnerId'),
-      runnerCompatibilityId: required('runnerCompatibilityId'),
-      sourcePackage: sourcePackage,
-      sourceAdapter: sourceAdapter,
-      sourceCompatibilityId: sourceCompatibilityId,
-      attachmentDigests: strings('attachmentDigests'),
-    );
-  }
-}
-
+/// Compatibility name for internal source imports during this source-level
+/// migration. It is not exported as a second wire model or public API.
 class ValidationReport {
   final String engineVersion;
   final String workspace;
   final String profile;
   final List<IrDiagnostic> diagnostics;
   final List<ControlProofResult> controlProofs;
-  final List<SemanticEvidenceRecord> evidence;
+  final List<EvidenceRecord> evidence;
   final Map<String, String> graphHashes;
   final Map<String, CompletenessValue> completeness;
   final Map<String, String> adapterHashes;

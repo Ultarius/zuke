@@ -12,6 +12,7 @@ import 'generator.dart';
 import 'proof_engine.dart';
 import 'ir.dart';
 import 'lock_path.dart';
+import 'configuration_preflight.dart';
 
 /// Immutable inputs for one lock calculation.
 ///
@@ -83,7 +84,7 @@ class LockCommand {
       );
       return 1;
     }
-    final workspace = WorkspaceDiscovery().discover(root.path);
+    final workspace = requireCurrentWorkspace(root.path);
     final profile = args['profile'] as String? ?? 'pullRequest';
     final extraction = await ExtractionService().extract(workspace);
     final verifiedAttestations = await AttestationVerification().verify(
@@ -177,7 +178,7 @@ class LockCommand {
 
   List<String> _configuredProfiles(String root) {
     try {
-      final profiles = WorkspaceDiscovery().discover(root).config.lockProfiles;
+      final profiles = requireCurrentWorkspace(root).config.lockProfiles;
       if (profiles.isNotEmpty) return profiles;
     } on Object {
       // Let the normal single-profile path report the configuration failure.
@@ -305,7 +306,7 @@ class LockCommand {
 
     final policyHash = 'sha256:${sha256.convert(utf8.encode(policyJson))}';
     final evidenceRequirementsHash =
-        'sha256:${sha256.convert(utf8.encode(const JsonEncoder().convert(evidenceRequirements)))}';
+        'sha256:${sha256.convert(utf8.encode(canonicalJson(evidenceRequirements)))}';
 
     final data = <String, dynamic>{
       'kind': 'zuke.lock',

@@ -90,8 +90,8 @@ execution:
     - id: trivial
       target: backend
       sourcePackage: backend
-      sourceAdapter: dart-test
-      sourceCompatibilityId: dart-test-v2
+      sourceAdapter: dart-source
+      sourceCompatibilityId: dart-source-package-v1
       runnerCompatibilityId: dart-runner-v1
       executable: '$runnerExec'
       args:$yamlArgs

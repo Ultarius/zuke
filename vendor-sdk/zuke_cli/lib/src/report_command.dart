@@ -2,12 +2,12 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:args/args.dart';
-import 'package:zuke_frontend/zuke_frontend.dart';
 
 import 'extraction_service.dart';
 import 'proof_engine.dart';
 import 'reporter.dart';
 import 'lock_path.dart';
+import 'configuration_preflight.dart';
 
 class ReportCommand {
   final ArgResults args;
@@ -24,8 +24,7 @@ class ReportCommand {
       if (!quiet) stdout.writeln(message);
     }
 
-    final discovery = WorkspaceDiscovery();
-    final workspace = discovery.discover(root);
+    final workspace = requireCurrentWorkspace(root);
     final extraction = await ExtractionService().extract(workspace);
 
     final validation = ValidatorEngine().validate(

@@ -122,6 +122,24 @@ Legacy locks, legacy result markers, and old history paths are rejected rather
 than read as current data. Remove or archive them outside the active current
 paths before checking in regenerated output.
 
+### Non-portable artifacts
+
+Derived files from the previous release are not inputs to the current CLI.
+They must be regenerated after the package and configuration upgrade:
+
+| Previous artifact or identity | Current action |
+| --- | --- |
+| Old evidence records, including semantic/legacy record shapes | Delete or archive outside active evidence directories, then rerun managed tests. |
+| Root `zuke.lock.json` or version-marked lock files | Remove them and generate `assurance/locks/<profile>.lock.json`. |
+| `assurance-history/v2`, legacy exports, or `trust/verifier.json` | Keep only as historical material outside current history paths; regenerate current records and trust files. |
+| Signatures made with the previous release or attestation signing domains | Re-sign current release/attestation documents; old signatures are not valid for current verification. |
+| Runner names used as `sourceAdapter` such as `dart-test` or `flutter-test` | Set the actual extractor adapter (`dart-source` or `dart-frog`) and keep runner semantics in `runnerCompatibilityId`. |
+
+The current CLI rejects these shapes and identities instead of guessing a
+conversion. Git history or a separately archived migration bundle is the
+rollback path; legacy files must not remain in locations scanned as current
+assurance state.
+
 ## 5. Update imports and command names
 
 Use the current unversioned public APIs:

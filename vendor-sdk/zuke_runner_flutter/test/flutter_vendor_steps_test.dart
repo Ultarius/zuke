@@ -9,8 +9,8 @@ import 'support/temporary_directory.dart';
 
 const _testSourceIdentity = ExecutionSourceIdentity(
   sourcePackage: 'zuke-runner-flutter-test',
-  sourceAdapter: 'flutter-test',
-  sourceCompatibilityId: 'flutter-test-v1',
+  sourceAdapter: 'dart-source',
+  sourceCompatibilityId: 'dart-source-package-v1',
 );
 
 class _World extends ScenarioWorld {

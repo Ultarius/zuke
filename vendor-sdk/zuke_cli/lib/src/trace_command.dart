@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:args/args.dart';
 import 'package:zuke_frontend/zuke_frontend.dart';
+import 'configuration_preflight.dart';
 import 'ir.dart' show ProofStatus;
 import 'ir.dart';
 
@@ -22,7 +23,7 @@ class TraceCommand {
     final root = Directory(
       args['root'] as String? ?? Directory.current.path,
     ).absolute.resolveSymbolicLinksSync();
-    final workspace = WorkspaceDiscovery().discover(root);
+    final workspace = requireCurrentWorkspace(root);
     final extraction = await ExtractionService().extract(workspace);
     final matching = <(ParsedFeature, ParsedRule)>[];
     for (final feature in workspace.data.features) {

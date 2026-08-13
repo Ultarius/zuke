@@ -69,6 +69,28 @@ void main() {
       expect(legacy.existsSync(), isTrue);
     });
 
+    test(
+      'manifest commands reject legacy trust filenames in current paths',
+      () async {
+        await runInProcessCli(['generate', '--root', root.path]);
+        final legacy =
+            File('${root.path}/assurance-history/trust/ed25519-v2.json')
+              ..createSync(recursive: true)
+              ..writeAsStringSync('{}');
+
+        final result = await runInProcessCli([
+          'manifest',
+          'verify',
+          '--root',
+          root.path,
+        ]);
+
+        expect(result.exitCode, 2);
+        expect(result.stderr, contains('ZK-HISTORY-LEGACY-FORMAT'));
+        expect(legacy.existsSync(), isTrue);
+      },
+    );
+
     test('manifest create rejects unknown signer', () async {
       await runInProcessCli(['generate', '--root', root.path]);
       await runInProcessCli(['lock', '--root', root.path]);

@@ -5,9 +5,12 @@ void main() {
   test('rejects legacy workspace configuration forms', () {
     expect(
       () => ZukeConfig.fromYaml('schemaVersion: 2\ntargets: {}'),
-      throwsFormatException,
+      throwsA(isA<LegacyWorkspaceConfigError>()),
     );
-    expect(() => ZukeConfig.fromYaml('targets: {}'), throwsFormatException);
+    expect(
+      () => ZukeConfig.fromYaml('targets: {}'),
+      throwsA(isA<LegacyWorkspaceConfigError>()),
+    );
   });
 
   test(
@@ -36,7 +39,7 @@ lock:
   directory: assurance/locks
   profiles: [pullRequest]
 '''),
-        throwsFormatException,
+        throwsA(isA<InvalidWorkspaceConfigError>()),
       );
       expect(
         () => ZukeConfig.fromYaml('''
@@ -45,7 +48,7 @@ targets: {}
 lock:
   file: zuke.lock.json
 '''),
-        throwsFormatException,
+        throwsA(isA<InvalidWorkspaceConfigError>()),
       );
     },
   );

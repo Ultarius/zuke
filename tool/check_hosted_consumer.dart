@@ -32,16 +32,24 @@ Future<void> runHostedConsumerCertification(List<String> args) async {
   final useFlutter = _flutterAvailable();
   final violations = <String>[];
   if (!useFlutter &&
-      hostedPackages.any((package) => _requiresFlutter(frameworkRoot, package))) {
+      hostedPackages.any(
+        (package) => _requiresFlutter(frameworkRoot, package),
+      )) {
     violations.add('Flutter is required by the published package tuple.');
   }
 
   try {
     HostedConsumerFixture(
       templateRoot: Directory(
-        frameworkRoot.path + Platform.pathSeparator + 'tool' +
-            Platform.pathSeparator + 'fixtures' + Platform.pathSeparator +
-            'hosted_consumer' + Platform.pathSeparator + 'template',
+        frameworkRoot.path +
+            Platform.pathSeparator +
+            'tool' +
+            Platform.pathSeparator +
+            'fixtures' +
+            Platform.pathSeparator +
+            'hosted_consumer' +
+            Platform.pathSeparator +
+            'template',
       ),
       destination: fixture,
       matrix: matrix,
@@ -60,21 +68,37 @@ Future<void> runHostedConsumerCertification(List<String> args) async {
     }
 
     final summaryPath = File(
-      fixture.path + Platform.pathSeparator + 'generated' +
-          Platform.pathSeparator + 'gate-summary.json',
+      fixture.path +
+          Platform.pathSeparator +
+          'generated' +
+          Platform.pathSeparator +
+          'gate-summary.json',
     );
     final artifactDirectory = Directory(
-      fixture.path + Platform.pathSeparator + 'generated' +
-          Platform.pathSeparator + 'safe-artifacts',
+      fixture.path +
+          Platform.pathSeparator +
+          'generated' +
+          Platform.pathSeparator +
+          'safe-artifacts',
     );
     final commands = <List<String>>[
       _zukeCommand(['doctor', '--format', 'json']),
       _zukeCommand(['generate']),
       _zukeCommand(['generate', '--check']),
       _dartCommand(['test']),
-      for (final profile in const ['pullRequest', 'merge', 'release', 'nightly'])
+      for (final profile in const [
+        'pullRequest',
+        'merge',
+        'release',
+        'nightly',
+      ])
         _zukeCommand(['test', '--profile', profile, '--format', 'json']),
-      for (final profile in const ['pullRequest', 'merge', 'release', 'nightly'])
+      for (final profile in const [
+        'pullRequest',
+        'merge',
+        'release',
+        'nightly',
+      ])
         _zukeCommand(['validate', '--profile', profile, '--format', 'json']),
       _zukeCommand(['lock', '--all-profiles']),
       _zukeCommand(['lock', '--all-profiles', '--check']),
@@ -101,7 +125,9 @@ Future<void> runHostedConsumerCertification(List<String> args) async {
     }
     final gateResult = _readCommandResult(summaryPath);
     final artifactResult = _readCommandResult(
-      File(artifactDirectory.path + Platform.pathSeparator + 'command-result.json'),
+      File(
+        artifactDirectory.path + Platform.pathSeparator + 'command-result.json',
+      ),
     );
     if (gateResult == null || artifactResult == null) {
       violations.add(
@@ -111,26 +137,26 @@ Future<void> runHostedConsumerCertification(List<String> args) async {
       violations.add('Gate summary and safe artifact command results differ.');
     }
     final gateRuns = results.where(
-      (result) => result['command'] is List &&
+      (result) =>
+          result['command'] is List &&
           (result['command'] as List).contains('gate'),
     );
     final stdoutGate = gateRuns.isEmpty ? null : gateRuns.last['commandResult'];
-    if (stdoutGate is Map && gateResult != null &&
+    if (stdoutGate is Map &&
+        gateResult != null &&
         !_sameJson(stdoutGate, gateResult.toJson())) {
       violations.add('Gate stdout and summary command results differ.');
     }
 
-    final passed = violations.isEmpty &&
+    final passed =
+        violations.isEmpty &&
         results.every((result) => result['exitCode'] == 0) &&
         (gateResult?.succeeded ?? false);
     final report = <String, Object?>{
       'kind': 'zuke.hosted-consumer-certification',
       'platform': options.platform,
       'passed': passed,
-      'sdk': {
-        'dart': Platform.version,
-        'flutter': _flutterVersion(),
-      },
+      'sdk': {'dart': Platform.version, 'flutter': _flutterVersion()},
       'packageVersions': matrix.publicPackageVersions,
       'compatibilityIds': matrix.compatibilityIds,
       'resolvedPackages': _resolvedTuple(fixture),
@@ -209,11 +235,11 @@ Future<_RunResult> _run(Directory root, List<String> command) async {
 
 bool _flutterAvailable() {
   try {
-    return Process.runSync(
-      'flutter',
-      const ['--suppress-analytics', '--version'],
-      runInShell: Platform.isWindows,
-    ).exitCode == 0;
+    return Process.runSync('flutter', const [
+          '--suppress-analytics',
+          '--version',
+        ], runInShell: Platform.isWindows).exitCode ==
+        0;
   } on Object {
     return false;
   }
@@ -221,11 +247,10 @@ bool _flutterAvailable() {
 
 String? _flutterVersion() {
   try {
-    final result = Process.runSync(
-      'flutter',
-      const ['--suppress-analytics', '--version'],
-      runInShell: Platform.isWindows,
-    );
+    final result = Process.runSync('flutter', const [
+      '--suppress-analytics',
+      '--version',
+    ], runInShell: Platform.isWindows);
     return result.exitCode == 0
         ? result.stdout.toString().split('\n').first
         : null;
@@ -236,8 +261,13 @@ String? _flutterVersion() {
 
 bool _requiresFlutter(Directory root, String package) {
   final pubspec = File(
-    root.path + Platform.pathSeparator + 'vendor-sdk' +
-        Platform.pathSeparator + package + Platform.pathSeparator + 'pubspec.yaml',
+    root.path +
+        Platform.pathSeparator +
+        'vendor-sdk' +
+        Platform.pathSeparator +
+        package +
+        Platform.pathSeparator +
+        'pubspec.yaml',
   );
   return pubspec.existsSync() &&
       RegExp(
@@ -275,7 +305,8 @@ void _assertCleanResolution(
     if (package is! Map ||
         (package['source'] != 'hosted' && package['source'] != 'sdk')) {
       throw FormatException(
-        'Resolved package ' + entry.key.toString() +
+        'Resolved package ' +
+            entry.key.toString() +
             ' is not hosted or SDK-provided',
       );
     }
@@ -283,10 +314,14 @@ void _assertCleanResolution(
   for (final name in expectedPackages) {
     final entry = packages[name];
     final expected = matrix.packages[name]!.version;
-    if (entry is! Map || entry['source'] != 'hosted' ||
+    if (entry is! Map ||
+        entry['source'] != 'hosted' ||
         entry['version'] != expected) {
       throw FormatException(
-        'Resolved ' + name + ' does not equal hosted matrix version ' + expected,
+        'Resolved ' +
+            name +
+            ' does not equal hosted matrix version ' +
+            expected,
       );
     }
   }
@@ -302,7 +337,8 @@ Map<String, String> _resolvedTuple(Directory root) {
     for (final entry in packages.entries)
       if (entry.key is String && entry.value is Map)
         entry.key as String:
-            entry.value['source'].toString() + ':' +
+            entry.value['source'].toString() +
+            ':' +
             entry.value['version'].toString(),
   };
 }
@@ -311,9 +347,14 @@ Map<String, String> _lockDigests(Directory root) {
   final result = <String, String>{};
   for (final profile in const ['pullRequest', 'merge', 'release', 'nightly']) {
     final file = File(
-      root.path + Platform.pathSeparator + 'assurance' +
-          Platform.pathSeparator + 'locks' + Platform.pathSeparator +
-          profile + '.lock.json',
+      root.path +
+          Platform.pathSeparator +
+          'assurance' +
+          Platform.pathSeparator +
+          'locks' +
+          Platform.pathSeparator +
+          profile +
+          '.lock.json',
     );
     if (file.existsSync()) {
       result[profile] = sha256.convert(file.readAsBytesSync()).toString();
@@ -324,9 +365,15 @@ Map<String, String> _lockDigests(Directory root) {
 
 void _assertLocks(Directory root) {
   for (final profile in const ['pullRequest', 'merge', 'release', 'nightly']) {
-    final path = root.path + Platform.pathSeparator + 'assurance' +
-        Platform.pathSeparator + 'locks' + Platform.pathSeparator +
-        profile + '.lock.json';
+    final path =
+        root.path +
+        Platform.pathSeparator +
+        'assurance' +
+        Platform.pathSeparator +
+        'locks' +
+        Platform.pathSeparator +
+        profile +
+        '.lock.json';
     if (!File(path).existsSync()) {
       throw StateError('Missing generated profile lock: ' + path);
     }

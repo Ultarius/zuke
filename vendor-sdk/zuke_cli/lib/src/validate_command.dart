@@ -2,12 +2,12 @@ import 'dart:io';
 import 'dart:convert';
 
 import 'package:args/args.dart';
-import 'package:zuke_frontend/zuke_frontend.dart';
 
 import 'extraction_service.dart';
 import 'attestation_verification.dart';
 import 'scenario_selection.dart';
 import 'proof_engine.dart';
+import 'configuration_preflight.dart';
 
 class ValidateCommand {
   final ArgResults args;
@@ -19,7 +19,7 @@ class ValidateCommand {
     final profile = args['profile'] as String? ?? 'pullRequest';
     final jsonMode = (args['format'] as String? ?? 'text') == 'json';
     final quiet = args['quiet'] as bool? ?? false;
-    var workspace = WorkspaceDiscovery().discover(root);
+    final workspace = requireCurrentWorkspace(root);
 
     void info(String message) {
       if (!jsonMode && !quiet) stdout.writeln(message);

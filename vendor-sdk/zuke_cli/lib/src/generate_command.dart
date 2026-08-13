@@ -5,6 +5,7 @@ import 'package:zuke_cli/tooling.dart';
 import 'package:zuke_frontend/zuke_frontend.dart';
 
 import 'generator.dart';
+import 'configuration_preflight.dart';
 
 class GenerateCommand {
   final ArgResults args;
@@ -23,8 +24,7 @@ class GenerateCommand {
 
     info('${checkOnly ? "Checking" : "Generating"} contracts...');
 
-    final discovery = WorkspaceDiscovery();
-    final workspace = discovery.discover(root);
+    final workspace = requireCurrentWorkspace(root);
 
     final generator = DartContractGenerator();
     final configuredOutput =

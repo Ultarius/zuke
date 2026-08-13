@@ -68,7 +68,9 @@ final class HostedConsumerFixture {
     for (final package in hostedPackages) {
       final release = matrix.packages[package];
       if (release == null) {
-        throw FormatException('Package is not in the release matrix: ' + package);
+        throw FormatException(
+          'Package is not in the release matrix: ' + package,
+        );
       }
       values.add('  ' + package + ': ' + release.version);
     }

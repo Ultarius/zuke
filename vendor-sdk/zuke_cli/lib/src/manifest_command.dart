@@ -3,9 +3,9 @@ import 'dart:io';
 
 import 'package:crypto/crypto.dart';
 import 'package:args/args.dart';
-import 'package:zuke_frontend/zuke_frontend.dart';
 import 'ir.dart';
 import 'lock_path.dart';
+import 'configuration_preflight.dart';
 import 'package:zuke_core/zuke_core.dart';
 
 import 'extraction_service.dart';
@@ -28,7 +28,7 @@ class ManifestCommand {
     final workspaceRoot = Directory(
       Directory(root).absolute.resolveSymbolicLinksSync(),
     );
-    final workspace = WorkspaceDiscovery().discover(workspaceRoot.path);
+    final workspace = requireCurrentWorkspace(workspaceRoot.path);
     final trust = loadWorkspaceTrustBundle(workspace);
     if (trust.keys.isEmpty) {
       throw FormatException('No signers enrolled in ed25519.json');
@@ -163,18 +163,17 @@ class ManifestCommand {
     required String keyId,
     required TrustKey trustedKey,
   }) async {
-    const domain = 'Zuke behavioral assurance release\u0000';
     final unsigned = <String, Object?>{
       'kind': 'zuke.behavioral-assurance-release',
       'signer': {'signerId': signerId, 'keyId': keyId, 'algorithm': 'Ed25519'},
       'body': body,
     };
-    final payload = utf8.encode('$domain${canonicalJson(unsigned)}');
+    final payload = releaseSigningPayload(unsigned);
     final external = await ExternalSigningClient().sign(
       signerId: signerId,
       keyId: keyId,
       usage: 'release',
-      domainSeparator: domain,
+      domainSeparator: releaseSigningDomain,
       payload: payload,
       trustedKey: trustedKey,
     );
@@ -273,7 +272,7 @@ class ManifestCommand {
       );
       final body = Map<String, Object?>.from(record['body'] as Map);
       if (body['repositoryState'] != _gitState(root)) return false;
-      final workspace = WorkspaceDiscovery().discover(root);
+      final workspace = requireCurrentWorkspace(root);
       final lock = File(resolveProfileLockPath(root, 'release'));
       if (!lock.existsSync() ||
           body['lockDigest'] !=
@@ -369,6 +368,20 @@ class ManifestCommand {
             .where((segment) => segment.isNotEmpty)
             .last;
         if (entity is Directory && currentDirectories.contains(name)) {
+          if (name == 'trust') {
+            for (final trustEntity in entity.listSync(followLinks: false)) {
+              final trustName = trustEntity.uri.pathSegments
+                  .where((segment) => segment.isNotEmpty)
+                  .last;
+              if (trustEntity is File &&
+                  const {
+                    'ed25519-v2.json',
+                    'verifier.json',
+                  }.contains(trustName)) {
+                legacyPaths.add(trustEntity.path);
+              }
+            }
+          }
           continue;
         }
         legacyPaths.add(entity.path);

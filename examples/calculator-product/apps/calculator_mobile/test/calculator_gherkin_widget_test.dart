@@ -138,8 +138,8 @@ void main() {
       const ExecutionResultWriter(
         identity: ExecutionSourceIdentity(
           sourcePackage: 'calculator-mobile',
-          sourceAdapter: 'flutter-test',
-          sourceCompatibilityId: 'flutter-test-v1',
+          sourceAdapter: 'dart-source',
+          sourceCompatibilityId: 'dart-source-package-v1',
         ),
       ).writeScenarioToEnvironment(result);
       // The test produces a raw scenario result only. Zuke CLI binds it to

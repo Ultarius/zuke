@@ -31,8 +31,8 @@ import 'tool_invocation.dart';
 import 'watch_coordinator.dart';
 import 'test_run_summary.dart';
 import 'command_result.dart';
-import 'ir.dart';
 import 'generated/release_contract.dart';
+import 'source_output_catalog.dart';
 
 const _runnerModeNames = ['auto', 'cli', 'directSnapshot'];
 
@@ -58,80 +58,13 @@ class _EvidencePublication {
   });
 }
 
-void _writeSemanticEvidenceAtomic(
-  String directory,
-  SemanticEvidenceRecord record,
-) {
+void _writeSemanticEvidenceAtomic(String directory, EvidenceRecord record) {
   final root = Directory(directory)..createSync(recursive: true);
-  final digest = sha256
-      .convert(utf8.encode(canonicalJson(record.toJson())))
-      .toString();
+  final encoded =
+      '${const JsonEncoder.withIndent('  ').convert(record.toJson())}\n';
+  final digest = sha256.convert(utf8.encode(encoded)).toString();
   final semantic = File('${root.path}${Platform.pathSeparator}$digest.json');
-  final temporary = File('${semantic.path}.tmp');
-  temporary.writeAsStringSync(
-    const JsonEncoder.withIndent('  ').convert(record.toJson()) + '\n',
-  );
-  if (semantic.existsSync()) semantic.deleteSync();
-  temporary.renameSync(semantic.path);
-}
-
-String _canonicalPath(String path) {
-  final normalized = path.replaceAll('\\', '/').replaceFirst(RegExp(r'/$'), '');
-  return Platform.isWindows ? normalized.toLowerCase() : normalized;
-}
-
-String? _configuredPackageRoot(
-  WorkspaceDiscoveryResult workspace,
-  String targetId,
-  String packageId,
-) {
-  final packages = workspace.config.targetPackages[targetId] ?? const [];
-  for (final package in packages) {
-    if (package['id'] != packageId || package['path'] is! String) continue;
-    final directory = Directory(
-      '${workspace.config.root}${Platform.pathSeparator}${package['path']}',
-    );
-    if (!directory.existsSync()) return null;
-    return directory.resolveSymbolicLinksSync();
-  }
-  return null;
-}
-
-IrAdapterOutput? _sourceOutputForArtifact(
-  WorkspaceDiscoveryResult workspace,
-  ExecutionResult artifact,
-  List<IrAdapterOutput> outputs,
-) {
-  final packageRoot = _configuredPackageRoot(
-    workspace,
-    artifact.target,
-    artifact.sourcePackage ?? '',
-  );
-  if (packageRoot == null) return null;
-  final candidates = outputs
-      .where(
-        (output) =>
-            output.packageRoot != null &&
-            _canonicalPath(output.packageRoot!) == _canonicalPath(packageRoot),
-      )
-      .toList();
-  if (candidates.isEmpty) return null;
-  final compatible = candidates
-      .where(
-        (output) =>
-            artifact.sourceCompatibilityId == null ||
-            output.adapter.compatibilityId == artifact.sourceCompatibilityId,
-      )
-      .toList();
-  final selected = compatible.isNotEmpty ? compatible : candidates;
-  if (selected.length != 1) {
-    throw StateError(
-      'Ambiguous source extraction for target ${artifact.target}, '
-      'package ${artifact.sourcePackage}, and compatibility '
-      '${artifact.sourceCompatibilityId ?? '(missing)'}',
-    );
-  }
-  return selected.single;
+  writeCommandResult(semantic, encoded);
 }
 
 class ZukeCli {
@@ -446,7 +379,7 @@ class ZukeCli {
         case 'affected':
           return _runAffected(command);
         case 'test':
-          return _runTests(command);
+          return await _runTests(command);
         case 'coverage':
           return await CoverageCommand(command).execute();
         default:
@@ -515,10 +448,11 @@ Usage:
         diagnostics: diagnostics,
         details: {'release': releaseDetails},
       );
+      final encoded = encodeCommandResult(result);
       if (jsonMode) {
-        stdout.writeln(jsonEncode(result.toJson()));
+        stdout.write(encoded);
       }
-      writeCommandSummary(cmd['summary-file'] as String?, result);
+      writeCommandSummaryBytes(cmd['summary-file'] as String?, encoded);
       return code;
     }
 
@@ -889,7 +823,7 @@ Future<void> main(List<String> arguments) => zuke.build(arguments);
 
   Future<int> _runAffected(ArgResults cmd) async {
     final root = cmd['root'] as String? ?? Directory.current.path;
-    final workspace = WorkspaceDiscovery().discover(root);
+    final workspace = requireCurrentWorkspace(root);
     final ref = cmd['changed-since'] as String?;
     if (ref != null && ref.isNotEmpty) {
       final changed = Process.runSync('git', [
@@ -957,7 +891,7 @@ Future<void> main(List<String> arguments) => zuke.build(arguments);
 
   Future<int> _runTests(ArgResults cmd) async {
     final root = cmd['root'] as String? ?? Directory.current.path;
-    final workspace = WorkspaceDiscovery().discover(root);
+    final workspace = requireCurrentWorkspace(root);
     final profile = cmd['profile'] as String? ?? 'pullRequest';
     final jsonMode = (cmd['format'] as String? ?? 'text') == 'json';
     final quiet =
@@ -1493,7 +1427,7 @@ Future<void> main(List<String> arguments) => zuke.build(arguments);
       ) ??
       false;
 
-  Future<List<SemanticEvidenceRecord>> _recordsFromArtifacts(
+  Future<List<EvidenceRecord>> _recordsFromArtifacts(
     WorkspaceDiscoveryResult workspace,
     String profile,
     List<ExecutionResult> artifacts,
@@ -1512,6 +1446,10 @@ Future<void> main(List<String> arguments) => zuke.build(arguments);
         '${extraction.errors.join('; ')}',
       );
     }
+    final sourceCatalog = SourceOutputCatalog.build(
+      workspace,
+      extraction.outputs,
+    );
     final generated = DartContractGenerator().generate(
       workspace: workspace,
       outputDir: workspace.config.contractOutput ?? 'lib/src/generated',
@@ -1529,7 +1467,7 @@ Future<void> main(List<String> arguments) => zuke.build(arguments);
       workspace.config.root!,
       (path) => path.startsWith('specs/'),
     );
-    final records = <SemanticEvidenceRecord>[];
+    final records = <EvidenceRecord>[];
     final evidenceKeys = <String>{};
     for (final artifact in artifacts) {
       if (artifact.profile != profile) {
@@ -1542,22 +1480,22 @@ Future<void> main(List<String> arguments) => zuke.build(arguments);
       }
       final requirementId = artifact.requirementId;
       final target = artifact.target;
-      final sourceOutput = _sourceOutputForArtifact(
-        workspace,
-        artifact,
-        extraction.outputs,
-      );
-      if (sourceOutput == null) {
-        throw StateError(
-          'No source extraction matches target $target, '
-          'package ${artifact.sourcePackage}, and compatibility '
-          '${artifact.sourceCompatibilityId ?? '(missing)'}',
+      final SourceOutputResolution sourceResolution;
+      try {
+        sourceResolution = sourceCatalog.resolve(
+          target: target,
+          sourcePackage: artifact.sourcePackage ?? '',
+          sourceAdapter: artifact.sourceAdapter ?? '',
+          sourceCompatibilityId: artifact.sourceCompatibilityId ?? '',
         );
+      } on SourceResolveFailure catch (failure) {
+        throw FormatException('$failure');
       }
+      final sourceOutput = sourceResolution.output;
       final sourceDigest = _normalizeHash(sourceOutput.inputDigest);
       final artifactJson = Map<String, Object?>.from(artifact.toJson())
         ..remove('profile');
-      final record = SemanticEvidenceRecord(
+      final record = EvidenceRecord(
         requirementId: requirementId,
         evidenceType: artifact.evidenceType,
         target: target,
@@ -1595,7 +1533,7 @@ Future<void> main(List<String> arguments) => zuke.build(arguments);
         throw StateError('Duplicate evidence key: $key');
       }
       // Round-trip through the strict boundary validator before publication.
-      records.add(SemanticEvidenceRecord.fromJson(record.toJson()));
+      records.add(EvidenceRecord.fromJson(record.toJson()));
     }
     return records;
   }

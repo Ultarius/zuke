@@ -218,16 +218,11 @@ class EvidenceWriter {
 
   void writeAtomic(String directory, EvidenceRecord record, {String? buildId}) {
     final root = Directory(directory)..createSync(recursive: true);
-    final digest = sha256
-        .convert(utf8.encode(canonicalJson(record.toJson())))
-        .toString();
+    final encoded =
+        '${const JsonEncoder.withIndent('  ').convert(record.toJson())}\n';
+    final digest = sha256.convert(utf8.encode(encoded)).toString();
     final semantic = File('${root.path}${Platform.pathSeparator}$digest.json');
-    final temporary = File('${semantic.path}.tmp');
-    temporary.writeAsStringSync(
-      const JsonEncoder.withIndent('  ').convert(record.toJson()) + '\n',
-    );
-    if (semantic.existsSync()) semantic.deleteSync();
-    temporary.renameSync(semantic.path);
+    _writeEncodedAtomically(semantic, encoded);
     // Observation envelopes are written by the CLI run coordinator so this
     // semantic writer remains deterministic.
   }
@@ -247,8 +242,9 @@ class EvidenceWriter {
     envelopes.sort(
       (a, b) => jsonEncode(a['record']).compareTo(jsonEncode(b['record'])),
     );
-    file.writeAsStringSync(
-      const JsonEncoder.withIndent('  ').convert(envelopes) + '\n',
+    _writeEncodedAtomically(
+      file,
+      '${const JsonEncoder.withIndent('  ').convert(envelopes)}\n',
     );
   }
 }
@@ -674,14 +670,57 @@ class ExecutionResultWriter {
   File _writeAtomic(String directory, String stem, Map<String, Object?> json) {
     final root = Directory(directory)..createSync(recursive: true);
     final destination = File('${root.path}${Platform.pathSeparator}$stem.json');
-    final temporary = File('${destination.path}.tmp');
-    temporary.writeAsStringSync(
-      const JsonEncoder.withIndent('  ').convert(json) + '\n',
-      flush: true,
+    _writeEncodedAtomically(
+      destination,
+      '${const JsonEncoder.withIndent('  ').convert(json)}\n',
     );
-    if (destination.existsSync()) destination.deleteSync();
-    return temporary.renameSync(destination.path);
+    return destination;
   }
+}
+
+void _writeEncodedAtomically(File destination, String encoded) {
+  destination.parent.createSync(recursive: true);
+  final bytes = utf8.encode(encoded);
+  final temporary = File(
+    '${destination.path}.tmp-${pid}-${DateTime.now().microsecondsSinceEpoch}',
+  );
+  try {
+    final handle = temporary.openSync(mode: FileMode.write);
+    try {
+      handle.writeFromSync(bytes);
+      handle.flushSync();
+    } finally {
+      handle.closeSync();
+    }
+    if (destination.existsSync()) {
+      final existing = destination.readAsBytesSync();
+      if (_bytesEqual(existing, bytes)) return;
+      throw const FormatException(
+        'ZK-EVIDENCE-WRITE-CONFLICT: destination contains different bytes',
+      );
+    }
+    try {
+      temporary.renameSync(destination.path);
+    } on FileSystemException {
+      if (!destination.existsSync()) rethrow;
+      final existing = destination.readAsBytesSync();
+      if (!_bytesEqual(existing, bytes)) {
+        throw const FormatException(
+          'ZK-EVIDENCE-WRITE-CONFLICT: destination contains different bytes',
+        );
+      }
+    }
+  } finally {
+    if (temporary.existsSync()) temporary.deleteSync();
+  }
+}
+
+bool _bytesEqual(List<int> left, List<int> right) {
+  if (left.length != right.length) return false;
+  for (var index = 0; index < left.length; index++) {
+    if (left[index] != right[index]) return false;
+  }
+  return true;
 }
 
 /// Emits deterministic passed suite evidence for non-Gherkin test bodies.
@@ -708,23 +747,61 @@ final class SuiteEvidenceEmitter {
     final managedContext = RunnerExecutionContext.fromEnvironment(
       Platform.environment,
     );
-    if (sourceIdentity == null &&
-        outputDirectory == null &&
-        managedContext == null) {
-      // Preserve ordinary direct-test behavior during migration. Managed
-      // wrappers use the explicit context and still fail closed on partial
-      // identity rather than silently publishing an incomplete record.
-      return const [];
+    if (managedContext == null) {
+      final explicitManaged =
+          sourceIdentity != null ||
+          outputDirectory != null ||
+          profile != null ||
+          runnerId != null;
+      if (!explicitManaged) {
+        // Ordinary direct tests run normally and publish no evidence.
+        return const [];
+      }
+      if (sourceIdentity == null ||
+          outputDirectory == null ||
+          profile == null ||
+          runnerId == null) {
+        throw const FormatException(
+          'Managed evidence options require a complete RunnerExecutionContext',
+        );
+      }
     }
-    final effectiveProfile =
-        profile ?? managedContext?.profile ?? 'pullRequest';
-    final effectiveRunnerId =
-        runnerId ?? managedContext?.runnerId ?? 'zuke-runner';
+    final effectiveIdentity = managedContext?.sourceIdentity ?? sourceIdentity!;
+    final effectiveOutputDirectory =
+        managedContext?.resultDirectory ?? outputDirectory!;
+    final effectiveProfile = managedContext?.profile ?? profile!;
+    final effectiveRunnerId = managedContext?.runnerId ?? runnerId!;
+    if (managedContext != null &&
+        profile != null &&
+        profile != managedContext.profile) {
+      throw const FormatException(
+        'Evidence profile disagrees with managed context',
+      );
+    }
+    if (managedContext != null &&
+        runnerId != null &&
+        runnerId != managedContext.runnerId) {
+      throw const FormatException(
+        'Evidence runner disagrees with managed context',
+      );
+    }
+    if (managedContext != null &&
+        runnerCompatibilityId != managedContext.runnerCompatibilityId) {
+      throw const FormatException(
+        'Evidence runner compatibility disagrees with managed context',
+      );
+    }
+    if (managedContext != null &&
+        sourceIdentity != null &&
+        canonicalJson(sourceIdentity.toJson()) !=
+            canonicalJson(managedContext.sourceIdentity.toJson())) {
+      throw const FormatException(
+        'Evidence source identity disagrees with managed context',
+      );
+    }
     final digest = 'sha256:${sha256.convert(utf8.encode(digestInput))}';
     final sortedControlIds = [...controlIds.toSet()]..sort();
-    final identity =
-        sourceIdentity ??
-        ExecutionSourceIdentity.fromEnvironment(Platform.environment);
+    final identity = effectiveIdentity;
     final writer = ExecutionResultWriter(identity: identity);
     final files = <File>[];
     for (final evidenceType in evidenceTypes.toSet()) {
@@ -746,10 +823,7 @@ final class SuiteEvidenceEmitter {
         scenarioIds: [scenarioId],
         controlIds: sortedControlIds,
       );
-      final file = outputDirectory == null
-          ? writer.writeSuiteToEnvironment(result)
-          : writer.writeSuite(outputDirectory, result);
-      if (file != null) files.add(file);
+      files.add(writer.writeSuite(effectiveOutputDirectory, result));
     }
     return files;
   }

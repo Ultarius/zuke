@@ -250,6 +250,15 @@ class MyApp {
     test(
       'ManifestCommand enforces active signer enrollment and fails if empty',
       () async {
+        File('${tempDir.path}/zuke.yaml').writeAsStringSync('''
+schemaVersion: 3
+workspace:
+  name: manifest-test
+  root: .
+specifications:
+  features: []
+targets: {}
+''');
         final emptyTrustDir = Directory(
           '${tempDir.path}/assurance-history/trust',
         )..createSync(recursive: true);

@@ -824,13 +824,16 @@ endpoints:
       },
     );
 
-    test('uses defaults for a missing or malformed configuration', () {
-      final missing = WorkspaceDiscovery().discover(tempDir.path);
-      expect(missing.config.featurePatterns, ['specs/features/**/*.feature']);
-
+    test('rejects a missing or malformed configuration', () {
+      expect(
+        () => WorkspaceDiscovery().discover(tempDir.path),
+        throwsA(isA<InvalidWorkspaceConfigError>()),
+      );
       File('${tempDir.path}/zuke.yaml').writeAsStringSync('[');
-      final malformed = WorkspaceDiscovery().discover(tempDir.path);
-      expect(malformed.config.featurePatterns, ['specs/features/**/*.feature']);
+      expect(
+        () => WorkspaceDiscovery().discover(tempDir.path),
+        throwsA(isA<InvalidWorkspaceConfigError>()),
+      );
     });
 
     test(
@@ -841,6 +844,12 @@ endpoints:
 version: zuke.pbi.v1
 pbis:
   - id: PBI-LEGACY
+''');
+        File('${tempDir.path}/zuke.yaml').writeAsStringSync('''
+schemaVersion: 3
+specifications:
+  registries: [specs/registry/**/*.yaml]
+targets: {}
 ''');
         final result = WorkspaceDiscovery().discover(tempDir.path);
         expect(
@@ -853,7 +862,7 @@ pbis:
     );
     test('rejects malformed registry lists and incomplete entries', () {
       File('${tempDir.path}/zuke.yaml').writeAsStringSync('''
-schemaVersion: 2
+schemaVersion: 3
 workspace:
   name: registry-test
   root: .

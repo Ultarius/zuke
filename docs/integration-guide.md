@@ -601,8 +601,8 @@ expect(result.status, ScenarioStatus.passed);
 const writer = ExecutionResultWriter(
   identity: ExecutionSourceIdentity(
     sourcePackage: 'shopping-cart',
-    sourceAdapter: 'flutter-test',
-    sourceCompatibilityId: 'flutter-test-v1',
+    sourceAdapter: 'dart-source',
+    sourceCompatibilityId: 'dart-source-package-v1',
   ),
 );
 writer.writeScenarioToEnvironment(result);

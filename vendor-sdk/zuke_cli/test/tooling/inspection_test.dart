@@ -81,7 +81,7 @@ void main() {
     final root = Directory.systemTemp.createTempSync('zuke-index-json-');
     addTearDown(() => root.deleteSync(recursive: true));
     final input = File('${root.path}/zuke.yaml')
-      ..writeAsStringSync('schemaVersion: 2\n');
+      ..writeAsStringSync('schemaVersion: 3\ntargets: {}\n');
     final output = File('${root.path}/generated.dart')
       ..writeAsStringSync('generated\n');
     final manifest = File('${root.path}/manifest.json')

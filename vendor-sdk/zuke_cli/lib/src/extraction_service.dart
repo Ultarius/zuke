@@ -12,7 +12,7 @@ import 'ir.dart';
 class WorkspaceExtraction {
   final List<IrAdapterOutput> outputs;
   final List<AdapterOutput> topologyOutputs;
-  final List<SemanticEvidenceRecord> evidenceRecords;
+  final List<EvidenceRecord> evidenceRecords;
   final List<String> errors;
 
   const WorkspaceExtraction({
@@ -120,6 +120,15 @@ class ExtractionService {
               continue;
             }
           }
+          // The configured package id is the stable assurance identity. The
+          // analyzer may report the pubspec name, which may differ from that
+          // identity, so bind the output to the configured namespace before
+          // it enters the shared source catalog.
+          output = _withConfiguredPackageIdentity(
+            output,
+            packageId,
+            packageRoot,
+          );
           if (output.graph != null) {
             errors.addAll(output.graph!.validate());
           }
@@ -146,6 +155,22 @@ class ExtractionService {
       '$root${Platform.pathSeparator}$relative'
           .replaceAll('/', Platform.pathSeparator)
           .replaceAll('\\', Platform.pathSeparator);
+
+  IrAdapterOutput _withConfiguredPackageIdentity(
+    IrAdapterOutput output,
+    String packageId,
+    String packageRoot,
+  ) => IrAdapterOutput(
+    adapter: output.adapter,
+    completeness: output.completeness,
+    symbols: output.symbols,
+    inputDigest: output.inputDigest,
+    diagnostics: output.diagnostics,
+    packageName: packageId,
+    packageRoot: packageRoot,
+    graph: output.graph,
+    evidenceRecords: output.evidenceRecords,
+  );
 
   String _sourceDigest(
     String root,
@@ -341,7 +366,7 @@ class ExtractionService {
         );
       }
     }
-    final records = <SemanticEvidenceRecord>[];
+    final records = <EvidenceRecord>[];
     final errors = <String>[];
     final ids = <String>{};
     files.sort((a, b) => a.path.compareTo(b.path));
@@ -371,7 +396,7 @@ class ExtractionService {
             errors.add('Duplicate evidence executionId: $executionId');
             continue;
           }
-          records.add(SemanticEvidenceRecord.fromJson(record));
+          records.add(EvidenceRecord.fromJson(record));
         }
       } catch (error) {
         errors.add('Malformed evidence file ${file.path}: $error');
@@ -595,7 +620,7 @@ class ExtractionService {
 }
 
 class _EvidenceLoad {
-  final List<SemanticEvidenceRecord> records;
+  final List<EvidenceRecord> records;
   final List<String> errors;
   const _EvidenceLoad(this.records, this.errors);
 }

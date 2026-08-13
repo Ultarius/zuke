@@ -27,11 +27,17 @@ File configuredTrustBundle(String root, {String? configuredPath}) {
 String _trustBundlePathFromConfig(String root) {
   final configFile = File('${Directory(root).absolute.path}/zuke.yaml');
   if (!configFile.existsSync()) return _defaultTrustBundle;
-  return ZukeConfig.fromYaml(
-        configFile.readAsStringSync(),
-        root: root,
-      ).trustBundle ??
-      _defaultTrustBundle;
+  try {
+    return ZukeConfig.fromYaml(
+          configFile.readAsStringSync(),
+          root: root,
+        ).trustBundle ??
+        _defaultTrustBundle;
+  } on WorkspaceConfigError catch (error) {
+    throw FormatException(
+      'Current workspace configuration is invalid: ${error.message}',
+    );
+  }
 }
 
 TrustBundle loadTrustBundle(String root, {String? configuredPath}) {

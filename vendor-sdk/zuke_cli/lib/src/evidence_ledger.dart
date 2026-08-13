@@ -11,7 +11,7 @@ final class EvidenceLedgerEntry {
   EvidenceLedgerEntry(this.record) : digest = _digest(record);
 
   static Sha256Digest _digest(EvidenceRecord record) => Sha256Digest.parse(
-    'sha256:${sha256.convert(utf8.encode(jsonEncode(record.toJson())))}',
+    'sha256:${sha256.convert(utf8.encode(canonicalJson(record.toJson())))}',
   );
 
   Map<String, Object?> toJson() => {

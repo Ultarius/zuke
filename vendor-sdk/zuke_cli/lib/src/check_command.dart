@@ -1,5 +1,5 @@
-import 'dart:async';
 import 'dart:convert';
+import 'dart:async';
 import 'dart:io';
 
 import 'package:args/args.dart';
@@ -11,6 +11,7 @@ import 'lock_command.dart';
 import 'report_command.dart';
 import 'validate_command.dart';
 import 'command_result.dart';
+import 'configuration_preflight.dart';
 
 /// Runs the complete verification pipeline for one or more workspaces.
 ///
@@ -66,15 +67,14 @@ class CheckCommand {
                   profile: profile,
                 ),
         ],
+        details: {
+          'profile': profile,
+          'workspaces': results.map(_safeWorkspaceJson).toList(),
+        },
       );
-      final payload = {
-        ...commandResult.toJson(),
-        'profile': profile,
-        'workspaces': results.map(_safeWorkspaceJson).toList(),
-      };
-      final encoded = jsonEncode(payload);
-      stdout.writeln(encoded);
-      writeCommandSummary(summaryFile, commandResult);
+      final encoded = encodeCommandResult(commandResult);
+      stdout.write(encoded);
+      writeCommandSummaryBytes(summaryFile, encoded);
     } else {
       for (final result in results) {
         stdout.writeln('\nCheck [${result.root}]: ${result.status}');
@@ -95,9 +95,10 @@ class CheckCommand {
   Map<String, Object?> _safeWorkspaceJson(_WorkspaceResult result) => {
     'root': result.root,
     'status': result.status,
-    'stages': {
-      for (final stage in result.stages) stage.name: {'status': stage.status},
-    },
+    'stages': [
+      for (final stage in result.stages)
+        {'name': stage.name, ...stage.safeJson()},
+    ],
   };
 
   Future<_WorkspaceResult> _verify(
@@ -108,7 +109,7 @@ class CheckCommand {
     final stages = <_StageResult>[];
     WorkspaceDiscoveryResult initial;
     try {
-      initial = WorkspaceDiscovery().discover(root);
+      initial = requireCurrentWorkspace(root);
     } catch (error) {
       stages.add(_StageResult.failed('generate', stderr: '$error\n'));
       stages.addAll(_skipped(['test', 'validate', 'lock', 'inputStability']));
@@ -161,7 +162,7 @@ class CheckCommand {
 
   _StageResult _inputsStable(WorkspaceDiscoveryResult initial, String root) {
     try {
-      final refreshed = WorkspaceDiscovery().discover(root);
+      final refreshed = requireCurrentWorkspace(root);
       if (_sameInputs(initial.inputContents, refreshed.inputContents)) {
         return _StageResult.passed('inputStability');
       }
@@ -352,9 +353,15 @@ final class _StageResult {
       _StageResult(name, 'failed', '', stderr);
   Map<String, Object?> toJson() => {
     'status': status,
-    if (stdout.isNotEmpty) 'stdout': stdout,
-    if (stderr.isNotEmpty) 'stderr': stderr,
+    'exitCode': status == 'failed' ? 1 : 0,
+    'eligible': status == 'passed',
+    'remediation': status == 'failed'
+        ? 'Inspect the stage diagnostics and resolve the reported failure.'
+        : '',
+    'diagnostics': const <Object?>[],
   };
+
+  Map<String, Object?> safeJson() => toJson();
 }
 
 final class _BufferStdout implements Stdout {

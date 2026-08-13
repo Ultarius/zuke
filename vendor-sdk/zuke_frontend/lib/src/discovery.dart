@@ -5,6 +5,29 @@ import 'package:yaml/yaml.dart';
 import 'types.dart';
 import 'gherkin_parser.dart';
 import 'metadata_extractor.dart';
+import 'config_models.dart';
+
+/// Base error raised when a workspace configuration cannot be used by the
+/// current frontend parser.
+sealed class WorkspaceConfigError implements Exception {
+  const WorkspaceConfigError(this.message);
+
+  final String message;
+
+  @override
+  String toString() => message;
+}
+
+/// Raised when a workspace uses a configuration schema from an older Zuke
+/// release. The CLI maps this to its migration diagnostic.
+final class LegacyWorkspaceConfigError extends WorkspaceConfigError {
+  const LegacyWorkspaceConfigError(super.message);
+}
+
+/// Raised when a current-looking workspace configuration is malformed.
+final class InvalidWorkspaceConfigError extends WorkspaceConfigError {
+  const InvalidWorkspaceConfigError(super.message);
+}
 
 /// Workspace configuration loaded from `zuke.yaml`.
 class ZukeConfig {
@@ -53,8 +76,14 @@ class ZukeConfig {
   /// Runner execution configuration.
   final Map<String, dynamic> executionConfig;
 
+  /// Typed runner identities for execution and source publication.
+  final List<WorkspaceRunner> workspaceRunners;
+
   /// V3 stable package identities grouped by target.
   final Map<String, List<Map<String, dynamic>>> targetPackages;
+
+  /// Typed target/package identities for execution and source publication.
+  final Map<String, WorkspaceTarget> workspaceTargets;
 
   /// Current framework selection grouped by target.
   final Map<String, String> targetFrameworks;
@@ -86,7 +115,9 @@ class ZukeConfig {
     this.evidenceOutput,
     this.trustBundle,
     this.executionConfig = const {},
+    this.workspaceRunners = const [],
     this.targetPackages = const {},
+    this.workspaceTargets = const {},
     this.targetFrameworks = const {},
     this.evidenceTypes = const {},
     this.lockDirectory,
@@ -96,9 +127,25 @@ class ZukeConfig {
 
   /// Parses [yamlContent] into workspace configuration.
   static ZukeConfig fromYaml(String yamlContent, {String? root}) {
-    final doc = loadYaml(yamlContent) as Map?;
+    try {
+      return _fromYaml(yamlContent, root: root);
+    } on WorkspaceConfigError {
+      rethrow;
+    } on Object catch (error) {
+      throw InvalidWorkspaceConfigError(error.toString());
+    }
+  }
+
+  static ZukeConfig _fromYaml(String yamlContent, {String? root}) {
+    late final Object? loaded;
+    try {
+      loaded = loadYaml(yamlContent);
+    } on Object catch (error) {
+      throw InvalidWorkspaceConfigError('Unable to parse zuke.yaml: $error');
+    }
+    final doc = loaded as Map?;
     if (doc == null) {
-      throw const FormatException(
+      throw const InvalidWorkspaceConfigError(
         'zuke.yaml must contain a mapping with schemaVersion: 3',
       );
     }
@@ -107,7 +154,7 @@ class ZukeConfig {
         ? doc['schemaVersion'] as int
         : 2;
     if (schemaVersion != 3) {
-      throw const FormatException(
+      throw const LegacyWorkspaceConfigError(
         'Only current Zuke schemaVersion 3 configuration is supported; see docs/migration.md.',
       );
     }
@@ -186,6 +233,18 @@ class ZukeConfig {
       lockProfiles,
     );
 
+    final workspaceTargets = <String, WorkspaceTarget>{
+      for (final entry in rawTargets.entries)
+        entry.key.toString(): WorkspaceTarget.fromMap(
+          entry.key.toString(),
+          Map<Object?, Object?>.from(entry.value as Map),
+        ),
+    };
+    final workspaceRunners = [
+      for (final runner in (rawExecution['runners'] as List? ?? const []))
+        WorkspaceRunner.fromMap(Map<Object?, Object?>.from(runner as Map)),
+    ];
+
     return ZukeConfig(
       schemaVersion: schemaVersion,
       root: root,
@@ -209,7 +268,9 @@ class ZukeConfig {
       evidenceOutput: evidenceSection['output'] as String?,
       trustBundle: trustSection['bundle'] as String?,
       executionConfig: rawExecution,
+      workspaceRunners: workspaceRunners,
       targetPackages: targetPackages,
+      workspaceTargets: workspaceTargets,
       targetFrameworks: targetFrameworks,
       evidenceTypes: evidenceTypes,
       lockDirectory: lockSection['directory'] as String?,
@@ -234,6 +295,12 @@ class ZukeConfig {
       final target = entry.value;
       if (target is! Map) {
         throw FormatException('target $targetId must be a mapping');
+      }
+      if (target.containsKey('runner') || target.containsKey('testCommand')) {
+        throw FormatException(
+          'target $targetId must not declare runner or testCommand; '
+          'put execution identity under execution.runners',
+        );
       }
       String requiredTargetString(String key) {
         final value = target[key];
@@ -434,22 +501,17 @@ class WorkspaceDiscovery {
     final configPath = '$root/zuke.yaml';
     final inputContents = <String, String>{};
     final configFile = File(configPath);
-    ZukeConfig config;
-    String? configurationError;
-    try {
-      final configContent = configFile.readAsStringSync();
-      inputContents[configFile.path] = configContent;
-      config = ZukeConfig.fromYaml(configContent, root: root);
-    } catch (error) {
-      config = ZukeConfig(root: root);
-      configurationError = '$error';
-      // Never bypass current-schema validation after a configuration error.
+    late final ZukeConfig config;
+    if (!configFile.existsSync()) {
+      throw InvalidWorkspaceConfigError(
+        'zuke.yaml not found at ${configFile.path}',
+      );
     }
+    final configContent = configFile.readAsStringSync();
+    inputContents[configFile.path] = configContent;
+    config = ZukeConfig.fromYaml(configContent, root: root);
 
     final errors = <String>[];
-    if (configurationError != null) {
-      errors.add('${configFile.path}: $configurationError');
-    }
     final seenPhysicalPaths = <String, List<String>>{};
 
     // Parse features

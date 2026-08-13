@@ -2,7 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:args/args.dart';
-import 'package:zuke_frontend/zuke_frontend.dart';
+import 'configuration_preflight.dart';
 
 /// Parses and evaluates LCOV as an independent quality gate.
 ///
@@ -26,10 +26,7 @@ final class CoverageCommand {
 
   Future<int> _execute() async {
     final root = Directory(args['root'] as String? ?? Directory.current.path);
-    final config = WorkspaceDiscovery()
-        .discover(root.path)
-        .config
-        .coverageConfig;
+    final config = requireCurrentWorkspace(root.path).config.coverageConfig;
     final input =
         args['input'] as String? ??
         config['input']?.toString() ??

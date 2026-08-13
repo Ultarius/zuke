@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:test/test.dart';
 import 'package:zuke_core/zuke_core.dart';
 
@@ -12,6 +14,23 @@ void main() {
     });
     expect(diagnostic.owner, DiagnosticOwner.unknown);
   });
+
+  test(
+    'release and attestation signing payloads use fixed canonical vectors',
+    () {
+      const unsigned = <String, Object?>{'b': 2, 'a': 1};
+      expect(
+        utf8.decode(releaseSigningPayload(unsigned)),
+        'Zuke behavioral assurance release\u0000{"a":1,"b":2}',
+      );
+      expect(
+        utf8.decode(attestationSigningPayload(unsigned)),
+        'Zuke external control attestation\u0000{"a":1,"b":2}',
+      );
+      expect(releaseSigningDomain.endsWith('\u0000'), isTrue);
+      expect(attestationSigningDomain.endsWith('\u0000'), isTrue);
+    },
+  );
 
   test('empty or unknown diagnostic owners fail closed', () {
     for (final owner in ['', 'package-owner']) {
@@ -271,7 +290,7 @@ void main() {
         'executionId': 'exec-1',
         'profile': 'pullRequest',
         'status': 'passed',
-        'sourceCompatibilityId': 'dart-source-v2',
+        'sourceCompatibilityId': 'dart-source-package-v1',
         'runnerId': 'runner',
         'runnerCompatibilityId': 'runner-v2',
         'sourceDigest': 'invalid',

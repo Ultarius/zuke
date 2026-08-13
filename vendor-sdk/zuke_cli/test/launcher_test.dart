@@ -9,8 +9,8 @@ import 'package:test/test.dart';
 
 const _runnerIdentity = ExecutionSourceIdentity(
   sourcePackage: 'fake-supervisor',
-  sourceAdapter: 'dart-test-runner',
-  sourceCompatibilityId: 'fake-supervisor-runner-v2',
+  sourceAdapter: 'dart-source',
+  sourceCompatibilityId: 'dart-source-package-v1',
 );
 
 void main() {
@@ -51,8 +51,8 @@ void main() {
       kind: setup
       target: backend
       sourcePackage: fake-supervisor
-      sourceAdapter: dart-test-runner
-      sourceCompatibilityId: fake-supervisor-runner-v2
+      sourceAdapter: dart-source
+      sourceCompatibilityId: dart-source-package-v1
       runnerCompatibilityId: fake-supervisor-v1
       executable: flutter
       runnerMode: cli
@@ -238,8 +238,8 @@ void main() {
       kind: test
       target: backend
       sourcePackage: fake-supervisor
-      sourceAdapter: dart-test-runner
-      sourceCompatibilityId: fake-supervisor-runner-v2
+      sourceAdapter: dart-source
+      sourceCompatibilityId: dart-source-package-v1
       runnerCompatibilityId: fake-supervisor-v1
       executable: dart
       evidenceTypes: [domain-unit]
@@ -266,8 +266,8 @@ void main() {
       kind: test
       target: backend
       sourcePackage: fake-supervisor
-      sourceAdapter: dart-test-runner
-      sourceCompatibilityId: fake-supervisor-runner-v2
+      sourceAdapter: dart-source
+      sourceCompatibilityId: dart-source-package-v1
       runnerCompatibilityId: fake-supervisor-v1
       executable: dart
 ''',
@@ -296,8 +296,8 @@ void main() {
       kind: test
       target: backend
       sourcePackage: fake-supervisor
-      sourceAdapter: dart-test-runner
-      sourceCompatibilityId: fake-supervisor-runner-v2
+      sourceAdapter: dart-source
+      sourceCompatibilityId: dart-source-package-v1
       runnerCompatibilityId: fake-supervisor-v1
       executable: dart
 ''',
@@ -316,82 +316,89 @@ void main() {
       },
     );
 
-    test(
-      'supports structured target runners and rejects shell strings',
-      () async {
-        final shell = _workspace(
-          runners: '    []',
-          targets: '{backend: {runner: dart test}}',
-        );
-        addTearDown(() => shell.delete(recursive: true));
-        expect(
-          await ZukeCli(
-            processSupervisor: _FakeSupervisor(ProcessResult(1, 0, '', '')),
-          ).run(['test', '--root', shell.path]),
-          2,
-        );
+    test('rejects target-level runner declarations', () async {
+      final shell = _workspace(
+        runners: '    []',
+        targets:
+            '  backend:\n'
+            '    language: dart\n'
+            '    framework: dart\n'
+            '    packages:\n'
+            '      - id: fake-supervisor\n'
+            '        path: .\n'
+            '        roots: [lib, test]\n'
+            '    runner: dart test\n',
+      );
+      addTearDown(() => shell.delete(recursive: true));
+      expect(
+        await ZukeCli(
+          processSupervisor: _FakeSupervisor(ProcessResult(1, 0, '', '')),
+        ).run(['test', '--root', shell.path]),
+        2,
+      );
 
-        final missingExecutable = _workspace(
-          runners: '    []',
-          targets: '{backend: {runner: {args: [test]}}}',
-        );
-        addTearDown(() => missingExecutable.delete(recursive: true));
-        expect(
-          await ZukeCli(
-            processSupervisor: _FakeSupervisor(ProcessResult(1, 0, '', '')),
-          ).run(['test', '--root', missingExecutable.path]),
-          2,
-        );
+      final missingExecutable = _workspace(
+        runners: '    []',
+        targets:
+            '  backend:\n'
+            '    language: dart\n'
+            '    framework: dart\n'
+            '    packages:\n'
+            '      - id: fake-supervisor\n'
+            '        path: .\n'
+            '        roots: [lib, test]\n'
+            '    runner: {args: [test]}\n',
+      );
+      addTearDown(() => missingExecutable.delete(recursive: true));
+      expect(
+        await ZukeCli(
+          processSupervisor: _FakeSupervisor(ProcessResult(1, 0, '', '')),
+        ).run(['test', '--root', missingExecutable.path]),
+        2,
+      );
 
-        final valid = _workspace(
-          runners: '    []',
-          targets:
-              '  backend:\n'
-              '    language: dart\n'
-              '    framework: dart\n'
-              '    packages:\n'
-              '      - id: fake-supervisor\n'
-              '        path: .\n'
-              '        roots: [lib, test]\n'
-              '    path: .\n'
-              '    timeoutSeconds: 3\n'
-              '    runner: {executable: flutter, runnerMode: cli, args: [test]}\n',
-        );
-        addTearDown(() => valid.delete(recursive: true));
-        final supervisor = _FakeSupervisor(ProcessResult(1, 0, 'ok', ''));
-        expect(
-          await ZukeCli(
-            processSupervisor: supervisor,
-          ).run(['test', '--root', valid.path]),
-          0,
-        );
-        expect(
-          supervisor.requests.single.executionTimeout,
-          const Duration(seconds: 3),
-        );
-        expect(supervisor.requests.single.runnerMode, ToolRunnerMode.cli);
+      final structured = _workspace(
+        runners: '    []',
+        targets:
+            '  backend:\n'
+            '    language: dart\n'
+            '    framework: dart\n'
+            '    packages:\n'
+            '      - id: fake-supervisor\n'
+            '        path: .\n'
+            '        roots: [lib, test]\n'
+            '    path: .\n'
+            '    timeoutSeconds: 3\n'
+            '    runner: {executable: flutter, runnerMode: cli, args: [test]}\n',
+      );
+      addTearDown(() => structured.delete(recursive: true));
+      expect(
+        await ZukeCli(
+          processSupervisor: _FakeSupervisor(ProcessResult(1, 0, '', '')),
+        ).run(['test', '--root', structured.path]),
+        2,
+      );
 
-        final failed = _workspace(
-          runners: '    []',
-          targets:
-              '  backend:\n'
-              '    language: dart\n'
-              '    framework: dart\n'
-              '    packages:\n'
-              '      - id: fake-supervisor\n'
-              '        path: .\n'
-              '        roots: [lib, test]\n'
-              '    runner: {executable: dart, args: [test]}\n',
-        );
-        addTearDown(() => failed.delete(recursive: true));
-        expect(
-          await ZukeCli(
-            processSupervisor: _FakeSupervisor(ProcessResult(1, 1, '', 'bad')),
-          ).run(['test', '--root', failed.path, '--format', 'json']),
-          1,
-        );
-      },
-    );
+      final structuredWithoutTimeout = _workspace(
+        runners: '    []',
+        targets:
+            '  backend:\n'
+            '    language: dart\n'
+            '    framework: dart\n'
+            '    packages:\n'
+            '      - id: fake-supervisor\n'
+            '        path: .\n'
+            '        roots: [lib, test]\n'
+            '    runner: {executable: dart, args: [test]}\n',
+      );
+      addTearDown(() => structuredWithoutTimeout.delete(recursive: true));
+      expect(
+        await ZukeCli(
+          processSupervisor: _FakeSupervisor(ProcessResult(1, 0, '', '')),
+        ).run(['test', '--root', structuredWithoutTimeout.path]),
+        2,
+      );
+    });
 
     test(
       'publishes a passing suite result through the same evidence boundary',
@@ -402,8 +409,8 @@ void main() {
       kind: test
       target: backend
       sourcePackage: fake-supervisor
-      sourceAdapter: dart-test-runner
-      sourceCompatibilityId: fake-supervisor-runner-v2
+      sourceAdapter: dart-source
+      sourceCompatibilityId: dart-source-package-v1
       runnerCompatibilityId: fake-supervisor-v1
       executable: dart
       evidenceTypes: [suite]
@@ -449,8 +456,8 @@ Directory _workspace({
       kind: setup
       target: backend
       sourcePackage: fake-supervisor
-      sourceAdapter: dart-test-runner
-      sourceCompatibilityId: fake-supervisor-runner-v2
+      sourceAdapter: dart-source
+      sourceCompatibilityId: dart-source-package-v1
       runnerCompatibilityId: fake-supervisor-v1
       executable: dart
       args: [test, test]
