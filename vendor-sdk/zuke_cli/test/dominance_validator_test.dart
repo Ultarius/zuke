@@ -338,6 +338,66 @@ void main() {
       expect(result.controlProofs, isEmpty);
     });
 
+    test('does not send verification-backed controls through dominance', () {
+      const workspace = WorkspaceDiscoveryResult(
+        config: ZukeConfig(),
+        data: MetadataExtractorResult(
+          controls: {
+            'CTRL-VERIFIED': {'coverageSemantics': 'verification-backed'},
+          },
+          features: [
+            ParsedFeature(
+              tags: [],
+              featureElement: GherkinElement(
+                keyword: GherkinKeyword.feature,
+                title: 'Verification-backed control',
+                source: SourceLocation(file: 'verified.feature', line: 1),
+              ),
+              metadata: ParsedMetadata(
+                id: 'FEAT-VERIFIED',
+                source: SourceLocation(file: 'verified.feature', line: 1),
+              ),
+              rules: [
+                ParsedRule(
+                  tags: [],
+                  ruleElement: GherkinElement(
+                    keyword: GherkinKeyword.rule,
+                    title: 'A verified control',
+                    source: SourceLocation(file: 'verified.feature', line: 2),
+                  ),
+                  metadata: ParsedMetadata(
+                    id: 'RULE-VERIFIED',
+                    requires: [
+                      ParsedControlRef(id: 'CTRL-VERIFIED', target: 'flutter'),
+                    ],
+                    source: SourceLocation(file: 'verified.feature', line: 2),
+                  ),
+                  scenarios: [],
+                ),
+              ],
+            ),
+          ],
+        ),
+      );
+      const graph = IrGraph(
+        nodes: [
+          IrNode(
+            id: 'implementation:flutter-controller',
+            kind: NodeKind.implementation,
+            target: 'flutter',
+            properties: {
+              'requirementIds': ['RULE-VERIFIED'],
+            },
+          ),
+        ],
+      );
+
+      final result = DominanceValidator().validate(graph, workspace: workspace);
+
+      expect(result.errors, isEmpty);
+      expect(result.controlProofs, isEmpty);
+    });
+
     test(
       'does not compose disjoint partial providers into a dominance proof',
       () {

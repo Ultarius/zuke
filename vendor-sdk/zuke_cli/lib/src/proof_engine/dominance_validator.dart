@@ -117,6 +117,16 @@ class DominanceValidator {
             continue;
           }
         }
+        // Verification-backed controls have a different proof contract from
+        // structural controls.  They are proved by
+        // VerificationBackedValidator using a resolved provider and current
+        // passing evidence, not by graph dominance.  Do not emit a competing
+        // structural proof (or a structural error) for the same control.
+        // Skipping here is not an auto-pass: the dedicated validator remains
+        // responsible for producing the required verified proof.
+        if (workspace != null && configuredSemantics == 'verification-backed') {
+          continue;
+        }
         final completeness = _completenessMap(graph.completeness);
         final semantics = _semantics(workspace, controlId, graph);
         if (semantics == null) {
