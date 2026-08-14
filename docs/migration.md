@@ -18,17 +18,24 @@ An illustrative migration is:
 ```yaml
 dev_dependencies:
   # Previous coordinated set:
-  # zuke_cli: ^0.3.1
-  # zuke_runner_flutter: ^0.2.1
+  # zuke_cli: ^0.4.2
+  # zuke_runner_flutter: ^0.3.1
 
   # Current set:
-  zuke: ^0.3.0
-  zuke_cli: ^0.4.1
-  zuke_runner_flutter: ^0.3.0
+  zuke: ^0.4.0
+  zuke_cli: ^0.5.0
+  zuke_runner_flutter: ^0.4.0
 ```
 
 Keep the versions in the same coordinated row. Do not add path dependencies
 or dependency overrides to make a hosted consumer resolve.
+
+The `zuke_annotations` 0.4.0 release removes `ProvidesControl.target`. A
+provider's target is now resolved from workspace package membership and the
+active extraction target. Standalone extraction with multiple applicable
+targets fails closed; pass the target explicitly. Verification-backed controls
+are validated by their provider and current evidence, while structural controls
+remain owned by graph dominance.
 
 ## 2. Remove retired package dependencies
 

@@ -4,15 +4,34 @@ import 'package:zuke_cli/tooling.dart';
 
 class ZukeAnalyzer {
   Future<List<ZukeDiagnostic>> analyzePackage(String packageRoot) async {
-    final output = await DartExtractor().extract(packageRoot);
+    final workspaceRoot = _findWorkspaceRoot(Directory(packageRoot));
+    if (workspaceRoot == null) {
+      return const [
+        ZukeDiagnostic(
+          code: 'ZK-PROVIDER-TARGET-AMBIGUOUS',
+          message:
+              'ZK-PROVIDER-TARGET-AMBIGUOUS: package is not assigned to a configured target',
+        ),
+      ];
+    }
+    late final String target;
+    try {
+      target = resolveExtractionTarget(packageRoot);
+    } catch (error) {
+      return [
+        ZukeDiagnostic(
+          code: 'ZK-PROVIDER-TARGET-AMBIGUOUS',
+          message: error.toString(),
+        ),
+      ];
+    }
+    final output = await DartExtractor().extract(packageRoot, target: target);
     final diagnostics = output.errors
         .map(
           (error) =>
               ZukeDiagnostic(code: 'ZUKE-ANNOTATION-001', message: error),
         )
         .toList();
-    final workspaceRoot = _findWorkspaceRoot(Directory(packageRoot));
-    if (workspaceRoot == null) return diagnostics;
 
     final indexFile = File('${workspaceRoot.path}/.zuke/analyzer-index.json');
     ZukeIndex index;

@@ -8,7 +8,6 @@ import 'package:zuke_annotations/zuke_annotations.dart';
   ['CTRL-CART-ACCESSIBLE'],
   kind: ControlProviderKind.semanticsProvider,
   layer: EnforcementLayer.presentation,
-  target: 'flutter',
 )
 class ShoppingScreen extends StatefulWidget {
   final CartController controller;

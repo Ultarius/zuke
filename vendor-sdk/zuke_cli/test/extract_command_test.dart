@@ -32,6 +32,13 @@ void main() {
         File(
           '${libDir.path}/my_pkg.dart',
         ).writeAsStringSync('class Dummy {}\n');
+        final workspaceConfig = File('${root.path}/zuke.yaml');
+        workspaceConfig.writeAsStringSync(
+          workspaceConfig.readAsStringSync().replaceFirst(
+            '        path: .',
+            '        path: packages/my_pkg',
+          ),
+        );
 
         final result = await runInProcessCli([
           'extract',
@@ -40,6 +47,8 @@ void main() {
           root.path,
           '--package',
           'packages/my_pkg',
+          '--target',
+          'backend',
         ]);
 
         expect(result.exitCode, 0);

@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.5.0
+
+- Made extraction target-aware through typed workspace package membership and
+  rejected ambiguous standalone extraction instead of defaulting to a target.
+- Routed verification-backed controls exclusively through evidence/provider
+  validation and added proof-owner conflict diagnostics.
+
 ## 0.4.2
 
 - Materialize resolved requirement and control annotations in the governed

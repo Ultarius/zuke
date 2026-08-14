@@ -57,9 +57,6 @@ class ProvidesControl {
   /// Layer at which the provider is enforced.
   final EnforcementLayer? layer;
 
-  /// Execution target for the provider.
-  final String target;
-
   /// Variant name used when resolving the provider.
   final String variant;
 
@@ -71,7 +68,6 @@ class ProvidesControl {
     this.controlIds, {
     this.kind,
     this.layer,
-    this.target = 'backend',
     this.variant = 'default',
     this.slot = 'primary',
   });

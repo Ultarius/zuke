@@ -83,6 +83,32 @@ environment:
 ''');
         final lib = Directory('${tempDir.path}/lib')..createSync();
         File('${lib.path}/main.dart').writeAsStringSync('void main() {}\n');
+        File('${tempDir.path}/zuke.yaml').writeAsStringSync('''
+schemaVersion: 3
+workspace:
+  name: test
+  root: .
+specifications:
+  features: []
+targets:
+  backend:
+    language: dart
+    framework: dart
+    packages:
+      - id: test_pkg
+        path: .
+        roots: [lib]
+        ''');
+        final generated = await Process.run(
+          Platform.resolvedExecutable,
+          <String>['run', 'zuke_cli:zuke', 'generate', '--root', tempDir.path],
+        );
+        expect(
+          generated.exitCode,
+          0,
+          reason:
+              'Fixture generation failed: ${generated.stdout}\n${generated.stderr}',
+        );
         final outputDirectory = Directory('${tempDir.path}/hook-output')
           ..createSync();
         final config = File('${tempDir.path}/input.json');

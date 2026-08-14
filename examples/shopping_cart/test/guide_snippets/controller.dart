@@ -10,7 +10,6 @@ import 'package:zuke_annotations/zuke_annotations.dart';
   ['CTRL-PROMO-VALIDATION'],
   kind: ControlProviderKind.applicationValidator,
   layer: EnforcementLayer.presentation,
-  target: 'flutter',
 )
 class CartController extends ChangeNotifier {}
 

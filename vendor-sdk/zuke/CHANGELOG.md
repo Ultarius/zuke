@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.4.0
+
+- Coordinated the current facade with target-aware provider extraction and the
+  verification-backed versus structural proof ownership boundary.
+
 ## 0.3.1
 
 - Include profile, runner, target, and case identity in emitted suite result

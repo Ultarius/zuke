@@ -36,6 +36,7 @@ void main() {
         final output1 = await DartExtractor().extract(
           tempDir.path,
           roots: ['lib'],
+          target: 'backend',
         );
         final digest1 = output1.inputDigest;
 
@@ -43,6 +44,7 @@ void main() {
         final output2 = await DartExtractor().extract(
           tempDir.path,
           roots: ['lib'],
+          target: 'backend',
         );
         final digest2 = output2.inputDigest;
 
@@ -70,6 +72,7 @@ void main() {
       final output1 = await DartExtractor().extract(
         tempDir.path,
         roots: ['lib'],
+        target: 'backend',
       );
       final digest1 = output1.inputDigest;
 
@@ -79,6 +82,7 @@ void main() {
       final output2 = await DartExtractor().extract(
         tempDir.path,
         roots: ['lib'],
+        target: 'backend',
       );
       final digest2 = output2.inputDigest;
 
@@ -195,18 +199,15 @@ Handler middleware(Handler handler) => handler;
         final workspace = WorkspaceDiscoveryResult(
           config: ZukeConfig(
             root: tempDir.path,
-            targetsConfig: {
-              'backend': {
-                'language': 'dart',
-                'framework': 'dart-frog',
-                'packages': [
-                  {
-                    'id': 'backend',
-                    'path': '.',
-                    'roots': ['routes'],
-                  },
+            workspaceTargets: {
+              'backend': const WorkspaceTarget(
+                id: 'backend',
+                language: 'dart',
+                framework: 'dart-frog',
+                packages: [
+                  WorkspacePackage(id: 'backend', path: '.', roots: ['routes']),
                 ],
-              },
+              ),
             },
           ),
           data: const MetadataExtractorResult(),
@@ -250,17 +251,19 @@ Handler middleware(Handler handler) => handler;
       final workspace = WorkspaceDiscoveryResult(
         config: ZukeConfig(
           root: tempDir.path,
-          targetsConfig: {
-            'ignored-language': {'language': 'typescript'},
-            'not-a-map': 'invalid',
-            'dart': {
-              'language': 'dart',
-              'packages': [
-                'invalid',
-                {'path': 42},
-                {'path': 'missing'},
+          workspaceTargets: {
+            'dart': const WorkspaceTarget(
+              id: 'dart',
+              language: 'dart',
+              framework: 'dart',
+              packages: [
+                WorkspacePackage(
+                  id: 'missing',
+                  path: 'missing',
+                  roots: ['lib'],
+                ),
               ],
-            },
+            ),
           },
         ),
         data: const MetadataExtractorResult(),
@@ -364,16 +367,15 @@ WorkspaceDiscoveryResult _workspace(Directory root) => WorkspaceDiscoveryResult(
   config: ZukeConfig(
     root: root.path,
     evidenceOutput: 'evidence',
-    targetsConfig: {
-      'backend': {
-        'language': 'dart',
-        'packages': [
-          {
-            'path': '.',
-            'roots': ['lib'],
-          },
+    workspaceTargets: {
+      'backend': const WorkspaceTarget(
+        id: 'backend',
+        language: 'dart',
+        framework: 'dart',
+        packages: [
+          WorkspacePackage(id: 'test_pkg', path: '.', roots: ['lib']),
         ],
-      },
+      ),
     },
   ),
   data: const MetadataExtractorResult(),

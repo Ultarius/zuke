@@ -10,14 +10,14 @@ resolution: workspace
 dependencies:
   flutter:
     sdk: flutter
-  zuke_annotations: ^0.3.0
-  zuke_runner_flutter: ^0.3.0
+  zuke_annotations: ^0.4.0
+  zuke_runner_flutter: ^0.4.0
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^6.0.0
-  zuke_cli: ^0.4.1
+  zuke_cli: ^0.5.0
 
 flutter:
   uses-material-design: true

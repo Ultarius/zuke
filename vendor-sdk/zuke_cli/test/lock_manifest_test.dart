@@ -41,6 +41,7 @@ environment:
         final output1 = await DartExtractor().extract(
           tempDir.path,
           roots: ['src'],
+          target: 'backend',
         );
         expect(output1.inputDigest, isNotEmpty);
 
@@ -60,6 +61,7 @@ environment:
           final output2 = await DartExtractor().extract(
             tempDir2.path,
             roots: ['src'],
+            target: 'backend',
           );
           expect(output2.inputDigest, equals(output1.inputDigest));
         } finally {
@@ -83,7 +85,11 @@ class MyController implements ZukeController {
 }
 ''');
 
-      final output = await DartExtractor().extract(tempDir.path, roots: ['.']);
+      final output = await DartExtractor().extract(
+        tempDir.path,
+        roots: ['.'],
+        target: 'backend',
+      );
       final requirementIds = output.symbols
           .where((s) => s.kind == 'requirementBoundary')
           .expand((s) => s.requirementIds)
@@ -137,7 +143,11 @@ class MutatedApp {
 }
 ''');
 
-      final output = await DartExtractor().extract(tempDir.path, roots: ['.']);
+      final output = await DartExtractor().extract(
+        tempDir.path,
+        roots: ['.'],
+        target: 'backend',
+      );
       expect(
         output.diagnostics.any(
           (d) =>
@@ -189,6 +199,7 @@ class MyUnresolvedApp {
         final output = await DartExtractor().extract(
           tempDir.path,
           roots: ['.'],
+          target: 'backend',
         );
         expect(
           output.diagnostics.any(
@@ -241,7 +252,11 @@ class MyApp {
 }
 ''');
 
-      final output = await DartExtractor().extract(tempDir.path, roots: ['.']);
+      final output = await DartExtractor().extract(
+        tempDir.path,
+        roots: ['.'],
+        target: 'backend',
+      );
       final nodeIds = output.graph?.nodes.map((n) => n.id).toList() ?? [];
       expect(nodeIds, contains('implementation:MockController'));
       expect(nodeIds, contains('implementation:RealController'));

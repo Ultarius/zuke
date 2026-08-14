@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.4.0
+
+- Coordinated runner identity and result emission with the target-aware
+  provider and proof-routing release.
+
 ## 0.3.1
 
 - Include the managed test case identity when emitting suite and scenario

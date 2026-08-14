@@ -10,14 +10,14 @@ const releaseDartSourceCompatibilityId = 'dart-source-package-v1';
 /// Exact versions for the currently supported hosted public packages.
 const releasePublicPackageVersions = <String, String>{
   'zuke_core': '0.3.0',
-  'zuke_annotations': '0.3.0',
+  'zuke_annotations': '0.4.0',
   'zuke_frontend': '0.2.1',
-  'zuke': '0.3.1',
-  'zuke_runner': '0.3.1',
-  'zuke_runner_flutter': '0.3.1',
+  'zuke': '0.4.0',
+  'zuke_runner': '0.4.0',
+  'zuke_runner_flutter': '0.4.0',
   'zuke_http_runtime': '0.1.1',
-  'zuke_cli': '0.4.2',
-  'zuke_dart_build_hook': '0.3.0',
+  'zuke_cli': '0.5.0',
+  'zuke_dart_build_hook': '0.4.0',
 };
 
 /// Packages retained only as historical names and never published by current Zuke.

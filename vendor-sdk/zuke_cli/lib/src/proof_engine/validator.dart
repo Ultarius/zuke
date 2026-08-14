@@ -247,6 +247,14 @@ class ValidatorEngine {
       verificationBacked.validate(workspace, effectiveOutputs, profileEvidence),
     );
 
+    final reconciledProofs = _reconcileProofOwnership(
+      allControlProofs,
+      allErrors,
+    );
+    allControlProofs
+      ..clear()
+      ..addAll(reconciledProofs);
+
     _add(
       allErrors,
       allWarnings,
@@ -315,6 +323,98 @@ class ValidatorEngine {
       hasExpectedProofs: expectedProofs.isNotEmpty,
     );
   }
+
+  List<ControlProofResult> _reconcileProofOwnership(
+    List<ControlProofResult> proofs,
+    List<ValidationMessage> errors,
+  ) {
+    final grouped = <String, List<ControlProofResult>>{};
+    for (final proof in proofs) {
+      (grouped[_proofKey(proof)] ??= []).add(proof);
+    }
+    final reconciled = <ControlProofResult>[];
+    for (final entry in grouped.entries) {
+      final candidates = entry.value;
+      if (candidates.length == 1) {
+        reconciled.add(candidates.single);
+        continue;
+      }
+      final semantics = candidates.map((proof) => proof.semantics).toSet();
+      final providerIds =
+          candidates.expand((proof) => proof.providerIds).toSet().toList()
+            ..sort();
+      final evidenceDigests =
+          candidates.expand((proof) => proof.evidenceDigests).toSet().toList()
+            ..sort();
+      final diagnostics =
+          candidates.expand((proof) => proof.diagnostics).toSet().toList()
+            ..sort();
+      final first = candidates.first;
+      final conflict = semantics.length > 1;
+      if (conflict) {
+        errors.add(
+          ValidationMessage(
+            code: 'ZK-PROOF-OWNER-CONFLICT',
+            message:
+                'Multiple proof owners produced results for ${entry.key}: '
+                '${semantics.map((value) => value.wireValue).join(', ')}',
+            severity: Severity.error,
+          ),
+        );
+      }
+      final status =
+          candidates.any((proof) => proof.status == ProofStatus.failed)
+          ? ProofStatus.failed
+          : candidates.any(
+              (proof) =>
+                  proof.status == ProofStatus.indeterminate ||
+                  proof.status == ProofStatus.missing ||
+                  proof.status == ProofStatus.expired,
+            )
+          ? candidates
+                .firstWhere(
+                  (proof) =>
+                      proof.status == ProofStatus.indeterminate ||
+                      proof.status == ProofStatus.missing ||
+                      proof.status == ProofStatus.expired,
+                )
+                .status
+          : first.status;
+      reconciled.add(
+        ControlProofResult(
+          controlId: first.controlId,
+          requirementId: first.requirementId,
+          target: first.target,
+          variant: first.variant,
+          status: conflict ? ProofStatus.failed : status,
+          semantics: first.semantics,
+          providerIds: providerIds,
+          evidenceDigests: evidenceDigests,
+          bypassPaths:
+              candidates.expand((proof) => proof.bypassPaths).toSet().toList()
+                ..sort(),
+          governedGraphHash:
+              candidates
+                      .map((proof) => proof.governedGraphHash)
+                      .toSet()
+                      .length ==
+                  1
+              ? first.governedGraphHash
+              : null,
+          completeness: first.completeness,
+          diagnostics: [
+            ...diagnostics,
+            if (conflict)
+              'Exactly one validator must own each control obligation',
+          ],
+        ),
+      );
+    }
+    return reconciled;
+  }
+
+  String _proofKey(ControlProofResult proof) =>
+      '${proof.requirementId ?? ''}|${proof.controlId}|${proof.target}|${proof.variant}';
 
   Set<String>? _selectedRuleIds(
     WorkspaceDiscoveryResult workspace,

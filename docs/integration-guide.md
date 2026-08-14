@@ -22,13 +22,13 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  zuke_annotations: ^0.3.0
+  zuke_annotations: ^0.4.0
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
-  zuke_cli: ^0.4.1
-  zuke_runner_flutter: ^0.3.0
+  zuke_cli: ^0.5.0
+  zuke_runner_flutter: ^0.4.0
   # Optional hosted build-time check:
   # zuke_dart_build_hook: ^0.3.0
 ```
@@ -506,7 +506,6 @@ import 'package:zuke_annotations/zuke_annotations.dart';
   ['CTRL-PROMO-VALIDATION'],
   kind: ControlProviderKind.applicationValidator,
   layer: EnforcementLayer.presentation,
-  target: 'flutter',
 )
 class CartController extends ChangeNotifier {}
 ```

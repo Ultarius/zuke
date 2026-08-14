@@ -93,6 +93,7 @@ class VerificationBackedValidator {
           providerIds:
               completeProviders
                   .map((provider) => provider.symbol.symbolId)
+                  .toSet()
                   .toList()
                 ..sort(),
           completeness: completeProviders.isEmpty

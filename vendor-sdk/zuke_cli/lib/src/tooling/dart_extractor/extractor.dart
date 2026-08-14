@@ -87,6 +87,13 @@ class DartExtractor implements DartSourceExtractor {
     List<String> roots = const ['lib'],
     String? target,
   }) async {
+    if (target == null || target.trim().isEmpty) {
+      throw ArgumentError.value(
+        target,
+        'target',
+        'Dart extraction requires an explicit workspace target',
+      );
+    }
     late final String root;
     try {
       root = Directory(rootPath).resolveSymbolicLinksSync();
@@ -347,7 +354,7 @@ class DartExtractor implements DartSourceExtractor {
             symbolId: '$sourceUri#${node.id}',
             controlIds: [control],
             providerKind: providerKind,
-            target: target ?? 'backend',
+            target: target,
             source: ExtractedSourceLocation(
               uri: sourceUri,
               offset: 0,
@@ -655,7 +662,7 @@ class _ResolvedVisitor extends RecursiveAstVisitor<void> {
           id: id,
           kind: kind,
           target: kind == NodeKind.provider || kind == NodeKind.implementation
-              ? target ?? 'backend'
+              ? target
               : null,
           role: kind == NodeKind.provider
               ? 'provider'
@@ -1126,7 +1133,7 @@ class _ResolvedVisitor extends RecursiveAstVisitor<void> {
         controlIds: ids,
         providerKind: kind,
         layer: layer,
-        target: _fieldString(value, 'target') ?? target ?? 'backend',
+        target: target,
         variant: _fieldString(value, 'variant') ?? 'default',
         slot: _fieldString(value, 'slot') ?? 'primary',
         source: source,

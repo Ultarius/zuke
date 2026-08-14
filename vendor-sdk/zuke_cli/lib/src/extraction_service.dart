@@ -39,116 +39,104 @@ class ExtractionService {
     final outputs = <IrAdapterOutput>[];
     final topologyOutputs = <AdapterOutput>[];
     final errors = <String>[];
-    for (final target in workspace.config.targetsConfig.entries) {
-      final targetConfig = target.value;
-      if (targetConfig is! Map) continue;
-      final language = targetConfig['language'];
-      if (language == 'dart') {
-        final framework = targetConfig['framework'] as String?;
-        final packages = targetConfig['packages'];
-        if (packages is! List) continue;
-        for (final package in packages) {
-          if (package is! Map || package['path'] is! String) continue;
-          final packageId =
-              package['id'] as String? ?? package['path'] as String;
-          final packageDirectory = Directory(
-            _join(root, package['path'] as String),
+    for (final targetEntry in workspace.config.workspaceTargets.entries) {
+      final target = targetEntry.value;
+      if (target.language != 'dart') continue;
+      final framework = target.framework;
+      for (final package in target.packages) {
+        final packageDirectory = Directory(_join(root, package.path));
+        if (!packageDirectory.existsSync()) {
+          final packageRoot = packageDirectory.absolute.path;
+          errors.add('target package not found: $packageRoot');
+          continue;
+        }
+        final packageRoot = packageDirectory.resolveSymbolicLinksSync();
+        final roots = package.roots;
+        // The source digest is also the identity of the source snapshot
+        // used by the projected topology output.  Keep it in the same
+        // digest format as the analyzer output; publication normalizes the
+        // value to the canonical sha256:<hex> wire form.
+        final inputDigest = _sourceDigest(
+          packageRoot,
+          roots,
+          framework == 'dart-frog' ? 'dart-frog' : 'dart-http-v3',
+          framework == 'dart-frog'
+              ? dartFrogCompatibilityId
+              : DartExtractor.compatibilityId,
+        );
+        if (framework == 'dart-frog') {
+          final topology = await const DartFrogAdapter().extract(
+            AdapterRequest(
+              workspaceRoot: root,
+              targetId: target.id,
+              packageId: package.id,
+              packageRoot: packageRoot,
+              configuredRoots: roots,
+            ),
           );
-          if (!packageDirectory.existsSync()) {
-            final packageRoot = packageDirectory.absolute.path;
-            errors.add('target package not found: $packageRoot');
+          topologyOutputs.add(topology);
+          // The adapter output is retained for reporting and also projected
+          // into the canonical IR consumed by the proof engine.
+          // Keeping this bridge here prevents a successful adapter run from
+          // becoming diagnostics-only evidence.
+          outputs.add(
+            _topologyAdapterOutput(topology, packageRoot, inputDigest),
+          );
+          errors.addAll(
+            topology.diagnostics
+                .where(
+                  (diagnostic) =>
+                      diagnostic.severity == DiagnosticSeverity.error,
+                )
+                .map(
+                  (diagnostic) => '${diagnostic.code}: ${diagnostic.message}',
+                ),
+          );
+        }
+        // A package can be inspected under different configured targets.
+        // Cache identity must include that namespace; otherwise an output
+        // extracted as backend can be reused for the same package under
+        // flutter (or vice versa).
+        final cacheKey = sha256
+            .convert(utf8.encode('${target.id}|${package.id}|$inputDigest'))
+            .toString();
+        final cached = _loadCached(root, 'dart', cacheKey);
+        IrAdapterOutput output;
+        if (cached != null) {
+          output = cached;
+        } else {
+          try {
+            // Extraction is a tooling phase, not a proof.  Bound it so a
+            // stuck analyzer cannot turn `validate` into an unreported
+            // hang or be mistaken for successful topology discovery.
+            output = await DartExtractor()
+                .extract(packageRoot, roots: roots, target: target.id)
+                .timeout(const Duration(seconds: 60));
+          } on TimeoutException {
+            errors.add(
+              'ZUKE-EXTRACT-TIMEOUT: Dart extraction exceeded 60 seconds for $packageRoot',
+            );
+            continue;
+          } catch (error) {
+            errors.add('ZUKE-EXTRACT-FAILED: $packageRoot: $error');
             continue;
           }
-          final packageRoot = packageDirectory.resolveSymbolicLinksSync();
-          final roots =
-              (package['roots'] as List?)?.whereType<String>().toList() ??
-              const ['lib'];
-          // The source digest is also the identity of the source snapshot
-          // used by the projected topology output.  Keep it in the same
-          // digest format as the analyzer output; publication normalizes the
-          // value to the canonical sha256:<hex> wire form.
-          final inputDigest = _sourceDigest(
-            packageRoot,
-            roots,
-            framework == 'dart-frog' ? 'dart-frog' : 'dart-http-v3',
-            framework == 'dart-frog'
-                ? dartFrogCompatibilityId
-                : DartExtractor.compatibilityId,
-          );
-          if (framework == 'dart-frog') {
-            final topology = await const DartFrogAdapter().extract(
-              AdapterRequest(
-                workspaceRoot: root,
-                targetId: target.key,
-                packageId: packageId,
-                packageRoot: packageRoot,
-                configuredRoots: roots,
-              ),
-            );
-            topologyOutputs.add(topology);
-            // The adapter output is retained for reporting and also projected
-            // into the canonical IR consumed by the proof engine.
-            // Keeping this bridge here prevents a successful adapter run from
-            // becoming diagnostics-only evidence.
-            outputs.add(
-              _topologyAdapterOutput(topology, packageRoot, inputDigest),
-            );
-            errors.addAll(
-              topology.diagnostics
-                  .where(
-                    (diagnostic) =>
-                        diagnostic.severity == DiagnosticSeverity.error,
-                  )
-                  .map(
-                    (diagnostic) => '${diagnostic.code}: ${diagnostic.message}',
-                  ),
-            );
-          }
-          // A package can be inspected under different configured targets.
-          // Cache identity must include that namespace; otherwise an output
-          // extracted as backend can be reused for the same package under
-          // flutter (or vice versa).
-          final cacheKey = sha256
-              .convert(utf8.encode('${target.key}|$packageId|$inputDigest'))
-              .toString();
-          final cached = _loadCached(root, 'dart', cacheKey);
-          IrAdapterOutput output;
-          if (cached != null) {
-            output = cached;
-          } else {
-            try {
-              // Extraction is a tooling phase, not a proof.  Bound it so a
-              // stuck analyzer cannot turn `validate` into an unreported
-              // hang or be mistaken for successful topology discovery.
-              output = await DartExtractor()
-                  .extract(packageRoot, roots: roots, target: target.key)
-                  .timeout(const Duration(seconds: 60));
-            } on TimeoutException {
-              errors.add(
-                'ZUKE-EXTRACT-TIMEOUT: Dart extraction exceeded 60 seconds for $packageRoot',
-              );
-              continue;
-            } catch (error) {
-              errors.add('ZUKE-EXTRACT-FAILED: $packageRoot: $error');
-              continue;
-            }
-          }
-          // The configured package id is the stable assurance identity. The
-          // analyzer may report the pubspec name, which may differ from that
-          // identity, so bind the output to the configured namespace before
-          // it enters the shared source catalog.
-          output = _withConfiguredPackageIdentity(
-            output,
-            packageId,
-            packageRoot,
-          );
-          if (output.graph != null) {
-            errors.addAll(output.graph!.validate());
-          }
-          if (cached == null) _writeCached(root, 'dart', cacheKey, output);
-          outputs.add(output);
-          errors.addAll(output.errors);
         }
+        // The configured package id is the stable assurance identity. The
+        // analyzer may report the pubspec name, which may differ from that
+        // identity, so bind the output to the configured namespace before
+        // it enters the shared source catalog.
+        output = _withConfiguredPackageIdentity(
+          output,
+          package.id,
+          packageRoot,
+        );
+        if (output.graph != null) {
+          errors.addAll(output.graph!.validate());
+        }
+        if (cached == null) _writeCached(root, 'dart', cacheKey, output);
+        outputs.add(output);
+        errors.addAll(output.errors);
       }
     }
     final evidenceLoad = includeEvidence

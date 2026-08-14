@@ -101,6 +101,7 @@ class ZukeCli {
           ArgParser()
             ..addOption('root', abbr: 'r')
             ..addOption('package', help: 'Package path relative to workspace')
+            ..addOption('target', help: 'Active configured extraction target')
             ..addOption('emit', help: 'Optional diagnostic fragment path'),
         ),
       )
@@ -1457,8 +1458,8 @@ Future<void> main(List<String> arguments) => zuke.build(arguments);
     String target,
     String packageId,
   ) =>
-      workspace.config.targetPackages[target]?.any(
-        (package) => package['id'] == packageId,
+      workspace.config.workspaceTargets[target]?.packages.any(
+        (package) => package.id == packageId,
       ) ??
       false;
 

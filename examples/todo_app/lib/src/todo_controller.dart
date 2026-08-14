@@ -21,7 +21,6 @@ class TodoItemModel {
   ['CTRL-TODO-VALIDATION'],
   kind: ControlProviderKind.applicationValidator,
   layer: EnforcementLayer.presentation,
-  target: 'flutter',
 )
 class TodoController extends ChangeNotifier {
   final List<TodoItemModel> _tasks = [];

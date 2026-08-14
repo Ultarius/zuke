@@ -88,6 +88,27 @@ void main() {
     );
   });
 
+  test('rejects competing proof owners for one control obligation', () {
+    final result = ValidatorEngine().validate(
+      _verificationWorkspace,
+      verifiedAttestationProofs: const [
+        ControlProofResult(
+          controlId: 'CTRL-VERIFIED',
+          requirementId: 'RULE-VERIFIED',
+          status: ProofStatus.verified,
+          semantics: CoverageSemantics.externalAttestation,
+          target: 'flutter',
+        ),
+      ],
+    );
+
+    expect(
+      result.errors.map((error) => error.code),
+      contains('ZK-PROOF-OWNER-CONFLICT'),
+    );
+    expect(result.controlProofs.single.status, ProofStatus.failed);
+  });
+
   test('requires every configured defense-in-depth layer', () {
     const workspace = WorkspaceDiscoveryResult(
       config: ZukeConfig(),

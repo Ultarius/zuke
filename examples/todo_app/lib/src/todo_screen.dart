@@ -8,7 +8,6 @@ import 'package:zuke_runner_flutter/zuke_runner_flutter.dart';
   ['CTRL-TODO-ACCESSIBLE'],
   kind: ControlProviderKind.semanticsProvider,
   layer: EnforcementLayer.presentation,
-  target: 'flutter',
 )
 class TodoScreen extends StatefulWidget {
   final TodoController controller;

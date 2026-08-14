@@ -16,13 +16,13 @@ packages:
     supportStatement: Supported Zuke infrastructure dependency; applications normally use a primary SDK package.
     bumpReason: Breaking contract ownership and analyzer-free core boundary.
   zuke_annotations:
-    version: 0.3.0
-    previousVersion: 0.2.0
+    version: 0.4.0
+    previousVersion: 0.3.0
     publish: true
     releaseAction: publish
     tier: Narrow SDK
     supportStatement: Supported application-facing annotation API.
-    bumpReason: Coordinated current core contract dependency.
+    bumpReason: Breaking removal of provider-owned workspace target metadata.
   zuke_frontend:
     version: 0.2.1
     previousVersion: 0.2.0
@@ -32,29 +32,29 @@ packages:
     supportStatement: Supported frontend and configuration API.
     bumpReason: Patch release for configured-target contract export discovery.
   zuke:
-    version: 0.3.1
-    previousVersion: 0.3.0
+    version: 0.4.0
+    previousVersion: 0.3.1
     publish: true
     releaseAction: publish
     tier: Primary SDK
     supportStatement: Primary pure-Dart Zuke SDK and supported current facade.
-    bumpReason: Patch release for profile-scoped suite and scenario evidence execution identities.
+    bumpReason: Coordinated facade release for the provider target ownership migration.
   zuke_runner:
-    version: 0.3.1
-    previousVersion: 0.3.0
+    version: 0.4.0
+    previousVersion: 0.3.1
     publish: true
     releaseAction: publish
     tier: Compatibility
     supportStatement: Compatibility package for the primary Zuke SDK.
-    bumpReason: Patch release for profile- and case-scoped suite evidence execution identities.
+    bumpReason: Coordinated runner release for the provider target ownership migration.
   zuke_runner_flutter:
-    version: 0.3.1
-    previousVersion: 0.3.0
+    version: 0.4.0
+    previousVersion: 0.3.1
     publish: true
     releaseAction: publish
     tier: Specialized SDK
     supportStatement: Supported Flutter testWidgets integration boundary.
-    bumpReason: Patch release for profile- and case-scoped widget evidence execution identities.
+    bumpReason: Coordinated Flutter runner release for the provider target ownership migration.
   zuke_http_runtime:
     version: 0.1.1
     previousVersion: 0.1.1
@@ -64,21 +64,21 @@ packages:
     supportStatement: Supported application-facing HTTP runtime boundary.
     bumpReason: Existing hosted version remains compatible with this release.
   zuke_cli:
-    version: 0.4.2
-    previousVersion: 0.4.1
+    version: 0.5.0
+    previousVersion: 0.4.2
     publish: true
     releaseAction: publish
     tier: Specialized SDK
     supportStatement: Supported CLI for generation, extraction, validation, locks, and gates.
-    bumpReason: Patch release for annotation-backed implementation and provider nodes in native Dart Frog governed graphs.
+    bumpReason: Breaking target-aware extraction and proof-owner routing without provider target fallbacks.
   zuke_dart_build_hook:
-    version: 0.3.0
-    previousVersion: 0.2.0
+    version: 0.4.0
+    previousVersion: 0.3.0
     publish: true
     releaseAction: publish
     tier: Specialized SDK
     supportStatement: Supported optional package-owned build-time validation hook.
-    bumpReason: First-party CLI tooling dependency and current compatibility.
+    bumpReason: Coordinated build-hook release for target-aware CLI extraction.
   zuke_analyzer:
     version: 0.1.0
     previousVersion: 0.1.0

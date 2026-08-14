@@ -6,6 +6,16 @@ import 'package:test/test.dart';
 import '../support/temporary_directory.dart';
 
 void main() {
+  test('requires an explicit extraction target', () async {
+    final root = Directory.systemTemp.createTempSync('dart-extractor-target-');
+    addTearDown(() => deleteTemporaryDirectory(root));
+
+    await expectLater(
+      DartExtractor().extract(root.path),
+      throwsA(isA<ArgumentError>()),
+    );
+  });
+
   test('DartExtractionResult stores fragments', () {
     final result = DartExtractionResult();
     expect(result.fragments, isEmpty);
@@ -212,7 +222,11 @@ final unsupportedField = Object();
 class UnsupportedVerification {}
 ''');
 
-      final output = await DartExtractor().extract(root.path, roots: ['lib']);
+      final output = await DartExtractor().extract(
+        root.path,
+        roots: ['lib'],
+        target: 'backend',
+      );
 
       expect(output.inputDigest, hasLength(64));
       expect(
@@ -235,6 +249,17 @@ class UnsupportedVerification {}
           'CTRL-HANDLER',
           'CTRL-PROCESSOR',
         ]),
+      );
+      final targetedOutput = await DartExtractor().extract(
+        root.path,
+        roots: ['lib'],
+        target: 'flutter',
+      );
+      expect(
+        targetedOutput.symbols
+            .where((symbol) => symbol.kind == 'controlProvider')
+            .every((symbol) => symbol.target == 'flutter'),
+        isTrue,
       );
       expect(output.graph, isNotNull);
       expect(
@@ -294,13 +319,13 @@ class UnsupportedVerification {}
     addTearDown(() => deleteTemporaryDirectory(root));
 
     expect(
-      () => DartExtractor().extract(root.path),
+      () => DartExtractor().extract(root.path, target: 'backend'),
       throwsA(isA<FormatException>()),
     );
 
     File('${root.path}/pubspec.yaml').writeAsStringSync('environment: {}\n');
     expect(
-      () => DartExtractor().extract(root.path),
+      () => DartExtractor().extract(root.path, target: 'backend'),
       throwsA(isA<FormatException>()),
     );
 
@@ -313,7 +338,11 @@ environment:
     File(
       '${root.path}/lib/broken.dart',
     ).writeAsStringSync('void broken( => missing;');
-    final output = await DartExtractor().extract(root.path, roots: ['lib']);
+    final output = await DartExtractor().extract(
+      root.path,
+      roots: ['lib'],
+      target: 'backend',
+    );
     expect(output.diagnostics, isNotEmpty);
     expect(output.graph, isNull);
   });

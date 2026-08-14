@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.4.0
+
+- Coordinated Flutter runner result emission with explicit extraction targets
+  and the current proof ownership model.
+
 ## 0.3.1
 
 - Include the managed widget-test case identity when emitting suite and
