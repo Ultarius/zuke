@@ -134,9 +134,11 @@ class CheckCommand {
         final stable = _inputsStable(initial, root);
         stages.add(stable);
         if (stable.status == 'passed') {
+          final validateCommand = ValidateCommand(_validateArgs(root, profile));
           final validated = await _stage(
             'validate',
-            () => ValidateCommand(_validateArgs(root, profile)).execute(),
+            validateCommand.execute,
+            diagnostics: () => validateCommand.diagnostics,
           );
           stages.add(validated);
           if (validated.status == 'passed') {

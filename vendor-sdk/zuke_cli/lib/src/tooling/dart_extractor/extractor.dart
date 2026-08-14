@@ -85,6 +85,7 @@ class DartExtractor implements DartSourceExtractor {
   Future<IrAdapterOutput> extract(
     String rootPath, {
     List<String> roots = const ['lib'],
+    String? target,
   }) async {
     late final String root;
     try {
@@ -173,6 +174,7 @@ class DartExtractor implements DartSourceExtractor {
               packageName: packageName,
               file: file,
               lineInfo: result.lineInfo,
+              target: target,
               symbols: symbols,
               errors: errors,
               graphNodes: graphNodes,
@@ -345,7 +347,7 @@ class DartExtractor implements DartSourceExtractor {
             symbolId: '$sourceUri#${node.id}',
             controlIds: [control],
             providerKind: providerKind,
-            target: 'backend',
+            target: target ?? 'backend',
             source: ExtractedSourceLocation(
               uri: sourceUri,
               offset: 0,
@@ -534,6 +536,7 @@ class _ResolvedVisitor extends RecursiveAstVisitor<void> {
   final String packageName;
   final String file;
   final LineInfo lineInfo;
+  final String? target;
   final List<ExtractedSymbol> symbols;
   final List<String> errors;
   final Map<String, IrNode> graphNodes;
@@ -543,6 +546,7 @@ class _ResolvedVisitor extends RecursiveAstVisitor<void> {
     required this.packageName,
     required this.file,
     required this.lineInfo,
+    required this.target,
     required this.symbols,
     required this.errors,
     required this.graphNodes,
@@ -651,7 +655,7 @@ class _ResolvedVisitor extends RecursiveAstVisitor<void> {
           id: id,
           kind: kind,
           target: kind == NodeKind.provider || kind == NodeKind.implementation
-              ? 'backend'
+              ? target ?? 'backend'
               : null,
           role: kind == NodeKind.provider
               ? 'provider'
@@ -1013,7 +1017,7 @@ class _ResolvedVisitor extends RecursiveAstVisitor<void> {
             'domain',
             name,
             source,
-            target: _fieldString(value, 'target') ?? 'backend',
+            target: _fieldString(value, 'target') ?? target ?? 'backend',
             variant: _fieldString(value, 'variant') ?? 'default',
             slot: _fieldString(value, 'slot') ?? 'primary',
           );
@@ -1026,7 +1030,7 @@ class _ResolvedVisitor extends RecursiveAstVisitor<void> {
             'flutter',
             name,
             source,
-            target: _fieldString(value, 'target') ?? 'flutter',
+            target: _fieldString(value, 'target') ?? target ?? 'flutter',
             variant: _fieldString(value, 'variant') ?? 'default',
             slot: _fieldString(value, 'slot') ?? 'primary',
           );
@@ -1122,7 +1126,7 @@ class _ResolvedVisitor extends RecursiveAstVisitor<void> {
         controlIds: ids,
         providerKind: kind,
         layer: layer,
-        target: _fieldString(value, 'target') ?? 'backend',
+        target: _fieldString(value, 'target') ?? target ?? 'backend',
         variant: _fieldString(value, 'variant') ?? 'default',
         slot: _fieldString(value, 'slot') ?? 'primary',
         source: source,
@@ -1150,7 +1154,7 @@ class _ResolvedVisitor extends RecursiveAstVisitor<void> {
         symbolId: '${source.uri}#$name',
         bindingId: bindingId,
         variant: _fieldString(value, 'variant') ?? 'default',
-        target: _fieldString(value, 'target') ?? 'flutter',
+        target: _fieldString(value, 'target') ?? target ?? 'flutter',
         source: source,
       ),
     );

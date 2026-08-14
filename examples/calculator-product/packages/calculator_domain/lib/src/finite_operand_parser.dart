@@ -6,6 +6,7 @@ import 'package:zuke_annotations/zuke_annotations.dart';
   ['CTRL-CALC-INPUT-VALIDATION'],
   kind: ControlProviderKind.applicationValidator,
   layer: EnforcementLayer.application,
+  target: 'flutter',
 )
 class FiniteOperandParser {
   static final _numericPattern = RegExp(r'^-?\d+(\.\d+)?$');

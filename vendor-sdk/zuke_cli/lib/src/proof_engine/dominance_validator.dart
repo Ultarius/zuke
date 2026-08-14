@@ -39,6 +39,8 @@ class DominanceValidator {
     );
 
     for (final implementation in implementations) {
+      final implementationTarget = implementation.target ?? 'backend';
+      final implementationVariant = implementation.variant ?? 'default';
       final requirementIds =
           (implementation.properties['requirementIds'] as List?)
               ?.whereType<String>()
@@ -53,8 +55,20 @@ class DominanceValidator {
       }
 
       for (final controlId in requiredControls) {
-        final implementationTarget = implementation.target ?? 'backend';
-        final implementationVariant = implementation.variant ?? 'default';
+        // A rule may govern multiple targets. A control requirement belongs
+        // to the target declared by its exact reference; it must not be
+        // evaluated against an implementation extracted from another target.
+        // This prevents a Flutter/domain annotation from becoming an
+        // uncovered backend path merely because both sides mention the same
+        // control identifier.
+        if (!_appliesToTarget(
+          workspace,
+          requirementIds,
+          controlId,
+          implementationTarget,
+        )) {
+          continue;
+        }
         final providers = graph.nodes
             .where(
               (node) =>
@@ -299,6 +313,44 @@ class DominanceValidator {
       }
     }
     return result;
+  }
+
+  bool _appliesToTarget(
+    WorkspaceDiscoveryResult? workspace,
+    List<String> requirementIds,
+    String controlId,
+    String implementationTarget,
+  ) {
+    if (workspace == null || requirementIds.isEmpty) return true;
+    final declaredTargets = <String>[];
+    for (final feature in workspace.data.features) {
+      for (final rule in feature.rules) {
+        if (!requirementIds.contains(rule.metadata.id)) continue;
+        for (final reference
+            in rule.metadata.requires ?? const <ParsedControlRef>[]) {
+          if (reference.kind == 'control' && reference.id == controlId) {
+            declaredTargets.add(reference.target);
+          }
+        }
+        final profile = rule.metadata.securityProfile;
+        if (profile == null) continue;
+        for (final policy in workspace.data.policies.values) {
+          final profiles = policy['securityProfiles'];
+          final definition = profiles is Map ? profiles[profile] : null;
+          final requires = definition is Map ? definition['requires'] : null;
+          if (requires is! List) continue;
+          for (final raw in requires.whereType<Map>()) {
+            if (raw['id']?.toString() == controlId) {
+              declaredTargets.add(raw['target']?.toString() ?? 'backend');
+            }
+          }
+        }
+      }
+    }
+    // Preserve the legacy unit-fixture behavior when no target declaration
+    // exists. Workspace references with an explicit target remain exact.
+    return declaredTargets.isEmpty ||
+        declaredTargets.contains(implementationTarget);
   }
 
   String _graphHash(IrGraph graph) =>

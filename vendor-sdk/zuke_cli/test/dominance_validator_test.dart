@@ -275,6 +275,69 @@ void main() {
       expect(proof.status, ProofStatus.missing);
     });
 
+    test('does not evaluate a control declared for another target', () {
+      const workspace = WorkspaceDiscoveryResult(
+        config: ZukeConfig(),
+        data: MetadataExtractorResult(
+          controls: {
+            'CTRL-BACKEND-ONLY': {'coverageSemantics': 'ingress-dominance'},
+          },
+          features: [
+            ParsedFeature(
+              tags: [],
+              featureElement: GherkinElement(
+                keyword: GherkinKeyword.feature,
+                title: 'Target isolation',
+                source: SourceLocation(file: 'target.feature', line: 1),
+              ),
+              metadata: ParsedMetadata(
+                id: 'FEAT-TARGET',
+                source: SourceLocation(file: 'target.feature', line: 1),
+              ),
+              rules: [
+                ParsedRule(
+                  tags: [],
+                  ruleElement: GherkinElement(
+                    keyword: GherkinKeyword.rule,
+                    title: 'Backend control',
+                    source: SourceLocation(file: 'target.feature', line: 2),
+                  ),
+                  metadata: ParsedMetadata(
+                    id: 'RULE-BACKEND-ONLY',
+                    requires: [
+                      ParsedControlRef(
+                        id: 'CTRL-BACKEND-ONLY',
+                        target: 'backend',
+                      ),
+                    ],
+                    source: SourceLocation(file: 'target.feature', line: 2),
+                  ),
+                  scenarios: [],
+                ),
+              ],
+            ),
+          ],
+        ),
+      );
+      const graph = IrGraph(
+        nodes: [
+          IrNode(
+            id: 'implementation:flutter-domain',
+            kind: NodeKind.implementation,
+            target: 'flutter',
+            properties: {
+              'requirementIds': ['RULE-BACKEND-ONLY'],
+            },
+          ),
+        ],
+      );
+
+      final result = DominanceValidator().validate(graph, workspace: workspace);
+
+      expect(result.errors, isEmpty);
+      expect(result.controlProofs, isEmpty);
+    });
+
     test(
       'does not compose disjoint partial providers into a dominance proof',
       () {

@@ -104,7 +104,13 @@ class ExtractionService {
                   ),
             );
           }
-          final cacheKey = inputDigest;
+          // A package can be inspected under different configured targets.
+          // Cache identity must include that namespace; otherwise an output
+          // extracted as backend can be reused for the same package under
+          // flutter (or vice versa).
+          final cacheKey = sha256
+              .convert(utf8.encode('${target.key}|$packageId|$inputDigest'))
+              .toString();
           final cached = _loadCached(root, 'dart', cacheKey);
           IrAdapterOutput output;
           if (cached != null) {
@@ -115,7 +121,7 @@ class ExtractionService {
               // stuck analyzer cannot turn `validate` into an unreported
               // hang or be mistaken for successful topology discovery.
               output = await DartExtractor()
-                  .extract(packageRoot, roots: roots)
+                  .extract(packageRoot, roots: roots, target: target.key)
                   .timeout(const Duration(seconds: 60));
             } on TimeoutException {
               errors.add(
