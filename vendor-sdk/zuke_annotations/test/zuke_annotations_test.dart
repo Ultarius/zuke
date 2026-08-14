@@ -36,6 +36,15 @@ void main() {
     expect(ctrl.kind, ControlProviderKind.applicationValidator);
   });
 
+  test('ProvidesControl has no workspace target override', () {
+    // Target placement is resolved from package membership and the active
+    // extraction target. `target:` and `targets:` are intentionally absent
+    // named parameters, so leftover provider target metadata is rejected by
+    // the Dart analyzer instead of becoming a second placement surface.
+    const provider = ProvidesControl(['CTRL-001']);
+    expect(provider.controlIds, ['CTRL-001']);
+  });
+
   test('ControlProviderKind fromValue round-trips', () {
     expect(
       ControlProviderKind.fromValue('application-validator'),

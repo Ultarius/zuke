@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:zuke_cli/src/dart_extractor.dart';
+import 'package:zuke_cli/src/generated/release_contract.dart';
 import 'package:test/test.dart';
 
 import '../support/temporary_directory.dart';
@@ -13,6 +14,15 @@ void main() {
     await expectLater(
       DartExtractor().extract(root.path),
       throwsA(isA<ArgumentError>()),
+    );
+  });
+
+  test('emits the matrix-owned Dart source compatibility identity', () {
+    expect(DartExtractor.compatibilityId, releaseDartSourceCompatibilityId);
+    expect(DartExtractor.compatibilityId, 'dart-source-package-v1');
+    expect(
+      DartExtractor().adapterInfo.compatibilityId,
+      'dart-source-package-v1',
     );
   });
 

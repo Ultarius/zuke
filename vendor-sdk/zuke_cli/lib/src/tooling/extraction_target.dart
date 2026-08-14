@@ -61,11 +61,13 @@ Directory? _findWorkspaceRoot(Directory start) {
 
 String _canonical(Directory directory) {
   try {
-    return directory
-        .resolveSymbolicLinksSync()
-        .replaceAll('\\', '/')
-        .toLowerCase();
+    final resolved = directory.resolveSymbolicLinksSync().replaceAll('\\', '/');
+    // Windows paths are case-insensitive; POSIX paths are not. Lowercasing a
+    // Linux temporary directory such as `/tmp/zuke-plugin-GKTOEW` changes the
+    // path being inspected and makes an otherwise valid workspace disappear.
+    return Platform.isWindows ? resolved.toLowerCase() : resolved;
   } catch (_) {
-    return directory.absolute.path.replaceAll('\\', '/').toLowerCase();
+    final absolute = directory.absolute.path.replaceAll('\\', '/');
+    return Platform.isWindows ? absolute.toLowerCase() : absolute;
   }
 }

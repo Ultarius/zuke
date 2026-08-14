@@ -17,14 +17,27 @@ An illustrative migration is:
 
 ```yaml
 dev_dependencies:
-  # Previous coordinated set:
-  # zuke_cli: ^0.4.2
+  # Previous coordinated set (last published tuple):
+  # zuke_core: ^0.2.0
+  # zuke_annotations: ^0.3.0
+  # zuke_frontend: ^0.2.0
+  # zuke: ^0.3.1
+  # zuke_runner: ^0.3.1
   # zuke_runner_flutter: ^0.3.1
+  # zuke_http_runtime: ^0.1.1
+  # zuke_cli: ^0.4.2
+  # zuke_dart_build_hook: ^0.3.0
 
-  # Current set:
+  # Current coordinated set:
+  # zuke_core: ^0.3.0
+  # zuke_annotations: ^0.4.0
+  # zuke_frontend: ^0.2.1
   zuke: ^0.4.0
-  zuke_cli: ^0.5.0
+  zuke_runner: ^0.4.0
   zuke_runner_flutter: ^0.4.0
+  zuke_http_runtime: ^0.1.1
+  zuke_cli: ^0.5.0
+  zuke_dart_build_hook: ^0.4.0
 ```
 
 Keep the versions in the same coordinated row. Do not add path dependencies

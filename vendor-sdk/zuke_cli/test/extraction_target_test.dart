@@ -20,12 +20,41 @@ void main() {
     expect(resolveExtractionTarget(root.path), 'backend');
   });
 
+  test('preserves case in POSIX temporary workspace paths', () {
+    final caseSensitiveRoot = Directory.systemTemp.createTempSync(
+      'Zuke-Extraction-Target-',
+    );
+    addTearDown(() {
+      if (caseSensitiveRoot.existsSync()) {
+        caseSensitiveRoot.deleteSync(recursive: true);
+      }
+    });
+    _writeWorkspace(caseSensitiveRoot, const ['backend']);
+
+    expect(resolveExtractionTarget(caseSensitiveRoot.path), 'backend');
+  });
+
   test('uses an explicitly active target for multi-target membership', () {
     _writeWorkspace(root, const ['backend', 'flutter']);
 
     expect(
       resolveExtractionTarget(root.path, requestedTarget: 'flutter'),
       'flutter',
+    );
+  });
+
+  test('rejects an active target outside package membership', () {
+    _writeWorkspace(root, const ['backend']);
+
+    expect(
+      () => resolveExtractionTarget(root.path, requestedTarget: 'flutter'),
+      throwsA(
+        isA<FormatException>().having(
+          (error) => error.message,
+          'message',
+          contains('ZK-PROVIDER-TARGET-AMBIGUOUS'),
+        ),
+      ),
     );
   });
 
