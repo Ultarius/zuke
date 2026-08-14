@@ -26,7 +26,7 @@
       "version": "1.0.0",
       "compatibilityId": "dart-source-package-v1",
       "package": "shopping-cart",
-      "digest": "sha256:a1e243d2f0ba5a238bc7899671346bdc223c8e4952ab11c0e086ed54c11c83b7",
+      "digest": "sha256:8ea29e28ed79715bf1c8ba5d6c3f3848b6c3437806c454175d9aa19aa205b3a3",
       "completeness": {
         "annotationTargets": "complete",
         "generatedParts": "complete",
@@ -48,8 +48,96 @@
     "RULE-CART-ACCESSIBILITY"
   ],
   "attestations": [],
+  "implementationCoverage": [
+    {
+      "binding": {
+        "subjectKind": "requirement",
+        "subjectId": "RULE-CART-EMPTY-CHECKOUT",
+        "target": "flutter",
+        "role": "implementation",
+        "variant": "default",
+        "slot": "primary"
+      },
+      "mode": "annotationGoverned",
+      "status": "verified",
+      "evidenceDigests": [
+        "sha256:2f239e4d481e650d93d3180b876ddddc3e4d61e429f4f0d4c7b32c5e9f5df0f2",
+        "sha256:5cafb2a0df48be964e493f663775d3813f1abee0d3adf08a0ccdab9b1ec95eb2",
+        "sha256:5f6a15581c30576bbb7aa07334879ec46c900f19ccee96e5a7ab250552ee2bf9",
+        "sha256:8ea29e28ed79715bf1c8ba5d6c3f3848b6c3437806c454175d9aa19aa205b3a3",
+        "sha256:bcd2e1c63c8e53a6c46b82b22756a51356fd5add8caa8fd6ae74ba3073a5f977"
+      ],
+      "diagnostics": []
+    },
+    {
+      "binding": {
+        "subjectKind": "requirement",
+        "subjectId": "RULE-CART-ITEM-MANAGEMENT",
+        "target": "flutter",
+        "role": "implementation",
+        "variant": "default",
+        "slot": "primary"
+      },
+      "mode": "annotationGoverned",
+      "status": "verified",
+      "evidenceDigests": [
+        "sha256:2f239e4d481e650d93d3180b876ddddc3e4d61e429f4f0d4c7b32c5e9f5df0f2",
+        "sha256:4e4d5c538a5c7ae41fc599599fc48ff0e6555948598d2d7a6e1cbb06053bf62c",
+        "sha256:5f6a15581c30576bbb7aa07334879ec46c900f19ccee96e5a7ab250552ee2bf9",
+        "sha256:8ea29e28ed79715bf1c8ba5d6c3f3848b6c3437806c454175d9aa19aa205b3a3",
+        "sha256:bcd2e1c63c8e53a6c46b82b22756a51356fd5add8caa8fd6ae74ba3073a5f977",
+        "sha256:e4c6cb677ac8776ca3aa4bf034c2ad622f4f9f1a6f7df696974cb7b251d26876"
+      ],
+      "diagnostics": []
+    },
+    {
+      "binding": {
+        "subjectKind": "requirement",
+        "subjectId": "RULE-CART-PROMO-DISCOUNT",
+        "target": "flutter",
+        "role": "implementation",
+        "variant": "default",
+        "slot": "primary"
+      },
+      "mode": "annotationGoverned",
+      "status": "verified",
+      "evidenceDigests": [
+        "sha256:0e126f03ef7b7b92cdad6d079b46c9992522f2c881c06b60422f34c7acf49d31",
+        "sha256:2f239e4d481e650d93d3180b876ddddc3e4d61e429f4f0d4c7b32c5e9f5df0f2",
+        "sha256:58dbb9456191a8fb6e482e4d63c44598e2886289575da99ce9509b3ea22bb261",
+        "sha256:5f6a15581c30576bbb7aa07334879ec46c900f19ccee96e5a7ab250552ee2bf9",
+        "sha256:693840b0932bcdad63dc460672ff105da83d60ffefc13dc8290a43add3c79c47",
+        "sha256:8ea29e28ed79715bf1c8ba5d6c3f3848b6c3437806c454175d9aa19aa205b3a3",
+        "sha256:9fd8143c0454895021c7c9fffa7f527043f28d68d56f942f14994b9ae2e304bc",
+        "sha256:bcd2e1c63c8e53a6c46b82b22756a51356fd5add8caa8fd6ae74ba3073a5f977",
+        "sha256:ef4ce842e80cece3308f5b262d76bbea8049f9c47e9cc89b8aee5adf9caa2296",
+        "sha256:fa0917b70cf6afede9e4b1eacdd19b17490f00cd43bd5ec45ea982e17e685021"
+      ],
+      "diagnostics": []
+    },
+    {
+      "binding": {
+        "subjectKind": "requirement",
+        "subjectId": "RULE-CART-SUCCESSFUL-CHECKOUT",
+        "target": "flutter",
+        "role": "implementation",
+        "variant": "default",
+        "slot": "primary"
+      },
+      "mode": "annotationGoverned",
+      "status": "verified",
+      "evidenceDigests": [
+        "sha256:2f239e4d481e650d93d3180b876ddddc3e4d61e429f4f0d4c7b32c5e9f5df0f2",
+        "sha256:5f6a15581c30576bbb7aa07334879ec46c900f19ccee96e5a7ab250552ee2bf9",
+        "sha256:6f6d4f6dd40727200c23a5665911ccbae72b4a3b5d52c09989392fd5b98d9543",
+        "sha256:8ea29e28ed79715bf1c8ba5d6c3f3848b6c3437806c454175d9aa19aa205b3a3",
+        "sha256:bcd2e1c63c8e53a6c46b82b22756a51356fd5add8caa8fd6ae74ba3073a5f977"
+      ],
+      "diagnostics": []
+    }
+  ],
   "controls": {
-    "RULE-CART-ITEM-MANAGEMENT|CTRL-CART-VALIDATION|flutter|default": {
+    "RULE-CART-ITEM-MANAGEMENT|CTRL-CART-VALIDATION|flutter|default|primary": {
       "assurance": "verified",
       "semantics": "verification-backed",
       "providerIds": [
@@ -57,11 +145,11 @@
       ],
       "evidenceDigests": [
         "sha256:2f239e4d481e650d93d3180b876ddddc3e4d61e429f4f0d4c7b32c5e9f5df0f2",
+        "sha256:4e4d5c538a5c7ae41fc599599fc48ff0e6555948598d2d7a6e1cbb06053bf62c",
         "sha256:5f6a15581c30576bbb7aa07334879ec46c900f19ccee96e5a7ab250552ee2bf9",
-        "sha256:766e1d206dd1a79d399076ba6a78d61184f837b1d449fceff24014bd892204dd",
-        "sha256:a1e243d2f0ba5a238bc7899671346bdc223c8e4952ab11c0e086ed54c11c83b7",
+        "sha256:8ea29e28ed79715bf1c8ba5d6c3f3848b6c3437806c454175d9aa19aa205b3a3",
         "sha256:bcd2e1c63c8e53a6c46b82b22756a51356fd5add8caa8fd6ae74ba3073a5f977",
-        "sha256:ec2a6673c8ba6331f357dc83f0af4296e0bc6d54a741ba9070fa382adf8ad76f"
+        "sha256:e4c6cb677ac8776ca3aa4bf034c2ad622f4f9f1a6f7df696974cb7b251d26876"
       ],
       "coverage": "verified",
       "graphHash": null,
@@ -71,23 +159,23 @@
       },
       "bypassPaths": []
     },
-    "RULE-CART-PROMO-DISCOUNT|CTRL-PROMO-VALIDATION|flutter|default": {
+    "RULE-CART-PROMO-DISCOUNT|CTRL-PROMO-VALIDATION|flutter|default|primary": {
       "assurance": "verified",
       "semantics": "verification-backed",
       "providerIds": [
         "package:shopping_cart/src/cart_controller.dart#CartController"
       ],
       "evidenceDigests": [
-        "sha256:09ed0e8ae5817a6583386510b8ab60952822f3111f3f8026b504e88b5d9a3ad8",
-        "sha256:1381f8488c2e0d5cee9dd6621d657df1cae007049d369c79df2ba9b2af8927ce",
+        "sha256:0e126f03ef7b7b92cdad6d079b46c9992522f2c881c06b60422f34c7acf49d31",
         "sha256:2f239e4d481e650d93d3180b876ddddc3e4d61e429f4f0d4c7b32c5e9f5df0f2",
+        "sha256:58dbb9456191a8fb6e482e4d63c44598e2886289575da99ce9509b3ea22bb261",
         "sha256:5f6a15581c30576bbb7aa07334879ec46c900f19ccee96e5a7ab250552ee2bf9",
-        "sha256:7dfd197400dc7a512c9edca2963079937025afdb386f2d5e9bf3577b5864dcb5",
-        "sha256:a1e243d2f0ba5a238bc7899671346bdc223c8e4952ab11c0e086ed54c11c83b7",
-        "sha256:a773719c8cfaa7a573f554372a714df04acba2ec5193d264b42f7d84b6372882",
+        "sha256:693840b0932bcdad63dc460672ff105da83d60ffefc13dc8290a43add3c79c47",
+        "sha256:8ea29e28ed79715bf1c8ba5d6c3f3848b6c3437806c454175d9aa19aa205b3a3",
+        "sha256:9fd8143c0454895021c7c9fffa7f527043f28d68d56f942f14994b9ae2e304bc",
         "sha256:bcd2e1c63c8e53a6c46b82b22756a51356fd5add8caa8fd6ae74ba3073a5f977",
-        "sha256:ca926d0d3f82caad02b09d415c8c9d467a698adbb050ccd62cc9b2a0c76df779",
-        "sha256:ebf9f0edc85aa9a37c927aba42dca03361854bc40cf426f8568a55a2b9a3be92"
+        "sha256:ef4ce842e80cece3308f5b262d76bbea8049f9c47e9cc89b8aee5adf9caa2296",
+        "sha256:fa0917b70cf6afede9e4b1eacdd19b17490f00cd43bd5ec45ea982e17e685021"
       ],
       "coverage": "verified",
       "graphHash": null,
@@ -97,17 +185,17 @@
       },
       "bypassPaths": []
     },
-    "RULE-CART-EMPTY-CHECKOUT|CTRL-CART-VALIDATION|flutter|default": {
+    "RULE-CART-EMPTY-CHECKOUT|CTRL-CART-VALIDATION|flutter|default|primary": {
       "assurance": "verified",
       "semantics": "verification-backed",
       "providerIds": [
         "package:shopping_cart/src/cart_controller.dart#CartController"
       ],
       "evidenceDigests": [
-        "sha256:2a666c85a70c0b5fda6155366fe8dcd851fa54c0b347e474ae2166e21775d2f2",
         "sha256:2f239e4d481e650d93d3180b876ddddc3e4d61e429f4f0d4c7b32c5e9f5df0f2",
+        "sha256:5cafb2a0df48be964e493f663775d3813f1abee0d3adf08a0ccdab9b1ec95eb2",
         "sha256:5f6a15581c30576bbb7aa07334879ec46c900f19ccee96e5a7ab250552ee2bf9",
-        "sha256:a1e243d2f0ba5a238bc7899671346bdc223c8e4952ab11c0e086ed54c11c83b7",
+        "sha256:8ea29e28ed79715bf1c8ba5d6c3f3848b6c3437806c454175d9aa19aa205b3a3",
         "sha256:bcd2e1c63c8e53a6c46b82b22756a51356fd5add8caa8fd6ae74ba3073a5f977"
       ],
       "coverage": "verified",
@@ -118,7 +206,7 @@
       },
       "bypassPaths": []
     },
-    "RULE-CART-SUCCESSFUL-CHECKOUT|CTRL-CART-VALIDATION|flutter|default": {
+    "RULE-CART-SUCCESSFUL-CHECKOUT|CTRL-CART-VALIDATION|flutter|default|primary": {
       "assurance": "verified",
       "semantics": "verification-backed",
       "providerIds": [
@@ -127,9 +215,9 @@
       "evidenceDigests": [
         "sha256:2f239e4d481e650d93d3180b876ddddc3e4d61e429f4f0d4c7b32c5e9f5df0f2",
         "sha256:5f6a15581c30576bbb7aa07334879ec46c900f19ccee96e5a7ab250552ee2bf9",
-        "sha256:a1e243d2f0ba5a238bc7899671346bdc223c8e4952ab11c0e086ed54c11c83b7",
-        "sha256:bcd2e1c63c8e53a6c46b82b22756a51356fd5add8caa8fd6ae74ba3073a5f977",
-        "sha256:c7ec94e399e27b90e9defaea1391bbc785704ed9c07db735453abca6bef8aa97"
+        "sha256:6f6d4f6dd40727200c23a5665911ccbae72b4a3b5d52c09989392fd5b98d9543",
+        "sha256:8ea29e28ed79715bf1c8ba5d6c3f3848b6c3437806c454175d9aa19aa205b3a3",
+        "sha256:bcd2e1c63c8e53a6c46b82b22756a51356fd5add8caa8fd6ae74ba3073a5f977"
       ],
       "coverage": "verified",
       "graphHash": null,
@@ -139,7 +227,7 @@
       },
       "bypassPaths": []
     },
-    "RULE-CART-ACCESSIBILITY|CTRL-CART-ACCESSIBLE|flutter|default": {
+    "RULE-CART-ACCESSIBILITY|CTRL-CART-ACCESSIBLE|flutter|default|primary": {
       "assurance": "verified",
       "semantics": "verification-backed",
       "providerIds": [
@@ -148,9 +236,9 @@
       "evidenceDigests": [
         "sha256:2f239e4d481e650d93d3180b876ddddc3e4d61e429f4f0d4c7b32c5e9f5df0f2",
         "sha256:5f6a15581c30576bbb7aa07334879ec46c900f19ccee96e5a7ab250552ee2bf9",
-        "sha256:a1e243d2f0ba5a238bc7899671346bdc223c8e4952ab11c0e086ed54c11c83b7",
+        "sha256:8ea29e28ed79715bf1c8ba5d6c3f3848b6c3437806c454175d9aa19aa205b3a3",
         "sha256:bcd2e1c63c8e53a6c46b82b22756a51356fd5add8caa8fd6ae74ba3073a5f977",
-        "sha256:c5650eb8611deebdfcd04b96a04afcf5b5df4503d706d83cd01b27f97811b635"
+        "sha256:ee919b91b96d52c3bc58611599874315113b960c3b6360e1de06c60c7b986110"
       ],
       "coverage": "verified",
       "graphHash": null,

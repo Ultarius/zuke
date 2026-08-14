@@ -30,11 +30,11 @@
   "policyHash": "sha256:0e415690723d2589b09681eeb983daab39231d75e659f9754f94a51cea8556dd",
   "evidenceRequirementsHash": "sha256:d63cef243ff1530bc5b8199c3812af46310998bf18f528bcec11d8e97c825b5f",
   "specificationDigestScope": "discovery-inputs-v1",
-  "specificationDigest": "sha256:16b44b1a1806e7cccce9d31c7c6f4acd13cab7b471ee2d6eb4e5dfa19dc6e246",
+  "specificationDigest": "sha256:d33d39fce65675b476f8dcdba5e0246446f2d4f8aa9f0c55eff54e0eef5b8a5d",
   "generatedManifestDigest": "sha256:b7946474c87077afe8e19de2c58a8c75c1f9a92faf24a32a4ffa00c17b882045",
   "features": {
     "FEAT-CALC-001": {
-      "sourceHash": "sha256:183d15a2570568c150bc219174aefc487b6b6eb9eedc88e9883610e6a25de3e1"
+      "sourceHash": "sha256:10bba2c94f4f76d70fd3248de3c985e876b21c6ed6c29679bb07b1e9c5678d5e"
     },
     "FEAT-CALC-002": {
       "sourceHash": "sha256:94272360e99f4b91d9fe198bb6d828bcf5f603d470c198f48c72cd9f0ee94720"
@@ -46,7 +46,7 @@
       "version": "1.0.0",
       "compatibilityId": "dart-source-package-v1",
       "package": "calculator-api",
-      "digest": "sha256:6783eea500630cb22ac73f7258fd3fb617105a69cd74c11decddd51f4974955d",
+      "digest": "sha256:1beecf8a19d084f88c7d8b9c039e40093ee59eda45437faa09bed35e2c978440",
       "completeness": {
         "annotationTargets": "complete",
         "generatedParts": "complete",
@@ -63,7 +63,7 @@
       "version": "1.0.0",
       "compatibilityId": "dart-source-package-v1",
       "package": "calculator-domain",
-      "digest": "sha256:64104c94a1e963ea009a7a367dd76cc8688808e93c153c3a9a9586dc9938ea13",
+      "digest": "sha256:8278359423e9c0f05ec55f5847eb1218b1d74443cd8c08c34e7b9d55cb9add5b",
       "completeness": {
         "annotationTargets": "complete",
         "generatedParts": "complete",
@@ -80,7 +80,7 @@
       "version": "1.0.0",
       "compatibilityId": "dart-source-package-v1",
       "package": "calculator-mobile",
-      "digest": "sha256:80e0700d793c28805df818fc989b6baf37f00e6dddefe55f33d02f356bc2912b",
+      "digest": "sha256:abaf74125f9f7cf9dadc877db914f68171421fe48b14da9800144bf61f8c6012",
       "completeness": {
         "annotationTargets": "complete",
         "generatedParts": "complete",
@@ -109,8 +109,242 @@
     "RULE-CALC-ERROR-REDACTION"
   ],
   "attestations": [],
+  "implementationCoverage": [
+    {
+      "binding": {
+        "subjectKind": "requirement",
+        "subjectId": "RULE-CALC-ADDITION",
+        "target": "backend",
+        "role": "implementation",
+        "variant": "default",
+        "slot": "primary"
+      },
+      "mode": "topologyAuthoritative",
+      "status": "proven",
+      "governedGraphHash": "sha256:bfd503a79861301439a263dadcdc2becfd34d8ed90188e6a87c96b1000448f18",
+      "evidenceDigests": [],
+      "diagnostics": []
+    },
+    {
+      "binding": {
+        "subjectKind": "requirement",
+        "subjectId": "RULE-CALC-ADDITION",
+        "target": "flutter",
+        "role": "implementation",
+        "variant": "default",
+        "slot": "primary"
+      },
+      "mode": "annotationGoverned",
+      "status": "verified",
+      "evidenceDigests": [
+        "sha256:1d12fa222bbbfe66791ad00fe5a18a06cfb09a1acef7f52f8186b0b8b50a41ea",
+        "sha256:2289fca4435074f9d5f61dc5fae1faca82220bce0bc87643e5ffac754834f731",
+        "sha256:6194345110480c71cb9fb3f070c28fb1cf26306d134a7af3ff86496305526607",
+        "sha256:837acc1001493ab7a22d1919e68af5268810079a0cab3e0954ec600c38b0f360",
+        "sha256:abaf74125f9f7cf9dadc877db914f68171421fe48b14da9800144bf61f8c6012",
+        "sha256:af1848c0f154db25496cf630bc940b2782124221bc5d814c36dc5d1fbf4d995c",
+        "sha256:b7946474c87077afe8e19de2c58a8c75c1f9a92faf24a32a4ffa00c17b882045",
+        "sha256:d487c51aa2733b882f882e714a3533b1c581e14410bc6899619758bbc47868b7"
+      ],
+      "diagnostics": []
+    },
+    {
+      "binding": {
+        "subjectKind": "requirement",
+        "subjectId": "RULE-CALC-BODY-SIZE",
+        "target": "backend",
+        "role": "implementation",
+        "variant": "default",
+        "slot": "primary"
+      },
+      "mode": "topologyAuthoritative",
+      "status": "proven",
+      "governedGraphHash": "sha256:bfd503a79861301439a263dadcdc2becfd34d8ed90188e6a87c96b1000448f18",
+      "evidenceDigests": [],
+      "diagnostics": []
+    },
+    {
+      "binding": {
+        "subjectKind": "requirement",
+        "subjectId": "RULE-CALC-DIVISION",
+        "target": "backend",
+        "role": "implementation",
+        "variant": "default",
+        "slot": "primary"
+      },
+      "mode": "topologyAuthoritative",
+      "status": "proven",
+      "governedGraphHash": "sha256:bfd503a79861301439a263dadcdc2becfd34d8ed90188e6a87c96b1000448f18",
+      "evidenceDigests": [],
+      "diagnostics": []
+    },
+    {
+      "binding": {
+        "subjectKind": "requirement",
+        "subjectId": "RULE-CALC-DIVISION",
+        "target": "flutter",
+        "role": "implementation",
+        "variant": "default",
+        "slot": "primary"
+      },
+      "mode": "annotationGoverned",
+      "status": "verified",
+      "evidenceDigests": [
+        "sha256:03aa5345c049723dceb885f4fcabdd4bfbf81064510df04e8fde19ff04fccce4",
+        "sha256:2289fca4435074f9d5f61dc5fae1faca82220bce0bc87643e5ffac754834f731",
+        "sha256:470cfedd917619773eba76fbe719268391bb0a0bf665a03b11eb28c16b65150e",
+        "sha256:7d6011ff24cf9fc0f0d421147d602e91a6dd65f0ebcdb53538c41d8aa8f2f3cc",
+        "sha256:abaf74125f9f7cf9dadc877db914f68171421fe48b14da9800144bf61f8c6012",
+        "sha256:b2dc74869fd20412487552676dc1ffe8962e17994e09397508ff683a75cf42f6",
+        "sha256:b7946474c87077afe8e19de2c58a8c75c1f9a92faf24a32a4ffa00c17b882045",
+        "sha256:c3510ca7e3eeb8e04e118542cb29a11dae214604cbe0989f618eb11d79b66997",
+        "sha256:d487c51aa2733b882f882e714a3533b1c581e14410bc6899619758bbc47868b7",
+        "sha256:dbe0a57fc3b4c8048147ad36df4116cc17598a7de261e1ab13f3bef54997ed76"
+      ],
+      "diagnostics": []
+    },
+    {
+      "binding": {
+        "subjectKind": "requirement",
+        "subjectId": "RULE-CALC-ERROR-REDACTION",
+        "target": "backend",
+        "role": "implementation",
+        "variant": "default",
+        "slot": "primary"
+      },
+      "mode": "topologyAuthoritative",
+      "status": "proven",
+      "governedGraphHash": "sha256:bfd503a79861301439a263dadcdc2becfd34d8ed90188e6a87c96b1000448f18",
+      "evidenceDigests": [],
+      "diagnostics": []
+    },
+    {
+      "binding": {
+        "subjectKind": "requirement",
+        "subjectId": "RULE-CALC-MULTIPLICATION",
+        "target": "backend",
+        "role": "implementation",
+        "variant": "default",
+        "slot": "primary"
+      },
+      "mode": "topologyAuthoritative",
+      "status": "proven",
+      "governedGraphHash": "sha256:bfd503a79861301439a263dadcdc2becfd34d8ed90188e6a87c96b1000448f18",
+      "evidenceDigests": [],
+      "diagnostics": []
+    },
+    {
+      "binding": {
+        "subjectKind": "requirement",
+        "subjectId": "RULE-CALC-MULTIPLICATION",
+        "target": "flutter",
+        "role": "implementation",
+        "variant": "default",
+        "slot": "primary"
+      },
+      "mode": "annotationGoverned",
+      "status": "verified",
+      "evidenceDigests": [
+        "sha256:2289fca4435074f9d5f61dc5fae1faca82220bce0bc87643e5ffac754834f731",
+        "sha256:5dcdcbd655564f056ffaf5eb71830491cca60610d77f4ad4f31487461f493ca1",
+        "sha256:81b5d73b993f50537c344a50c75c8afaa772e85a9bebd9552041d16e348127db",
+        "sha256:abaf74125f9f7cf9dadc877db914f68171421fe48b14da9800144bf61f8c6012",
+        "sha256:b7946474c87077afe8e19de2c58a8c75c1f9a92faf24a32a4ffa00c17b882045",
+        "sha256:c03eb3c0a600557828dd790aeb69c80ef4bac59f220aeb587622654ef5ea3847",
+        "sha256:d487c51aa2733b882f882e714a3533b1c581e14410bc6899619758bbc47868b7"
+      ],
+      "diagnostics": []
+    },
+    {
+      "binding": {
+        "subjectKind": "requirement",
+        "subjectId": "RULE-CALC-RATE-LIMIT",
+        "target": "backend",
+        "role": "implementation",
+        "variant": "default",
+        "slot": "primary"
+      },
+      "mode": "topologyAuthoritative",
+      "status": "proven",
+      "governedGraphHash": "sha256:bfd503a79861301439a263dadcdc2becfd34d8ed90188e6a87c96b1000448f18",
+      "evidenceDigests": [],
+      "diagnostics": []
+    },
+    {
+      "binding": {
+        "subjectKind": "requirement",
+        "subjectId": "RULE-CALC-SUBTRACTION",
+        "target": "backend",
+        "role": "implementation",
+        "variant": "default",
+        "slot": "primary"
+      },
+      "mode": "topologyAuthoritative",
+      "status": "proven",
+      "governedGraphHash": "sha256:bfd503a79861301439a263dadcdc2becfd34d8ed90188e6a87c96b1000448f18",
+      "evidenceDigests": [],
+      "diagnostics": []
+    },
+    {
+      "binding": {
+        "subjectKind": "requirement",
+        "subjectId": "RULE-CALC-SUBTRACTION",
+        "target": "flutter",
+        "role": "implementation",
+        "variant": "default",
+        "slot": "primary"
+      },
+      "mode": "annotationGoverned",
+      "status": "verified",
+      "evidenceDigests": [
+        "sha256:2289fca4435074f9d5f61dc5fae1faca82220bce0bc87643e5ffac754834f731",
+        "sha256:4da7a1dd188e9e2417b5c2e6fbe1152beb53b90b025c35727e3a5edbfed90df2",
+        "sha256:88ceae2ed6c23c5856cfd6f5e0baba3199575c674b2c42d74c9d5701bd8609d6",
+        "sha256:abaf74125f9f7cf9dadc877db914f68171421fe48b14da9800144bf61f8c6012",
+        "sha256:b7946474c87077afe8e19de2c58a8c75c1f9a92faf24a32a4ffa00c17b882045",
+        "sha256:d487c51aa2733b882f882e714a3533b1c581e14410bc6899619758bbc47868b7",
+        "sha256:ecf1660041c77d87a6967c7ee5ec0b3bbd96b78b34c4ee6ed5c44e0f05c5bd09"
+      ],
+      "diagnostics": []
+    },
+    {
+      "binding": {
+        "subjectKind": "requirement",
+        "subjectId": "RULE-CALC-VALIDATION",
+        "target": "backend",
+        "role": "implementation",
+        "variant": "default",
+        "slot": "primary"
+      },
+      "mode": "topologyAuthoritative",
+      "status": "proven",
+      "governedGraphHash": "sha256:bfd503a79861301439a263dadcdc2becfd34d8ed90188e6a87c96b1000448f18",
+      "evidenceDigests": [],
+      "diagnostics": []
+    },
+    {
+      "binding": {
+        "subjectKind": "requirement",
+        "subjectId": "RULE-CALC-VALIDATION",
+        "target": "flutter",
+        "role": "implementation",
+        "variant": "default",
+        "slot": "primary"
+      },
+      "mode": "annotationGoverned",
+      "status": "verified",
+      "evidenceDigests": [
+        "sha256:2289fca4435074f9d5f61dc5fae1faca82220bce0bc87643e5ffac754834f731",
+        "sha256:a06d79c443ad4db9bd9bcfb0a71ab26b32ca894a66ed56f8430b4a245b7237eb",
+        "sha256:abaf74125f9f7cf9dadc877db914f68171421fe48b14da9800144bf61f8c6012",
+        "sha256:b7946474c87077afe8e19de2c58a8c75c1f9a92faf24a32a4ffa00c17b882045",
+        "sha256:d487c51aa2733b882f882e714a3533b1c581e14410bc6899619758bbc47868b7"
+      ],
+      "diagnostics": []
+    }
+  ],
   "controls": {
-    "RULE-CALC-DIVISION|CTRL-CALC-ERROR-REDACTION|backend|default": {
+    "RULE-CALC-DIVISION|CTRL-CALC-ERROR-REDACTION|backend|default|primary": {
       "assurance": "proven",
       "semantics": "failure-to-public-egress",
       "providerIds": [
@@ -118,7 +352,7 @@
       ],
       "evidenceDigests": [],
       "coverage": "proven",
-      "graphHash": "sha256:45a7d4efa9077c9049c8e869fb0664c288ea28e5b26df1af15f9658d1eee0ce2",
+      "graphHash": "sha256:abb860d715a8068eef9a835ec7c4ae995d82b5df2220b560db706d4610c63362",
       "completeness": {
         "routeRegistration": "complete",
         "middlewareOrder": "complete",
@@ -129,7 +363,7 @@
       },
       "bypassPaths": []
     },
-    "RULE-CALC-VALIDATION|CTRL-CALC-INPUT-VALIDATION|backend|default": {
+    "RULE-CALC-VALIDATION|CTRL-CALC-INPUT-VALIDATION|backend|default|primary": {
       "assurance": "proven",
       "semantics": "ingress-dominance",
       "providerIds": [
@@ -137,7 +371,7 @@
       ],
       "evidenceDigests": [],
       "coverage": "proven",
-      "graphHash": "sha256:45a7d4efa9077c9049c8e869fb0664c288ea28e5b26df1af15f9658d1eee0ce2",
+      "graphHash": "sha256:abb860d715a8068eef9a835ec7c4ae995d82b5df2220b560db706d4610c63362",
       "completeness": {
         "routeRegistration": "complete",
         "middlewareOrder": "complete",
@@ -148,7 +382,7 @@
       },
       "bypassPaths": []
     },
-    "RULE-CALC-RATE-LIMIT|CTRL-CALC-LOG-REDACTION|backend|default": {
+    "RULE-CALC-RATE-LIMIT|CTRL-CALC-LOG-REDACTION|backend|default|primary": {
       "assurance": "proven",
       "semantics": "sensitive-data-to-log-sink",
       "providerIds": [
@@ -156,7 +390,7 @@
       ],
       "evidenceDigests": [],
       "coverage": "proven",
-      "graphHash": "sha256:45a7d4efa9077c9049c8e869fb0664c288ea28e5b26df1af15f9658d1eee0ce2",
+      "graphHash": "sha256:abb860d715a8068eef9a835ec7c4ae995d82b5df2220b560db706d4610c63362",
       "completeness": {
         "routeRegistration": "complete",
         "middlewareOrder": "complete",
@@ -167,7 +401,7 @@
       },
       "bypassPaths": []
     },
-    "RULE-CALC-RATE-LIMIT|CTRL-CALC-RATE-LIMIT|backend|default": {
+    "RULE-CALC-RATE-LIMIT|CTRL-CALC-RATE-LIMIT|backend|default|primary": {
       "assurance": "proven",
       "semantics": "ingress-dominance",
       "providerIds": [
@@ -175,7 +409,7 @@
       ],
       "evidenceDigests": [],
       "coverage": "proven",
-      "graphHash": "sha256:45a7d4efa9077c9049c8e869fb0664c288ea28e5b26df1af15f9658d1eee0ce2",
+      "graphHash": "sha256:abb860d715a8068eef9a835ec7c4ae995d82b5df2220b560db706d4610c63362",
       "completeness": {
         "routeRegistration": "complete",
         "middlewareOrder": "complete",

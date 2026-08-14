@@ -36,7 +36,7 @@
       "version": "1.0.0",
       "compatibilityId": "dart-source-package-v1",
       "package": "shopping-cart",
-      "digest": "sha256:a1e243d2f0ba5a238bc7899671346bdc223c8e4952ab11c0e086ed54c11c83b7",
+      "digest": "sha256:8ea29e28ed79715bf1c8ba5d6c3f3848b6c3437806c454175d9aa19aa205b3a3",
       "completeness": {
         "annotationTargets": "complete",
         "generatedParts": "complete",
@@ -58,19 +58,107 @@
     "RULE-CART-ACCESSIBILITY"
   ],
   "attestations": [],
+  "implementationCoverage": [
+    {
+      "binding": {
+        "subjectKind": "requirement",
+        "subjectId": "RULE-CART-EMPTY-CHECKOUT",
+        "target": "flutter",
+        "role": "implementation",
+        "variant": "default",
+        "slot": "primary"
+      },
+      "mode": "annotationGoverned",
+      "status": "verified",
+      "evidenceDigests": [
+        "sha256:2f239e4d481e650d93d3180b876ddddc3e4d61e429f4f0d4c7b32c5e9f5df0f2",
+        "sha256:5f6a15581c30576bbb7aa07334879ec46c900f19ccee96e5a7ab250552ee2bf9",
+        "sha256:8ea29e28ed79715bf1c8ba5d6c3f3848b6c3437806c454175d9aa19aa205b3a3",
+        "sha256:bcd2e1c63c8e53a6c46b82b22756a51356fd5add8caa8fd6ae74ba3073a5f977",
+        "sha256:edfde2c34ce1204739667b5cdd520570cc0f5388f2160057bb0e145d54bba299"
+      ],
+      "diagnostics": []
+    },
+    {
+      "binding": {
+        "subjectKind": "requirement",
+        "subjectId": "RULE-CART-ITEM-MANAGEMENT",
+        "target": "flutter",
+        "role": "implementation",
+        "variant": "default",
+        "slot": "primary"
+      },
+      "mode": "annotationGoverned",
+      "status": "verified",
+      "evidenceDigests": [
+        "sha256:2f239e4d481e650d93d3180b876ddddc3e4d61e429f4f0d4c7b32c5e9f5df0f2",
+        "sha256:5f6a15581c30576bbb7aa07334879ec46c900f19ccee96e5a7ab250552ee2bf9",
+        "sha256:730ec69f2e36e95d00582920fa2e06b82dafc84367389f68e36726fdd17ffb13",
+        "sha256:8ea29e28ed79715bf1c8ba5d6c3f3848b6c3437806c454175d9aa19aa205b3a3",
+        "sha256:a656b8ab5dc9030610aef81144262b1a165b224874e9e2c7b3961f9a18421d58",
+        "sha256:bcd2e1c63c8e53a6c46b82b22756a51356fd5add8caa8fd6ae74ba3073a5f977"
+      ],
+      "diagnostics": []
+    },
+    {
+      "binding": {
+        "subjectKind": "requirement",
+        "subjectId": "RULE-CART-PROMO-DISCOUNT",
+        "target": "flutter",
+        "role": "implementation",
+        "variant": "default",
+        "slot": "primary"
+      },
+      "mode": "annotationGoverned",
+      "status": "verified",
+      "evidenceDigests": [
+        "sha256:2f239e4d481e650d93d3180b876ddddc3e4d61e429f4f0d4c7b32c5e9f5df0f2",
+        "sha256:4dc56c3a733c6f5a985e0469dd38bbe1b71285ebe5eb222a4314e3decbba9e32",
+        "sha256:5f6a15581c30576bbb7aa07334879ec46c900f19ccee96e5a7ab250552ee2bf9",
+        "sha256:7f4fd69a82bda604f86505121c49423a4bd115310f41ce4fa1f87af7d57bbade",
+        "sha256:8ea29e28ed79715bf1c8ba5d6c3f3848b6c3437806c454175d9aa19aa205b3a3",
+        "sha256:917944a9207134e6e7cab544de234b5826c2120538b7d8be3168c5e25c47669c",
+        "sha256:b0be2ae267163f8f52e3f5c42f48c0c0f9fae7a3634bdfec6f221f80ae9a81af",
+        "sha256:ba6020c8babb490643fcd8ba50b9af96dc7241f0868e8d7257dd4bc59599ad9f",
+        "sha256:bcd2e1c63c8e53a6c46b82b22756a51356fd5add8caa8fd6ae74ba3073a5f977",
+        "sha256:e95f05db1b0daa57fac03034c35beae720381a1e5cdf3a43bcc3d7378fd1d557"
+      ],
+      "diagnostics": []
+    },
+    {
+      "binding": {
+        "subjectKind": "requirement",
+        "subjectId": "RULE-CART-SUCCESSFUL-CHECKOUT",
+        "target": "flutter",
+        "role": "implementation",
+        "variant": "default",
+        "slot": "primary"
+      },
+      "mode": "annotationGoverned",
+      "status": "verified",
+      "evidenceDigests": [
+        "sha256:2f239e4d481e650d93d3180b876ddddc3e4d61e429f4f0d4c7b32c5e9f5df0f2",
+        "sha256:5f6a15581c30576bbb7aa07334879ec46c900f19ccee96e5a7ab250552ee2bf9",
+        "sha256:762cb19714bd46c990a2c0aac90033d576991493d2277eeb3018ae5e0c42f26d",
+        "sha256:8ea29e28ed79715bf1c8ba5d6c3f3848b6c3437806c454175d9aa19aa205b3a3",
+        "sha256:bcd2e1c63c8e53a6c46b82b22756a51356fd5add8caa8fd6ae74ba3073a5f977"
+      ],
+      "diagnostics": []
+    }
+  ],
   "controls": {
-    "RULE-CART-ITEM-MANAGEMENT|CTRL-CART-VALIDATION|flutter|default": {
+    "RULE-CART-ITEM-MANAGEMENT|CTRL-CART-VALIDATION|flutter|default|primary": {
       "assurance": "verified",
       "semantics": "verification-backed",
       "providerIds": [
         "package:shopping_cart/src/cart_controller.dart#CartController"
       ],
       "evidenceDigests": [
-        "sha256:11526e661cd1e23ce8724f0987073eb84b8f952eecd7d346b4f83bc216797000",
         "sha256:2f239e4d481e650d93d3180b876ddddc3e4d61e429f4f0d4c7b32c5e9f5df0f2",
-        "sha256:4ce45770a28309dc329f13b80fe3ccca7271db7ac43e2fcd2dffd9bf101d8188",
         "sha256:5f6a15581c30576bbb7aa07334879ec46c900f19ccee96e5a7ab250552ee2bf9",
-        "sha256:a1e243d2f0ba5a238bc7899671346bdc223c8e4952ab11c0e086ed54c11c83b7",
+        "sha256:730ec69f2e36e95d00582920fa2e06b82dafc84367389f68e36726fdd17ffb13",
+        "sha256:8ea29e28ed79715bf1c8ba5d6c3f3848b6c3437806c454175d9aa19aa205b3a3",
+        "sha256:a656b8ab5dc9030610aef81144262b1a165b224874e9e2c7b3961f9a18421d58",
         "sha256:bcd2e1c63c8e53a6c46b82b22756a51356fd5add8caa8fd6ae74ba3073a5f977"
       ],
       "coverage": "verified",
@@ -81,22 +169,64 @@
       },
       "bypassPaths": []
     },
-    "RULE-CART-PROMO-DISCOUNT|CTRL-PROMO-VALIDATION|flutter|default": {
+    "RULE-CART-PROMO-DISCOUNT|CTRL-PROMO-VALIDATION|flutter|default|primary": {
       "assurance": "verified",
       "semantics": "verification-backed",
       "providerIds": [
         "package:shopping_cart/src/cart_controller.dart#CartController"
       ],
       "evidenceDigests": [
-        "sha256:2b6b429c3df630806a16c6c31428262ee88cd1b728a25d4ec49611ec0c35692d",
         "sha256:2f239e4d481e650d93d3180b876ddddc3e4d61e429f4f0d4c7b32c5e9f5df0f2",
-        "sha256:308577f9f6641ef2240c584481e8e62231b7a42fcd909e6b03e9d08aa0a52500",
-        "sha256:340651f77e748e205bbc39c2e601f2b1a34e6e0be6bc4135b2504950fd820d64",
+        "sha256:4dc56c3a733c6f5a985e0469dd38bbe1b71285ebe5eb222a4314e3decbba9e32",
         "sha256:5f6a15581c30576bbb7aa07334879ec46c900f19ccee96e5a7ab250552ee2bf9",
-        "sha256:764343d494fa87f8205104c5f376b900b83831f99ec78d67fc05d2cfc1e59616",
-        "sha256:7d4a131af85f4996ffc56b551fcc802e6d71708734d65ad97b30eb0bd8867476",
-        "sha256:a1e243d2f0ba5a238bc7899671346bdc223c8e4952ab11c0e086ed54c11c83b7",
-        "sha256:ba5f6ba1f75ac530d37a4215f1fa2b91033573e295c9d9acf0a04e69c55ae5db",
+        "sha256:7f4fd69a82bda604f86505121c49423a4bd115310f41ce4fa1f87af7d57bbade",
+        "sha256:8ea29e28ed79715bf1c8ba5d6c3f3848b6c3437806c454175d9aa19aa205b3a3",
+        "sha256:917944a9207134e6e7cab544de234b5826c2120538b7d8be3168c5e25c47669c",
+        "sha256:b0be2ae267163f8f52e3f5c42f48c0c0f9fae7a3634bdfec6f221f80ae9a81af",
+        "sha256:ba6020c8babb490643fcd8ba50b9af96dc7241f0868e8d7257dd4bc59599ad9f",
+        "sha256:bcd2e1c63c8e53a6c46b82b22756a51356fd5add8caa8fd6ae74ba3073a5f977",
+        "sha256:e95f05db1b0daa57fac03034c35beae720381a1e5cdf3a43bcc3d7378fd1d557"
+      ],
+      "coverage": "verified",
+      "graphHash": null,
+      "completeness": {
+        "annotationTargets": "complete",
+        "generatedParts": "complete"
+      },
+      "bypassPaths": []
+    },
+    "RULE-CART-EMPTY-CHECKOUT|CTRL-CART-VALIDATION|flutter|default|primary": {
+      "assurance": "verified",
+      "semantics": "verification-backed",
+      "providerIds": [
+        "package:shopping_cart/src/cart_controller.dart#CartController"
+      ],
+      "evidenceDigests": [
+        "sha256:2f239e4d481e650d93d3180b876ddddc3e4d61e429f4f0d4c7b32c5e9f5df0f2",
+        "sha256:5f6a15581c30576bbb7aa07334879ec46c900f19ccee96e5a7ab250552ee2bf9",
+        "sha256:8ea29e28ed79715bf1c8ba5d6c3f3848b6c3437806c454175d9aa19aa205b3a3",
+        "sha256:bcd2e1c63c8e53a6c46b82b22756a51356fd5add8caa8fd6ae74ba3073a5f977",
+        "sha256:edfde2c34ce1204739667b5cdd520570cc0f5388f2160057bb0e145d54bba299"
+      ],
+      "coverage": "verified",
+      "graphHash": null,
+      "completeness": {
+        "annotationTargets": "complete",
+        "generatedParts": "complete"
+      },
+      "bypassPaths": []
+    },
+    "RULE-CART-SUCCESSFUL-CHECKOUT|CTRL-CART-VALIDATION|flutter|default|primary": {
+      "assurance": "verified",
+      "semantics": "verification-backed",
+      "providerIds": [
+        "package:shopping_cart/src/cart_controller.dart#CartController"
+      ],
+      "evidenceDigests": [
+        "sha256:2f239e4d481e650d93d3180b876ddddc3e4d61e429f4f0d4c7b32c5e9f5df0f2",
+        "sha256:5f6a15581c30576bbb7aa07334879ec46c900f19ccee96e5a7ab250552ee2bf9",
+        "sha256:762cb19714bd46c990a2c0aac90033d576991493d2277eeb3018ae5e0c42f26d",
+        "sha256:8ea29e28ed79715bf1c8ba5d6c3f3848b6c3437806c454175d9aa19aa205b3a3",
         "sha256:bcd2e1c63c8e53a6c46b82b22756a51356fd5add8caa8fd6ae74ba3073a5f977"
       ],
       "coverage": "verified",
@@ -107,49 +237,7 @@
       },
       "bypassPaths": []
     },
-    "RULE-CART-EMPTY-CHECKOUT|CTRL-CART-VALIDATION|flutter|default": {
-      "assurance": "verified",
-      "semantics": "verification-backed",
-      "providerIds": [
-        "package:shopping_cart/src/cart_controller.dart#CartController"
-      ],
-      "evidenceDigests": [
-        "sha256:09c81c639b3ab2b4acb70e97faf93efd2bc1dda4ab58834e00cabe2082d2e773",
-        "sha256:2f239e4d481e650d93d3180b876ddddc3e4d61e429f4f0d4c7b32c5e9f5df0f2",
-        "sha256:5f6a15581c30576bbb7aa07334879ec46c900f19ccee96e5a7ab250552ee2bf9",
-        "sha256:a1e243d2f0ba5a238bc7899671346bdc223c8e4952ab11c0e086ed54c11c83b7",
-        "sha256:bcd2e1c63c8e53a6c46b82b22756a51356fd5add8caa8fd6ae74ba3073a5f977"
-      ],
-      "coverage": "verified",
-      "graphHash": null,
-      "completeness": {
-        "annotationTargets": "complete",
-        "generatedParts": "complete"
-      },
-      "bypassPaths": []
-    },
-    "RULE-CART-SUCCESSFUL-CHECKOUT|CTRL-CART-VALIDATION|flutter|default": {
-      "assurance": "verified",
-      "semantics": "verification-backed",
-      "providerIds": [
-        "package:shopping_cart/src/cart_controller.dart#CartController"
-      ],
-      "evidenceDigests": [
-        "sha256:2c55109762c9dcb32cfb37403a63a2f606f3b80121be5325ec26c859ad2447f5",
-        "sha256:2f239e4d481e650d93d3180b876ddddc3e4d61e429f4f0d4c7b32c5e9f5df0f2",
-        "sha256:5f6a15581c30576bbb7aa07334879ec46c900f19ccee96e5a7ab250552ee2bf9",
-        "sha256:a1e243d2f0ba5a238bc7899671346bdc223c8e4952ab11c0e086ed54c11c83b7",
-        "sha256:bcd2e1c63c8e53a6c46b82b22756a51356fd5add8caa8fd6ae74ba3073a5f977"
-      ],
-      "coverage": "verified",
-      "graphHash": null,
-      "completeness": {
-        "annotationTargets": "complete",
-        "generatedParts": "complete"
-      },
-      "bypassPaths": []
-    },
-    "RULE-CART-ACCESSIBILITY|CTRL-CART-ACCESSIBLE|flutter|default": {
+    "RULE-CART-ACCESSIBILITY|CTRL-CART-ACCESSIBLE|flutter|default|primary": {
       "assurance": "verified",
       "semantics": "verification-backed",
       "providerIds": [
@@ -158,8 +246,8 @@
       "evidenceDigests": [
         "sha256:2f239e4d481e650d93d3180b876ddddc3e4d61e429f4f0d4c7b32c5e9f5df0f2",
         "sha256:5f6a15581c30576bbb7aa07334879ec46c900f19ccee96e5a7ab250552ee2bf9",
-        "sha256:a1e243d2f0ba5a238bc7899671346bdc223c8e4952ab11c0e086ed54c11c83b7",
-        "sha256:bbf632f0daaca23fa6c96453dc880c29680ddd2ce22fe1c2a51492c594e46e0c",
+        "sha256:8e00807c8b88c6e457ffee226f84cf4270e91fdf2b7291c1980d2c9bab24af9d",
+        "sha256:8ea29e28ed79715bf1c8ba5d6c3f3848b6c3437806c454175d9aa19aa205b3a3",
         "sha256:bcd2e1c63c8e53a6c46b82b22756a51356fd5add8caa8fd6ae74ba3073a5f977"
       ],
       "coverage": "verified",

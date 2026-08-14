@@ -2,9 +2,22 @@
   "kind": "zuke.lock",
   "profile": "nightly",
   "selectedScenarioIds": [
-    "SCN-CALC-P95"
+    "SCN-CALC-ADD-INTEGERS-API",
+    "SCN-CALC-ADD-INTEGERS-UI",
+    "SCN-CALC-BAD-OPERAND",
+    "SCN-CALC-BAD-OPERATOR",
+    "SCN-CALC-CALCULATION-FAILED",
+    "SCN-CALC-DIVIDE",
+    "SCN-CALC-DIVIDE-ZERO",
+    "SCN-CALC-MISSING-FIRST",
+    "SCN-CALC-MISSING-OPERATOR",
+    "SCN-CALC-MISSING-SECOND",
+    "SCN-CALC-MULTIPLY",
+    "SCN-CALC-P95",
+    "SCN-CALC-RATE-LIMIT",
+    "SCN-CALC-SUBTRACT"
   ],
-  "selectionDigest": "sha256:a9dd8e6ad4c3eef948cf6deddb3f05463e3ab6a3a0ab406613f7160e9df67061",
+  "selectionDigest": "sha256:18402dec1ea2cbf323d0a7d4eb8d6a8817d98ed055c70a337cb6b3ca1d64c4fb",
   "engineVersion": "0.1.0",
   "workspace": "calculator-product",
   "policy": {
@@ -15,11 +28,11 @@
   "policyHash": "sha256:0e415690723d2589b09681eeb983daab39231d75e659f9754f94a51cea8556dd",
   "evidenceRequirementsHash": "sha256:d63cef243ff1530bc5b8199c3812af46310998bf18f528bcec11d8e97c825b5f",
   "specificationDigestScope": "discovery-inputs-v1",
-  "specificationDigest": "sha256:16b44b1a1806e7cccce9d31c7c6f4acd13cab7b471ee2d6eb4e5dfa19dc6e246",
+  "specificationDigest": "sha256:d33d39fce65675b476f8dcdba5e0246446f2d4f8aa9f0c55eff54e0eef5b8a5d",
   "generatedManifestDigest": "sha256:b7946474c87077afe8e19de2c58a8c75c1f9a92faf24a32a4ffa00c17b882045",
   "features": {
     "FEAT-CALC-001": {
-      "sourceHash": "sha256:183d15a2570568c150bc219174aefc487b6b6eb9eedc88e9883610e6a25de3e1"
+      "sourceHash": "sha256:10bba2c94f4f76d70fd3248de3c985e876b21c6ed6c29679bb07b1e9c5678d5e"
     },
     "FEAT-CALC-002": {
       "sourceHash": "sha256:94272360e99f4b91d9fe198bb6d828bcf5f603d470c198f48c72cd9f0ee94720"
@@ -31,7 +44,7 @@
       "version": "1.0.0",
       "compatibilityId": "dart-source-package-v1",
       "package": "calculator-api",
-      "digest": "sha256:6783eea500630cb22ac73f7258fd3fb617105a69cd74c11decddd51f4974955d",
+      "digest": "sha256:1beecf8a19d084f88c7d8b9c039e40093ee59eda45437faa09bed35e2c978440",
       "completeness": {
         "annotationTargets": "complete",
         "generatedParts": "complete",
@@ -48,7 +61,7 @@
       "version": "1.0.0",
       "compatibilityId": "dart-source-package-v1",
       "package": "calculator-domain",
-      "digest": "sha256:64104c94a1e963ea009a7a367dd76cc8688808e93c153c3a9a9586dc9938ea13",
+      "digest": "sha256:8278359423e9c0f05ec55f5847eb1218b1d74443cd8c08c34e7b9d55cb9add5b",
       "completeness": {
         "annotationTargets": "complete",
         "generatedParts": "complete",
@@ -65,7 +78,7 @@
       "version": "1.0.0",
       "compatibilityId": "dart-source-package-v1",
       "package": "calculator-mobile",
-      "digest": "sha256:80e0700d793c28805df818fc989b6baf37f00e6dddefe55f33d02f356bc2912b",
+      "digest": "sha256:abaf74125f9f7cf9dadc877db914f68171421fe48b14da9800144bf61f8c6012",
       "completeness": {
         "annotationTargets": "complete",
         "generatedParts": "complete",
@@ -94,30 +107,320 @@
     "RULE-CALC-ERROR-REDACTION"
   ],
   "attestations": [],
-  "controls": {
-    "CTRL-CALC-INPUT-VALIDATION": {
-      "assurance": "missing",
-      "coverageSemantics": "ingress-dominance",
-      "providerIds": []
+  "implementationCoverage": [
+    {
+      "binding": {
+        "subjectKind": "requirement",
+        "subjectId": "RULE-CALC-ADDITION",
+        "target": "backend",
+        "role": "implementation",
+        "variant": "default",
+        "slot": "primary"
+      },
+      "mode": "topologyAuthoritative",
+      "status": "proven",
+      "governedGraphHash": "sha256:bfd503a79861301439a263dadcdc2becfd34d8ed90188e6a87c96b1000448f18",
+      "evidenceDigests": [],
+      "diagnostics": []
     },
-    "CTRL-CALC-ERROR-REDACTION": {
-      "assurance": "missing",
-      "coverageSemantics": "failure-to-public-egress",
-      "providerIds": []
+    {
+      "binding": {
+        "subjectKind": "requirement",
+        "subjectId": "RULE-CALC-ADDITION",
+        "target": "flutter",
+        "role": "implementation",
+        "variant": "default",
+        "slot": "primary"
+      },
+      "mode": "annotationGoverned",
+      "status": "verified",
+      "evidenceDigests": [
+        "sha256:06e899b46b9c61c76dac2b3bfe2f561de100867abc4bdc6589ac2fee3d2a2a61",
+        "sha256:2289fca4435074f9d5f61dc5fae1faca82220bce0bc87643e5ffac754834f731",
+        "sha256:96619758175bcd5062044d179d9e5ec18e13834e14c7ce93404df224106132cd",
+        "sha256:abaf74125f9f7cf9dadc877db914f68171421fe48b14da9800144bf61f8c6012",
+        "sha256:b7946474c87077afe8e19de2c58a8c75c1f9a92faf24a32a4ffa00c17b882045",
+        "sha256:c3c21d2090e51441952e6ff020970e1a96c3d68c9826b13fc0eac0b4ba4b40b9",
+        "sha256:d487c51aa2733b882f882e714a3533b1c581e14410bc6899619758bbc47868b7",
+        "sha256:ea105fdebdc21e7e6aba23d131f6edd750390164436b4a0dd13895f35d73a204"
+      ],
+      "diagnostics": []
+    },
+    {
+      "binding": {
+        "subjectKind": "requirement",
+        "subjectId": "RULE-CALC-BODY-SIZE",
+        "target": "backend",
+        "role": "implementation",
+        "variant": "default",
+        "slot": "primary"
+      },
+      "mode": "topologyAuthoritative",
+      "status": "proven",
+      "governedGraphHash": "sha256:bfd503a79861301439a263dadcdc2becfd34d8ed90188e6a87c96b1000448f18",
+      "evidenceDigests": [],
+      "diagnostics": []
+    },
+    {
+      "binding": {
+        "subjectKind": "requirement",
+        "subjectId": "RULE-CALC-DIVISION",
+        "target": "backend",
+        "role": "implementation",
+        "variant": "default",
+        "slot": "primary"
+      },
+      "mode": "topologyAuthoritative",
+      "status": "proven",
+      "governedGraphHash": "sha256:bfd503a79861301439a263dadcdc2becfd34d8ed90188e6a87c96b1000448f18",
+      "evidenceDigests": [],
+      "diagnostics": []
+    },
+    {
+      "binding": {
+        "subjectKind": "requirement",
+        "subjectId": "RULE-CALC-DIVISION",
+        "target": "flutter",
+        "role": "implementation",
+        "variant": "default",
+        "slot": "primary"
+      },
+      "mode": "annotationGoverned",
+      "status": "verified",
+      "evidenceDigests": [
+        "sha256:2289fca4435074f9d5f61dc5fae1faca82220bce0bc87643e5ffac754834f731",
+        "sha256:507abd43b0aaf9fee5f6bc46f97be86160325c4c0be7921e32023f6761b633f8",
+        "sha256:6fe05d8723fa745a89525fdfb4b9402ed6ef1a0f39b082a3daea86b347bfad1f",
+        "sha256:94a0333fa20701461b944b03232ae0b1415013ece987f822fa4a8008e0b28127",
+        "sha256:abaf74125f9f7cf9dadc877db914f68171421fe48b14da9800144bf61f8c6012",
+        "sha256:b08b58852d006cb3c580b308412c206e101c12ef466b1dcce3bafc9291d95fcb",
+        "sha256:b7946474c87077afe8e19de2c58a8c75c1f9a92faf24a32a4ffa00c17b882045",
+        "sha256:d487c51aa2733b882f882e714a3533b1c581e14410bc6899619758bbc47868b7",
+        "sha256:e1ae3b64679e0c0e92d1af133e3518fcbb62d66072a5c9e1e445e68c9f293366",
+        "sha256:e666621b9e9e41185ff36c2ebeaebb0b0a4f85edfca003872a14f3c70e6c697f"
+      ],
+      "diagnostics": []
+    },
+    {
+      "binding": {
+        "subjectKind": "requirement",
+        "subjectId": "RULE-CALC-ERROR-REDACTION",
+        "target": "backend",
+        "role": "implementation",
+        "variant": "default",
+        "slot": "primary"
+      },
+      "mode": "topologyAuthoritative",
+      "status": "proven",
+      "governedGraphHash": "sha256:bfd503a79861301439a263dadcdc2becfd34d8ed90188e6a87c96b1000448f18",
+      "evidenceDigests": [],
+      "diagnostics": []
+    },
+    {
+      "binding": {
+        "subjectKind": "requirement",
+        "subjectId": "RULE-CALC-MULTIPLICATION",
+        "target": "backend",
+        "role": "implementation",
+        "variant": "default",
+        "slot": "primary"
+      },
+      "mode": "topologyAuthoritative",
+      "status": "proven",
+      "governedGraphHash": "sha256:bfd503a79861301439a263dadcdc2becfd34d8ed90188e6a87c96b1000448f18",
+      "evidenceDigests": [],
+      "diagnostics": []
+    },
+    {
+      "binding": {
+        "subjectKind": "requirement",
+        "subjectId": "RULE-CALC-MULTIPLICATION",
+        "target": "flutter",
+        "role": "implementation",
+        "variant": "default",
+        "slot": "primary"
+      },
+      "mode": "annotationGoverned",
+      "status": "verified",
+      "evidenceDigests": [
+        "sha256:1a8f0d80525c9907dd86d5d3040bb769250a3593041ff2b98e74aa42224a018c",
+        "sha256:2289fca4435074f9d5f61dc5fae1faca82220bce0bc87643e5ffac754834f731",
+        "sha256:447637e7ed498c1a24cf929e3cfa3472c575f9177aeca05b1ebc074c907298a0",
+        "sha256:abaf74125f9f7cf9dadc877db914f68171421fe48b14da9800144bf61f8c6012",
+        "sha256:b13a6bd4bd0beb2bd0120fe39cb5f4126929097432c360f0ecde01c1c6bc6135",
+        "sha256:b7946474c87077afe8e19de2c58a8c75c1f9a92faf24a32a4ffa00c17b882045",
+        "sha256:d487c51aa2733b882f882e714a3533b1c581e14410bc6899619758bbc47868b7"
+      ],
+      "diagnostics": []
+    },
+    {
+      "binding": {
+        "subjectKind": "requirement",
+        "subjectId": "RULE-CALC-RATE-LIMIT",
+        "target": "backend",
+        "role": "implementation",
+        "variant": "default",
+        "slot": "primary"
+      },
+      "mode": "topologyAuthoritative",
+      "status": "proven",
+      "governedGraphHash": "sha256:bfd503a79861301439a263dadcdc2becfd34d8ed90188e6a87c96b1000448f18",
+      "evidenceDigests": [],
+      "diagnostics": []
+    },
+    {
+      "binding": {
+        "subjectKind": "requirement",
+        "subjectId": "RULE-CALC-SUBTRACTION",
+        "target": "backend",
+        "role": "implementation",
+        "variant": "default",
+        "slot": "primary"
+      },
+      "mode": "topologyAuthoritative",
+      "status": "proven",
+      "governedGraphHash": "sha256:bfd503a79861301439a263dadcdc2becfd34d8ed90188e6a87c96b1000448f18",
+      "evidenceDigests": [],
+      "diagnostics": []
+    },
+    {
+      "binding": {
+        "subjectKind": "requirement",
+        "subjectId": "RULE-CALC-SUBTRACTION",
+        "target": "flutter",
+        "role": "implementation",
+        "variant": "default",
+        "slot": "primary"
+      },
+      "mode": "annotationGoverned",
+      "status": "verified",
+      "evidenceDigests": [
+        "sha256:2289fca4435074f9d5f61dc5fae1faca82220bce0bc87643e5ffac754834f731",
+        "sha256:9542a42a3e048bb6c908680a0ca42947115a2c91610af5d835cb2e85dac31a69",
+        "sha256:a30d0174fa2f8d251b53503a6f9fe5809355b79412ab828d8bf89b6a438f406f",
+        "sha256:abaf74125f9f7cf9dadc877db914f68171421fe48b14da9800144bf61f8c6012",
+        "sha256:b7946474c87077afe8e19de2c58a8c75c1f9a92faf24a32a4ffa00c17b882045",
+        "sha256:d487c51aa2733b882f882e714a3533b1c581e14410bc6899619758bbc47868b7",
+        "sha256:dd71a8da965668e5d964146585ee0b09fe7a9b4e9b879089cb82577adad165fa"
+      ],
+      "diagnostics": []
+    },
+    {
+      "binding": {
+        "subjectKind": "requirement",
+        "subjectId": "RULE-CALC-VALIDATION",
+        "target": "backend",
+        "role": "implementation",
+        "variant": "default",
+        "slot": "primary"
+      },
+      "mode": "topologyAuthoritative",
+      "status": "proven",
+      "governedGraphHash": "sha256:bfd503a79861301439a263dadcdc2becfd34d8ed90188e6a87c96b1000448f18",
+      "evidenceDigests": [],
+      "diagnostics": []
+    },
+    {
+      "binding": {
+        "subjectKind": "requirement",
+        "subjectId": "RULE-CALC-VALIDATION",
+        "target": "flutter",
+        "role": "implementation",
+        "variant": "default",
+        "slot": "primary"
+      },
+      "mode": "annotationGoverned",
+      "status": "verified",
+      "evidenceDigests": [
+        "sha256:2289fca4435074f9d5f61dc5fae1faca82220bce0bc87643e5ffac754834f731",
+        "sha256:680873d62b3483fbff856a136bbea243606e7a36924cf49db4c0d5fd10348f95",
+        "sha256:abaf74125f9f7cf9dadc877db914f68171421fe48b14da9800144bf61f8c6012",
+        "sha256:b7946474c87077afe8e19de2c58a8c75c1f9a92faf24a32a4ffa00c17b882045",
+        "sha256:d487c51aa2733b882f882e714a3533b1c581e14410bc6899619758bbc47868b7"
+      ],
+      "diagnostics": []
+    }
+  ],
+  "controls": {
+    "RULE-CALC-DIVISION|CTRL-CALC-ERROR-REDACTION|backend|default|primary": {
+      "assurance": "proven",
+      "semantics": "failure-to-public-egress",
+      "providerIds": [
+        "provider:PublicCalculatorErrorMapper"
+      ],
+      "evidenceDigests": [],
+      "coverage": "proven",
+      "graphHash": "sha256:abb860d715a8068eef9a835ec7c4ae995d82b5df2220b560db706d4610c63362",
+      "completeness": {
+        "routeRegistration": "complete",
+        "middlewareOrder": "complete",
+        "failureFlow": "complete",
+        "logFlow": "complete",
+        "dynamicRegistration": "complete",
+        "externalVisibility": "notApplicable"
+      },
+      "bypassPaths": []
+    },
+    "RULE-CALC-VALIDATION|CTRL-CALC-INPUT-VALIDATION|backend|default|primary": {
+      "assurance": "proven",
+      "semantics": "ingress-dominance",
+      "providerIds": [
+        "provider:RequestValidationMiddleware"
+      ],
+      "evidenceDigests": [],
+      "coverage": "proven",
+      "graphHash": "sha256:abb860d715a8068eef9a835ec7c4ae995d82b5df2220b560db706d4610c63362",
+      "completeness": {
+        "routeRegistration": "complete",
+        "middlewareOrder": "complete",
+        "failureFlow": "complete",
+        "logFlow": "complete",
+        "dynamicRegistration": "complete",
+        "externalVisibility": "notApplicable"
+      },
+      "bypassPaths": []
+    },
+    "RULE-CALC-RATE-LIMIT|CTRL-CALC-LOG-REDACTION|backend|default|primary": {
+      "assurance": "proven",
+      "semantics": "sensitive-data-to-log-sink",
+      "providerIds": [
+        "provider:CalculatorLoggingInterceptor"
+      ],
+      "evidenceDigests": [],
+      "coverage": "proven",
+      "graphHash": "sha256:abb860d715a8068eef9a835ec7c4ae995d82b5df2220b560db706d4610c63362",
+      "completeness": {
+        "routeRegistration": "complete",
+        "middlewareOrder": "complete",
+        "failureFlow": "complete",
+        "logFlow": "complete",
+        "dynamicRegistration": "complete",
+        "externalVisibility": "notApplicable"
+      },
+      "bypassPaths": []
+    },
+    "RULE-CALC-RATE-LIMIT|CTRL-CALC-RATE-LIMIT|backend|default|primary": {
+      "assurance": "proven",
+      "semantics": "ingress-dominance",
+      "providerIds": [
+        "provider:RateLimitMiddleware"
+      ],
+      "evidenceDigests": [],
+      "coverage": "proven",
+      "graphHash": "sha256:abb860d715a8068eef9a835ec7c4ae995d82b5df2220b560db706d4610c63362",
+      "completeness": {
+        "routeRegistration": "complete",
+        "middlewareOrder": "complete",
+        "failureFlow": "complete",
+        "logFlow": "complete",
+        "dynamicRegistration": "complete",
+        "externalVisibility": "notApplicable"
+      },
+      "bypassPaths": []
     },
     "CTRL-CALC-BODY-SIZE": {
       "assurance": "missing",
       "coverageSemantics": "ingress-dominance",
-      "providerIds": []
-    },
-    "CTRL-CALC-RATE-LIMIT": {
-      "assurance": "missing",
-      "coverageSemantics": "ingress-dominance",
-      "providerIds": []
-    },
-    "CTRL-CALC-LOG-REDACTION": {
-      "assurance": "missing",
-      "coverageSemantics": "sensitive-data-to-log-sink",
       "providerIds": []
     }
   }

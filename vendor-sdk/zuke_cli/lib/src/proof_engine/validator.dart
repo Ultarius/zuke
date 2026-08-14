@@ -109,21 +109,52 @@ _ImplementationCoverageEvaluation _implementationCoverage(
   AssuranceObligationCatalog catalog,
 ) {
   final errors = <ValidationMessage>[];
-  final graphs = <IrGraph>[
-    ...outputs.map((output) => output.graph).whereType<IrGraph>(),
-    if (explicitGraph != null) explicitGraph,
-  ];
-  final mergedNodes = <String, IrNode>{};
-  final mergedEdges = <IrEdge>[];
-  for (final graph in graphs) {
-    mergedNodes.addAll({for (final node in graph.nodes) node.id: node});
-    mergedEdges.addAll(graph.edges);
+  // An implementation binding is owned by one configured source package.
+  // Never use a workspace-wide merged graph for its reachability proof: doing
+  // so would allow an entry point or edge from another package to discharge
+  // this package's implementation obligation.
+  final graphsByPackage = <String, List<IrGraph>>{};
+  for (final output in outputs) {
+    final graph = output.graph;
+    final packageId = output.packageName;
+    if (graph == null || packageId == null || packageId.isEmpty) continue;
+    (graphsByPackage[packageId] ??= []).add(graph);
   }
+  // The explicit graph is a compatibility input used by direct callers that
+  // validate one workspace graph without adapter outputs. It has no package
+  // metadata, so use it only when there are no package-scoped adapter graphs.
+  if (explicitGraph != null && graphsByPackage.isEmpty) {
+    graphsByPackage[''] = [explicitGraph];
+  }
+
+  IrGraph scopedGraph(String packageId, String target) {
+    final sourceGraphs =
+        graphsByPackage[packageId] ??
+        (packageId.isEmpty ? graphsByPackage[''] : null) ??
+        const <IrGraph>[];
+    final nodes = <String, IrNode>{};
+    final edges = <IrEdge>[];
+    for (final graph in sourceGraphs) {
+      for (final node in graph.nodes) {
+        if (node.target == null || node.target == target) {
+          nodes[node.id] = node;
+        }
+      }
+      edges.addAll(graph.edges);
+    }
+    final scopedEdges = edges.where(
+      (edge) =>
+          nodes.containsKey(edge.sourceId) && nodes.containsKey(edge.targetId),
+    );
+    return IrGraph(nodes: nodes.values.toList(), edges: scopedEdges.toList());
+  }
+
   final bindings = <String, _ImplementationBinding>{};
   for (final obligation in catalog.implementationCoverage) {
     final binding = obligation.binding;
+    final graph = scopedGraph(obligation.packageId, binding.target);
     final nodeCandidates = [
-      for (final node in mergedNodes.values)
+      for (final node in graph.nodes)
         if (node.kind == NodeKind.implementation &&
             node.target == binding.target &&
             node.role == 'implementation' &&
@@ -139,6 +170,7 @@ _ImplementationCoverageEvaluation _implementationCoverage(
       identity: binding,
       packageName: obligation.packageId,
       mode: obligation.mode,
+      graph: graph,
       node: nodeCandidates.length == 1 ? nodeCandidates.single : null,
       nodeCount: nodeCandidates.length,
     );
@@ -151,8 +183,7 @@ _ImplementationCoverageEvaluation _implementationCoverage(
       final reachable =
           binding.node != null &&
           _reachableImplementation(
-            mergedNodes,
-            mergedEdges,
+            binding.graph,
             binding.node!.id,
             binding.identity.target,
           );
@@ -176,9 +207,7 @@ _ImplementationCoverageEvaluation _implementationCoverage(
           binding: binding.identity,
           mode: mode,
           status: status,
-          governedGraphHash: _coverageGraphHash(
-            IrGraph(nodes: mergedNodes.values.toList(), edges: mergedEdges),
-          ),
+          governedGraphHash: _coverageGraphHash(binding.graph),
           diagnostics: diagnostics,
         ),
       );
@@ -291,12 +320,11 @@ _ImplementationCoverageEvaluation _implementationCoverage(
 }
 
 bool _reachableImplementation(
-  Map<String, IrNode> nodes,
-  List<IrEdge> edges,
+  IrGraph graph,
   String implementationId,
   String target,
 ) {
-  final entries = nodes.values
+  final entries = graph.nodes
       .where(
         (node) =>
             node.kind == NodeKind.entryPoint &&
@@ -305,7 +333,7 @@ bool _reachableImplementation(
       .map((node) => node.id)
       .toList();
   final adjacency = <String, List<String>>{};
-  for (final edge in edges) {
+  for (final edge in graph.edges) {
     if ({
       EdgeKind.routesTo,
       EdgeKind.precedes,
@@ -917,6 +945,7 @@ final class _ImplementationBinding {
   final BindingIdentity identity;
   final String packageName;
   final ir.PlacementMode mode;
+  final IrGraph graph;
   final IrNode? node;
   final int nodeCount;
 
@@ -924,6 +953,7 @@ final class _ImplementationBinding {
     required this.identity,
     required this.packageName,
     required this.mode,
+    required this.graph,
     required this.node,
     required this.nodeCount,
   });

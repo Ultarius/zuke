@@ -152,6 +152,9 @@ class ExtractionService {
               packageRoot,
               inputDigest,
               symbols: output.symbols,
+              existingNodeIds: output.graph?.nodes
+                  .map((node) => node.id)
+                  .toSet(),
             ),
           );
         }
@@ -238,6 +241,7 @@ class ExtractionService {
     String packageRoot,
     String inputDigest, {
     List<ExtractedSymbol> symbols = const [],
+    Set<String>? existingNodeIds,
   }) {
     CompletenessValue completeness(CompletenessStatus status) =>
         switch (status) {
@@ -306,21 +310,29 @@ class ExtractionService {
         final symbol = matches.single;
         final implementationId = 'implementation:${symbol.symbolId}';
         if (linkedImplementations.add(implementationId)) {
-          nodes.add(
-            IrNode(
-              id: implementationId,
-              kind: NodeKind.implementation,
-              target: output.targetId,
-              role: 'implementation',
-              variant: symbol.variant,
-              slot: symbol.slot,
-              properties: {
-                'requirementIds': symbol.requirementIds,
-                'sourceUri': symbol.source.uri,
-                'sourceLine': symbol.source.line,
-              },
-            ),
-          );
+          // The Dart extractor is the single materialization owner for
+          // annotation-backed implementation nodes. The topology projection
+          // contributes the route edge only when that node was not already
+          // produced by the resolved annotation graph. This prevents the
+          // extractor and Dart Frog adapter from publishing conflicting copies
+          // of one semantic binding.
+          if (!(existingNodeIds?.contains(implementationId) ?? false)) {
+            nodes.add(
+              IrNode(
+                id: implementationId,
+                kind: NodeKind.implementation,
+                target: output.targetId,
+                role: 'implementation',
+                variant: symbol.variant,
+                slot: symbol.slot,
+                properties: {
+                  'requirementIds': symbol.requirementIds,
+                  'sourceUri': symbol.source.uri,
+                  'sourceLine': symbol.source.line,
+                },
+              ),
+            );
+          }
         }
         edges.add(
           IrEdge(

@@ -204,6 +204,73 @@ void main() {
     expect(result.errors, isEmpty);
   });
 
+  test('topology reachability cannot cross a package boundary', () {
+    const requirement = ExtractedSymbol(
+      kind: 'requirementBoundary',
+      role: 'domain',
+      symbolId: 'package:package_a/use_case.dart#CreateLobbyUseCase',
+      requirementIds: ['RULE-ACCESS-NORMALIZATION'],
+      target: 'backend',
+      source: ExtractedSourceLocation(
+        uri: 'package:package_a/use_case.dart',
+        offset: 0,
+        length: 1,
+        line: 1,
+        column: 1,
+      ),
+    );
+    final result = ValidatorEngine().validate(
+      _workspace,
+      outputs: [
+        _output(
+          symbols: const [requirement],
+          graph: const IrGraph(
+            nodes: [
+              IrNode(
+                id: 'package-a-route',
+                kind: NodeKind.entryPoint,
+                target: 'backend',
+              ),
+            ],
+            edges: [
+              IrEdge(
+                sourceId: 'package-a-route',
+                targetId: 'package-b-implementation',
+                kind: EdgeKind.invokes,
+              ),
+            ],
+          ),
+          packageName: 'package_a',
+        ),
+        _output(
+          symbols: const [],
+          graph: const IrGraph(
+            nodes: [
+              IrNode(
+                id: 'package-b-implementation',
+                kind: NodeKind.implementation,
+                target: 'backend',
+                role: 'implementation',
+                variant: 'default',
+                slot: 'primary',
+                properties: {
+                  'requirementIds': ['RULE-ACCESS-NORMALIZATION'],
+                },
+              ),
+            ],
+          ),
+          packageName: 'package_b',
+        ),
+      ],
+    );
+
+    expect(result.implementationCoverage.single.status, ProofStatus.failed);
+    expect(
+      result.errors.map((error) => error.code),
+      contains('ZK-IMPL-COVERAGE-MISSING'),
+    );
+  });
+
   test('implementation slots are independent AND obligations', () {
     final symbols = [
       for (final slot in ['create', 'join'])
@@ -311,11 +378,12 @@ const _workspace = WorkspaceDiscoveryResult(
 IrAdapterOutput _output({
   required List<ExtractedSymbol> symbols,
   required IrGraph graph,
+  String packageName = 'fixture',
 }) => IrAdapterOutput(
   adapter: const AdapterDescriptor(id: 'fixture', version: '1'),
   completeness: const IrAdapterCompleteness(),
   symbols: symbols,
   inputDigest: 'fixture',
-  packageName: 'fixture',
+  packageName: packageName,
   graph: graph,
 );

@@ -34,7 +34,7 @@
       "version": "1.0.0",
       "compatibilityId": "dart-source-package-v1",
       "package": "todo-app",
-      "digest": "sha256:ba24e6ee6e2922a132c7826039104a05169db8a979afcbe56be0bd9bd494c88e",
+      "digest": "sha256:5be81e20d6441715f98a2a2d6663617841a9a4bda45c1e85b9ad7602c37e4185",
       "completeness": {
         "annotationTargets": "complete",
         "generatedParts": "complete",
@@ -53,8 +53,55 @@
     "RULE-TODO-COMPLETE-ITEM"
   ],
   "attestations": [],
+  "implementationCoverage": [
+    {
+      "binding": {
+        "subjectKind": "requirement",
+        "subjectId": "RULE-TODO-ADD-ITEM",
+        "target": "flutter",
+        "role": "implementation",
+        "variant": "default",
+        "slot": "primary"
+      },
+      "mode": "annotationGoverned",
+      "status": "verified",
+      "evidenceDigests": [
+        "sha256:0d35e5961f9422d3df46451d7cc361bd69907c051c20da98c4a98a59243b2712",
+        "sha256:4f69cd9c1f0a1ba55e6c76e804a422aa4f0e39cb4638b113a0206fedaffb64a4",
+        "sha256:5be81e20d6441715f98a2a2d6663617841a9a4bda45c1e85b9ad7602c37e4185",
+        "sha256:732d0c363726c35bd8b82dc38a4a67987cb21c4ecd36816ccb42490767b79668",
+        "sha256:a4285cf9f8e11303e166413a4d0d68c089d833edccf9b455a67bf492b3e98d3a",
+        "sha256:aa55abf88f04a1402ee354fb5e167d1d40fd886f38198b8eacb7fb72a03204ee",
+        "sha256:c99a5b64f604eb59aa58a9cc844c4ad63d7a869cf0642cdebe0a8efa5327627c",
+        "sha256:e296165794147df13effd6d76c39265b8d947e8125a161103fd358068b5807fa"
+      ],
+      "diagnostics": []
+    },
+    {
+      "binding": {
+        "subjectKind": "requirement",
+        "subjectId": "RULE-TODO-COMPLETE-ITEM",
+        "target": "flutter",
+        "role": "implementation",
+        "variant": "default",
+        "slot": "primary"
+      },
+      "mode": "annotationGoverned",
+      "status": "verified",
+      "evidenceDigests": [
+        "sha256:0d35e5961f9422d3df46451d7cc361bd69907c051c20da98c4a98a59243b2712",
+        "sha256:5be81e20d6441715f98a2a2d6663617841a9a4bda45c1e85b9ad7602c37e4185",
+        "sha256:732d0c363726c35bd8b82dc38a4a67987cb21c4ecd36816ccb42490767b79668",
+        "sha256:899ea3d8002ca750f8174ed316037c75f3dc6172dc98707bcffe6a967a5521d7",
+        "sha256:aa55abf88f04a1402ee354fb5e167d1d40fd886f38198b8eacb7fb72a03204ee",
+        "sha256:f42f4551c5484d5217f6a43931d55d6fffff34f64b640d84ab04733b7e54ea16",
+        "sha256:facc36a131c0c7d5f592cffcb76dcda77a9c032e76de3304a442def9e3045457"
+      ],
+      "diagnostics": []
+    }
+  ],
   "controls": {
-    "RULE-TODO-ADD-ITEM|CTRL-TODO-VALIDATION|flutter|default": {
+    "RULE-TODO-ADD-ITEM|CTRL-TODO-VALIDATION|flutter|default|primary": {
       "assurance": "verified",
       "semantics": "verification-backed",
       "providerIds": [
@@ -62,13 +109,13 @@
       ],
       "evidenceDigests": [
         "sha256:0d35e5961f9422d3df46451d7cc361bd69907c051c20da98c4a98a59243b2712",
+        "sha256:4f69cd9c1f0a1ba55e6c76e804a422aa4f0e39cb4638b113a0206fedaffb64a4",
+        "sha256:5be81e20d6441715f98a2a2d6663617841a9a4bda45c1e85b9ad7602c37e4185",
         "sha256:732d0c363726c35bd8b82dc38a4a67987cb21c4ecd36816ccb42490767b79668",
-        "sha256:766f2b7caa690c7190f7de53883c8e239b9377a9c1c7624f914c3d26adcdce9d",
-        "sha256:838b044b795c2d52e269bd0497e4a6fa069a55ac189ffc480d7710ec1f6f8e7c",
-        "sha256:a8473d495b6c4552fd7e064561190e4f075b971970d030c9319b20c4f56cbab8",
+        "sha256:a4285cf9f8e11303e166413a4d0d68c089d833edccf9b455a67bf492b3e98d3a",
         "sha256:aa55abf88f04a1402ee354fb5e167d1d40fd886f38198b8eacb7fb72a03204ee",
-        "sha256:ba24e6ee6e2922a132c7826039104a05169db8a979afcbe56be0bd9bd494c88e",
-        "sha256:de2e3e0e89e1a035a3bc4cb90654facc64398ce1ad87fae8fffa8b8d6dd34f78"
+        "sha256:c99a5b64f604eb59aa58a9cc844c4ad63d7a869cf0642cdebe0a8efa5327627c",
+        "sha256:e296165794147df13effd6d76c39265b8d947e8125a161103fd358068b5807fa"
       ],
       "coverage": "verified",
       "graphHash": null,
@@ -78,7 +125,7 @@
       },
       "bypassPaths": []
     },
-    "RULE-TODO-COMPLETE-ITEM|CTRL-TODO-VALIDATION|flutter|default": {
+    "RULE-TODO-COMPLETE-ITEM|CTRL-TODO-VALIDATION|flutter|default|primary": {
       "assurance": "verified",
       "semantics": "verification-backed",
       "providerIds": [
@@ -86,12 +133,12 @@
       ],
       "evidenceDigests": [
         "sha256:0d35e5961f9422d3df46451d7cc361bd69907c051c20da98c4a98a59243b2712",
-        "sha256:1e6edebcc34ebf095014d62f01bb84476727a47d280287badb0e519952cb16b9",
+        "sha256:5be81e20d6441715f98a2a2d6663617841a9a4bda45c1e85b9ad7602c37e4185",
         "sha256:732d0c363726c35bd8b82dc38a4a67987cb21c4ecd36816ccb42490767b79668",
+        "sha256:899ea3d8002ca750f8174ed316037c75f3dc6172dc98707bcffe6a967a5521d7",
         "sha256:aa55abf88f04a1402ee354fb5e167d1d40fd886f38198b8eacb7fb72a03204ee",
-        "sha256:ba24e6ee6e2922a132c7826039104a05169db8a979afcbe56be0bd9bd494c88e",
-        "sha256:c14e66dc57ade46dd2bd9145663e9e8802fcbf2b7430888905b30b685721e32c",
-        "sha256:e96510c15dae5eb7a41891ce607018c05ca83107694d629221595cda270bd97f"
+        "sha256:f42f4551c5484d5217f6a43931d55d6fffff34f64b640d84ab04733b7e54ea16",
+        "sha256:facc36a131c0c7d5f592cffcb76dcda77a9c032e76de3304a442def9e3045457"
       ],
       "coverage": "verified",
       "graphHash": null,

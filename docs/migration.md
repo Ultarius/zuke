@@ -129,6 +129,19 @@ convenience when a workflow retains current evidence for every profile; in a
 replaceable single-output workflow, use the explicit sequence above so a
 single profile cannot be mistaken for all-profile proof.
 
+For checked-in examples or other workspaces maintained from this repository,
+the same safe sequence is available as one repository tool:
+
+```bash
+dart run tool/regenerate_profile_locks.dart --root examples/todo_app
+dart run tool/regenerate_profile_locks.dart --root examples/shopping_cart
+```
+
+The tool reads `lock.profiles` from each workspace, runs `zuke test` for each
+profile, generates that profile's lock, and immediately runs its non-mutating
+check. It does not edit lock JSON directly. Multiple roots and selected
+profiles can be supplied with repeated `--root` and `--profile` options.
+
 The current lock files are:
 
 ```text

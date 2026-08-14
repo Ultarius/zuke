@@ -111,6 +111,7 @@ void main() {
     },
     scenario: ValidationScenarios.badOperand,
     evidenceTypes: const ['domain-unit'],
+    provedImplementationSlots: const ['primary'],
     skip: skipScenario(ValidationScenarios.badOperand),
   );
 }
