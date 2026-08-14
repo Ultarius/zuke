@@ -268,7 +268,19 @@ class DartExtractor implements DartSourceExtractor {
     // validator must see those declarations as graph nodes; otherwise a
     // valid @ImplementsRequirement-only package looks like an empty governed
     // implementation graph.
-    _materializeAnnotationNodes(symbols, graphNodes);
+    //
+    // A package that does construct a ZukeHttpApplication is different: its
+    // runtime registration graph is authoritative. Materializing every
+    // annotation in that package would turn unrelated domain annotations into
+    // isolated implementation paths, which correctly fail dominance because
+    // they are not reachable from a registered route. Only materialize
+    // annotation-only nodes when no runtime topology was discovered.
+    final hasRuntimeTopology = graphNodes.values.any(
+      (node) => node.kind == NodeKind.entryPoint,
+    );
+    if (!hasRuntimeTopology) {
+      _materializeAnnotationNodes(symbols, graphNodes);
+    }
 
     symbols.sort((a, b) {
       final left = '${a.source.uri}:${a.source.offset}:${a.kind}:${a.symbolId}';
@@ -278,9 +290,6 @@ class DartExtractor implements DartSourceExtractor {
     });
     if (graphNodes.isNotEmpty) {
       final incomplete = errors.any((error) => error.contains('dynamic'));
-      final hasRuntimeTopology = graphNodes.values.any(
-        (node) => node.kind == NodeKind.entryPoint,
-      );
       graphCompleteness = GraphCompleteness(
         routeRegistration: !hasRuntimeTopology
             ? CompletenessValue.notApplicable

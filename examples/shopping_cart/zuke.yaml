@@ -17,7 +17,7 @@ targets:
     packages:
       - id: shopping-cart
         path: .
-        roots: [lib, test]
+        roots: [lib]
     contractOutput: lib/src/generated
     extractor: zuke-dart-resolved
 

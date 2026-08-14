@@ -240,8 +240,6 @@ class UnsupportedVerification {}
       expect(
         output.graph!.nodes.map((node) => node.id),
         containsAll([
-          'implementation:package:dart_extractor_behavior_fixture/app.dart#RequirementMixin',
-          'provider:package:dart_extractor_behavior_fixture/app.dart#provideControl',
           'ingress:endpoint.test',
           'route:endpoint.test',
           'provider:Middleware',
@@ -252,6 +250,26 @@ class UnsupportedVerification {}
           'provider:Processor',
           'sink:Sink',
         ]),
+      );
+      // Runtime registrations are authoritative for applications using
+      // ZukeHttpApplication. Annotation-only declarations that are not part
+      // of that runtime graph must not become isolated implementation or
+      // provider paths and create false dominance failures.
+      expect(
+        output.graph!.nodes.map((node) => node.id),
+        isNot(
+          contains(
+            'implementation:package:dart_extractor_behavior_fixture/app.dart#RequirementMixin',
+          ),
+        ),
+      );
+      expect(
+        output.graph!.nodes.map((node) => node.id),
+        isNot(
+          contains(
+            'provider:package:dart_extractor_behavior_fixture/app.dart#provideControl',
+          ),
+        ),
       );
       expect(
         output.diagnostics.map((diagnostic) => diagnostic.message),

@@ -66,7 +66,7 @@ void main() {
       bindings: ShoppingBindings(),
     ),
     runnerId: 'shopping-flutter-tests',
-    runnerCompatibilityId: 'shopping-flutter-tests-v1',
+    runnerCompatibilityId: 'shopping-cart-flutter-runner-v1',
     digests: const {'runner': 'zuke-runner-flutter-v1'},
   ).registerAll();
 
