@@ -262,6 +262,8 @@ final class DartFrogAdapter implements FrameworkAdapter {
               'incomingOrder': index,
               'chainResolved': true,
               if (call.controlId != null) 'controlId': call.controlId,
+              if (call.implementationTypes.isNotEmpty)
+                'implementationTypes': call.implementationTypes,
             },
           ),
         );
@@ -468,7 +470,7 @@ final class DartFrogAdapter implements FrameworkAdapter {
       final arguments = invocation.argumentList.arguments;
       final argument = arguments.length == 1 ? arguments.single : null;
       final name = argument == null ? null : _middlewareName(argument);
-      if (name == null) {
+      if (argument == null || name == null) {
         complete = false;
         diagnostics.add(
           _warning(
@@ -478,7 +480,18 @@ final class DartFrogAdapter implements FrameworkAdapter {
         );
         continue;
       }
-      calls.add(_MiddlewareCall(name: name, controlId: controls[name]));
+      final implementationTypes = await _middlewareImplementationTypes(
+        argument,
+        packageRoot,
+        collection,
+      );
+      calls.add(
+        _MiddlewareCall(
+          name: name,
+          controlId: controls[name],
+          implementationTypes: implementationTypes,
+        ),
+      );
     }
     return _MiddlewareInspection(
       complete: complete,
@@ -505,6 +518,17 @@ final class DartFrogAdapter implements FrameworkAdapter {
       if (expression.methodName.element == null) return null;
       return expression.methodName.name;
     }
+    if (expression is FunctionExpressionInvocation) {
+      final function = expression.function;
+      if (function is SimpleIdentifier && function.element != null) {
+        return function.name;
+      }
+      if (function is PrefixedIdentifier &&
+          function.identifier.element != null) {
+        return function.identifier.name;
+      }
+      return null;
+    }
     if (expression is SimpleIdentifier) {
       return expression.element == null ? null : expression.name;
     }
@@ -514,6 +538,103 @@ final class DartFrogAdapter implements FrameworkAdapter {
           : expression.identifier.name;
     }
     return null;
+  }
+
+  Future<List<String>> _middlewareImplementationTypes(
+    Expression expression,
+    String packageRoot,
+    AnalysisContextCollection collection,
+  ) async {
+    final function = switch (expression) {
+      FunctionExpressionInvocation invocation => invocation.function,
+      _ => null,
+    };
+    final element = switch (expression) {
+      MethodInvocation invocation => invocation.methodName.element,
+      _ => switch (function) {
+        SimpleIdentifier identifier => identifier.element,
+        PrefixedIdentifier identifier => identifier.identifier.element,
+        _ => null,
+      },
+    };
+    if (element is! ExecutableElement) return const [];
+
+    final types = <String>{};
+    final visited = <String>{};
+
+    late Future<void> Function(ExecutableElement) inspectExecutable;
+    late Future<void> Function(AstNode) inspectBody;
+
+    inspectExecutable = (ExecutableElement executable) async {
+      final source = executable.library.firstFragment.source;
+      final filePath = path.normalize(source.fullName);
+      final root = path.normalize(File(packageRoot).absolute.path);
+      final rootWithSeparator = '$root${path.separator}';
+      if (filePath != root && !filePath.startsWith(rootWithSeparator)) return;
+      if (!visited.add('${filePath}|${executable.name}')) return;
+
+      final resolved = await _resolveUnit(filePath, collection);
+      if (resolved == null) return;
+      final declarations = resolved.unit.declarations
+          .whereType<FunctionDeclaration>()
+          .where((candidate) => candidate.name.lexeme == executable.name)
+          .toList(growable: false);
+      final declaration = declarations.length == 1 ? declarations.single : null;
+      if (declaration == null) {
+        final owner = executable.enclosingElement;
+        for (final classDeclaration
+            in resolved.unit.declarations.whereType<ClassDeclaration>()) {
+          if (owner is! InterfaceElement ||
+              classDeclaration.name.lexeme != owner.name) {
+            continue;
+          }
+          if (executable is ConstructorElement) {
+            final constructors = classDeclaration.members
+                .whereType<ConstructorDeclaration>()
+                .where(
+                  (candidate) =>
+                      (candidate.name?.lexeme ?? '') == executable.name,
+                )
+                .toList(growable: false);
+            if (constructors.length == 1) {
+              await inspectBody(constructors.single.body);
+              return;
+            }
+            continue;
+          }
+          final methods = classDeclaration.members
+              .whereType<MethodDeclaration>()
+              .where((candidate) => candidate.name.lexeme == executable.name)
+              .toList(growable: false);
+          if (methods.length == 1) {
+            await inspectBody(methods.single.body);
+            return;
+          }
+        }
+        return;
+      }
+      await inspectBody(declaration.functionExpression.body);
+    };
+
+    inspectBody = (AstNode body) async {
+      final invocations = <ExecutableElement>{};
+      body.accept(
+        _InitializationVisitor(
+          onType: (name) {
+            if (name != null && name.isNotEmpty) types.add(name);
+          },
+          onExecutable: (candidate) {
+            if (candidate != null) invocations.add(candidate);
+          },
+        ),
+      );
+      for (final invocation in invocations) {
+        await inspectExecutable(invocation);
+      }
+    };
+
+    await inspectExecutable(element);
+    return types.toList()..sort();
   }
 
   Future<ResolvedUnitResult?> _resolveUnit(
@@ -589,8 +710,13 @@ final class _TransportResult {
 final class _MiddlewareCall {
   final String name;
   final String? controlId;
+  final List<String> implementationTypes;
 
-  const _MiddlewareCall({required this.name, this.controlId});
+  const _MiddlewareCall({
+    required this.name,
+    this.controlId,
+    this.implementationTypes = const [],
+  });
 }
 
 final class _MiddlewareInspection {
@@ -624,6 +750,54 @@ final class _InvocationVisitor extends RecursiveAstVisitor<void> {
   @override
   void visitFunctionExpressionInvocation(FunctionExpressionInvocation node) {
     onInvocation(node);
+    super.visitFunctionExpressionInvocation(node);
+  }
+}
+
+final class _InitializationVisitor extends RecursiveAstVisitor<void> {
+  final void Function(String? name) onType;
+  final void Function(ExecutableElement? executable) onExecutable;
+
+  const _InitializationVisitor({
+    required this.onType,
+    required this.onExecutable,
+  });
+
+  @override
+  void visitFunctionExpression(FunctionExpression node) {
+    // Provider factories and other callbacks are executed later, when a
+    // request is handled. They are not process-initialization edges.
+  }
+
+  @override
+  void visitInstanceCreationExpression(InstanceCreationExpression node) {
+    onType(
+      node.constructorName.type.element?.name ??
+          node.constructorName.type.name.lexeme,
+    );
+    final constructor = node.constructorName.element;
+    if (constructor is ExecutableElement) onExecutable(constructor);
+    super.visitInstanceCreationExpression(node);
+  }
+
+  @override
+  void visitMethodInvocation(MethodInvocation node) {
+    final method = node.methodName.element;
+    final owner = method?.enclosingElement;
+    if (owner is ClassElement) onType(owner.name);
+    if (method is ExecutableElement) onExecutable(method);
+    super.visitMethodInvocation(node);
+  }
+
+  @override
+  void visitFunctionExpressionInvocation(FunctionExpressionInvocation node) {
+    final function = node.function;
+    final element = switch (function) {
+      SimpleIdentifier identifier => identifier.element,
+      PrefixedIdentifier identifier => identifier.identifier.element,
+      _ => null,
+    };
+    if (element is ExecutableElement) onExecutable(element);
     super.visitFunctionExpressionInvocation(node);
   }
 }

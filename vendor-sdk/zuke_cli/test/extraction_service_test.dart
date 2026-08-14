@@ -285,6 +285,94 @@ Handler middleware(Handler handler) => handler;
       },
     );
 
+    test(
+      'projects middleware initialization edges to annotated implementations',
+      () async {
+        final lib = Directory('${tempDir.path}/lib')
+          ..createSync(recursive: true);
+        final routes = Directory('${tempDir.path}/routes')
+          ..createSync(recursive: true);
+        File('${lib.path}/background.dart').writeAsStringSync('''
+import 'package:zuke_annotations/zuke_annotations.dart';
+
+@ImplementsRequirement(['RULE-TEST-001'])
+class BackgroundWorker {
+  static Object create() => Object();
+}
+''');
+        File('${routes.path}/_middleware.dart').writeAsStringSync('''
+import '../lib/background.dart';
+
+class Handler {
+  Handler use(Object middleware) => this;
+}
+Handler middleware(Handler handler) => handler.use(dependencies());
+Handler dependencies() => BackgroundWorker.create() as Handler;
+''');
+        File(
+          '${routes.path}/index.dart',
+        ).writeAsStringSync('Object onRequest(Object request) => Object();');
+        File('${tempDir.path}/pubspec.yaml').writeAsStringSync(
+          'name: extraction_fixture\\nenvironment:\\n'
+          '  sdk: ">=3.10.0 <4.0.0"\\n',
+        );
+        final packageConfig = _workspacePackageConfig();
+        final toolDirectory = Directory('${tempDir.path}/.dart_tool')
+          ..createSync(recursive: true);
+        final workspaceUri = packageConfig.parent.parent.uri.toString();
+        final resolvedConfig = packageConfig.readAsStringSync().replaceAll(
+          '"rootUri": "../',
+          '"rootUri": "$workspaceUri',
+        );
+        File(
+          '${toolDirectory.path}/package_config.json',
+        ).writeAsStringSync(resolvedConfig);
+
+        final result = await ExtractionService().extract(
+          WorkspaceDiscoveryResult(
+            config: ZukeConfig(
+              root: tempDir.path,
+              workspaceTargets: {
+                'backend': const WorkspaceTarget(
+                  id: 'backend',
+                  language: 'dart',
+                  framework: 'dart-frog',
+                  packages: [
+                    WorkspacePackage(
+                      id: 'backend',
+                      path: '.',
+                      roots: ['lib', 'routes'],
+                    ),
+                  ],
+                ),
+              },
+            ),
+            data: const MetadataExtractorResult(),
+          ),
+          includeEvidence: false,
+        );
+
+        expect(result.errors, isEmpty);
+        final projection = result.outputs.firstWhere(
+          (output) =>
+              output.graph?.edges.any(
+                (edge) =>
+                    edge.sourceId.contains('/middleware/') &&
+                    edge.targetId.contains('#BackgroundWorker'),
+              ) ??
+              false,
+        );
+        expect(
+          projection.graph!.edges.any(
+            (edge) =>
+                edge.sourceId.contains('/middleware/') &&
+                edge.targetId.contains('#BackgroundWorker'),
+          ),
+          isTrue,
+        );
+      },
+    );
+
     test('reports invalid target entries and missing package roots', () async {
       final workspace = WorkspaceDiscoveryResult(
         config: ZukeConfig(

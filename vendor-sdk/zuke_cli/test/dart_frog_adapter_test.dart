@@ -135,4 +135,52 @@ Object onRequest(Object request) {
     );
     expect(route.attributes['transportResolved'], isTrue);
   });
+
+  test(
+    'links middleware initialization to constructed implementations',
+    () async {
+      final root = await Directory.systemTemp.createTemp('zuke-dart-frog-');
+      addTearDown(() => root.delete(recursive: true));
+      final routes = Directory('${root.path}/routes')
+        ..createSync(recursive: true);
+      File('${routes.path}/index.dart').writeAsStringSync('''
+Object onRequest(Object request) => Object();
+''');
+      // Keep the factory in the middleware library so the analyzer can resolve
+      // the call graph without relying on a package pubspec or generated files.
+      File('${routes.path}/_middleware.dart').writeAsStringSync('''
+typedef Handler = Object Function(Object);
+Handler middleware(Handler handler) => handler.use(dependencies());
+Handler dependencies() => Runtime.create() as Handler;
+class OutboxDispatcher {
+  static Object create() => Object();
+}
+class DriftUnitOfWork {}
+class Runtime {
+  static Object create() {
+    final unitOfWork = DriftUnitOfWork();
+    return OutboxDispatcher.create();
+  }
+}
+''');
+
+      final output = await const DartFrogAdapter().extract(
+        AdapterRequest(
+          workspaceRoot: root.path,
+          targetId: 'backend',
+          packageId: 'backend',
+          packageRoot: root.path,
+          configuredRoots: ['lib', 'routes'],
+        ),
+      );
+
+      final dependencies = output.nodes.singleWhere(
+        (node) => node.kind == 'middleware' && node.name == 'dependencies',
+      );
+      expect(
+        dependencies.attributes['implementationTypes'],
+        containsAll(<String>['DriftUnitOfWork', 'OutboxDispatcher']),
+      );
+    },
+  );
 }

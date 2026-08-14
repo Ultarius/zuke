@@ -343,6 +343,49 @@ class ExtractionService {
         );
       }
     }
+    for (final middleware in middlewareNodes) {
+      final types =
+          (middleware.attributes['implementationTypes'] as List?)
+              ?.whereType<String>()
+              .toSet()
+              .toList()
+            ?..sort();
+      if (types == null) continue;
+      for (final type in types) {
+        final matches = requirementSymbols
+            .where((symbol) => symbol.symbolId.endsWith('#$type'))
+            .toList(growable: false);
+        if (matches.length != 1) continue;
+        final symbol = matches.single;
+        final implementationId = 'implementation:${symbol.symbolId}';
+        if (linkedImplementations.add(implementationId)) {
+          if (!(existingNodeIds?.contains(implementationId) ?? false)) {
+            nodes.add(
+              IrNode(
+                id: implementationId,
+                kind: NodeKind.implementation,
+                target: output.targetId,
+                role: 'implementation',
+                variant: symbol.variant,
+                slot: symbol.slot,
+                properties: {
+                  'requirementIds': symbol.requirementIds,
+                  'sourceUri': symbol.source.uri,
+                  'sourceLine': symbol.source.line,
+                },
+              ),
+            );
+          }
+        }
+        edges.add(
+          IrEdge(
+            sourceId: middleware.id,
+            targetId: implementationId,
+            kind: EdgeKind.invokes,
+          ),
+        );
+      }
+    }
     if (middlewareNodes.isNotEmpty) {
       for (final route in routeNodes) {
         edges.add(
