@@ -64,13 +64,13 @@ packages:
     supportStatement: Supported application-facing HTTP runtime boundary.
     bumpReason: Existing hosted version remains compatible with this release.
   zuke_cli:
-    version: 0.4.1
-    previousVersion: 0.4.0
+    version: 0.4.2
+    previousVersion: 0.4.1
     publish: true
     releaseAction: publish
     tier: Specialized SDK
     supportStatement: Supported CLI for generation, extraction, validation, locks, and gates.
-    bumpReason: Patch release for sequential-profile evidence retention and canonical Dart Frog topology source digests.
+    bumpReason: Patch release for annotation-backed implementation and provider nodes in native Dart Frog governed graphs.
   zuke_dart_build_hook:
     version: 0.3.0
     previousVersion: 0.2.0

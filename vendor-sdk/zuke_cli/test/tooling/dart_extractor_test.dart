@@ -240,6 +240,8 @@ class UnsupportedVerification {}
       expect(
         output.graph!.nodes.map((node) => node.id),
         containsAll([
+          'implementation:package:dart_extractor_behavior_fixture/app.dart#RequirementMixin',
+          'provider:package:dart_extractor_behavior_fixture/app.dart#provideControl',
           'ingress:endpoint.test',
           'route:endpoint.test',
           'provider:Middleware',

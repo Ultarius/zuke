@@ -16,7 +16,7 @@ const releasePublicPackageVersions = <String, String>{
   'zuke_runner': '0.3.1',
   'zuke_runner_flutter': '0.3.1',
   'zuke_http_runtime': '0.1.1',
-  'zuke_cli': '0.4.1',
+  'zuke_cli': '0.4.2',
   'zuke_dart_build_hook': '0.3.0',
 };
 

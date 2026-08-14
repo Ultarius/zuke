@@ -262,6 +262,14 @@ class DartExtractor implements DartSourceExtractor {
       );
     }
 
+    // Native Dart Frog applications do not construct ZukeHttpApplication
+    // registrations. Their framework topology is extracted separately, while
+    // this analyzer pass still owns the resolved annotation declarations. A
+    // validator must see those declarations as graph nodes; otherwise a
+    // valid @ImplementsRequirement-only package looks like an empty governed
+    // implementation graph.
+    _materializeAnnotationNodes(symbols, graphNodes);
+
     symbols.sort((a, b) {
       final left = '${a.source.uri}:${a.source.offset}:${a.kind}:${a.symbolId}';
       final right =
@@ -270,20 +278,33 @@ class DartExtractor implements DartSourceExtractor {
     });
     if (graphNodes.isNotEmpty) {
       final incomplete = errors.any((error) => error.contains('dynamic'));
+      final hasRuntimeTopology = graphNodes.values.any(
+        (node) => node.kind == NodeKind.entryPoint,
+      );
       graphCompleteness = GraphCompleteness(
-        routeRegistration: incomplete
+        routeRegistration: !hasRuntimeTopology
+            ? CompletenessValue.notApplicable
+            : incomplete
             ? CompletenessValue.indeterminate
             : CompletenessValue.complete,
-        middlewareOrder: incomplete
+        middlewareOrder: !hasRuntimeTopology
+            ? CompletenessValue.notApplicable
+            : incomplete
             ? CompletenessValue.indeterminate
             : CompletenessValue.complete,
-        failureFlow: incomplete
+        failureFlow: !hasRuntimeTopology
+            ? CompletenessValue.notApplicable
+            : incomplete
             ? CompletenessValue.indeterminate
             : CompletenessValue.complete,
-        logFlow: incomplete
+        logFlow: !hasRuntimeTopology
+            ? CompletenessValue.notApplicable
+            : incomplete
             ? CompletenessValue.indeterminate
             : CompletenessValue.complete,
-        dynamicRegistration: incomplete
+        dynamicRegistration: !hasRuntimeTopology
+            ? CompletenessValue.notApplicable
+            : incomplete
             ? CompletenessValue.indeterminate
             : CompletenessValue.complete,
         externalVisibility: CompletenessValue.notApplicable,
@@ -361,6 +382,86 @@ class DartExtractor implements DartSourceExtractor {
               edges: graphEdges,
               completeness: graphCompleteness,
             ),
+    );
+  }
+
+  void _materializeAnnotationNodes(
+    List<ExtractedSymbol> symbols,
+    Map<String, IrNode> graphNodes,
+  ) {
+    for (final symbol in symbols) {
+      if (symbol.kind == 'requirementBoundary') {
+        _materializeAnnotationNode(
+          graphNodes,
+          symbol,
+          prefix: 'implementation',
+          kind: NodeKind.implementation,
+          role: 'implementation',
+          properties: {
+            'requirementIds': symbol.requirementIds,
+            'sourceUri': symbol.source.uri,
+            'sourceLine': symbol.source.line,
+          },
+        );
+      } else if (symbol.kind == 'controlProvider') {
+        _materializeAnnotationNode(
+          graphNodes,
+          symbol,
+          prefix: 'provider',
+          kind: NodeKind.provider,
+          role: 'provider',
+          properties: {
+            'controlIds': symbol.controlIds,
+            if (symbol.controlIds.length == 1)
+              'controlId': symbol.controlIds.single,
+            if (symbol.providerKind != null)
+              'providerKind': symbol.providerKind,
+            if (symbol.layer != null) 'layer': symbol.layer,
+            'sourceUri': symbol.source.uri,
+            'sourceLine': symbol.source.line,
+          },
+        );
+      }
+    }
+  }
+
+  void _materializeAnnotationNode(
+    Map<String, IrNode> graphNodes,
+    ExtractedSymbol symbol, {
+    required String prefix,
+    required NodeKind kind,
+    required String role,
+    required Map<String, Object?> properties,
+  }) {
+    final typeName = symbol.symbolId.split('#').last;
+    final conventionalId = '$prefix:$typeName';
+    final existingRuntimeNode = graphNodes[conventionalId];
+    final id = existingRuntimeNode != null && existingRuntimeNode.kind == kind
+        ? conventionalId
+        : '$prefix:${symbol.symbolId}';
+    final existing = graphNodes[id];
+    if (existing != null && existing.kind != kind) {
+      final disambiguated = '$id:${symbol.source.offset}';
+      graphNodes[disambiguated] = IrNode(
+        id: disambiguated,
+        kind: kind,
+        target: symbol.target,
+        role: role,
+        variant: symbol.variant,
+        slot: symbol.slot,
+        properties: properties,
+      );
+      return;
+    }
+    graphNodes[id] = IrNode(
+      id: id,
+      kind: kind,
+      target: symbol.target,
+      role: role,
+      variant: symbol.variant,
+      slot: symbol.slot,
+      properties: {...?existing?.properties, ...properties},
+      source: existing?.source,
     );
   }
 

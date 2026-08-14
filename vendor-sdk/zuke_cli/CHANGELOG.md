@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.4.2
+
+- Materialize resolved requirement and control annotations in the governed
+  graph for native Dart Frog and annotation-only packages.
+- Keep annotation-only extraction dimensions explicitly non-topology instead
+  of claiming route or middleware completeness.
+
 ## 0.4.1
 
 - Retain successfully published evidence from other profiles when sequential
