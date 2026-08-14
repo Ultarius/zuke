@@ -9,7 +9,7 @@ const releaseDartSourceCompatibilityId = 'dart-source-package-v1';
 
 /// Exact versions for the currently supported hosted public packages.
 const releasePublicPackageVersions = <String, String>{
-  'zuke_core': '0.3.0',
+  'zuke_core': '0.4.0',
   'zuke_annotations': '0.4.0',
   'zuke_frontend': '0.2.1',
   'zuke': '0.4.0',

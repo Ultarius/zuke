@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.4.0
+
+- Added normalized binding identities with explicit target, role, variant, and
+  slot fields, implementation-coverage results, and deterministic proof
+  ownership data.
+- Kept `dart-source-package-v1` unchanged because the serialized adapter
+  contract is unchanged.
+
 ## 0.3.0
 
 - Consolidated analyzer-free identities, diagnostics, evidence, digest, and

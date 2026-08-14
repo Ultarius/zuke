@@ -4,6 +4,8 @@
 
 - Coordinated runner identity and result emission with the target-aware
   provider and proof-routing release.
+- Added explicit `provedImplementationSlots` claims for multi-slot
+  implementation coverage; ordinary evidence remains slot-independent.
 
 ## 0.3.1
 

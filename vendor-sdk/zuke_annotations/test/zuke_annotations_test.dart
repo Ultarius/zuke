@@ -21,9 +21,10 @@ enum _Scenario implements ZukeScenarioContract {
 
 void main() {
   test('ImplementsRequirement stores requirement IDs', () {
-    final impl = ImplementsRequirement(['RULE-001'], target: 'backend');
+    final impl = ImplementsRequirement(['RULE-001']);
     expect(impl.requirementIds, contains('RULE-001'));
-    expect(impl.target, 'backend');
+    expect(impl.variant, 'default');
+    expect(impl.slot, 'primary');
   });
 
   test('ProvidesControl stores control IDs', () {

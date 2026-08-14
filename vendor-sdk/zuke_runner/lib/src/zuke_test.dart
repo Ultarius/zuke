@@ -23,6 +23,7 @@ void zukeTest(
   required ZukeScenarioContract scenario,
   Iterable<String> evidenceTypes = const [],
   Set<ControlId> provedControls = const {},
+  Iterable<String> provedImplementationSlots = const [],
   String? caseId,
   String? testOn,
   test_api.Timeout? timeout,
@@ -37,6 +38,8 @@ void zukeTest(
       ? null
       : 'Scenario filtered by Zuke';
   final types = evidenceTypes.toSet().toList();
+  final implementationSlots = provedImplementationSlots.toSet().toList()
+    ..sort();
   if (context != null) {
     if (types.isEmpty) {
       throw ArgumentError.value(
@@ -54,6 +57,15 @@ void zukeTest(
       throw ArgumentError(
         'Proved controls are not declared by ${scenario.id.value}: '
         '${invalidControls.join(', ')}',
+      );
+    }
+    final invalidSlots = implementationSlots
+        .where((slot) => !isValidBindingSlot(slot))
+        .toList(growable: false);
+    if (invalidSlots.isNotEmpty) {
+      throw ArgumentError(
+        'Implementation slots must be stable kebab-case tokens: '
+        '${invalidSlots.join(', ')}',
       );
     }
     final scenarioAlreadyRegistered = _registeredScenarioIds.contains(
@@ -96,6 +108,7 @@ void zukeTest(
               ..sort(),
         'provedControls':
             provedControls.map((control) => control.value).toList()..sort(),
+        'provedImplementationSlots': implementationSlots,
         'evidenceTypes': sortedTypes,
         'caseId': caseId,
         'profile': context.profile,
@@ -114,6 +127,7 @@ void zukeTest(
         runnerCompatibilityId: context.runnerCompatibilityId,
         digestInput: sha256.convert(utf8.encode(digestInput)).toString(),
         controlIds: provedControls.map((control) => control.value),
+        implementationSlots: implementationSlots,
         profile: context.profile,
         runnerId: context.runnerId,
         outputDirectory: context.resultDirectory,

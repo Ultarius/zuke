@@ -4,6 +4,8 @@
 
 - Coordinated Flutter runner result emission with explicit extraction targets
   and the current proof ownership model.
+- Added explicit `provedImplementationSlots` claims for multi-slot
+  implementation coverage; ordinary evidence remains slot-independent.
 
 ## 0.3.1
 

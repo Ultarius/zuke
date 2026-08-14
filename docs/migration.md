@@ -18,7 +18,7 @@ An illustrative migration is:
 ```yaml
 dev_dependencies:
   # Previous coordinated set (last published tuple):
-  # zuke_core: ^0.2.0
+  # zuke_core: ^0.3.0
   # zuke_annotations: ^0.3.0
   # zuke_frontend: ^0.2.0
   # zuke: ^0.3.1
@@ -29,7 +29,7 @@ dev_dependencies:
   # zuke_dart_build_hook: ^0.3.0
 
   # Current coordinated set:
-  # zuke_core: ^0.3.0
+  # zuke_core: ^0.4.0
   # zuke_annotations: ^0.4.0
   # zuke_frontend: ^0.2.1
   zuke: ^0.4.0
@@ -43,12 +43,15 @@ dev_dependencies:
 Keep the versions in the same coordinated row. Do not add path dependencies
 or dependency overrides to make a hosted consumer resolve.
 
-The `zuke_annotations` 0.4.0 release removes `ProvidesControl.target`. A
-provider's target is now resolved from workspace package membership and the
-active extraction target. Standalone extraction with multiple applicable
-targets fails closed; pass the target explicitly. Verification-backed controls
-are validated by their provider and current evidence, while structural controls
-remain owned by graph dominance.
+The coordinated release removes placement `target` from `ImplementsRequirement`,
+`PresentsRequirement`, `ZukeBinding`, and `VerifiesRequirement` as well as
+`ProvidesControl`. Placement is resolved from workspace package membership and
+the active extraction target. Standalone extraction with multiple applicable
+targets fails closed; pass the target explicitly. If two implementations share
+one requirement, give them distinct stable slots such as `create` and `join`;
+all slots are required by default. Verification-backed controls are validated
+by their provider and current evidence, while structural controls remain owned
+by graph dominance.
 
 ## 2. Remove retired package dependencies
 

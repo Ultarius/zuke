@@ -15,7 +15,6 @@ import 'package:zuke_runner_flutter/zuke_runner_flutter.dart';
     FeatCalc001RequirementIds.validation,
   ],
   evidenceType: 'domain-unit',
-  target: 'flutter',
   variant: 'default',
 )
 void main() {

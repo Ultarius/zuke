@@ -2,47 +2,136 @@ import 'dart:io';
 
 import 'package:zuke_frontend/zuke_frontend.dart';
 
-/// Resolves the active workspace target for a package before source
-/// extraction. Provider annotations do not carry target metadata; the
-/// workspace target is the only authoritative placement namespace.
-String resolveExtractionTarget(String packageRoot, {String? requestedTarget}) {
-  final workspaceRoot = _findWorkspaceRoot(Directory(packageRoot));
+/// A resolved workspace placement used by every extraction boundary.
+final class ResolvedPlacement {
+  final String workspaceRoot;
+  final WorkspaceTarget target;
+  final WorkspacePackage package;
+
+  const ResolvedPlacement({
+    required this.workspaceRoot,
+    required this.target,
+    required this.package,
+  });
+}
+
+/// Typed placement failure. CLI layers map [code] to diagnostics while
+/// analyzer/build-hook callers can preserve the same failure identity.
+final class PlacementFailure implements Exception {
+  final String code;
+  final String message;
+  final Map<String, Object?> context;
+
+  const PlacementFailure(this.code, this.message, {this.context = const {}});
+
+  @override
+  String toString() => '$code: $message';
+}
+
+ResolvedPlacement resolvePlacement(
+  String packageRoot, {
+  String? requestedTarget,
+  WorkspaceDiscoveryResult? workspace,
+}) {
+  final packageDirectory = Directory(packageRoot);
+  final workspaceRoot = _findWorkspaceRoot(packageDirectory);
   if (workspaceRoot == null) {
-    throw const FormatException(
-      'ZK-PROVIDER-TARGET-AMBIGUOUS: package is not assigned to a configured target',
+    throw const PlacementFailure(
+      'ZK-TARGET-UNASSIGNED',
+      'Package is not contained in a configured Zuke workspace',
     );
   }
-  final workspace = WorkspaceDiscovery().discover(workspaceRoot.path);
-  final canonicalPackage = _canonical(Directory(packageRoot));
-  final memberships = <String>[];
-  for (final target in workspace.config.workspaceTargets.values) {
+  final discovered =
+      workspace ?? WorkspaceDiscovery().discover(workspaceRoot.path);
+  final canonicalPackage = _canonical(packageDirectory);
+  final targets = discovered.config.workspaceTargets.values.toList();
+  final matchingTargets = <WorkspaceTarget>[];
+  final matchingPackages = <String, WorkspacePackage>{};
+  var missingConfiguredPackage = false;
+  for (final target in targets) {
     for (final package in target.packages) {
-      final candidate = _canonical(
-        Directory(
-          '${workspaceRoot.path}${Platform.pathSeparator}${package.path}',
-        ),
+      final configuredPath = Directory(
+        '${workspaceRoot.path}${Platform.pathSeparator}${package.path}',
       );
-      if (candidate == canonicalPackage) memberships.add(target.id);
+      if (!configuredPath.existsSync()) {
+        if (_canonical(configuredPath) == canonicalPackage) {
+          missingConfiguredPackage = true;
+        }
+        continue;
+      }
+      if (_canonical(configuredPath) == canonicalPackage) {
+        matchingTargets.add(target);
+        matchingPackages[target.id] = package;
+      }
     }
   }
-  final uniqueMemberships = memberships.toSet().toList()..sort();
-  if (requestedTarget != null && requestedTarget.trim().isNotEmpty) {
-    if (!uniqueMemberships.contains(requestedTarget)) {
-      throw FormatException(
-        'ZK-PROVIDER-TARGET-AMBIGUOUS: package is not a member of target '
-        '"$requestedTarget"',
+  final uniqueTargets = {
+    for (final target in matchingTargets) target.id: target,
+  };
+  final requested = requestedTarget?.trim();
+  if (requested != null && requested.isNotEmpty) {
+    final target = discovered.config.workspaceTargets[requested];
+    if (target == null) {
+      throw PlacementFailure(
+        'ZK-TARGET-UNKNOWN',
+        'Requested target "$requested" is not configured',
+        context: {'target': requested},
       );
     }
-    return requestedTarget;
-  }
-  if (uniqueMemberships.length != 1) {
-    throw FormatException(
-      'ZK-PROVIDER-TARGET-AMBIGUOUS: package belongs to '
-      '${uniqueMemberships.isEmpty ? 'no' : 'multiple'} configured targets '
-      '${uniqueMemberships.join(', ')}; pass --target explicitly',
+    if (missingConfiguredPackage) {
+      throw PlacementFailure(
+        'ZK-SOURCE-MISSING-PACKAGE',
+        'The configured package path for target "$requested" does not exist',
+        context: {'target': requested, 'packageRoot': packageRoot},
+      );
+    }
+    final package = matchingPackages[requested];
+    if (package == null) {
+      throw PlacementFailure(
+        'ZK-TARGET-NOT-MEMBER',
+        'Package is not a member of target "$requested"',
+        context: {'target': requested, 'packageRoot': packageRoot},
+      );
+    }
+    return ResolvedPlacement(
+      workspaceRoot: workspaceRoot.path,
+      target: target,
+      package: package,
     );
   }
-  return uniqueMemberships.single;
+  if (uniqueTargets.isEmpty) {
+    if (missingConfiguredPackage) {
+      throw const PlacementFailure(
+        'ZK-SOURCE-MISSING-PACKAGE',
+        'A configured package path does not exist',
+      );
+    }
+    throw PlacementFailure(
+      'ZK-TARGET-UNASSIGNED',
+      'Package has no configured workspace target membership',
+      context: {'packageRoot': packageRoot},
+    );
+  }
+  if (uniqueTargets.length != 1) {
+    throw PlacementFailure(
+      'ZK-TARGET-AMBIGUOUS',
+      'Package belongs to multiple configured targets; pass --target',
+      context: {'targets': uniqueTargets.keys.toList()..sort()},
+    );
+  }
+  final target = uniqueTargets.values.single;
+  final package = matchingPackages[target.id];
+  if (package == null) {
+    throw PlacementFailure(
+      'ZK-SOURCE-MISSING-PACKAGE',
+      'Configured package identity is missing for target ${target.id}',
+    );
+  }
+  return ResolvedPlacement(
+    workspaceRoot: workspaceRoot.path,
+    target: target,
+    package: package,
+  );
 }
 
 Directory? _findWorkspaceRoot(Directory start) {
@@ -62,9 +151,6 @@ Directory? _findWorkspaceRoot(Directory start) {
 String _canonical(Directory directory) {
   try {
     final resolved = directory.resolveSymbolicLinksSync().replaceAll('\\', '/');
-    // Windows paths are case-insensitive; POSIX paths are not. Lowercasing a
-    // Linux temporary directory such as `/tmp/zuke-plugin-GKTOEW` changes the
-    // path being inspected and makes an otherwise valid workspace disappear.
     return Platform.isWindows ? resolved.toLowerCase() : resolved;
   } catch (_) {
     final absolute = directory.absolute.path.replaceAll('\\', '/');

@@ -314,7 +314,8 @@ class LockCommand {
     for (final proof in validation.controlProofs) {
       final key = proof.requirementId == null
           ? proof.controlId
-          : '${proof.requirementId}|${proof.controlId}|${proof.target}|${proof.variant}';
+          : '${proof.requirementId}|${proof.controlId}|${proof.target}|'
+                '${proof.variant}|${proof.slot}';
       controlAssurance[key] = {
         'assurance': proof.status.name,
         'semantics': proof.semantics.wireValue,
@@ -379,6 +380,12 @@ class LockCommand {
           .map((rule) => rule.metadata.id)
           .toList(),
       'attestations': _attestations(workspace, validation.controlProofs),
+      'implementationCoverage':
+          (validation.implementationCoverage.toList()..sort(
+                (left, right) => left.binding.key.compareTo(right.binding.key),
+              ))
+              .map((coverage) => coverage.toJson())
+              .toList(),
       'controls': controlAssurance,
     };
     return const JsonEncoder.withIndent('  ').convert(data) + '\n';

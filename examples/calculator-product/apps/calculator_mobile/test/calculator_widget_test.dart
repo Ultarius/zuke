@@ -66,7 +66,6 @@ Future<void> _calculate(
     FeatCalc001RequirementIds.accessibility,
   ],
   evidenceType: 'flutter-widget',
-  target: 'flutter',
   variant: 'default',
 )
 void main() {

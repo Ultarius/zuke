@@ -100,7 +100,6 @@ void presentRequirement() {}
 @VerifiesRequirement(
   ['RULE-VERIFIED'],
   evidenceType: 'unit',
-  target: 'backend',
   variant: 'preview',
   scenarioIds: ['SCN-VERIFIED'],
 )
@@ -259,6 +258,18 @@ class UnsupportedVerification {}
           'CTRL-HANDLER',
           'CTRL-PROCESSOR',
         ]),
+      );
+      final annotationOnlyProviderSymbols = output.symbols
+          .where(
+            (symbol) =>
+                symbol.kind == 'controlProvider' &&
+                symbol.symbolId.contains('#provideControl'),
+          )
+          .toList();
+      expect(annotationOnlyProviderSymbols, hasLength(1));
+      expect(
+        annotationOnlyProviderSymbols.single.symbolId,
+        'package:dart_extractor_behavior_fixture/app.dart#provideControl',
       );
       final targetedOutput = await DartExtractor().extract(
         root.path,

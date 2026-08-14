@@ -38,7 +38,7 @@ void main() {
     final config = File(
       destination.path + Platform.pathSeparator + 'zuke.yaml',
     ).readAsStringSync();
-    expect(pubspec, contains('zuke_core: 0.3.0'));
+    expect(pubspec, contains('zuke_core: 0.4.0'));
     expect(pubspec, isNot(contains('{{')));
     expect(config, contains('dart-source-package-v1'));
     expect(config, contains('kind: test'));

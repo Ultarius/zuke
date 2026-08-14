@@ -6,7 +6,7 @@ environment:
 resolution: workspace
 dependencies:
   crypto: ^3.0.6
-  zuke_core: ^0.3.0
+  zuke_core: ^0.4.0
   zuke_annotations: ^0.4.0
   zuke_frontend: ^0.2.1
 dev_dependencies:

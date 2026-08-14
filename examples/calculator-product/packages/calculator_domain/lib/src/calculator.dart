@@ -10,7 +10,7 @@ import 'finite_operand_parser.dart';
   FeatCalc001RequirementIds.multiplication,
   FeatCalc001RequirementIds.division,
   FeatCalc001RequirementIds.validation,
-], target: 'flutter')
+])
 class Calculator {
   final FiniteOperandParser _parser;
 

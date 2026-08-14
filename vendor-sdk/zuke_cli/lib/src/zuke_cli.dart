@@ -1540,6 +1540,7 @@ Future<void> main(List<String> arguments) => zuke.build(arguments);
         status: EvidenceStatus.passed,
         scenarioIds: artifact.scenarioIds,
         controlIds: artifact.controlIds,
+        implementationSlots: artifact.implementationSlots,
         digests: {
           'source': sourceDigest,
           'contract': contractDigest,

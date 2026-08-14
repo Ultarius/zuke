@@ -17,7 +17,7 @@ void main() {
   test('resolves the only package membership without a provider target', () {
     _writeWorkspace(root, const ['backend']);
 
-    expect(resolveExtractionTarget(root.path), 'backend');
+    expect(resolvePlacement(root.path).target.id, 'backend');
   });
 
   test('preserves case in POSIX temporary workspace paths', () {
@@ -31,28 +31,32 @@ void main() {
     });
     _writeWorkspace(caseSensitiveRoot, const ['backend']);
 
-    expect(resolveExtractionTarget(caseSensitiveRoot.path), 'backend');
+    expect(resolvePlacement(caseSensitiveRoot.path).target.id, 'backend');
   });
 
   test('uses an explicitly active target for multi-target membership', () {
     _writeWorkspace(root, const ['backend', 'flutter']);
 
     expect(
-      resolveExtractionTarget(root.path, requestedTarget: 'flutter'),
+      resolvePlacement(root.path, requestedTarget: 'flutter').target.id,
       'flutter',
     );
   });
 
   test('rejects an active target outside package membership', () {
-    _writeWorkspace(root, const ['backend']);
+    _writeWorkspace(
+      root,
+      const ['backend', 'flutter'],
+      packagePaths: {'flutter': 'packages/other'},
+    );
 
     expect(
-      () => resolveExtractionTarget(root.path, requestedTarget: 'flutter'),
+      () => resolvePlacement(root.path, requestedTarget: 'flutter'),
       throwsA(
-        isA<FormatException>().having(
-          (error) => error.message,
-          'message',
-          contains('ZK-PROVIDER-TARGET-AMBIGUOUS'),
+        isA<PlacementFailure>().having(
+          (error) => error.code,
+          'code',
+          'ZK-TARGET-NOT-MEMBER',
         ),
       ),
     );
@@ -62,12 +66,12 @@ void main() {
     _writeWorkspace(root, const ['backend', 'flutter']);
 
     expect(
-      () => resolveExtractionTarget(root.path),
+      () => resolvePlacement(root.path),
       throwsA(
-        isA<FormatException>().having(
-          (error) => error.message,
-          'message',
-          contains('ZK-PROVIDER-TARGET-AMBIGUOUS'),
+        isA<PlacementFailure>().having(
+          (error) => error.code,
+          'code',
+          'ZK-TARGET-AMBIGUOUS',
         ),
       ),
     );
@@ -77,12 +81,12 @@ void main() {
     _writeWorkspace(root, const ['backend'], packagePath: 'packages/other');
 
     expect(
-      () => resolveExtractionTarget(root.path),
+      () => resolvePlacement(root.path),
       throwsA(
-        isA<FormatException>().having(
-          (error) => error.message,
-          'message',
-          contains('ZK-PROVIDER-TARGET-AMBIGUOUS'),
+        isA<PlacementFailure>().having(
+          (error) => error.code,
+          'code',
+          'ZK-TARGET-UNASSIGNED',
         ),
       ),
     );
@@ -93,6 +97,7 @@ void _writeWorkspace(
   Directory root,
   List<String> targets, {
   String packagePath = '.',
+  Map<String, String> packagePaths = const {},
 }) {
   File('${root.path}${Platform.pathSeparator}zuke.yaml').writeAsStringSync('''
 schemaVersion: 3
@@ -107,7 +112,7 @@ ${targets.map((target) => '''  $target:
     framework: dart
     packages:
       - id: sample
-        path: $packagePath
+        path: ${packagePaths[target] ?? packagePath}
         roots: [lib]
 ''').join()}
 ''');

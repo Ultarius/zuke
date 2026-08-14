@@ -3,9 +3,7 @@ import 'package:flutter/foundation.dart';
 import 'package:shopping_cart/shopping_cart.dart';
 import 'package:zuke_annotations/zuke_annotations.dart';
 
-@ImplementsRequirement([
-  FeatCart001RequirementIds.promoDiscount,
-], target: 'flutter')
+@ImplementsRequirement([FeatCart001RequirementIds.promoDiscount])
 @ProvidesControl(
   ['CTRL-PROMO-VALIDATION'],
   kind: ControlProviderKind.applicationValidator,

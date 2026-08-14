@@ -6,6 +6,13 @@
   rejected ambiguous standalone extraction instead of defaulting to a target.
 - Routed verification-backed controls exclusively through evidence/provider
   validation and added proof-owner conflict diagnostics.
+- Added independent implementation-coverage obligations for every binding
+  variant/slot, with topology reachability or explicit managed evidence chosen
+  by package authority mode.
+- Linked resolved Dart Frog `RequestContext.read<T>()` calls to annotated
+  implementations in the extracted topology.
+- Kept `dart-source-package-v1` stable; the extraction cache revision is
+  internal and independent of the public adapter contract.
 
 ## 0.4.2
 

@@ -4,6 +4,7 @@ import 'package:analyzer/dart/analysis/analysis_context_collection.dart';
 import 'package:analyzer/dart/analysis/results.dart';
 import 'package:analyzer/dart/ast/ast.dart';
 import 'package:analyzer/dart/ast/visitor.dart';
+import 'package:analyzer/dart/element/element.dart';
 import 'package:dart_frog_gen/dart_frog_gen.dart';
 import 'package:path/path.dart' as path;
 import 'package:zuke_core/zuke_core.dart';
@@ -101,6 +102,7 @@ final class DartFrogAdapter implements FrameworkAdapter {
           final transport = exists
               ? await _classifyTransport(resolved, request, collection)
               : const _TransportResult(kind: 'route', complete: false);
+          routeComplete = routeComplete && transport.complete;
           diagnostics.addAll(transport.diagnostics);
           final nodeId = _nodeId(request, 'route', entry.key);
           nodes.add(
@@ -117,6 +119,8 @@ final class DartFrogAdapter implements FrameworkAdapter {
                 'handlerResolved': exists,
                 'transport': transport.kind,
                 'transportResolved': transport.complete,
+                if (transport.implementationTypes.isNotEmpty)
+                  'implementationTypes': transport.implementationTypes,
               },
             ),
           );
@@ -287,6 +291,8 @@ final class DartFrogAdapter implements FrameworkAdapter {
     var sawCandidate = false;
     var resolvedWebSocket = false;
     var unresolvedCandidate = false;
+    final implementationTypes = <String>{};
+    var unresolvedImplementationLink = false;
     resolved.unit.accept(
       _InvocationVisitor(
         onInvocation: (invocation) {
@@ -317,15 +323,51 @@ final class DartFrogAdapter implements FrameworkAdapter {
             unresolvedCandidate = true;
           }
         },
+        onMethodInvocation: (invocation) {
+          if (invocation.methodName.name != 'read') return;
+          final method = invocation.methodName.element;
+          final enclosing = method?.enclosingElement;
+          if (enclosing is! InterfaceElement ||
+              enclosing.name != 'RequestContext') {
+            return;
+          }
+          final arguments = invocation.typeArguments?.arguments ?? const [];
+          if (arguments.length != 1) {
+            unresolvedImplementationLink = true;
+            return;
+          }
+          final type = arguments.single;
+          final element = type.element;
+          final name = element?.name ?? type.name.lexeme;
+          if (element == null || name == null || name.isEmpty) {
+            unresolvedImplementationLink = true;
+            return;
+          }
+          implementationTypes.add(name);
+        },
       ),
     );
+    final linkedTypes = implementationTypes.toList()..sort();
     if (resolvedWebSocket) {
-      return const _TransportResult(kind: 'websocket', complete: true);
+      return _TransportResult(
+        kind: 'websocket',
+        complete: !unresolvedImplementationLink,
+        implementationTypes: linkedTypes,
+        diagnostics: unresolvedImplementationLink
+            ? [
+                _warning(
+                  'ZK-DART-FROG-IMPL-001',
+                  'A RequestContext.read<T>() implementation link could not be resolved: $filePath',
+                ),
+              ]
+            : const [],
+      );
     }
     if (sawCandidate || unresolvedCandidate) {
       return _TransportResult(
         kind: 'indeterminate',
         complete: false,
+        implementationTypes: linkedTypes,
         diagnostics: [
           _warning(
             'ZK-DART-FROG-WS-002',
@@ -334,7 +376,19 @@ final class DartFrogAdapter implements FrameworkAdapter {
         ],
       );
     }
-    return const _TransportResult(kind: 'http', complete: true);
+    return _TransportResult(
+      kind: 'http',
+      complete: !unresolvedImplementationLink,
+      implementationTypes: linkedTypes,
+      diagnostics: unresolvedImplementationLink
+          ? [
+              _warning(
+                'ZK-DART-FROG-IMPL-001',
+                'A RequestContext.read<T>() implementation link could not be resolved: $filePath',
+              ),
+            ]
+          : const [],
+    );
   }
 
   Future<_MiddlewareInspection> _inspectMiddleware(
@@ -521,11 +575,13 @@ final class DartFrogAdapter implements FrameworkAdapter {
 final class _TransportResult {
   final String kind;
   final bool complete;
+  final List<String> implementationTypes;
   final List<Diagnostic> diagnostics;
 
   const _TransportResult({
     required this.kind,
     required this.complete,
+    this.implementationTypes = const [],
     this.diagnostics = const [],
   });
 }
@@ -551,12 +607,17 @@ final class _MiddlewareInspection {
 
 final class _InvocationVisitor extends RecursiveAstVisitor<void> {
   final void Function(InvocationExpression invocation) onInvocation;
+  final void Function(MethodInvocation invocation)? onMethodInvocation;
 
-  const _InvocationVisitor({required this.onInvocation});
+  const _InvocationVisitor({
+    required this.onInvocation,
+    this.onMethodInvocation,
+  });
 
   @override
   void visitMethodInvocation(MethodInvocation node) {
     onInvocation(node);
+    onMethodInvocation?.call(node);
     super.visitMethodInvocation(node);
   }
 

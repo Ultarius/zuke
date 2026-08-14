@@ -265,6 +265,7 @@ abstract interface class ExecutionResult {
   String? get sourceCompatibilityId;
   List<ScenarioId> get scenarioIds;
   List<String> get controlIds;
+  List<String> get implementationSlots;
   List<String> get attachmentDigests;
   String? get error;
   bool get isPassed;
@@ -325,6 +326,8 @@ class ScenarioResult implements ExecutionResult {
   @override
   final List<String> controlIds;
   @override
+  final List<String> implementationSlots;
+  @override
   final List<String> attachmentDigests;
   @override
   final String? error;
@@ -349,6 +352,7 @@ class ScenarioResult implements ExecutionResult {
     this.sourceCompatibilityId,
     this.scenarioIds = const [],
     this.controlIds = const [],
+    this.implementationSlots = const [],
     this.attachmentDigests = const [],
     this.error,
   });
@@ -371,6 +375,7 @@ class ScenarioResult implements ExecutionResult {
         sourceCompatibilityId: identity.sourceCompatibilityId,
         scenarioIds: scenarioIds,
         controlIds: controlIds,
+        implementationSlots: implementationSlots,
         attachmentDigests: attachmentDigests,
         error: error,
       );
@@ -396,6 +401,7 @@ class ScenarioResult implements ExecutionResult {
       ...identity.toJson(),
       'scenarioIds': scenarioIds.map((id) => id.value).toList()..sort(),
       'controlIds': [...controlIds]..sort(),
+      'implementationSlots': [...implementationSlots]..sort(),
       'attachmentDigests': [...attachmentDigests]..sort(),
       'steps': steps.map((s) => s.toJson()).toList(),
       if (error != null) 'error': error,
@@ -453,6 +459,7 @@ class ScenarioResult implements ExecutionResult {
         for (final id in strings('scenarioIds')) ScenarioId.parse(id),
       ],
       controlIds: strings('controlIds'),
+      implementationSlots: strings('implementationSlots'),
       attachmentDigests: strings('attachmentDigests'),
       steps: rawSteps
           .map(
@@ -502,6 +509,8 @@ class SuiteResult implements ExecutionResult {
   @override
   final List<String> controlIds;
   @override
+  final List<String> implementationSlots;
+  @override
   final List<String> attachmentDigests;
   @override
   final String? error;
@@ -526,6 +535,7 @@ class SuiteResult implements ExecutionResult {
     required this.resultDigest,
     this.scenarioIds = const [],
     this.controlIds = const [],
+    this.implementationSlots = const [],
     this.attachmentDigests = const [],
     this.error,
   });
@@ -548,6 +558,7 @@ class SuiteResult implements ExecutionResult {
         resultDigest: resultDigest,
         scenarioIds: scenarioIds,
         controlIds: controlIds,
+        implementationSlots: implementationSlots,
         attachmentDigests: attachmentDigests,
         error: error,
       );
@@ -574,6 +585,7 @@ class SuiteResult implements ExecutionResult {
       'resultDigest': resultDigest,
       'scenarioIds': scenarioIds.map((id) => id.value).toList()..sort(),
       'controlIds': [...controlIds]..sort(),
+      'implementationSlots': [...implementationSlots]..sort(),
       'attachmentDigests': [...attachmentDigests]..sort(),
       if (error != null) 'error': error,
     };
@@ -625,6 +637,7 @@ class SuiteResult implements ExecutionResult {
         for (final id in strings('scenarioIds')) ScenarioId.parse(id),
       ],
       controlIds: strings('controlIds'),
+      implementationSlots: strings('implementationSlots'),
       attachmentDigests: strings('attachmentDigests'),
       error: json['error'] as String?,
     );
@@ -702,6 +715,7 @@ final class SuiteEvidenceEmitter {
     required String runnerCompatibilityId,
     required String digestInput,
     Iterable<String> controlIds = const [],
+    Iterable<String> implementationSlots = const [],
     String variant = 'default',
     String? outputDirectory,
     String? profile,
@@ -766,6 +780,7 @@ final class SuiteEvidenceEmitter {
     }
     final digest = 'sha256:${sha256.convert(utf8.encode(digestInput))}';
     final sortedControlIds = [...controlIds.toSet()]..sort();
+    final sortedImplementationSlots = [...implementationSlots.toSet()]..sort();
     final identity = effectiveIdentity;
     final writer = ExecutionResultWriter(identity: identity);
     final files = <File>[];
@@ -797,6 +812,7 @@ final class SuiteEvidenceEmitter {
         resultDigest: digest,
         scenarioIds: [scenarioId],
         controlIds: sortedControlIds,
+        implementationSlots: sortedImplementationSlots,
       );
       files.add(writer.writeSuite(effectiveOutputDirectory, result));
     }

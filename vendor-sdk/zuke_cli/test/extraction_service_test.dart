@@ -128,6 +128,44 @@ void main() {
     );
 
     test(
+      'does not duplicate annotation-only providers when the cache is reused',
+      () async {
+        _writeAnnotationOnlyPackage(tempDir);
+        File('${tempDir.path}/lib/app.dart').writeAsStringSync('''
+import 'package:zuke_annotations/zuke_annotations.dart';
+
+@ProvidesControl(
+  ['CTRL-CACHE-REVISION'],
+  kind: ControlProviderKind.applicationValidator,
+)
+void provideControl() {}
+''');
+        final workspace = _workspace(tempDir);
+        final service = ExtractionService();
+
+        final first = await service.extract(workspace);
+        expect(first.errors, isEmpty);
+        final current = first.outputs.single;
+        expect(
+          current.symbols.where((symbol) => symbol.kind == 'controlProvider'),
+          hasLength(1),
+        );
+
+        // The next extraction is served by the cache namespace. A stale cache
+        // produced by the previous implementation would contain a synthetic
+        // provider symbol as well as the annotation declaration.
+        final second = await service.extract(workspace);
+        expect(second.errors, isEmpty);
+        final cached = second.outputs.single;
+        final providers = cached.symbols.where(
+          (symbol) => symbol.kind == 'controlProvider',
+        );
+        expect(providers, hasLength(1));
+        expect(providers.single.symbolId, endsWith('#provideControl'));
+      },
+    );
+
+    test(
       'loads wrapped evidence and rejects duplicates and malformed files',
       () async {
         _writePackage(tempDir);
@@ -289,7 +327,6 @@ void present() {}
 @VerifiesRequirement(
   ['RULE-TEST-001'],
   evidenceType: 'domain-unit',
-  target: 'backend',
   scenarioIds: ['SCN-TEST-001'],
 )
 void verify() {}
@@ -345,6 +382,27 @@ final application = ZukeHttpApplication(
   ],
 );
 ''');
+  File('${root.path}/pubspec.yaml').writeAsStringSync('''
+name: extraction_fixture
+environment:
+  sdk: ">=3.10.0 <4.0.0"
+''');
+  final packageConfig = _workspacePackageConfig();
+  final toolDirectory = Directory('${root.path}/.dart_tool')
+    ..createSync(recursive: true);
+  final workspaceUri = packageConfig.parent.parent.uri.toString();
+  final resolvedConfig = packageConfig.readAsStringSync().replaceAll(
+    '"rootUri": "../',
+    '"rootUri": "$workspaceUri',
+  );
+  File(
+    '${toolDirectory.path}/package_config.json',
+  ).writeAsStringSync(resolvedConfig);
+}
+
+void _writeAnnotationOnlyPackage(Directory root) {
+  final lib = Directory('${root.path}/lib')..createSync(recursive: true);
+  File('${lib.path}/placeholder.dart').writeAsStringSync('const value = 1;');
   File('${root.path}/pubspec.yaml').writeAsStringSync('''
 name: extraction_fixture
 environment:

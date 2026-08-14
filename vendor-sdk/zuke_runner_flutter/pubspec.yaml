@@ -11,7 +11,7 @@ dependencies:
   flutter_test:
     sdk: flutter
   zuke_annotations: ^0.4.0
-  zuke_core: ^0.3.0
+  zuke_core: ^0.4.0
   zuke_frontend: ^0.2.1
   zuke: ^0.4.0
 repository: https://github.com/Ultarius/zuke

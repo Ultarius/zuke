@@ -24,6 +24,11 @@ class WorkspaceExtraction {
 }
 
 class ExtractionService {
+  // The public adapter compatibility ID describes the extracted contract. It
+  // must not change for an internal cache-shape correction, so keep a separate
+  // cache revision to invalidate fragments produced by older implementations.
+  static const _cacheRevision = '3';
+
   CompletenessValue _completeness(Object? value) => switch (value) {
     'complete' => CompletenessValue.complete,
     'indeterminate' => CompletenessValue.indeterminate,
@@ -64,8 +69,9 @@ class ExtractionService {
               ? dartFrogCompatibilityId
               : DartExtractor.compatibilityId,
         );
+        AdapterOutput? topology;
         if (framework == 'dart-frog') {
-          final topology = await const DartFrogAdapter().extract(
+          topology = await const DartFrogAdapter().extract(
             AdapterRequest(
               workspaceRoot: root,
               targetId: target.id,
@@ -73,14 +79,6 @@ class ExtractionService {
               packageRoot: packageRoot,
               configuredRoots: roots,
             ),
-          );
-          topologyOutputs.add(topology);
-          // The adapter output is retained for reporting and also projected
-          // into the canonical IR consumed by the proof engine.
-          // Keeping this bridge here prevents a successful adapter run from
-          // becoming diagnostics-only evidence.
-          outputs.add(
-            _topologyAdapterOutput(topology, packageRoot, inputDigest),
           );
           errors.addAll(
             topology.diagnostics
@@ -98,7 +96,11 @@ class ExtractionService {
         // extracted as backend can be reused for the same package under
         // flutter (or vice versa).
         final cacheKey = sha256
-            .convert(utf8.encode('${target.id}|${package.id}|$inputDigest'))
+            .convert(
+              utf8.encode(
+                '$_cacheRevision|${target.id}|${package.id}|$inputDigest',
+              ),
+            )
             .toString();
         final cached = _loadCached(root, 'dart', cacheKey);
         IrAdapterOutput output;
@@ -137,6 +139,22 @@ class ExtractionService {
         if (cached == null) _writeCached(root, 'dart', cacheKey, output);
         outputs.add(output);
         errors.addAll(output.errors);
+        if (topology != null) {
+          topologyOutputs.add(topology);
+          // The adapter output is retained for reporting and also projected
+          // into the canonical IR consumed by the proof engine.  The Dart
+          // extractor is passed in so resolved RequestContext.read<T>()
+          // links can be joined to annotated requirement implementations.
+          outputs.insert(
+            outputs.length - 1,
+            _topologyAdapterOutput(
+              topology,
+              packageRoot,
+              inputDigest,
+              symbols: output.symbols,
+            ),
+          );
+        }
       }
     }
     final evidenceLoad = includeEvidence
@@ -218,8 +236,9 @@ class ExtractionService {
   IrAdapterOutput _topologyAdapterOutput(
     AdapterOutput output,
     String packageRoot,
-    String inputDigest,
-  ) {
+    String inputDigest, {
+    List<ExtractedSymbol> symbols = const [],
+  }) {
     CompletenessValue completeness(CompletenessStatus status) =>
         switch (status) {
           CompletenessStatus.complete => CompletenessValue.complete,
@@ -249,6 +268,9 @@ class ExtractionService {
         ),
       );
     }
+    final requirementSymbols = symbols
+        .where((symbol) => symbol.kind == 'requirementBoundary')
+        .toList(growable: false);
     final routeNodes = output.nodes
         .where((node) => node.kind == 'route' || node.kind == 'websocket-route')
         .toList();
@@ -264,6 +286,48 @@ class ExtractionService {
       if (target is String) {
         edges.add(
           IrEdge(sourceId: alias.id, targetId: target, kind: EdgeKind.routesTo),
+        );
+      }
+    }
+    final linkedImplementations = <String>{};
+    for (final route in routeNodes) {
+      final types =
+          (route.attributes['implementationTypes'] as List?)
+              ?.whereType<String>()
+              .toSet()
+              .toList()
+            ?..sort();
+      if (types == null) continue;
+      for (final type in types) {
+        final matches = requirementSymbols
+            .where((symbol) => symbol.symbolId.endsWith('#$type'))
+            .toList(growable: false);
+        if (matches.length != 1) continue;
+        final symbol = matches.single;
+        final implementationId = 'implementation:${symbol.symbolId}';
+        if (linkedImplementations.add(implementationId)) {
+          nodes.add(
+            IrNode(
+              id: implementationId,
+              kind: NodeKind.implementation,
+              target: output.targetId,
+              role: 'implementation',
+              variant: symbol.variant,
+              slot: symbol.slot,
+              properties: {
+                'requirementIds': symbol.requirementIds,
+                'sourceUri': symbol.source.uri,
+                'sourceLine': symbol.source.line,
+              },
+            ),
+          );
+        }
+        edges.add(
+          IrEdge(
+            sourceId: route.id,
+            targetId: implementationId,
+            kind: EdgeKind.invokes,
+          ),
         );
       }
     }

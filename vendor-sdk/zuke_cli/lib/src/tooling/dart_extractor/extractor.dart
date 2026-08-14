@@ -11,6 +11,7 @@ import 'package:analyzer/dart/element/element.dart';
 import 'package:analyzer/error/error.dart' as analyzer_error;
 import 'package:analyzer/source/line_info.dart';
 import 'package:crypto/crypto.dart';
+import 'package:zuke_core/zuke_core.dart';
 import 'package:zuke_cli/src/ir.dart';
 import '../inspection.dart';
 import '../../generated/release_contract.dart';
@@ -223,7 +224,7 @@ class DartExtractor implements DartSourceExtractor {
       graphNodes[entry.key] = IrNode(
         id: node.id,
         kind: node.kind,
-        target: implementation.single.target ?? node.target,
+        target: node.target,
         role: node.role,
         variant: implementation.single.variant,
         slot: implementation.single.slot,
@@ -257,7 +258,7 @@ class DartExtractor implements DartSourceExtractor {
       graphNodes[entry.key] = IrNode(
         id: node.id,
         kind: node.kind,
-        target: provider.single.target ?? node.target,
+        target: node.target,
         role: node.role,
         variant: provider.single.variant,
         slot: provider.single.slot,
@@ -297,7 +298,7 @@ class DartExtractor implements DartSourceExtractor {
           '${b.source.uri}:${b.source.offset}:${b.kind}:${b.symbolId}';
       return left.compareTo(right);
     });
-    if (graphNodes.isNotEmpty) {
+    if (hasRuntimeTopology && graphNodes.isNotEmpty) {
       final incomplete = errors.any((error) => error.contains('dynamic'));
       graphCompleteness = GraphCompleteness(
         routeRegistration: !hasRuntimeTopology
@@ -543,7 +544,7 @@ class _ResolvedVisitor extends RecursiveAstVisitor<void> {
   final String packageName;
   final String file;
   final LineInfo lineInfo;
-  final String? target;
+  final String target;
   final List<ExtractedSymbol> symbols;
   final List<String> errors;
   final Map<String, IrNode> graphNodes;
@@ -1024,7 +1025,7 @@ class _ResolvedVisitor extends RecursiveAstVisitor<void> {
             'domain',
             name,
             source,
-            target: _fieldString(value, 'target') ?? target ?? 'backend',
+            target: target,
             variant: _fieldString(value, 'variant') ?? 'default',
             slot: _fieldString(value, 'slot') ?? 'primary',
           );
@@ -1037,7 +1038,7 @@ class _ResolvedVisitor extends RecursiveAstVisitor<void> {
             'flutter',
             name,
             source,
-            target: _fieldString(value, 'target') ?? target ?? 'flutter',
+            target: target,
             variant: _fieldString(value, 'variant') ?? 'default',
             slot: _fieldString(value, 'slot') ?? 'primary',
           );
@@ -1051,8 +1052,9 @@ class _ResolvedVisitor extends RecursiveAstVisitor<void> {
             name,
             source,
             evidenceType: _fieldString(value, 'evidenceType'),
-            target: _fieldString(value, 'target'),
+            target: target,
             variant: _fieldString(value, 'variant') ?? 'default',
+            slot: _fieldString(value, 'slot') ?? 'primary',
             scenarioIds: _strings(value.getField('scenarioIds')) ?? const [],
           );
           break;
@@ -1083,7 +1085,7 @@ class _ResolvedVisitor extends RecursiveAstVisitor<void> {
     String name,
     ExtractedSourceLocation source, {
     String? evidenceType,
-    String? target,
+    required String target,
     String variant = 'default',
     String slot = 'primary',
     List<String> scenarioIds = const [],
@@ -1092,6 +1094,13 @@ class _ResolvedVisitor extends RecursiveAstVisitor<void> {
     if (ids == null || ids.isEmpty) {
       errors.add(
         '${source.uri}:${source.line}: annotation field $field must be a non-empty constant list',
+      );
+      return;
+    }
+    if (!isValidBindingSlot(slot)) {
+      errors.add(
+        '${source.uri}:${source.line}: ZK-BINDING-SLOT-INVALID: '
+        'invalid binding slot "$slot"',
       );
       return;
     }
@@ -1125,6 +1134,14 @@ class _ResolvedVisitor extends RecursiveAstVisitor<void> {
     }
     final kind = _enumName(value.getField('kind'));
     final layer = _enumName(value.getField('layer'));
+    final slot = _fieldString(value, 'slot') ?? 'primary';
+    if (!isValidBindingSlot(slot)) {
+      errors.add(
+        '${source.uri}:${source.line}: ZK-BINDING-SLOT-INVALID: '
+        'invalid binding slot "$slot"',
+      );
+      return;
+    }
     symbols.add(
       ExtractedSymbol(
         kind: 'controlProvider',
@@ -1135,7 +1152,7 @@ class _ResolvedVisitor extends RecursiveAstVisitor<void> {
         layer: layer,
         target: target,
         variant: _fieldString(value, 'variant') ?? 'default',
-        slot: _fieldString(value, 'slot') ?? 'primary',
+        slot: slot,
         source: source,
       ),
     );
@@ -1154,6 +1171,14 @@ class _ResolvedVisitor extends RecursiveAstVisitor<void> {
       );
       return;
     }
+    final slot = _fieldString(value, 'slot') ?? 'primary';
+    if (!isValidBindingSlot(slot)) {
+      errors.add(
+        '${source.uri}:${source.line}: ZK-BINDING-SLOT-INVALID: '
+        'invalid binding slot "$slot"',
+      );
+      return;
+    }
     symbols.add(
       ExtractedSymbol(
         kind: 'binding',
@@ -1161,7 +1186,8 @@ class _ResolvedVisitor extends RecursiveAstVisitor<void> {
         symbolId: '${source.uri}#$name',
         bindingId: bindingId,
         variant: _fieldString(value, 'variant') ?? 'default',
-        target: _fieldString(value, 'target') ?? target ?? 'flutter',
+        target: target,
+        slot: slot,
         source: source,
       ),
     );

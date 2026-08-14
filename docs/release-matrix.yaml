@@ -8,13 +8,13 @@ sdk:
 operatingSystems: [linux, windows]
 packages:
   zuke_core:
-    version: 0.3.0
-    previousVersion: 0.2.0
+    version: 0.4.0
+    previousVersion: 0.3.0
     publish: true
     releaseAction: publish
     tier: Shared infrastructure
     supportStatement: Supported Zuke infrastructure dependency; applications normally use a primary SDK package.
-    bumpReason: Breaking contract ownership and analyzer-free core boundary.
+    bumpReason: Binding identity, implementation coverage, and validation wire contracts.
   zuke_annotations:
     version: 0.4.0
     previousVersion: 0.3.0

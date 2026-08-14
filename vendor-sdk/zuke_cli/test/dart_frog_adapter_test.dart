@@ -93,4 +93,46 @@ final handler = webSocketHandler(() {});
       contains('ZK-DART-FROG-WS-002'),
     );
   });
+
+  test('links a resolved RequestContext.read type to the route', () async {
+    final root = await Directory.systemTemp.createTemp('zuke-dart-frog-');
+    addTearDown(() => root.delete(recursive: true));
+    final routes = Directory('${root.path}/routes')
+      ..createSync(recursive: true);
+    File('${routes.path}/_middleware.dart').writeAsStringSync('''
+typedef Handler = Object Function(Object);
+Handler middleware(Handler handler) => handler;
+''');
+    File('${routes.path}/index.dart').writeAsStringSync('''
+class RequestContext {
+  T read<T>() => throw UnimplementedError();
+}
+
+class CreateLobbyUseCase {}
+
+final context = RequestContext();
+
+Object onRequest(Object request) {
+  context.read<CreateLobbyUseCase>();
+  return Object();
+}
+''');
+
+    final output = await const DartFrogAdapter().extract(
+      AdapterRequest(
+        workspaceRoot: root.path,
+        targetId: 'backend',
+        packageId: 'backend',
+        packageRoot: root.path,
+        configuredRoots: ['routes'],
+      ),
+    );
+
+    final route = output.nodes.singleWhere((node) => node.kind == 'route');
+    expect(
+      route.attributes['implementationTypes'],
+      contains('CreateLobbyUseCase'),
+    );
+    expect(route.attributes['transportResolved'], isTrue);
+  });
 }

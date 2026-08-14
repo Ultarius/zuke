@@ -12,11 +12,19 @@ void main() {
           IrNode(
             id: 'provider:mw',
             kind: NodeKind.provider,
+            target: 'backend',
+            role: 'provider',
+            variant: 'default',
+            slot: 'primary',
             properties: {'controlId': 'CTRL-CALC-BODY-SIZE'},
           ),
           IrNode(
             id: 'implementation:ctrl',
             kind: NodeKind.implementation,
+            target: 'backend',
+            role: 'implementation',
+            variant: 'default',
+            slot: 'primary',
             properties: {
               'requiredControls': ['CTRL-CALC-BODY-SIZE'],
             },
@@ -49,14 +57,18 @@ void main() {
             id: 'provider:mw',
             kind: NodeKind.provider,
             target: 'backend',
+            role: 'provider',
             variant: 'default',
+            slot: 'primary',
             properties: {'controlId': 'CTRL-CALC-BODY-SIZE'},
           ),
           IrNode(
             id: 'implementation:ctrl',
             kind: NodeKind.implementation,
             target: 'backend',
+            role: 'implementation',
             variant: 'default',
+            slot: 'primary',
             properties: {
               'requirementIds': ['RULE-CALC-BODY-SIZE'],
               'requiredControls': ['CTRL-CALC-BODY-SIZE'],
@@ -94,11 +106,19 @@ void main() {
           IrNode(
             id: 'provider:middleware',
             kind: NodeKind.provider,
+            target: 'backend',
+            role: 'provider',
+            variant: 'default',
+            slot: 'primary',
             properties: {'controlId': 'CTRL-CALC-BODY-SIZE'},
           ),
           IrNode(
             id: 'implementation:controller',
             kind: NodeKind.implementation,
+            target: 'backend',
+            role: 'implementation',
+            variant: 'default',
+            slot: 'primary',
             properties: {
               'requiredControls': ['CTRL-CALC-BODY-SIZE'],
             },
@@ -137,12 +157,18 @@ void main() {
             id: 'provider:edge-policy',
             kind: NodeKind.provider,
             target: 'edge',
+            role: 'provider',
+            variant: 'default',
+            slot: 'primary',
             properties: {'controlId': 'CTRL-CALC-BODY-SIZE'},
           ),
           IrNode(
             id: 'implementation:edge-route',
             kind: NodeKind.implementation,
             target: 'edge',
+            role: 'implementation',
+            variant: 'default',
+            slot: 'primary',
             properties: {
               'requiredControls': ['CTRL-CALC-BODY-SIZE'],
             },
@@ -174,11 +200,19 @@ void main() {
           IrNode(
             id: 'provider:mw',
             kind: NodeKind.provider,
+            target: 'backend',
+            role: 'provider',
+            variant: 'default',
+            slot: 'primary',
             properties: {'controlId': 'CTRL-CALC-BODY-SIZE'},
           ),
           IrNode(
             id: 'implementation:ctrl',
             kind: NodeKind.implementation,
+            target: 'backend',
+            role: 'implementation',
+            variant: 'default',
+            slot: 'primary',
             properties: {
               'requiredControls': ['CTRL-CALC-BODY-SIZE'],
             },
@@ -243,14 +277,18 @@ void main() {
             id: 'provider:flutter-phone',
             kind: NodeKind.provider,
             target: 'flutter',
+            role: 'provider',
             variant: 'phone',
+            slot: 'primary',
             properties: {'controlId': 'CTRL-CALC-BODY-SIZE'},
           ),
           IrNode(
             id: 'implementation:backend-default',
             kind: NodeKind.implementation,
             target: 'backend',
+            role: 'implementation',
             variant: 'default',
+            slot: 'primary',
             properties: {
               'requiredControls': ['CTRL-CALC-BODY-SIZE'],
             },
@@ -325,6 +363,9 @@ void main() {
             id: 'implementation:flutter-domain',
             kind: NodeKind.implementation,
             target: 'flutter',
+            role: 'implementation',
+            variant: 'default',
+            slot: 'primary',
             properties: {
               'requirementIds': ['RULE-BACKEND-ONLY'],
             },
@@ -385,6 +426,9 @@ void main() {
             id: 'implementation:flutter-controller',
             kind: NodeKind.implementation,
             target: 'flutter',
+            role: 'implementation',
+            variant: 'default',
+            slot: 'primary',
             properties: {
               'requirementIds': ['RULE-VERIFIED'],
             },
@@ -408,16 +452,28 @@ void main() {
             IrNode(
               id: 'provider:a',
               kind: NodeKind.provider,
+              target: 'backend',
+              role: 'provider',
+              variant: 'default',
+              slot: 'primary',
               properties: {'controlId': 'CTRL-CALC-BODY-SIZE'},
             ),
             IrNode(
               id: 'provider:b',
               kind: NodeKind.provider,
+              target: 'backend',
+              role: 'provider',
+              variant: 'default',
+              slot: 'primary',
               properties: {'controlId': 'CTRL-CALC-BODY-SIZE'},
             ),
             IrNode(
               id: 'implementation:ctrl',
               kind: NodeKind.implementation,
+              target: 'backend',
+              role: 'implementation',
+              variant: 'default',
+              slot: 'primary',
               properties: {
                 'requiredControls': ['CTRL-CALC-BODY-SIZE'],
               },
@@ -464,11 +520,19 @@ void main() {
           IrNode(
             id: 'provider:mw',
             kind: NodeKind.provider,
+            target: 'backend',
+            role: 'provider',
+            variant: 'default',
+            slot: 'primary',
             properties: {'controlId': 'CTRL-CALC-BODY-SIZE'},
           ),
           IrNode(
             id: 'implementation:ctrl',
             kind: NodeKind.implementation,
+            target: 'backend',
+            role: 'implementation',
+            variant: 'default',
+            slot: 'primary',
             properties: {
               'requirementIds': ['RULE-CALC-BODY-SIZE'],
             },
@@ -509,6 +573,10 @@ void main() {
             IrNode(
               id: 'implementation:ctrl',
               kind: NodeKind.implementation,
+              target: 'backend',
+              role: 'implementation',
+              variant: 'default',
+              slot: 'primary',
               properties: {
                 'requiredControls': ['CTRL-CALC-ERROR-REDACTION'],
                 'coverageSemantics': 'failure-to-public-egress',
@@ -547,6 +615,10 @@ void main() {
             IrNode(
               id: 'implementation:ctrl',
               kind: NodeKind.implementation,
+              target: 'backend',
+              role: 'implementation',
+              variant: 'default',
+              slot: 'primary',
               properties: {
                 'requiredControls': ['CTRL-CALC-LOG-REDACTION'],
                 'coverageSemantics': 'sensitive-data-to-log-sink',
@@ -581,6 +653,10 @@ void main() {
             IrNode(
               id: 'implementation:ctrl',
               kind: NodeKind.implementation,
+              target: 'backend',
+              role: 'implementation',
+              variant: 'default',
+              slot: 'primary',
               properties: {
                 'requiredControls': ['CTRL-CALC-ERROR-REDACTION'],
                 'coverageSemantics': 'failure-to-public-egress',
@@ -594,6 +670,10 @@ void main() {
             IrNode(
               id: 'provider:mapper',
               kind: NodeKind.provider,
+              target: 'backend',
+              role: 'provider',
+              variant: 'default',
+              slot: 'primary',
               properties: {'controlId': 'CTRL-CALC-ERROR-REDACTION'},
             ),
             IrNode(

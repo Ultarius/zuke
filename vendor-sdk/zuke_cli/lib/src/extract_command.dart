@@ -22,11 +22,15 @@ class ExtractDartCommand {
     final packageRoot = Directory(
       '$root${Platform.pathSeparator}$packagePath',
     ).absolute.resolveSymbolicLinksSync();
-    final target = resolveExtractionTarget(
+    final placement = resolvePlacement(
       packageRoot,
       requestedTarget: args['target'] as String?,
     );
-    final output = await DartExtractor().extract(packageRoot, target: target);
+    final output = await DartExtractor().extract(
+      packageRoot,
+      roots: placement.package.roots,
+      target: placement.target.id,
+    );
     for (final error in output.errors) {
       stderr.writeln('ERROR: $error');
     }

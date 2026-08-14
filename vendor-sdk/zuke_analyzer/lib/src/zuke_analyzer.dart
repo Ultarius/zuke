@@ -4,28 +4,18 @@ import 'package:zuke_cli/tooling.dart';
 
 class ZukeAnalyzer {
   Future<List<ZukeDiagnostic>> analyzePackage(String packageRoot) async {
-    final workspaceRoot = _findWorkspaceRoot(Directory(packageRoot));
-    if (workspaceRoot == null) {
-      return const [
-        ZukeDiagnostic(
-          code: 'ZK-PROVIDER-TARGET-AMBIGUOUS',
-          message:
-              'ZK-PROVIDER-TARGET-AMBIGUOUS: package is not assigned to a configured target',
-        ),
-      ];
-    }
-    late final String target;
+    late final ResolvedPlacement placement;
     try {
-      target = resolveExtractionTarget(packageRoot);
-    } catch (error) {
-      return [
-        ZukeDiagnostic(
-          code: 'ZK-PROVIDER-TARGET-AMBIGUOUS',
-          message: error.toString(),
-        ),
-      ];
+      placement = resolvePlacement(packageRoot);
+    } on PlacementFailure catch (error) {
+      return [ZukeDiagnostic(code: error.code, message: error.message)];
     }
-    final output = await DartExtractor().extract(packageRoot, target: target);
+    final workspaceRoot = Directory(placement.workspaceRoot);
+    final output = await DartExtractor().extract(
+      packageRoot,
+      roots: placement.package.roots,
+      target: placement.target.id,
+    );
     final diagnostics = output.errors
         .map(
           (error) =>
@@ -102,16 +92,6 @@ class ZukeAnalyzer {
     message:
         'Unknown $kind ID "$id" on $symbolId; run generation or fix the annotation.',
   );
-
-  Directory? _findWorkspaceRoot(Directory start) {
-    var current = start.absolute;
-    while (true) {
-      if (File('${current.path}/zuke.yaml').existsSync()) return current;
-      final parent = current.parent;
-      if (parent.path == current.path) return null;
-      current = parent;
-    }
-  }
 }
 
 class ZukeDiagnostic {
