@@ -20,12 +20,12 @@ dev_dependencies:
   # Previous coordinated set (last published tuple):
   # zuke_core: ^0.3.0
   # zuke_annotations: ^0.3.0
-  # zuke_frontend: ^0.2.0
+  # zuke_frontend: ^0.2.1
   # zuke: ^0.3.1
   # zuke_runner: ^0.3.1
   # zuke_runner_flutter: ^0.3.1
   # zuke_http_runtime: ^0.1.1
-  # zuke_cli: ^0.4.2
+  # zuke_cli: ^0.4.1
   # zuke_dart_build_hook: ^0.3.0
 
   # Current coordinated set:
@@ -133,14 +133,21 @@ For checked-in examples or other workspaces maintained from this repository,
 the same safe sequence is available as one repository tool:
 
 ```bash
+# Discover every Zuke project from the root pubspec.yaml workspace:
+dart run tool/regenerate_profile_locks.dart
+
+# Or refresh one project explicitly:
 dart run tool/regenerate_profile_locks.dart --root examples/todo_app
-dart run tool/regenerate_profile_locks.dart --root examples/shopping_cart
 ```
 
-The tool reads `lock.profiles` from each workspace, runs `zuke test` for each
-profile, generates that profile's lock, and immediately runs its non-mutating
-check. It does not edit lock JSON directly. Multiple roots and selected
-profiles can be supplied with repeated `--root` and `--profile` options.
+With no `--root`, the tool reads the root `pubspec.yaml` workspace members and
+walks each member upward to its nearest `zuke.yaml`. This discovers nested
+projects such as `examples/calculator-product` while ignoring SDK-only package
+members that do not own profile locks. It then reads `lock.profiles` from each
+project, runs `zuke test` for each profile, generates that profile's lock, and
+immediately runs its non-mutating check. It does not edit lock JSON directly.
+Multiple roots and selected profiles can be supplied with repeated `--root`
+and `--profile` options.
 
 The current lock files are:
 

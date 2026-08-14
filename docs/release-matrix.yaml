@@ -25,12 +25,12 @@ packages:
     bumpReason: Breaking removal of provider-owned workspace target metadata.
   zuke_frontend:
     version: 0.2.1
-    previousVersion: 0.2.0
+    previousVersion: 0.2.1
     publish: true
-    releaseAction: publish
+    releaseAction: reuse
     tier: Narrow SDK
     supportStatement: Supported frontend and configuration API.
-    bumpReason: Patch release for configured-target contract export discovery.
+    bumpReason: Existing hosted version remains compatible with this release.
   zuke:
     version: 0.4.0
     previousVersion: 0.3.1
@@ -65,7 +65,7 @@ packages:
     bumpReason: Existing hosted version remains compatible with this release.
   zuke_cli:
     version: 0.5.0
-    previousVersion: 0.4.2
+    previousVersion: 0.4.1
     publish: true
     releaseAction: publish
     tier: Specialized SDK
@@ -132,7 +132,6 @@ contracts:
 publicationOrder:
   - zuke_core
   - zuke_annotations
-  - zuke_frontend
   - zuke
   - zuke_runner
   - zuke_runner_flutter

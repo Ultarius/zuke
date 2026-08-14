@@ -45,12 +45,20 @@ environment:
 ''');
   File('${libDir.path}/main.dart').writeAsStringSync('void main() {}\n');
   File('${tempDir.path}/zuke.yaml').writeAsStringSync('''
-schemaVersion: 2
+schemaVersion: 3
 workspace:
   name: test
   root: .
-specifications: {}
-targets: {}
+specifications:
+  features: []
+targets:
+  backend:
+    language: dart
+    framework: dart
+    packages:
+      - id: test_pkg
+        path: .
+        roots: [lib]
 ''');
   return tempDir.path;
 }
@@ -175,12 +183,20 @@ environment:
 ''');
       File('${libDir.path}/main.dart').writeAsStringSync('void main() {}\n');
       File('${guardDir.path}/zuke.yaml').writeAsStringSync('''
-schemaVersion: 2
+schemaVersion: 3
 workspace:
   name: test
   root: .
-specifications: {}
-targets: {}
+specifications:
+  features: []
+targets:
+  backend:
+    language: dart
+    framework: dart
+    packages:
+      - id: test_pkg
+        path: .
+        roots: [lib]
 ''');
 
       await expectLater(

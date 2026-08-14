@@ -90,14 +90,25 @@ Future<void> main(List<String> args) async {
       late final _PublishTarget target;
       try {
         target = _readPublishTarget(root, package, matrix);
-        if (versionChecker != null &&
-            await versionChecker.contains(target.package, target.version)) {
-          stdout.writeln(
-            'Skipping ${target.package} ${target.version}: '
-            'this version already exists on pub.dev.',
-          );
-          skipped++;
-          continue;
+        if (versionChecker != null) {
+          final release = matrix.packages[target.package]!;
+          final latestPublished = await versionChecker.latest(target.package);
+          if (latestPublished != release.previousVersion) {
+            throw StateError(
+              '${target.package} release matrix previousVersion is '
+              '${release.previousVersion}, but pub.dev latest is '
+              '${latestPublished ?? 'unpublished'}; update the matrix or '
+              'publish the missing intermediate release first.',
+            );
+          }
+          if (await versionChecker.contains(target.package, target.version)) {
+            stdout.writeln(
+              'Skipping ${target.package} ${target.version}: '
+              'this version already exists on pub.dev.',
+            );
+            skipped++;
+            continue;
+          }
         }
       } on Object catch (error) {
         stderr.writeln('Preflight failed for $package: $error');
@@ -228,16 +239,41 @@ class _PubDevVersionChecker {
 
   final HttpClient _client;
 
+  Future<String?> latest(String package) async {
+    final metadata = await _fetch(package);
+    if (metadata == null) return null;
+
+    final latest = metadata['latest'];
+    if (latest is! Map || latest['version'] is! String) {
+      throw FormatException(
+        'pub.dev response for $package has no latest version.',
+      );
+    }
+    return latest['version'] as String;
+  }
+
   Future<bool> contains(String package, String version) async {
+    final metadata = await _fetch(package);
+    if (metadata == null) return false;
+
+    final versions = metadata['versions'];
+    if (versions is! List) {
+      throw FormatException(
+        'pub.dev response for $package has no versions list.',
+      );
+    }
+
+    return versions.any((entry) => entry is Map && entry['version'] == version);
+  }
+
+  Future<Map<String, Object?>?> _fetch(String package) async {
     final uri = Uri.https('pub.dev', '/api/packages/$package');
     final request = await _client.getUrl(uri);
     request.headers.set(HttpHeaders.acceptHeader, 'application/json');
     final response = await request.close();
     final body = await utf8.decoder.bind(response).join();
 
-    if (response.statusCode == HttpStatus.notFound) {
-      return false;
-    }
+    if (response.statusCode == HttpStatus.notFound) return null;
     if (response.statusCode != HttpStatus.ok) {
       throw HttpException(
         'pub.dev returned HTTP ${response.statusCode} '
@@ -250,14 +286,9 @@ class _PubDevVersionChecker {
     if (decoded is! Map) {
       throw FormatException('Unexpected pub.dev response for $package.');
     }
-    final versions = decoded['versions'];
-    if (versions is! List) {
-      throw FormatException(
-        'pub.dev response for $package has no versions list.',
-      );
-    }
-
-    return versions.any((entry) => entry is Map && entry['version'] == version);
+    return {
+      for (final entry in decoded.entries) entry.key.toString(): entry.value,
+    };
   }
 
   void close() => _client.close(force: true);

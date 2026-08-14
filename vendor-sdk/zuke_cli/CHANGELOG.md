@@ -2,6 +2,10 @@
 
 ## 0.5.0
 
+- Materialize resolved requirement and control annotations in the governed
+  graph for native Dart Frog and annotation-only packages.
+- Keep annotation-only extraction dimensions explicitly non-topology instead
+  of claiming route or middleware completeness.
 - Made extraction target-aware through typed workspace package membership and
   rejected ambiguous standalone extraction instead of defaulting to a target.
 - Routed verification-backed controls exclusively through evidence/provider
@@ -13,13 +17,6 @@
   implementations in the extracted topology.
 - Kept `dart-source-package-v1` stable; the extraction cache revision is
   internal and independent of the public adapter contract.
-
-## 0.4.2
-
-- Materialize resolved requirement and control annotations in the governed
-  graph for native Dart Frog and annotation-only packages.
-- Keep annotation-only extraction dimensions explicitly non-topology instead
-  of claiming route or middleware completeness.
 
 ## 0.4.1
 
