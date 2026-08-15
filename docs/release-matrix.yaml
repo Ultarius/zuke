@@ -6,6 +6,11 @@ sdk:
   test: '1.31.x'
   testApi: '0.7.x'
 operatingSystems: [linux, windows]
+certification:
+  flutter:
+    minimum: '3.44.8'
+    current: '3.44.8'
+    channels: [stable]
 packages:
   zuke_core:
     version: 0.4.0
@@ -124,6 +129,8 @@ retiredPackages:
 compatibilityIds:
   dart-frog: dart-frog-gen-2-route-topology-v1
   dart-source: dart-source-package-v1
+  runner-dart: hosted-dart-runner-v1
+  runner-flutter: hosted-flutter-runner-v1
 contracts:
   diagnostic: zuke.diagnostic-registry
   commandResult: zuke.command-result

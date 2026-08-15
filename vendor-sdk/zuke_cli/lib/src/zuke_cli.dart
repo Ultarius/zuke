@@ -33,6 +33,7 @@ import 'test_run_summary.dart';
 import 'command_result.dart';
 import 'generated/release_contract.dart';
 import 'source_output_catalog.dart';
+import 'test_host_doctor.dart';
 
 const _runnerModeNames = ['auto', 'cli', 'directSnapshot'];
 
@@ -198,7 +199,18 @@ class ZukeCli {
         ArgParser()
           ..addOption('root', abbr: 'r', help: 'Workspace root directory')
           ..addOption('format', allowed: ['text', 'json'], defaultsTo: 'text')
-          ..addOption('summary-file'),
+          ..addOption('summary-file')
+          ..addCommand(
+            'test-host',
+            ArgParser()
+              ..addOption('root', abbr: 'r', help: 'Workspace root directory')
+              ..addOption(
+                'format',
+                allowed: ['text', 'json'],
+                defaultsTo: 'text',
+              )
+              ..addOption('summary-file'),
+          ),
       )
       ..addCommand(
         'clean',
@@ -273,6 +285,19 @@ class ZukeCli {
         ..addOption('output')
         ..addOption('format', allowed: ['text', 'json'], defaultsTo: 'text'),
     );
+    parser.addCommand(
+      'certify',
+      ArgParser()..addCommand(
+        'hosted',
+        ArgParser()
+          ..addOption('root', abbr: 'r')
+          ..addOption('platform', allowed: ['linux', 'windows'])
+          ..addOption('host', allowed: ['dart', 'flutter'])
+          ..addOption('flutter-version')
+          ..addOption('output')
+          ..addFlag('keep-fixture'),
+      ),
+    );
   }
 
   Future<int> run(List<String> args) async {
@@ -301,6 +326,9 @@ class ZukeCli {
         case 'generate':
           return await GenerateCommand(command).execute();
         case 'doctor':
+          if (command.command?.name == 'test-host') {
+            return await _runTestHostDoctor(command.command!);
+          }
           return await _runDoctor(command);
         case 'clean':
           return CleanCommand(command).execute();
@@ -383,6 +411,12 @@ class ZukeCli {
           return await _runTests(command);
         case 'coverage':
           return await CoverageCommand(command).execute();
+        case 'certify':
+          if (command.command?.name == 'hosted') {
+            return await _runHostedCertification(command.command!);
+          }
+          _printHelp();
+          return 1;
         default:
           _printHelp();
           return 0;
@@ -416,15 +450,66 @@ Usage:
   zuke attestation create           Create a signed external-control attestation
   zuke gateway canonicalize-apim    Canonicalize APIM gateway evidence
   zuke doctor       Diagnose project setup
+  zuke doctor test-host  Explain Flutter/test SDK compatibility
   zuke clean        Remove Zuke test temporary directories
   zuke init         Create a starter configuration
   zuke watch        Run generation and validation once
   zuke affected     List requirements affected by a git change
   zuke test         Run configured verification suites
   zuke coverage     Evaluate LCOV as an independent quality gate
+  zuke certify hosted  Certify an isolated hosted consumer capsule
   zuke --help       Show this help
   zuke --version    Show version
 ''');
+  }
+
+  Future<int> _runHostedCertification(ArgResults cmd) async {
+    final root = cmd['root'] as String? ?? Directory.current.path;
+    final script = File(
+      '$root${Platform.pathSeparator}tool${Platform.pathSeparator}'
+      'check_hosted_consumer.dart',
+    );
+    if (!script.existsSync()) {
+      stderr.writeln(
+        'Hosted certification must run from a Zuke framework checkout.',
+      );
+      return 2;
+    }
+    final platform = cmd['platform'] as String?;
+    final host = cmd['host'] as String?;
+    if (platform == null || host == null) {
+      stderr.writeln(
+        'certify hosted requires --platform <linux|windows> and '
+        '--host <dart|flutter>',
+      );
+      return 2;
+    }
+    final arguments = <String>[
+      '--suppress-analytics',
+      'run',
+      script.path,
+      '--platform',
+      platform,
+      '--host',
+      host,
+      if (cmd['flutter-version'] case final String version) ...[
+        '--flutter-version',
+        version,
+      ],
+      if (cmd['output'] case final String output) ...['--output', output],
+      if (cmd['keep-fixture'] as bool? ?? false) '--keep-fixture',
+    ];
+    final process = await Process.start(
+      Platform.resolvedExecutable,
+      arguments,
+      workingDirectory: root,
+      runInShell: Platform.isWindows,
+    );
+    await Future.wait([
+      stdout.addStream(process.stdout),
+      stderr.addStream(process.stderr),
+    ]);
+    return process.exitCode;
   }
 
   Future<int> _runDoctor(ArgResults cmd) async {
@@ -438,6 +523,7 @@ Usage:
       'retiredPackages': releaseRetiredPackages.toList()..sort(),
       'operatingSystems': releaseSupportedOperatingSystems,
       'compatibilityIds': Map<String, String>.from(releaseCompatibilityIds),
+      'flutterCertification': releaseFlutterCertification,
     };
     int finish(int code) {
       final result = CommandResult(
@@ -531,6 +617,52 @@ Usage:
 
     if (!jsonMode) print('Doctor check complete.');
     return finish(0);
+  }
+
+  Future<int> _runTestHostDoctor(ArgResults cmd) async {
+    final root = cmd['root'] as String? ?? Directory.current.path;
+    final jsonMode = (cmd['format'] as String? ?? 'text') == 'json';
+    final report = TestHostDoctor(Directory(root)).inspect();
+    final diagnostics = report.diagnostics;
+    final result = CommandResult(
+      command: 'doctor test-host',
+      stage: 'doctor',
+      exitCode:
+          diagnostics.any(
+            (diagnostic) => diagnostic.severity == DiagnosticSeverity.error,
+          )
+          ? 1
+          : 0,
+      status:
+          diagnostics.any(
+            (diagnostic) => diagnostic.severity == DiagnosticSeverity.error,
+          )
+          ? CommandStatus.failed
+          : CommandStatus.passed,
+      eligible: !diagnostics.any(
+        (diagnostic) => diagnostic.severity == DiagnosticSeverity.error,
+      ),
+      diagnostics: diagnostics,
+      details: {'testHost': report.details, 'root': root},
+    );
+    final encoded = encodeCommandResult(result);
+    if (jsonMode) {
+      stdout.write(encoded);
+    } else {
+      print('Checking consumer test-host compatibility...');
+      for (final diagnostic in diagnostics) {
+        final prefix = diagnostic.severity == DiagnosticSeverity.error
+            ? 'ERROR'
+            : 'WARNING';
+        stderr.writeln('  $prefix [${diagnostic.code}]: ${diagnostic.message}');
+        if (diagnostic.remediation.isNotEmpty) {
+          stderr.writeln('  Remediation: ${diagnostic.remediation}');
+        }
+      }
+      if (diagnostics.isEmpty) print('  No SDK pin conflict detected.');
+    }
+    writeCommandSummaryBytes(cmd['summary-file'] as String?, encoded);
+    return result.exitCode;
   }
 
   int _runInit(ArgResults cmd) {

@@ -36,8 +36,17 @@ const releaseRetiredPackages = <String>{
 /// Operating systems covered by the release certification lanes.
 const releaseSupportedOperatingSystems = <String>['linux', 'windows'];
 
+/// Exact Flutter host versions covered by hosted certification.
+const releaseFlutterCertification = <String, Object?>{
+  'minimum': '3.44.8',
+  'current': '3.44.8',
+  'channels': <String>['stable'],
+};
+
 /// Compatibility identities selected by the release matrix.
 const releaseCompatibilityIds = <String, String>{
   'dart-frog': 'dart-frog-gen-2-route-topology-v1',
   'dart-source': 'dart-source-package-v1',
+  'runner-dart': 'hosted-dart-runner-v1',
+  'runner-flutter': 'hosted-flutter-runner-v1',
 };

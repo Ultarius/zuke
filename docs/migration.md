@@ -218,21 +218,29 @@ application and framework workspaces with no path dependencies or overrides.
 Run the exact package tuple on every supported operating-system lane before
 closing the migration.
 
-The framework repository owns the clean-room hosted check. Run it from the
-repository root after the coordinated versions are available:
+The framework repository owns the clean-room hosted check. Run the canonical
+certification command from the repository root after the coordinated versions
+are available:
 
 ```bash
-dart run tool/check_hosted_consumer.dart --platform linux
-dart run tool/check_hosted_consumer.dart --platform windows
+dart run zuke_cli:zuke certify hosted --platform linux --host dart
+dart run zuke_cli:zuke certify hosted --platform windows --host dart
+dart run zuke_cli:zuke certify hosted --platform linux --host flutter \
+  --flutter-version 3.44.8
+dart run zuke_cli:zuke certify hosted --platform windows --host flutter \
+  --flutter-version 3.44.8
 ```
 
 The check creates its fixture outside the repository, reads exact package
 versions from `docs/release-matrix.yaml`, rejects path dependencies and
 overrides, and removes the fixture after the run unless `--keep-fixture` is
-provided for diagnosis. When the matrix contains Flutter-bound packages, the
-checker requires Flutter on the machine, uses `flutter pub get`/`flutter test`,
-and reports the Flutter package lane separately. It fails closed rather than
-silently claiming the complete hosted tuple was verified with Dart alone.
+provided for diagnosis. Dart and Flutter are explicit host lanes: the Dart
+capsule uses `dart pub get`/`dart test`, while the Flutter capsule uses
+`flutter pub get`/`flutter test` and must not declare a direct `package:test`
+dependency. It fails closed rather than silently claiming the required hosted
+consumer surface was verified with the wrong SDK; optional public packages are
+covered by the release publication dry-run rather than artificial fixture
+dependencies.
 
 The framework repository also provides `.github/workflows/hosted-consumer.yml`.
 It runs the same checker on Linux and Windows after a published release, and

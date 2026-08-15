@@ -31,6 +31,7 @@ Future<void> main(List<String> args) async {
   final publicVersions = matrix.publicPackageVersions;
   final retiredPackages = matrix.retiredPackages.toList()..sort();
   final operatingSystems = [...matrix.operatingSystems]..sort();
+  final flutterCertification = matrix.flutterCertification;
   final compatibilityIds = matrix.compatibilityIds.entries.toList()
     ..sort((a, b) => a.key.compareTo(b.key));
   final content =
@@ -55,6 +56,13 @@ ${retiredPackages.map((value) => "  '${_quote(value)}',").join('\n')}
 
 /// Operating systems covered by the release certification lanes.
 const releaseSupportedOperatingSystems = ${_dartList(operatingSystems)};
+
+/// Exact Flutter host versions covered by hosted certification.
+const releaseFlutterCertification = <String, Object?>{
+  'minimum': '${_quote(flutterCertification.minimum)}',
+  'current': '${_quote(flutterCertification.current)}',
+  'channels': ${_dartList(flutterCertification.channels)},
+};
 
 /// Compatibility identities selected by the release matrix.
 const releaseCompatibilityIds = <String, String>{

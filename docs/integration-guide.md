@@ -49,7 +49,7 @@ target is the next intentional breaking semver release after supported consumer
 imports have migrated and the hosted Linux/Windows certification lanes are
 green. No new API should be added to `zuke_runner`.
 
-For development from this repository, use `dart pub get` at the workspace root;
+For development from this repository, use `flutter pub get` at the workspace root;
 the Pub workspace resolves these hosted constraints to the local packages.
 
 ### Compatibility matrix
@@ -65,6 +65,62 @@ The repository intentionally does not declare a separate Flutter lower bound:
 Flutter supplies the Dart runtime that resolves these packages. Pin a Flutter
 SDK in CI or your version manager, then verify that its bundled Dart version is
 within the supported range above.
+
+### Hosted certification and Flutter test pins
+
+Hosted release certification is deliberately independent of any consumer
+workspace. It renders a fresh Dart capsule and a fresh Flutter capsule outside
+this checkout, uses exact versions from `docs/release-matrix.yaml`, and rejects
+path dependencies, Git dependencies, dependency overrides, workspace
+inheritance, and private Zuke packages. The host is explicit; the checker never
+switches to Flutter merely because Flutter happens to be installed.
+
+Use the canonical commands after the coordinated tuple is available in the
+hosted registry:
+
+```bash
+dart run zuke_cli:zuke certify hosted --platform linux --host dart
+dart run zuke_cli:zuke certify hosted --platform windows --host dart
+dart run zuke_cli:zuke certify hosted --platform linux --host flutter \
+  --flutter-version 3.44.8
+dart run zuke_cli:zuke certify hosted --platform windows --host flutter \
+  --flutter-version 3.44.8
+```
+
+The Flutter capsule uses `flutter_test` from the SDK and does not declare a
+direct `package:test` dependency. The Dart capsule uses the matrix test band.
+The capsule declares only the selected runner surface plus the CLI as a
+development tool; it does not manufacture runtime dependencies on optional
+packages such as the HTTP runtime or build hook. Every resolved Zuke package
+must still be a public matrix package at its exact matrix version. Both
+capsules use a fresh temporary `HOME` and `PUB_CACHE`, verify hosted/SDK
+sources in the resolved lock, run all four profiles, and compare the canonical
+gate result across stdout, summary, and safe artifact output.
+
+The matrix workflow combines the per-host reports into a generated
+`compatibility.yaml` artifact with:
+
+```bash
+dart run tool/build_compatibility_manifest.dart \
+  --input generated/certification/report.json \
+  --output generated/compatibility.yaml
+```
+
+That manifest is evidence from resolved graphs, not a hand-maintained version
+compatibility table. Duplicate host/platform tuples or reports from different
+release tuples fail closed.
+
+For a real application workspace, diagnose its own SDK pin without changing
+dependencies:
+
+```bash
+dart run zuke_cli:zuke doctor test-host --root . --format json
+```
+
+This command is diagnostic-only. It does not write an override or claim that a
+consumer workspace conflict is a Zuke hosted-certification failure. Use
+`flutter pub get` in a workspace containing Flutter so its SDK pins participate
+in the solve intentionally.
 
 If you started with `flutter create`, update or delete its default
 `test/widget_test.dart` when replacing the generated `MyApp`. Leaving that test

@@ -9,14 +9,17 @@ final class HostedConsumerFixture {
     required this.destination,
     required this.matrix,
     required this.hostedPackages,
-    required this.useFlutter,
+    required this.host,
   });
 
   final Directory templateRoot;
   final Directory destination;
   final ReleaseMatrix matrix;
   final List<String> hostedPackages;
-  final bool useFlutter;
+
+  /// The host is explicit so certification never changes its dependency
+  /// graph based on whichever SDK happens to be installed.
+  final String host;
 
   void render() {
     if (destination.existsSync() && destination.listSync().isNotEmpty) {
@@ -26,18 +29,49 @@ final class HostedConsumerFixture {
     }
     destination.createSync(recursive: true);
 
+    if (!const {'dart', 'flutter'}.contains(host)) {
+      throw FormatException('Unsupported hosted-consumer host: $host');
+    }
+    if (host == 'flutter' && !matrix.flutterCertification.isConfigured) {
+      throw const FormatException(
+        'Release matrix does not declare a hosted Flutter certification band',
+      );
+    }
+
     final variables = <String, String>{
       'DART_SDK': _requiredSdk('dart'),
       'PACKAGE_DEPENDENCIES': _dependencies(),
-      'FLUTTER_DEPENDENCY': useFlutter
+      'CLI_DEPENDENCY': _cliDependency(),
+      'TEST_DEPENDENCY': host == 'dart'
+          ? "  test: '${_testConstraint()}'\n"
+          : '',
+      'FLUTTER_DEPENDENCY': host == 'flutter'
           ? '  flutter_test:\n    sdk: flutter\n'
           : '',
+      'RUNNER_IMPORT': host == 'flutter'
+          ? 'package:zuke_runner_flutter/zuke_runner_flutter.dart'
+          : 'package:zuke_runner/zuke_runner.dart',
+      'TEST_IMPORT': host == 'flutter'
+          ? 'package:flutter_test/flutter_test.dart'
+          : 'package:test/test.dart',
+      'TEST_CALL': host == 'flutter' ? 'zukeTestWidgets' : 'zukeTest',
+      'TEST_BODY': host == 'flutter'
+          ? '(tester) async => expect(add(2, 3), 5)'
+          : '() => expect(add(2, 3), 5)',
+      'FRAMEWORK': host == 'flutter' ? 'flutter' : 'dart',
+      'RUNNER_EXECUTABLE': host == 'flutter' ? 'flutter' : 'dart',
       'SOURCE_COMPATIBILITY_ID':
           matrix.compatibilityIds['dart-source'] ??
           (throw const FormatException(
             'Release matrix is missing dart-source compatibility ID',
           )),
-      'RUNNER_COMPATIBILITY_ID': 'hosted-consumer-runner-v1',
+      'RUNNER_COMPATIBILITY_ID':
+          matrix.compatibilityIds[host == 'flutter'
+              ? 'runner-flutter'
+              : 'runner-dart'] ??
+          (throw FormatException(
+            'Release matrix is missing ${host}-runner compatibility ID',
+          )),
     };
 
     _renderText('pubspec.yaml.tmpl', 'pubspec.yaml', variables);
@@ -75,7 +109,20 @@ final class HostedConsumerFixture {
 
   String _dependencies() {
     final values = <String>[];
-    for (final package in hostedPackages) {
+    final runner = host == 'flutter' ? 'zuke_runner_flutter' : 'zuke_runner';
+    final requested =
+        <String>{
+            ...hostedPackages,
+            'zuke',
+            'zuke_annotations',
+            'zuke_core',
+            'zuke_frontend',
+            runner,
+          }
+          ..remove('zuke_cli')
+          ..remove(host == 'flutter' ? 'zuke_runner' : 'zuke_runner_flutter');
+    final ordered = requested.toList()..sort();
+    for (final package in ordered) {
       final release = matrix.packages[package];
       if (release == null) {
         throw FormatException(
@@ -85,6 +132,32 @@ final class HostedConsumerFixture {
       values.add('  ' + package + ': ' + release.version);
     }
     return values.join('\n') + '\n';
+  }
+
+  String _cliDependency() {
+    final release = matrix.packages['zuke_cli'];
+    if (release == null) {
+      throw const FormatException(
+        'Package is not in the release matrix: zuke_cli',
+      );
+    }
+    return '  zuke_cli: ${release.version}\n';
+  }
+
+  String _testConstraint() {
+    final value = matrix.sdk['test'];
+    if (value is! String || value.trim().isEmpty) {
+      throw const FormatException('Release matrix sdk.test is missing');
+    }
+    final match = RegExp(r'^(\d+)\.(\d+)\.x$').firstMatch(value.trim());
+    if (match == null) {
+      throw FormatException(
+        'Release matrix sdk.test must use a major.minor.x band: $value',
+      );
+    }
+    final major = match.group(1)!;
+    final minor = int.parse(match.group(2)!);
+    return ">=$major.$minor.0 <$major.${minor + 1}.0";
   }
 
   void _renderText(
