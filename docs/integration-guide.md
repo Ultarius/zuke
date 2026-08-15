@@ -88,7 +88,8 @@ dart run zuke_cli:zuke certify hosted --platform windows --host flutter \
 ```
 
 The Flutter capsule uses `flutter_test` from the SDK and does not declare a
-direct `package:test` dependency. The Dart capsule uses the matrix test band.
+direct `package:test` dependency. The Dart capsule uses the matrix test
+constraint.
 The capsule declares only the selected runner surface plus the CLI as a
 development tool; it does not manufacture runtime dependencies on optional
 packages such as the HTTP runtime or build hook. Every resolved Zuke package
@@ -96,6 +97,19 @@ must still be a public matrix package at its exact matrix version. Both
 capsules use a fresh temporary `HOME` and `PUB_CACHE`, verify hosted/SDK
 sources in the resolved lock, run all four profiles, and compare the canonical
 gate result across stdout, summary, and safe artifact output.
+
+The current matrix records one certified Flutter version: `minimum` and
+`current` are intentionally both `3.44.8`. This is baseline certification,
+not evidence for an older-to-current support band. A second CI lane and a
+distinct matrix version are required before describing the release as a
+Flutter version band.
+
+`zuke certify hosted` is a published-tuple certificate, not a PR or Git-branch
+candidate certificate. Before publication, use the checked-out framework
+suites, a genuine staging hosted registry, or a first-party consumer's
+explicit Git dependency override. A green published lane must not be
+described as proof that an unpublished PR archive is installable from a
+hosted registry.
 
 The matrix workflow combines the per-host reports into a generated
 `compatibility.yaml` artifact with:
@@ -118,7 +132,9 @@ dart run zuke_cli:zuke doctor test-host --root . --format json
 ```
 
 This command is diagnostic-only. It does not write an override or claim that a
-consumer workspace conflict is a Zuke hosted-certification failure. Use
+consumer workspace conflict is a Zuke hosted-certification failure. Its JSON
+details report `compatible`, `incompatible`, or `undetermined`; a missing
+lockfile or unresolved SDK tuple is never reported as compatible. Use
 `flutter pub get` in a workspace containing Flutter so its SDK pins participate
 in the solve intentionally.
 

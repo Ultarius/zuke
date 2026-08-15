@@ -7,10 +7,12 @@ final class TestHostDoctorReport {
   const TestHostDoctorReport({
     required this.diagnostics,
     required this.details,
+    required this.status,
   });
 
   final List<Diagnostic> diagnostics;
   final Map<String, Object?> details;
+  final String status;
 }
 
 /// Explains SDK-pinned test infrastructure without modifying the consumer.
@@ -46,10 +48,13 @@ final class TestHostDoctor {
     final flutterPin = _flutterPinnedTestApi();
     final expectedTestApi = _testPackageApi(resolvedTest);
     final diagnostics = <Diagnostic>[];
+    late final String status;
 
     if (flutterPin != null &&
         expectedTestApi != null &&
-        flutterPin != expectedTestApi) {
+        (flutterPin != expectedTestApi ||
+            (resolvedTestApi != null && resolvedTestApi != expectedTestApi))) {
+      status = 'incompatible';
       diagnostics.add(
         Diagnostic(
           code: 'ZK-TEST-SDK-PIN',
@@ -66,28 +71,35 @@ final class TestHostDoctor {
         ),
       );
     } else if (flutterPin != null &&
-        constraints.values.any(_isExactVersion) &&
-        expectedTestApi == null) {
+        resolvedTest != null &&
+        resolvedTestApi != null &&
+        expectedTestApi != null &&
+        flutterPin == expectedTestApi &&
+        resolvedTestApi == expectedTestApi) {
+      status = 'compatible';
+    } else {
+      status = 'undetermined';
       diagnostics.add(
         const Diagnostic(
-          code: 'ZK-TEST-SDK-PIN',
+          code: 'ZK-TEST-HOST-UNRESOLVED',
           stage: 'doctor',
           severity: DiagnosticSeverity.warning,
           owner: DiagnosticOwner.project,
           message:
-              'The consumer has an exact test constraint while Flutter '
-              'pins test_api. Compatibility cannot be confirmed until Pub '
-              'resolves the graph.',
+              'No resolved Flutter/test_api tuple is available. Zuke cannot '
+              'determine test-host compatibility before Pub resolution.',
           remediation:
-              'Use a compatible test range or run flutter pub get and inspect '
-              'the resulting test/test_api versions.',
+              'Run flutter pub get or dart pub get, then run this diagnostic '
+              'again with the resulting lockfile.',
         ),
       );
     }
 
     return TestHostDoctorReport(
       diagnostics: List.unmodifiable(diagnostics),
+      status: status,
       details: {
+        'status': status,
         'flutterPinnedTestApi': flutterPin,
         'resolvedTest': resolvedTest,
         'resolvedTestApi': resolvedTestApi,
@@ -218,6 +230,3 @@ String? _dependencyValue(Object? pubspec, String package) {
   }
   return null;
 }
-
-bool _isExactVersion(String value) =>
-    RegExp(r'^\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?$').hasMatch(value.trim());

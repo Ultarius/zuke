@@ -457,7 +457,7 @@ Usage:
   zuke affected     List requirements affected by a git change
   zuke test         Run configured verification suites
   zuke coverage     Evaluate LCOV as an independent quality gate
-  zuke certify hosted  Certify an isolated hosted consumer capsule
+  zuke certify hosted  Certify the published tuple (framework checkout only)
   zuke --help       Show this help
   zuke --version    Show version
 ''');
@@ -465,6 +465,15 @@ Usage:
 
   Future<int> _runHostedCertification(ArgResults cmd) async {
     final root = cmd['root'] as String? ?? Directory.current.path;
+    final platform = cmd['platform'] as String?;
+    final host = cmd['host'] as String?;
+    if (platform == null || host == null) {
+      stderr.writeln(
+        'certify hosted requires --platform <linux|windows> and '
+        '--host <dart|flutter>',
+      );
+      return 2;
+    }
     final script = File(
       '$root${Platform.pathSeparator}tool${Platform.pathSeparator}'
       'check_hosted_consumer.dart',
@@ -472,15 +481,6 @@ Usage:
     if (!script.existsSync()) {
       stderr.writeln(
         'Hosted certification must run from a Zuke framework checkout.',
-      );
-      return 2;
-    }
-    final platform = cmd['platform'] as String?;
-    final host = cmd['host'] as String?;
-    if (platform == null || host == null) {
-      stderr.writeln(
-        'certify hosted requires --platform <linux|windows> and '
-        '--host <dart|flutter>',
       );
       return 2;
     }
@@ -624,24 +624,17 @@ Usage:
     final jsonMode = (cmd['format'] as String? ?? 'text') == 'json';
     final report = TestHostDoctor(Directory(root)).inspect();
     final diagnostics = report.diagnostics;
+    final compatible = report.status == 'compatible';
     final result = CommandResult(
       command: 'doctor test-host',
       stage: 'doctor',
-      exitCode:
-          diagnostics.any(
-            (diagnostic) => diagnostic.severity == DiagnosticSeverity.error,
-          )
+      exitCode: compatible
+          ? 0
+          : report.status == 'incompatible'
           ? 1
-          : 0,
-      status:
-          diagnostics.any(
-            (diagnostic) => diagnostic.severity == DiagnosticSeverity.error,
-          )
-          ? CommandStatus.failed
-          : CommandStatus.passed,
-      eligible: !diagnostics.any(
-        (diagnostic) => diagnostic.severity == DiagnosticSeverity.error,
-      ),
+          : 2,
+      status: compatible ? CommandStatus.passed : CommandStatus.failed,
+      eligible: compatible,
       diagnostics: diagnostics,
       details: {'testHost': report.details, 'root': root},
     );

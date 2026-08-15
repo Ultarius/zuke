@@ -59,6 +59,7 @@
     {"code": "ZK-TEST-002", "severity": "error", "summary": "A command result has contradictory status, exit, or eligibility fields.", "owner": "unknown", "remediation": "Reject the result and regenerate a complete current command summary."},
     {"code": "ZK-TEST-003", "severity": "error", "summary": "A diagnostic payload is malformed.", "owner": "unknown", "remediation": "Reject the command result and regenerate a valid current diagnostic document."},
     {"code": "ZK-TEST-SDK-PIN", "severity": "error", "summary": "A consumer test constraint is incompatible with the active Flutter SDK pin.", "owner": "project", "remediation": "Widen the consumer test constraint to admit the Flutter SDK pin or use a compatible Flutter SDK; Zuke does not install dependency overrides."},
+    {"code": "ZK-TEST-HOST-UNRESOLVED", "severity": "warning", "summary": "The resolved Flutter/test_api tuple is unavailable, so test-host compatibility is undetermined.", "owner": "project", "remediation": "Run the appropriate Pub resolution command and rerun zuke doctor test-host."},
     {"code": "ZK-COVERAGE-FAILED", "severity": "error", "summary": "The configured coverage policy failed.", "owner": "project", "remediation": "Fix the reported coverage input, baseline, exclusions, or threshold violation."},
     {"code": "ZUKE-ANNOTATION-001", "severity": "error", "summary": "A specification annotation is invalid."},
     {"code": "ZUKE-ATTEST-EXPIRING", "severity": "warning", "summary": "An external attestation is approaching expiry."},

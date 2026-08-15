@@ -25,6 +25,52 @@ dependencies:
     );
   });
 
+  test('rejects a range that excludes the certified minimum', () {
+    final root = Directory.systemTemp.createTempSync('zuke-firewall-');
+    addTearDown(() => root.deleteSync(recursive: true));
+    _writePolicy(root);
+    _writePackage(root, 'zuke_runner', '''name: zuke_runner
+dependencies:
+  test: '>=1.31.1 <2.0.0'
+''');
+
+    expect(
+      DependencyFirewall(root).check(),
+      contains(
+        contains('does not admit the certified minimum test version 1.31.0'),
+      ),
+    );
+  });
+
+  test('accepts a range containing the certified minimum', () {
+    final root = Directory.systemTemp.createTempSync('zuke-firewall-');
+    addTearDown(() => root.deleteSync(recursive: true));
+    _writePolicy(root);
+    _writePackage(root, 'zuke_runner', '''name: zuke_runner
+dependencies:
+  test: '>=1.31.0 <1.32.0'
+''');
+
+    expect(DependencyFirewall(root).check(), isEmpty);
+  });
+
+  test('uses the release matrix instead of the policy fallback', () {
+    final root = Directory.systemTemp.createTempSync('zuke-firewall-');
+    addTearDown(() => root.deleteSync(recursive: true));
+    Directory('${root.path}/docs').createSync(recursive: true);
+    final matrix = File(
+      '${_findRoot(Directory.current).path}/docs/release-matrix.yaml',
+    ).readAsStringSync().replaceFirst("test: '1.31.x'", "test: '1.32.x'");
+    File('${root.path}/docs/release-matrix.yaml').writeAsStringSync(matrix);
+    _writePolicy(root);
+    _writePackage(root, 'zuke_runner', '''name: zuke_runner
+dependencies:
+  test: '>=1.32.0 <1.33.0'
+''');
+
+    expect(DependencyFirewall(root).check(), isEmpty);
+  });
+
   test('rejects direct test dependencies in the Flutter runner', () {
     final root = Directory.systemTemp.createTempSync('zuke-firewall-');
     addTearDown(() => root.deleteSync(recursive: true));
@@ -49,7 +95,7 @@ void _writePolicy(Directory root) {
   Directory('${root.path}/tool').createSync(recursive: true);
   File('${root.path}/tool/dependency-policy.yaml').writeAsStringSync('''
 schemaVersion: 1
-testConstraint: '>=1.24.0 <2.0.0'
+testConstraint: '1.31.x'
 packages:
   zuke_runner:
     requireRuntime: [test]

@@ -19,6 +19,7 @@ Future<void> main(List<String> arguments) async {
   // separate observational pass and must include that package.
   final includeRunnerManaged = extra.remove('--include-runner-managed');
   final rawBudget = Platform.environment['ZUKE_TEST_WORKERS'];
+  final rawPackageSlots = Platform.environment['ZUKE_TEST_PACKAGE_SLOTS'];
   late final WorkerBudget budget;
   try {
     budget = WorkerBudget.compute(
@@ -52,7 +53,17 @@ Future<void> main(List<String> arguments) async {
         ..sort((a, b) => a.path.compareTo(b.path));
   if (selected.isEmpty) return;
 
-  final packageSlots = budget.packageSlotsFor(selected.length);
+  late final int packageSlots;
+  try {
+    packageSlots = budget.packageSlotsFor(
+      selected.length,
+      overrideEnv: rawPackageSlots,
+    );
+  } on FormatException catch (error) {
+    stderr.writeln(error.message);
+    exitCode = 64;
+    return;
+  }
   final workers = task == 'test' ? budget.workersFor(packageSlots) : 1;
   stdout.writeln(
     'Dart $task worker budget: ${budget.budget} '
@@ -114,13 +125,32 @@ final class WorkerBudget {
     return WorkerBudget(numProcessors < 1 ? 1 : numProcessors);
   }
 
-  int packageSlotsFor(int packageCount) =>
-      packageCount < 4 ? packageCount : (budget < 4 ? budget : 4);
+  int packageSlotsFor(int packageCount, {String? overrideEnv}) {
+    final requested = _positiveOverride(
+      overrideEnv,
+      name: 'ZUKE_TEST_PACKAGE_SLOTS',
+    );
+    final defaultSlots = packageCount < 4
+        ? packageCount
+        : (budget < 4 ? budget : 4);
+    final selected = requested ?? defaultSlots;
+    final capped = selected > packageCount ? packageCount : selected;
+    return capped > budget ? budget : capped;
+  }
 
   int workersFor(int packageSlots) {
     if (packageSlots < 1) return 1;
     final result = budget ~/ packageSlots;
     return result < 1 ? 1 : (result > 4 ? 4 : result);
+  }
+
+  int? _positiveOverride(String? value, {required String name}) {
+    if (value == null) return null;
+    final parsed = int.tryParse(value.trim());
+    if (value.trim().isEmpty || parsed == null || parsed < 1) {
+      throw FormatException('$name must be a positive integer.');
+    }
+    return parsed;
   }
 }
 

@@ -29,10 +29,12 @@ jobs:
     env:
       FLUTTER_SUPPRESS_ANALYTICS: 'true'
       ZUKE_RUN_PROCESS_INTEGRATION: 'true'
-      # The workspace runner caps concurrency at four packages. A budget of
-      # eight gives four-package runs two isolates each; later packages queue
-      # instead of reducing that per-package budget on slower hosted runners.
+      # Keep the total Dart isolate budget bounded. Windows runs the
+      # subprocess-heavy zuke_cli suite with two package processes and four
+      # isolates per package; the remaining packages queue instead of forcing
+      # zuke_cli through the five-minute package timeout.
       ZUKE_TEST_WORKERS: '8'
+      ZUKE_TEST_PACKAGE_SLOTS: "${{ matrix.os == 'windows-latest' && '2' || '4' }}"
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
       - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2

@@ -53,7 +53,7 @@ final class ReleaseMatrix {
   };
 }
 
-/// The exact Flutter bands exercised by hosted certification.
+/// The exact Flutter versions exercised by hosted certification.
 ///
 /// This is release evidence configuration, not a replacement for the Dart
 /// SDK constraint in [ReleaseMatrix.sdk].

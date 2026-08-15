@@ -246,6 +246,11 @@ The framework repository also provides `.github/workflows/hosted-consumer.yml`.
 It runs the same checker on Linux and Windows after a published release, and
 can be started manually when a hosted package tuple is ready for verification.
 
+This hosted lane certifies the published package tuple only. A pull-request or
+Git-branch candidate must be verified through the framework checkout, a genuine
+staging registry, or an explicit consumer-side Git override; it must not be
+described as hosted-registry certification.
+
 ## 7. If you are not ready yet
 
 Remain on the previous hosted package versions. Previous releases remain
