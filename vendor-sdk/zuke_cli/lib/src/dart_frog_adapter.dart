@@ -74,6 +74,7 @@ final class DartFrogAdapter implements FrameworkAdapter {
           );
         }
         for (final routeFile in entry.value) {
+          final topologyPath = _canonicalTopologyPath(routeFile.path);
           final resolved = _resolveRoutePath(
             request.packageRoot,
             routeFile.path,
@@ -110,7 +111,7 @@ final class DartFrogAdapter implements FrameworkAdapter {
               id: nodeId,
               kind: transport.kind == 'websocket' ? 'websocket-route' : 'route',
               name: routeFile.name,
-              path: routeFile.path,
+              path: topologyPath,
               attributes: {
                 'route': entry.key,
                 'parameters': routeFile.params,
@@ -126,14 +127,10 @@ final class DartFrogAdapter implements FrameworkAdapter {
           );
           nodes.add(
             TopologyNode(
-              id: _nodeId(
-                request,
-                'route-alias',
-                '${entry.key}|${routeFile.path}',
-              ),
+              id: _nodeId(request, 'route-alias', '${entry.key}|$topologyPath'),
               kind: 'route-alias',
               name: routeFile.name,
-              path: routeFile.path,
+              path: topologyPath,
               attributes: {'route': entry.key, 'target': nodeId},
             ),
           );
@@ -248,16 +245,15 @@ final class DartFrogAdapter implements FrameworkAdapter {
       for (var index = 0; index < inspection.calls.length; index++) {
         final call = inspection.calls[index];
         final name = call.name;
+        final topologyPath = _canonicalTopologyPath(
+          path.relative(filePath, from: request.packageRoot),
+        );
         nodes.add(
           TopologyNode(
-            id: _nodeId(
-              request,
-              'middleware',
-              '${path.relative(filePath, from: request.packageRoot)}|$name',
-            ),
+            id: _nodeId(request, 'middleware', '$topologyPath|$name'),
             kind: 'middleware',
             name: name,
-            path: path.relative(filePath, from: request.packageRoot),
+            path: topologyPath,
             attributes: {
               'incomingOrder': index,
               'chainResolved': true,
@@ -271,6 +267,8 @@ final class DartFrogAdapter implements FrameworkAdapter {
     }
     return _MiddlewareResult(complete: complete, diagnostics: diagnostics);
   }
+
+  String _canonicalTopologyPath(String value) => value.replaceAll('\\', '/');
 
   Future<_TransportResult> _classifyTransport(
     String filePath,

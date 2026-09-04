@@ -51,6 +51,14 @@ const decoy = '.use(notMiddleware())';
         'dependencies',
       ]);
       expect(
+        middleware.every(
+          (node) =>
+              !node.id.contains('\\') && !(node.path?.contains('\\') ?? false),
+        ),
+        isTrue,
+        reason: 'topology identities must use portable separators',
+      );
+      expect(
         output.nodes.map((node) => node.id).toSet(),
         hasLength(output.nodes.length),
       );
