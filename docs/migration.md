@@ -31,7 +31,7 @@ dev_dependencies:
   # Current coordinated set:
   # zuke_core: ^0.4.0
   # zuke_annotations: ^0.4.0
-  # zuke_frontend: ^0.2.1
+  # zuke_frontend: ^0.2.2
   zuke: ^0.4.0
   zuke_runner: ^0.4.0
   zuke_runner_flutter: ^0.4.0

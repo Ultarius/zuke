@@ -29,13 +29,13 @@ packages:
     supportStatement: Supported application-facing annotation API.
     bumpReason: Breaking removal of provider-owned workspace target metadata.
   zuke_frontend:
-    version: 0.2.1
+    version: 0.2.2
     previousVersion: 0.2.1
     publish: true
-    releaseAction: reuse
+    releaseAction: publish
     tier: Narrow SDK
     supportStatement: Supported frontend and configuration API.
-    bumpReason: Existing hosted version remains compatible with this release.
+    bumpReason: Target-aware contract output and export configuration.
   zuke:
     version: 0.4.0
     previousVersion: 0.3.1
@@ -139,6 +139,7 @@ contracts:
 publicationOrder:
   - zuke_core
   - zuke_annotations
+  - zuke_frontend
   - zuke
   - zuke_runner
   - zuke_runner_flutter

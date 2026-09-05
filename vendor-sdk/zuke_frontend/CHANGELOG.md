@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.2.2
+
+- Read `contractOutput` and `contractExport` from any configured extraction
+  target, including backend and custom targets.
+
 ## 0.2.1
 
 - Read generated contract output and export paths from the configured target,
