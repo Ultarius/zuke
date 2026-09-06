@@ -76,7 +76,7 @@ const decoy = '.use(notMiddleware())';
     final game = Directory('${routes.path}/game')..createSync();
     File('${game.path}/index.dart').writeAsStringSync('''
 Object webSocketHandler(Object callback) => Object();
-final handler = webSocketHandler(() {});
+Object get onRequest => webSocketHandler(() {});
 ''');
 
     final output = await const DartFrogAdapter().extract(
@@ -90,6 +90,12 @@ final handler = webSocketHandler(() {});
     );
 
     expect(output.nodes.any((node) => node.kind == 'websocket-route'), isFalse);
+    expect(
+      output.nodes.any(
+        (node) => node.attributes.containsKey('httpUpgradeMethods'),
+      ),
+      isFalse,
+    );
     expect(
       output.nodes.any(
         (node) => node.attributes['transport'] == 'indeterminate',

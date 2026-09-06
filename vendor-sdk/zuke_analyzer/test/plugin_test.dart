@@ -28,7 +28,7 @@ void main() {
       'analyzer plugin extracts diagnostics from out-of-date index',
       () async {
         File('${tempDir.path}/pubspec.yaml').writeAsStringSync(
-          'name: test_pkg\nenvironment:\n  sdk: ">=3.10.0 <3.11.0"\n',
+          'name: test_pkg\nenvironment:\n  sdk: ">=3.10.0 <4.0.0"\n',
         );
         final libDir = Directory('${tempDir.path}/lib')
           ..createSync(recursive: true);
@@ -47,7 +47,7 @@ class MyService {}
 
     test('analyzer plugin results agree with CLI extract results', () async {
       File('${tempDir.path}/pubspec.yaml').writeAsStringSync(
-        'name: test_pkg\nenvironment:\n  sdk: ">=3.10.0 <3.11.0"\n',
+        'name: test_pkg\nenvironment:\n  sdk: ">=3.10.0 <4.0.0"\n',
       );
       final libDir = Directory('${tempDir.path}/lib')
         ..createSync(recursive: true);
@@ -94,7 +94,7 @@ class NoAnnotation {}
     test('reports a missing workspace index as stale', () async {
       _writeCurrentConfig(tempDir);
       File('${tempDir.path}/pubspec.yaml').writeAsStringSync(
-        'name: test_pkg\nenvironment:\n  sdk: ">=3.10.0 <3.11.0"\n',
+        'name: test_pkg\nenvironment:\n  sdk: ">=3.10.0 <4.0.0"\n',
       );
       (Directory('${tempDir.path}/lib')..createSync(recursive: true));
 
@@ -105,7 +105,7 @@ class NoAnnotation {}
     test('current index reports unknown IDs and duplicate bindings', () async {
       final config = _writeCurrentConfig(tempDir);
       File('${tempDir.path}/pubspec.yaml').writeAsStringSync(
-        'name: test_pkg\nenvironment:\n  sdk: ">=3.10.0 <3.11.0"\n',
+        'name: test_pkg\nenvironment:\n  sdk: ">=3.10.0 <4.0.0"\n',
       );
       final lib = Directory('${tempDir.path}/lib')..createSync();
       File('${lib.path}/app.dart').writeAsStringSync('''

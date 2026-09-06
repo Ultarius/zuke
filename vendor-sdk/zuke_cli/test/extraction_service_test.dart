@@ -30,7 +30,7 @@ void main() {
           ..createSync(recursive: true);
         File('${srcDir.path}/math.dart').writeAsStringSync('const a = 1;');
         File('${tempDir.path}/pubspec.yaml').writeAsStringSync(
-          'name: test_pkg\nenvironment:\n  sdk: ">=3.10.0 <3.11.0"\n',
+          'name: test_pkg\nenvironment:\n  sdk: ">=3.10.0 <4.0.0"\n',
         );
 
         final output1 = await DartExtractor().extract(
@@ -66,7 +66,7 @@ void main() {
         "import 'constants/values.dart';\nconst result = baseValue + 5;\n",
       );
       File('${tempDir.path}/pubspec.yaml').writeAsStringSync(
-        'name: test_pkg\nenvironment:\n  sdk: ">=3.10.0 <3.11.0"\n',
+        'name: test_pkg\nenvironment:\n  sdk: ">=3.10.0 <4.0.0"\n',
       );
 
       final output1 = await DartExtractor().extract(
@@ -232,7 +232,7 @@ Handler middleware(Handler handler) => handler;
           '${routes.path}/index.dart',
         ).writeAsStringSync('Object onRequest(Object request) => Object();');
         File('${tempDir.path}/pubspec.yaml').writeAsStringSync(
-          'name: dart_frog_fixture\\nenvironment:\\n  sdk: \">=3.10.0 <3.11.0\"\\n',
+          'name: dart_frog_fixture\\nenvironment:\\n  sdk: \">=3.10.0 <4.0.0\"\\n',
         );
         final workspace = WorkspaceDiscoveryResult(
           config: ZukeConfig(
@@ -284,6 +284,107 @@ Handler middleware(Handler handler) => handler;
         );
       },
     );
+
+    test('can limit extraction to the requested target', () async {
+      _writePackage(tempDir);
+      final workspace = WorkspaceDiscoveryResult(
+        config: ZukeConfig(
+          root: tempDir.path,
+          workspaceTargets: {
+            'backend': const WorkspaceTarget(
+              id: 'backend',
+              language: 'dart',
+              framework: 'dart',
+              packages: [
+                WorkspacePackage(id: 'test_pkg', path: '.', roots: ['lib']),
+              ],
+            ),
+            'missing': const WorkspaceTarget(
+              id: 'missing',
+              language: 'dart',
+              framework: 'dart',
+              packages: [
+                WorkspacePackage(
+                  id: 'missing_pkg',
+                  path: 'missing',
+                  roots: ['lib'],
+                ),
+              ],
+            ),
+          },
+        ),
+        data: const MetadataExtractorResult(),
+      );
+
+      final result = await ExtractionService().extract(
+        workspace,
+        includeEvidence: false,
+        targetId: 'backend',
+      );
+
+      expect(result.errors, isEmpty);
+      expect(result.outputs, hasLength(1));
+      expect(result.outputs.single.packageName, 'test_pkg');
+    });
+
+    test('can extract only Dart Frog topology', () async {
+      final routes = Directory('${tempDir.path}/routes')
+        ..createSync(recursive: true);
+      File('${routes.path}/_middleware.dart').writeAsStringSync('''
+typedef Handler = Object Function(Object);
+Handler middleware(Handler handler) => handler;
+''');
+      File(
+        '${routes.path}/index.dart',
+      ).writeAsStringSync('Object onRequest(Object request) => Object();');
+      final evidence = Directory('${tempDir.path}/evidence')
+        ..createSync(recursive: true);
+      File('${evidence.path}/malformed.json').writeAsStringSync('{not-json');
+      File('${tempDir.path}/pubspec.yaml').writeAsStringSync(
+        'name: dart_frog_topology_fixture\nenvironment:\n'
+        '  sdk: ">=3.10.0 <4.0.0"\n',
+      );
+      final workspace = WorkspaceDiscoveryResult(
+        config: ZukeConfig(
+          root: tempDir.path,
+          evidenceOutput: 'evidence',
+          workspaceTargets: {
+            'backend': const WorkspaceTarget(
+              id: 'backend',
+              language: 'dart',
+              framework: 'dart-frog',
+              packages: [
+                WorkspacePackage(id: 'backend', path: '.', roots: ['routes']),
+              ],
+            ),
+            'dart': const WorkspaceTarget(
+              id: 'dart',
+              language: 'dart',
+              framework: 'dart',
+              packages: [
+                WorkspacePackage(id: 'dart', path: '.', roots: ['lib']),
+              ],
+            ),
+          },
+        ),
+        data: const MetadataExtractorResult(),
+      );
+
+      final result = await ExtractionService().extract(
+        workspace,
+        targetId: 'backend',
+        topologyOnly: true,
+      );
+
+      expect(result.errors, isEmpty);
+      expect(result.outputs, isEmpty);
+      expect(result.evidenceRecords, isEmpty);
+      expect(result.topologyOutputs, hasLength(1));
+      expect(
+        result.topologyOutputs.single.nodes.any((node) => node.kind == 'route'),
+        isTrue,
+      );
+    });
 
     test(
       'projects middleware initialization edges to annotated implementations',

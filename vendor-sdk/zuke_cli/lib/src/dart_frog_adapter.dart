@@ -10,6 +10,7 @@ import 'package:path/path.dart' as path;
 import 'package:zuke_core/zuke_core.dart';
 
 import 'generated/release_contract.dart';
+import 'dart_frog_http_methods.dart';
 import 'tooling/analyzer_sdk.dart';
 import 'tooling/inspection.dart';
 
@@ -120,6 +121,11 @@ final class DartFrogAdapter implements FrameworkAdapter {
                 'handlerResolved': exists,
                 'transport': transport.kind,
                 'transportResolved': transport.complete,
+                if (transport.methods.isNotEmpty) 'methods': transport.methods,
+                // Dart Frog's resolved WebSocket handler uses an HTTP GET
+                // handshake. This does not describe ordinary HTTP branches.
+                if (transport.kind == 'websocket')
+                  'httpUpgradeMethods': const ['GET'],
                 if (transport.implementationTypes.isNotEmpty)
                   'implementationTypes': transport.implementationTypes,
               },
@@ -273,8 +279,13 @@ final class DartFrogAdapter implements FrameworkAdapter {
   Future<_TransportResult> _classifyTransport(
     String filePath,
     AdapterRequest request,
-    AnalysisContextCollection collection,
-  ) async {
+    AnalysisContextCollection collection, [
+    Set<String>? visited,
+  ]) async {
+    visited ??= <String>{};
+    if (!visited.add(filePath)) {
+      return const _TransportResult(kind: 'indeterminate', complete: false);
+    }
     final resolved = await _resolveUnit(filePath, collection);
     if (resolved == null) {
       return _TransportResult(
@@ -288,12 +299,55 @@ final class DartFrogAdapter implements FrameworkAdapter {
         ],
       );
     }
+    final functions = resolved.unit.declarations
+        .whereType<FunctionDeclaration>()
+        .where((declaration) => declaration.name.lexeme == 'onRequest');
+    final variables = resolved.unit.declarations
+        .whereType<TopLevelVariableDeclaration>()
+        .expand((declaration) => declaration.variables.variables)
+        .where((declaration) => declaration.name.lexeme == 'onRequest');
+    if (functions.length + variables.length != 1) {
+      return const _TransportResult(kind: 'indeterminate', complete: false);
+    }
+    final body = functions.isNotEmpty
+        ? functions.single.functionExpression.body
+        : variables.single.initializer;
+    if (body == null) {
+      return const _TransportResult(kind: 'indeterminate', complete: false);
+    }
+    // Follow direct route aliases using resolved symbols; visited stops cycles.
+    final returned = functions.isNotEmpty
+        ? _returnedExpression(functions.single)
+        : variables.single.initializer;
+    final directReturn =
+        body is ExpressionFunctionBody ||
+        (body is BlockFunctionBody && body.block.statements.length == 1);
+    final forwardedCall =
+        directReturn &&
+        returned is MethodInvocation &&
+        functions.isNotEmpty &&
+        _forwardsParameters(returned, functions.single);
+    final alias = switch (returned) {
+      MethodInvocation value when forwardedCall => value.methodName.element,
+      PrefixedIdentifier value => value.identifier.element,
+      SimpleIdentifier value => value.element,
+      _ => null,
+    };
+    if (alias is ExecutableElement &&
+        alias.name == 'onRequest' &&
+        (alias is GetterElement || forwardedCall)) {
+      final aliasPath = alias.library.firstFragment.source.fullName;
+      final root = path.normalize(Directory(request.packageRoot).absolute.path);
+      if (path.isWithin(root, aliasPath)) {
+        return _classifyTransport(aliasPath, request, collection, visited);
+      }
+    }
     var sawCandidate = false;
     var resolvedWebSocket = false;
     var unresolvedCandidate = false;
     final implementationTypes = <String>{};
     var unresolvedImplementationLink = false;
-    resolved.unit.accept(
+    body.accept(
       _InvocationVisitor(
         onInvocation: (invocation) {
           final name = switch (invocation) {
@@ -378,6 +432,9 @@ final class DartFrogAdapter implements FrameworkAdapter {
     }
     return _TransportResult(
       kind: 'http',
+      methods: functions.isNotEmpty
+          ? dartFrogHttpMethods(functions.single)
+          : const [],
       complete: !unresolvedImplementationLink,
       implementationTypes: linkedTypes,
       diagnostics: unresolvedImplementationLink
@@ -389,6 +446,24 @@ final class DartFrogAdapter implements FrameworkAdapter {
             ]
           : const [],
     );
+  }
+
+  bool _forwardsParameters(MethodInvocation call, FunctionDeclaration handler) {
+    final parameters = handler.functionExpression.parameters?.parameters;
+    if (parameters == null ||
+        parameters.length != call.argumentList.arguments.length) {
+      return false;
+    }
+    for (var index = 0; index < parameters.length; index++) {
+      final argument = call.argumentList.arguments[index];
+      final parameter = parameters[index].declaredFragment?.element;
+      if (parameter == null ||
+          argument is! SimpleIdentifier ||
+          argument.element != parameter) {
+        return false;
+      }
+    }
+    return true;
   }
 
   Future<_MiddlewareInspection> _inspectMiddleware(
@@ -583,11 +658,11 @@ final class DartFrogAdapter implements FrameworkAdapter {
         for (final classDeclaration
             in resolved.unit.declarations.whereType<ClassDeclaration>()) {
           if (owner is! InterfaceElement ||
-              classDeclaration.name.lexeme != owner.name) {
+              _classDeclarationName(classDeclaration) != owner.name) {
             continue;
           }
           if (executable is ConstructorElement) {
-            final constructors = classDeclaration.members
+            final constructors = _classDeclarationMembers(classDeclaration)
                 .whereType<ConstructorDeclaration>()
                 .where(
                   (candidate) =>
@@ -600,7 +675,7 @@ final class DartFrogAdapter implements FrameworkAdapter {
             }
             continue;
           }
-          final methods = classDeclaration.members
+          final methods = _classDeclarationMembers(classDeclaration)
               .whereType<MethodDeclaration>()
               .where((candidate) => candidate.name.lexeme == executable.name)
               .toList(growable: false);
@@ -633,6 +708,28 @@ final class DartFrogAdapter implements FrameworkAdapter {
 
     await inspectExecutable(element);
     return types.toList()..sort();
+  }
+
+  String _classDeclarationName(ClassDeclaration declaration) {
+    // Analyzer 12 moved the class name and members below namePart/body.
+    // Keep the adapter source-compatible with the older Analyzer versions
+    // supported by the release matrix while using the new public API when it
+    // is available.
+    final dynamic node = declaration;
+    try {
+      return node.namePart.typeName.lexeme as String;
+    } on Object {
+      return node.name.lexeme as String;
+    }
+  }
+
+  Iterable<ClassMember> _classDeclarationMembers(ClassDeclaration declaration) {
+    final dynamic node = declaration;
+    try {
+      return (node.body.members as Iterable).cast<ClassMember>();
+    } on Object {
+      return (node.members as Iterable).cast<ClassMember>();
+    }
   }
 
   Future<ResolvedUnitResult?> _resolveUnit(
@@ -692,12 +789,14 @@ final class DartFrogAdapter implements FrameworkAdapter {
 }
 
 final class _TransportResult {
+  final List<String> methods;
   final String kind;
   final bool complete;
   final List<String> implementationTypes;
   final List<Diagnostic> diagnostics;
 
   const _TransportResult({
+    this.methods = const [],
     required this.kind,
     required this.complete,
     this.implementationTypes = const [],

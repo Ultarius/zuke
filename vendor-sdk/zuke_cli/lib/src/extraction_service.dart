@@ -36,9 +36,16 @@ class ExtractionService {
     _ => CompletenessValue.notApplicable,
   };
 
+  /// Extracts configured Dart targets and their framework topology.
+  ///
+  /// [targetId] scopes work to one configured target. [topologyOnly] skips
+  /// Dart IR, evidence, source digests, and non-Dart Frog targets when a
+  /// caller only needs route topology, such as OpenAPI verification.
   Future<WorkspaceExtraction> extract(
     WorkspaceDiscoveryResult workspace, {
     bool includeEvidence = true,
+    String? targetId,
+    bool topologyOnly = false,
   }) async {
     final root = workspace.config.root!;
     final outputs = <IrAdapterOutput>[];
@@ -46,8 +53,10 @@ class ExtractionService {
     final errors = <String>[];
     for (final targetEntry in workspace.config.workspaceTargets.entries) {
       final target = targetEntry.value;
+      if (targetId != null && target.id != targetId) continue;
       if (target.language != 'dart') continue;
       final framework = target.framework;
+      if (topologyOnly && framework != 'dart-frog') continue;
       for (final package in target.packages) {
         final packageDirectory = Directory(_join(root, package.path));
         if (!packageDirectory.existsSync()) {
@@ -61,14 +70,18 @@ class ExtractionService {
         // used by the projected topology output.  Keep it in the same
         // digest format as the analyzer output; publication normalizes the
         // value to the canonical sha256:<hex> wire form.
-        final inputDigest = _sourceDigest(
-          packageRoot,
-          roots,
-          framework == 'dart-frog' ? 'dart-frog' : 'dart-http-v3',
-          framework == 'dart-frog'
-              ? dartFrogCompatibilityId
-              : DartExtractor.compatibilityId,
-        );
+        // Topology-only extraction never projects an IR output, so the
+        // source digest is intentionally omitted from this fast path.
+        final inputDigest = topologyOnly
+            ? ''
+            : _sourceDigest(
+                packageRoot,
+                roots,
+                framework == 'dart-frog' ? 'dart-frog' : 'dart-http-v3',
+                framework == 'dart-frog'
+                    ? dartFrogCompatibilityId
+                    : DartExtractor.compatibilityId,
+              );
         AdapterOutput? topology;
         if (framework == 'dart-frog') {
           topology = await const DartFrogAdapter().extract(
@@ -90,6 +103,10 @@ class ExtractionService {
                   (diagnostic) => '${diagnostic.code}: ${diagnostic.message}',
                 ),
           );
+          if (topologyOnly) {
+            topologyOutputs.add(topology);
+            continue;
+          }
         }
         // A package can be inspected under different configured targets.
         // Cache identity must include that namespace; otherwise an output
@@ -160,7 +177,7 @@ class ExtractionService {
         }
       }
     }
-    final evidenceLoad = includeEvidence
+    final evidenceLoad = includeEvidence && !topologyOnly
         ? _loadEvidence(root, workspace.config.evidenceOutput)
         : const _EvidenceLoad([], []);
     errors.addAll(evidenceLoad.errors);

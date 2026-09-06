@@ -641,6 +641,14 @@ Feature: Harness Feature
           )
           .toSet();
       expect(executionIds, hasLength(3));
+      final caseIds = files
+          .map((file) => (jsonDecode(file.readAsStringSync()) as Map)['caseId'])
+          .toSet();
+      expect(caseIds, {
+        'examples-1-row-1',
+        'examples-1-row-2',
+        'examples-2-row-1',
+      });
     } finally {
       await Future.wait([
         deleteTemporaryDirectory(evidenceDirectory),

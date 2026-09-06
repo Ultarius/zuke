@@ -63,6 +63,12 @@ final class DependencyFirewall {
       _require(failures, package.name, 'dev', dev, rule['requireDev']);
       _requireSdk(failures, package.name, pubspec, rule['requireRuntimeSdk']);
 
+      if (rule['repositoryOnly'] == true && pubspec['publish_to'] != 'none') {
+        failures.add(
+          '${package.name}: repository-only package must set publish_to: none',
+        );
+      }
+
       if (rule['rejectExactTestConstraint'] == true) {
         for (final value in [
           _dependencyValue(pubspec['dependencies'], 'test'),

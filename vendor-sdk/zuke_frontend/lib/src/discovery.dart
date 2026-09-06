@@ -98,6 +98,38 @@ class ZukeConfig {
   /// Independent product coverage policy configuration.
   final Map<String, dynamic> coverageConfig;
 
+  /// Validated Dart tooling policy declarations.
+  final Map<String, dynamic> dartTooling;
+
+  /// Validated severity overrides for protected diagnostics.
+  final Map<String, String> protectedSeverities;
+
+  /// Whether generated output must be clean before lock publication.
+  final bool? requireCleanGeneration;
+
+  /// Unrecognized top-level keys retained verbatim for forward compatibility.
+  /// Recognized keys are validated strictly; unknown keys warn instead of
+  /// failing so rolling upgrades stay compatible.
+  final Map<String, Object?> extensions;
+
+  /// Non-fatal observations collected during parsing (unknown keys).
+  /// Surfaced as `ZK-CONFIG-UNKNOWN-KEY` warning diagnostics by the CLI
+  /// preflight; never thrown and never printed on stdout in JSON mode.
+  final List<ConfigWarning> warnings;
+
+  /// Typed lock configuration. No default profiles are introduced here.
+  final WorkspaceLockConfig lock;
+
+  /// Typed coverage configuration (shape-validated).
+  final WorkspaceCoverageConfig coverage;
+
+  /// Typed evidence configuration (shape-validated).
+  final WorkspaceEvidenceConfig evidence;
+
+  /// Typed Dart tooling configuration (shape-validated).
+  final WorkspaceDartToolingConfig tooling;
+  final Map<String, ExecutionProfile> executionProfiles;
+
   /// Creates workspace configuration.
   const ZukeConfig({
     this.schemaVersion = 3,
@@ -123,6 +155,16 @@ class ZukeConfig {
     this.lockDirectory,
     this.lockProfiles = const [],
     this.coverageConfig = const {},
+    this.dartTooling = const {},
+    this.protectedSeverities = const {},
+    this.requireCleanGeneration,
+    this.extensions = const {},
+    this.warnings = const [],
+    this.lock = const WorkspaceLockConfig(),
+    this.coverage = const WorkspaceCoverageConfig(),
+    this.evidence = const WorkspaceEvidenceConfig(),
+    this.tooling = const WorkspaceDartToolingConfig(),
+    this.executionProfiles = const {},
   });
 
   /// Parses [yamlContent] into workspace configuration.
@@ -161,10 +203,43 @@ class ZukeConfig {
 
     final specs = doc['specifications'] as Map? ?? {};
     final policies = doc['policies'] as Map? ?? {};
+    final warnings = <ConfigWarning>[];
+    const knownTopLevel = {
+      'schemaVersion',
+      'workspace',
+      'specifications',
+      'policies',
+      'targets',
+      'execution',
+      'evidence',
+      'coverage',
+      'lock',
+      'trust',
+      'dartTooling',
+    };
+    final extensions = <String, Object?>{
+      for (final entry in doc.entries)
+        if (entry.key is String && !knownTopLevel.contains(entry.key))
+          entry.key as String: entry.value,
+    };
+    for (final key in extensions.keys) {
+      warnings.add(
+        ConfigWarning(
+          code: 'ZK-CONFIG-UNKNOWN-KEY',
+          message: 'Unknown zuke.yaml key "$key" is ignored.',
+          path: key,
+        ),
+      );
+    }
 
     List<String>? profiles;
     final profilesRaw = policies['profiles'];
-    if (profilesRaw is List) profiles = profilesRaw.cast<String>();
+    if (profilesRaw != null) {
+      profiles = _stringList(profilesRaw);
+      if (profiles == null) {
+        throw const FormatException('policies.profiles must be a string list');
+      }
+    }
 
     final rawTargetsValue = doc['targets'];
     if (rawTargetsValue != null && rawTargetsValue is! Map) {
@@ -190,6 +265,7 @@ class ZukeConfig {
     final rawExecution = rawExecutionValue is Map
         ? Map<String, dynamic>.from(rawExecutionValue)
         : const <String, dynamic>{};
+    _validateConfigurationShapes(doc, policies, lockSection);
     final targetPackages = <String, List<Map<String, dynamic>>>{};
     final targetFrameworks = <String, String>{};
     for (final entry in targetsConfig.entries) {
@@ -244,7 +320,25 @@ class ZukeConfig {
       for (final runner in (rawExecution['runners'] as List? ?? const []))
         WorkspaceRunner.fromMap(Map<Object?, Object?>.from(runner as Map)),
     ];
+    for (final runner in workspaceRunners) {
+      for (final key in runner.extensions.keys) {
+        warnings.add(
+          ConfigWarning(
+            code: 'ZK-CONFIG-UNKNOWN-KEY',
+            message:
+                'Unknown execution.runners.${runner.id} key "$key" is ignored.',
+            path: 'execution.runners.${runner.id}.$key',
+          ),
+        );
+      }
+    }
 
+    /// Compatibility behavior: when several targets declare the same
+    /// contract option, the first target in `zuke.yaml` document order wins.
+    /// This preserves historical multi-target workspaces (e.g. backend +
+    /// server sharing `contractOutput`). New workspaces should declare the
+    /// option on every target that needs it rather than relying on order.
+    /// Covered by `first-wins target option` regression tests.
     String? targetOption(String key) {
       for (final target in rawTargets.values) {
         if (target is! Map) continue;
@@ -273,6 +367,19 @@ class ZukeConfig {
       evidenceOutput: evidenceSection['output'] as String?,
       trustBundle: trustSection['bundle'] as String?,
       executionConfig: rawExecution,
+      executionProfiles: Map.unmodifiable({
+        for (final entry in rawExecution.entries)
+          // `runners` and `endpoints` are execution declarations, not
+          // profile maps. Keeping them out of this typed view prevents an
+          // endpoint declaration from being parsed as a profile and failing
+          // with a misleading missing-tagExpression error.
+          if (entry.key != 'runners' &&
+              entry.key != 'endpoints' &&
+              entry.value is Map)
+            entry.key: ExecutionProfile.fromMap(
+              Map<Object?, Object?>.from(entry.value as Map),
+            ),
+      }),
       workspaceRunners: workspaceRunners,
       targetPackages: targetPackages,
       workspaceTargets: workspaceTargets,
@@ -283,7 +390,167 @@ class ZukeConfig {
       coverageConfig: rawCoverage is Map
           ? Map<String, dynamic>.from(rawCoverage)
           : const {},
+      dartTooling: doc['dartTooling'] is Map
+          ? Map<String, dynamic>.from(doc['dartTooling'] as Map)
+          : const {},
+      protectedSeverities: policies['protectedSeverities'] is Map
+          ? {
+              for (final entry
+                  in (policies['protectedSeverities'] as Map).entries)
+                entry.key.toString(): entry.value.toString(),
+            }
+          : const {},
+      requireCleanGeneration: lockSection['requireCleanGeneration'] as bool?,
+      extensions: extensions,
+      warnings: warnings,
+      lock: WorkspaceLockConfig.fromMap(
+        Map<Object?, Object?>.from(lockSection),
+      ),
+      coverage: rawCoverage is Map
+          ? WorkspaceCoverageConfig.fromMap(
+              Map<Object?, Object?>.from(rawCoverage),
+            )
+          : const WorkspaceCoverageConfig(),
+      evidence: WorkspaceEvidenceConfig.fromMap(
+        Map<Object?, Object?>.from(evidenceSection),
+      ),
+      tooling: doc['dartTooling'] is Map
+          ? WorkspaceDartToolingConfig.fromMap(
+              Map<Object?, Object?>.from(doc['dartTooling'] as Map),
+            )
+          : const WorkspaceDartToolingConfig(),
     );
+  }
+
+  static void _validateConfigurationShapes(Map doc, Map policies, Map lock) {
+    final tooling = doc['dartTooling'];
+    if (tooling != null && tooling is! Map) {
+      throw const FormatException('dartTooling must be a mapping');
+    }
+    if (tooling is Map) {
+      final extraction = tooling['extraction'];
+      if (extraction != null && extraction is! Map) {
+        throw const FormatException('dartTooling.extraction must be a mapping');
+      }
+      if (extraction is Map) {
+        _requireString(extraction, 'authority', 'dartTooling.extraction');
+        _requireString(extraction, 'cache', 'dartTooling.extraction');
+        _requireBool(
+          extraction,
+          'requireResolvedAnnotations',
+          'dartTooling.extraction',
+        );
+        _requireBool(
+          extraction,
+          'rejectIncompleteFragments',
+          'dartTooling.extraction',
+        );
+      }
+      final analyzerPlugin = tooling['analyzerPlugin'];
+      if (analyzerPlugin != null && analyzerPlugin is! Map) {
+        throw const FormatException(
+          'dartTooling.analyzerPlugin must be a mapping',
+        );
+      }
+      if (analyzerPlugin is Map) {
+        _requireBool(analyzerPlugin, 'enabled', 'dartTooling.analyzerPlugin');
+      }
+      final buildHooks = tooling['buildHooks'];
+      if (buildHooks != null && buildHooks is! Map) {
+        throw const FormatException('dartTooling.buildHooks must be a mapping');
+      }
+      if (buildHooks is Map) {
+        _requireEnum(buildHooks, 'default', 'dartTooling.buildHooks', const {
+          'disabled',
+          'enabled',
+        });
+        _requireStringList(
+          buildHooks,
+          'enabledPackages',
+          'dartTooling.buildHooks',
+        );
+      }
+      final generation = tooling['generation'];
+      if (generation != null && generation is! Map) {
+        throw const FormatException('dartTooling.generation must be a mapping');
+      }
+      if (generation is Map) {
+        _requireString(generation, 'driver', 'dartTooling.generation');
+        _requireBool(
+          generation,
+          'commitGeneratedSource',
+          'dartTooling.generation',
+        );
+        _requireEnum(
+          generation,
+          'buildRunner',
+          'dartTooling.generation',
+          const {'disabled', 'enabled'},
+        );
+      }
+    }
+
+    final protected = policies['protectedSeverities'];
+    if (protected != null && protected is! Map) {
+      throw const FormatException(
+        'policies.protectedSeverities must be a mapping',
+      );
+    }
+    if (protected is Map) {
+      for (final entry in protected.entries) {
+        if (entry.key is! String ||
+            entry.key.toString().trim().isEmpty ||
+            entry.value is! String ||
+            !const {'info', 'warning', 'error'}.contains(entry.value)) {
+          throw const FormatException(
+            'policies.protectedSeverities values must be info, warning, or error',
+          );
+        }
+      }
+    }
+
+    final requireCleanGeneration = lock['requireCleanGeneration'];
+    if (requireCleanGeneration != null && requireCleanGeneration is! bool) {
+      throw const FormatException(
+        'lock.requireCleanGeneration must be boolean',
+      );
+    }
+  }
+
+  static void _requireString(Map section, String key, String path) {
+    if (!section.containsKey(key)) return;
+    final value = section[key];
+    if (value is! String || value.trim().isEmpty) {
+      throw FormatException('$path.$key must be a non-empty string');
+    }
+  }
+
+  static void _requireBool(Map section, String key, String path) {
+    if (!section.containsKey(key)) return;
+    if (section[key] is! bool) {
+      throw FormatException('$path.$key must be boolean');
+    }
+  }
+
+  static void _requireStringList(Map section, String key, String path) {
+    if (!section.containsKey(key)) return;
+    final value = section[key];
+    if (value is! List || value.any((entry) => entry is! String)) {
+      throw FormatException('$path.$key must be a list of strings');
+    }
+  }
+
+  static void _requireEnum(
+    Map section,
+    String key,
+    String path,
+    Set<String> allowed,
+  ) {
+    if (!section.containsKey(key)) return;
+    final value = section[key];
+    if (value is! String || !allowed.contains(value)) {
+      throw FormatException('$path.$key must be one of ${allowed.join(', ')}');
+    }
   }
 
   static void _validateV3(

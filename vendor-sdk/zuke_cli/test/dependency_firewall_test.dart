@@ -89,6 +89,26 @@ dependencies:
       contains(contains('test is forbidden in runtime dependencies')),
     );
   });
+
+  test('rejects repository test support in runtime dependencies', () {
+    final root = Directory.systemTemp.createTempSync('zuke-firewall-');
+    addTearDown(() => root.deleteSync(recursive: true));
+    _writePolicy(root);
+    _writePackage(root, 'zuke_test_support', '''name: zuke_test_support
+dependencies:
+  test: ^1.31.0
+''');
+
+    final failures = DependencyFirewall(root).check();
+    expect(
+      failures,
+      contains(contains('test is forbidden in runtime dependencies')),
+    );
+    expect(
+      failures,
+      contains(contains('repository-only package must set publish_to: none')),
+    );
+  });
 }
 
 void _writePolicy(Directory root) {
@@ -103,6 +123,10 @@ packages:
   zuke_runner_flutter:
     requireRuntimeSdk: [flutter, flutter_test]
     forbiddenRuntime: [test]
+  zuke_test_support:
+    repositoryOnly: true
+    requireDev: [test]
+    forbiddenRuntime: [test, test_api, test_core, flutter, flutter_test]
 ''');
 }
 

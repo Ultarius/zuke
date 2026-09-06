@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+import 'dart:isolate';
 
 import 'package:args/args.dart';
 import 'package:zuke_cli/zuke_cli.dart';
@@ -19,6 +20,200 @@ void main() {
     tearDown(() {
       if (root.existsSync()) root.deleteSync(recursive: true);
     });
+
+    for (final output in [
+      'lib/contracts',
+      'packages/contracts/lib/contracts',
+    ]) {
+      test('catalog executes through a custom barrel in $output', () async {
+        final lib = output.substring(0, output.lastIndexOf('/'));
+        final barrel = '$lib/api/contracts.dart';
+        _configureCatalog(root, output: output, barrel: barrel);
+        final packageRoot =
+            lib == 'lib' ? root : Directory('${root.path}/packages/contracts')
+              ..createSync(recursive: true);
+        final packageName = lib == 'lib'
+            ? 'generator_fixture'
+            : 'actual_contracts';
+        if (lib != 'lib') {
+          File(
+            '${packageRoot.path}/pubspec.yaml',
+          ).writeAsStringSync('name: $packageName\n');
+        }
+        final second = File('${root.path}/specs/features/second.feature');
+        second.writeAsStringSync(
+          File(
+            '${root.path}/specs/features/fixture.feature',
+          ).readAsStringSync().replaceAll('TEST', 'SECOND'),
+        );
+        expect(await _run(root), 0);
+        expect(await _run(root, check: true), 0);
+        final generated = File('${root.path}/$barrel');
+        final original = generated.readAsStringSync();
+        expect(
+          original,
+          contains(
+            "import 'package:$packageName/contracts/feat_test_001_contracts.g.dart'",
+          ),
+        );
+        final probe = File('${root.path}/catalog_probe.dart')
+          ..writeAsStringSync('''
+import '$barrel';
+void check(bool value) { if (!value) throw StateError('catalog mismatch'); }
+void main() {
+  check(generatedScenarioContracts.length == 2);
+  final scenario = zukeScenarioContract('SCN-TEST-001');
+  check(identical(scenario, FeatTest001Scenario.id001));
+  check(scenario.requirementId.value == 'RULE-TEST-001');
+  check(scenario.title == 'Fixture scenario');
+  check(identical(zukeScenarioContract('SCN-SECOND-001'),
+      FeatSecond001Scenario.id001));
+  try { zukeScenarioContract('SCN-UNKNOWN-001'); }
+  on StateError { return checkImmutable(); }
+  throw StateError('unknown id accepted');
+}
+void checkImmutable() {
+  try { generatedScenarioContracts.clear(); }
+  on UnsupportedError { return; }
+  throw StateError('catalog is mutable');
+}
+''');
+        final sourceConfig = (await Isolate.packageConfig)!;
+        final packageConfig =
+            jsonDecode(File.fromUri(sourceConfig).readAsStringSync())
+                as Map<String, dynamic>;
+        for (final package in packageConfig['packages'] as List) {
+          package['rootUri'] = sourceConfig
+              .resolve(package['rootUri'] as String)
+              .toString();
+        }
+        (packageConfig['packages'] as List).add({
+          'name': packageName,
+          'rootUri': packageRoot.uri.toString(),
+          'packageUri': 'lib/',
+          'languageVersion': '3.10',
+        });
+        final configFile = File('${root.path}/probe_packages.json')
+          ..writeAsStringSync(jsonEncode(packageConfig));
+        final executed = await Process.run(Platform.resolvedExecutable, [
+          '--packages=${configFile.path}',
+          probe.path,
+        ]);
+        expect(
+          executed.exitCode,
+          0,
+          reason: '${executed.stdout}${executed.stderr}',
+        );
+
+        // An edited generated barrel is refreshable, and check never writes it.
+        generated.writeAsStringSync('$original\n// stale\n');
+        expect(await _run(root, check: true), 1);
+        expect(generated.readAsStringSync(), '$original\n// stale\n');
+        expect(await _run(root), 0);
+        expect(generated.readAsStringSync(), original);
+
+        // Removing a feature removes its identity and only its managed file.
+        second.deleteSync();
+        expect(await _run(root, check: true), 1);
+        expect(await _run(root), 0);
+        expect(generated.readAsStringSync(), isNot(contains('FeatSecond')));
+        expect(
+          File(
+            '${root.path}/$output/feat_second_001_contracts.g.dart',
+          ).existsSync(),
+          isFalse,
+        );
+        expect(await _run(root, check: true), 0);
+      });
+    }
+
+    test(
+      'catalog generation rejects duplicates before replacing outputs',
+      () async {
+        _configureCatalog(root);
+        expect(await _run(root), 0);
+        final barrel = File('${root.path}/lib/contracts.dart');
+        final before = barrel.readAsBytesSync();
+        File('${root.path}/specs/features/second.feature').writeAsStringSync(
+          File('${root.path}/specs/features/fixture.feature')
+              .readAsStringSync()
+              .replaceAll('FEAT-TEST', 'FEAT-SECOND')
+              .replaceAll('RULE-TEST', 'RULE-SECOND'),
+        );
+        expect(await _run(root), 1);
+        expect(barrel.readAsBytesSync(), before);
+      },
+    );
+
+    test('catalog remains valid when the last feature is removed', () async {
+      _configureCatalog(root);
+      expect(await _run(root), 0);
+      File('${root.path}/specs/features/fixture.feature').deleteSync();
+      expect(await _run(root), 0);
+      expect(await _run(root, check: true), 0);
+      final probe = File('${root.path}/empty_probe.dart')
+        ..writeAsStringSync('''
+import 'lib/contracts.dart';
+void main() {
+  if (generatedScenarioContracts.isNotEmpty) throw StateError('stale catalog');
+}
+''');
+      final executed = await Process.run(Platform.resolvedExecutable, [
+        '--packages=${(await Isolate.packageConfig)!.toFilePath()}',
+        probe.path,
+      ]);
+      expect(
+        executed.exitCode,
+        0,
+        reason: '${executed.stdout}${executed.stderr}',
+      );
+    });
+
+    test(
+      'catalog refuses handwritten barrels and upgrades legacy exports',
+      () async {
+        _configureCatalog(root);
+        final barrel = File('${root.path}/lib/contracts.dart');
+        barrel.parent.createSync(recursive: true);
+        barrel.writeAsStringSync(
+          '// Public aggregate maintained by the app.\n',
+        );
+        expect(await _run(root), 1);
+        expect(
+          barrel.readAsStringSync(),
+          '// Public aggregate maintained by the app.\n',
+        );
+        barrel.deleteSync();
+        expect(await _run(root), 0);
+        const legacy =
+            "export 'src/generated/feat_test_001_contracts.g.dart';\n";
+        barrel.writeAsStringSync(legacy);
+        expect(await _run(root, check: true), 1);
+        expect(barrel.readAsStringSync(), legacy);
+        expect(await _run(root), 0);
+        expect(await _run(root, check: true), 0);
+        barrel.writeAsStringSync('$legacy// Handwritten addition\n');
+        expect(await _run(root), 1);
+        expect(barrel.readAsStringSync(), '$legacy// Handwritten addition\n');
+      },
+    );
+
+    test(
+      'catalog rejects a barrel that overwrites a feature contract',
+      () async {
+        _configureCatalog(
+          root,
+          barrel: 'lib/src/generated/feat_test_001_contracts.g.dart',
+        );
+        expect(await _run(root), 1);
+        expect(
+          File(
+            '${root.path}/lib/src/generated/feat_test_001_contracts.g.dart',
+          ).existsSync(),
+          isFalse,
+        );
+      },
+    );
 
     test(
       'generate --check detects missing or modified generated files',
@@ -302,6 +497,27 @@ Future<int> _run(Directory root, {bool check = false}) => GenerateCommand(
         ..addFlag('quiet'))
       .parse(['--root', root.path, if (check) '--check']),
 ).execute();
+
+void _configureCatalog(
+  Directory root, {
+  String output = 'lib/src/generated',
+  String barrel = 'lib/contracts.dart',
+}) {
+  final config = File('${root.path}/zuke.yaml');
+  config.writeAsStringSync(
+    config.readAsStringSync().replaceFirst(
+      'contractOutput: packages/contracts/lib/src/generated',
+      'contractOutput: $output\n    contractExport: $barrel',
+    ),
+  );
+  final feature = File('${root.path}/specs/features/fixture.feature');
+  feature.writeAsStringSync(
+    feature.readAsStringSync().replaceFirst(
+      '    Scenario:',
+      '    @SCN-TEST-001\n    Scenario:',
+    ),
+  );
+}
 
 Future<ProcessResult> _runCli(
   Directory root, {

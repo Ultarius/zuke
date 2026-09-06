@@ -257,6 +257,7 @@ abstract interface class ExecutionResult {
   String get target;
   String get variant;
   String get candidateId;
+  String? get caseId;
   String get profile;
   String get runnerId;
   String get runnerCompatibilityId;
@@ -310,6 +311,8 @@ class ScenarioResult implements ExecutionResult {
   @override
   final String candidateId;
   @override
+  final String? caseId;
+  @override
   final String profile;
   @override
   final String runnerId;
@@ -344,6 +347,7 @@ class ScenarioResult implements ExecutionResult {
     required this.target,
     this.variant = 'default',
     required this.candidateId,
+    this.caseId,
     required this.profile,
     required this.runnerId,
     required this.runnerCompatibilityId,
@@ -367,6 +371,7 @@ class ScenarioResult implements ExecutionResult {
         target: target,
         variant: variant,
         candidateId: candidateId,
+        caseId: caseId,
         profile: profile,
         runnerId: runnerId,
         runnerCompatibilityId: runnerCompatibilityId,
@@ -395,6 +400,7 @@ class ScenarioResult implements ExecutionResult {
       'target': target,
       'variant': variant,
       'candidateId': candidateId,
+      if (caseId != null) 'caseId': caseId,
       'profile': profile,
       'runnerId': runnerId,
       'runnerCompatibilityId': runnerCompatibilityId,
@@ -449,6 +455,7 @@ class ScenarioResult implements ExecutionResult {
       target: required('target'),
       variant: required('variant'),
       candidateId: required('candidateId'),
+      caseId: json['caseId'] as String?,
       profile: required('profile'),
       runnerId: required('runnerId'),
       runnerCompatibilityId: required('runnerCompatibilityId'),
@@ -492,6 +499,8 @@ class SuiteResult implements ExecutionResult {
   @override
   final String candidateId;
   @override
+  final String? caseId;
+  @override
   final String profile;
   @override
   final String runnerId;
@@ -526,6 +535,7 @@ class SuiteResult implements ExecutionResult {
     required this.target,
     this.variant = 'default',
     required this.candidateId,
+    this.caseId,
     required this.profile,
     required this.runnerId,
     required this.runnerCompatibilityId,
@@ -549,6 +559,7 @@ class SuiteResult implements ExecutionResult {
         target: target,
         variant: variant,
         candidateId: candidateId,
+        caseId: caseId,
         profile: profile,
         runnerId: runnerId,
         runnerCompatibilityId: runnerCompatibilityId,
@@ -578,6 +589,7 @@ class SuiteResult implements ExecutionResult {
       'target': target,
       'variant': variant,
       'candidateId': candidateId,
+      if (caseId != null) 'caseId': caseId,
       'profile': profile,
       'runnerId': runnerId,
       'runnerCompatibilityId': runnerCompatibilityId,
@@ -626,6 +638,7 @@ class SuiteResult implements ExecutionResult {
       target: required('target'),
       variant: required('variant'),
       candidateId: required('candidateId'),
+      caseId: json['caseId'] as String?,
       profile: required('profile'),
       runnerId: required('runnerId'),
       runnerCompatibilityId: required('runnerCompatibilityId'),
@@ -803,6 +816,7 @@ final class SuiteEvidenceEmitter {
         target: target,
         variant: variant,
         candidateId: scenarioId.value,
+        caseId: caseId,
         profile: effectiveProfile,
         runnerId: effectiveRunnerId,
         runnerCompatibilityId: runnerCompatibilityId,
@@ -861,6 +875,16 @@ final class ScenarioExampleCase {
     required this.displayLabel,
     required this.values,
   });
+}
+
+/// Returns the stable managed identity for one scenario case.
+///
+/// A plain Scenario has one implicit default case and keeps the historical
+/// null identity. Scenario Outline rows receive an identity independent of
+/// display text so renamed Examples labels do not change evidence identity.
+String? scenarioExampleCaseId(ScenarioExampleCase exampleCase) {
+  if (exampleCase.displayLabel.isEmpty) return null;
+  return 'examples-${exampleCase.examplesIndex + 1}-row-${exampleCase.rowIndex + 1}';
 }
 
 /// Enumerates every executable case for [scenario] in source order.
@@ -956,6 +980,7 @@ class ScenarioExecutor<W extends ScenarioWorld> {
   final String variant;
   final String profile;
   final ScenarioId? candidateId;
+  final String? caseId;
   final Map<String, String> digests;
   final String? runnerId;
   final String? runnerCompatibilityId;
@@ -971,6 +996,7 @@ class ScenarioExecutor<W extends ScenarioWorld> {
     this.variant = 'default',
     this.profile = 'pullRequest',
     this.candidateId,
+    this.caseId,
     this.digests = const {},
     this.runnerId,
     this.runnerCompatibilityId,
@@ -1044,6 +1070,7 @@ class ScenarioExecutor<W extends ScenarioWorld> {
       target: target,
       variant: variant,
       candidateId: candidateId?.value ?? executionId,
+      caseId: caseId,
       profile: profile,
       runnerId: runnerId ?? 'zuke-runner',
       runnerCompatibilityId: runnerCompatibilityId ?? 'zuke-runner-scenario-v1',

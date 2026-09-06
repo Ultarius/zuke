@@ -12,23 +12,69 @@ import 'package:zuke_annotations/zuke_annotations.dart';
 import 'package:zuke_frontend/zuke_frontend.dart';
 import 'package:zuke_core/zuke_core.dart';
 import 'package:zuke/runner.dart';
+import 'package:zuke_runner/zuke_runner.dart' as zuke_runner;
 
 import 'src/flutter_binding_key.dart';
 
 export 'package:zuke_annotations/zuke_annotations.dart';
 export 'package:zuke_frontend/zuke_frontend.dart';
 export 'package:zuke/runner.dart';
+export 'package:zuke_runner/zuke_runner.dart' show defaultZukeDescription;
 export 'src/flutter_binding_key.dart';
 
 final _registeredFlutterScenarioCases = <String>{};
 final _registeredFlutterScenarioIds = <String>{};
 
+/// Registers a non-widget test from a Flutter package.
+///
+/// Flutter packages frequently contain protocol, repository, and token tests
+/// beside widget tests. This explicit Flutter entry point keeps those cases on
+/// the same managed lifecycle and evidence path as [zukeTestWidgets] without
+/// requiring a dummy WidgetTester assertion.
+///
+/// If [description] is omitted, it defaults to
+/// `'Zuke ${scenario.id.value}: ${scenario.title}'` (with caseId suffix if specified).
+void zukeTest(
+  FutureOr<dynamic> Function() body, {
+  required ZukeScenarioContract scenario,
+  String? description,
+  Iterable<String> evidenceTypes = const [],
+  Set<ControlId> provedControls = const {},
+  Iterable<String> provedImplementationSlots = const [],
+  String? caseId,
+  String? testOn,
+  Timeout? timeout,
+  Object? skip,
+  Object? tags,
+  Map<String, dynamic>? onPlatform,
+  int? retry,
+}) {
+  zuke_runner.zukeTest(
+    body,
+    scenario: scenario,
+    description: description,
+    evidenceTypes: evidenceTypes,
+    provedControls: provedControls,
+    provedImplementationSlots: provedImplementationSlots,
+    caseId: caseId,
+    testOn: testOn,
+    timeout: timeout,
+    skip: skip,
+    tags: tags,
+    onPlatform: onPlatform,
+    retry: retry,
+  );
+}
+
 /// Registers a normal Flutter widget test that publishes evidence only when
 /// the test process is managed by the Zuke CLI.
+///
+/// If [description] is omitted, it defaults to
+/// `'Zuke ${scenario.id.value}: ${scenario.title}'` (with caseId suffix if specified).
 void zukeTestWidgets(
-  String description,
   Future<void> Function(WidgetTester tester) body, {
   required ZukeScenarioContract scenario,
+  String? description,
   Iterable<String> evidenceTypes = const [],
   Set<ControlId> provedControls = const {},
   Iterable<String> provedImplementationSlots = const [],
@@ -99,8 +145,11 @@ void zukeTestWidgets(
     _registeredFlutterScenarioIds.add(scenario.id.value);
   }
 
+  final effectiveDescription =
+      description ?? zuke_runner.defaultZukeDescription(scenario, caseId);
+
   testWidgets(
-    description,
+    effectiveDescription,
     (tester) async {
       await body(tester);
       if (context == null) return;
@@ -408,6 +457,7 @@ final class ZukeFlutterHarness<W extends ScenarioWorld> {
         runnerCompatibilityId: runnerCompatibilityId,
         sourceIdentity: identity,
         digests: digests,
+        caseId: scenarioExampleCaseId(exampleCase),
       );
       final result = await executor.executeScenario(
         feature,

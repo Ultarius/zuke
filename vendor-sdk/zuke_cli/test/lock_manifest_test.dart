@@ -12,14 +12,16 @@ void main() {
     late Directory tempDir;
 
     setUp(() {
-      tempDir = Directory(
-        'test/temp_fixture_${DateTime.now().millisecondsSinceEpoch}',
-      )..createSync(recursive: true);
+      // Keep the temporary package outside the workspace package scan. The
+      // copied package config below still lets the analyzer resolve Zuke
+      // imports without running pub get for a nested package.
+      tempDir = Directory.systemTemp.createTempSync('zuke-lock-fixture-');
       File('${tempDir.path}/pubspec.yaml').writeAsStringSync('''
 name: zuke_extractor_fixture
 environment:
-  sdk: '>=3.10.0 <3.11.0'
+  sdk: '>=3.10.0 <4.0.0'
 ''');
+      _writeWorkspacePackageConfig(tempDir);
     });
 
     tearDown(() {
@@ -51,8 +53,9 @@ environment:
           File('${tempDir2.path}/pubspec.yaml').writeAsStringSync('''
 name: zuke_extractor_fixture
 environment:
-  sdk: '>=3.10.0 <3.11.0'
+  sdk: '>=3.10.0 <4.0.0'
 ''');
+          _writeWorkspacePackageConfig(tempDir2);
           final srcDir2 = Directory('${tempDir2.path}/src')
             ..createSync(recursive: true);
           final file2 = File('${srcDir2.path}/app.dart');
@@ -718,4 +721,37 @@ Feature: Gateway
       },
     );
   });
+}
+
+void _writeWorkspacePackageConfig(Directory root) {
+  final workspaceConfig = _findWorkspacePackageConfig();
+  final dartTool = Directory('${root.path}/.dart_tool')
+    ..createSync(recursive: true);
+  final workspaceUri = workspaceConfig.parent.parent.uri.toString();
+  final resolved = workspaceConfig.readAsStringSync().replaceAll(
+    '"rootUri": "../',
+    '"rootUri": "$workspaceUri',
+  );
+  File('${dartTool.path}/package_config.json').writeAsStringSync(resolved);
+}
+
+File _findWorkspacePackageConfig() {
+  var directory = Directory.current.absolute;
+  while (true) {
+    final packageConfig = File(
+      '${directory.path}${Platform.pathSeparator}.dart_tool'
+      '${Platform.pathSeparator}package_config.json',
+    );
+    if (packageConfig.existsSync() &&
+        File(
+          '${directory.path}${Platform.pathSeparator}melos.yaml',
+        ).existsSync()) {
+      return packageConfig;
+    }
+    final parent = directory.parent;
+    if (parent.path == directory.path) {
+      throw StateError('Could not locate the workspace package config.');
+    }
+    directory = parent;
+  }
 }

@@ -41,7 +41,7 @@ String setupPackageWithGuard(Directory tempDir) {
   File('${tempDir.path}/pubspec.yaml').writeAsStringSync('''
 name: test_pkg
 environment:
-  sdk: '>=3.10.0 <3.11.0'
+  sdk: '>=3.10.0 <4.0.0'
 ''');
   File('${libDir.path}/main.dart').writeAsStringSync('void main() {}\n');
   File('${tempDir.path}/zuke.yaml').writeAsStringSync('''
@@ -68,9 +68,8 @@ void main() {
     late Directory tempDir;
 
     setUp(() {
-      tempDir = Directory(
-        'test/temp_hook_${DateTime.now().millisecondsSinceEpoch}',
-      )..createSync(recursive: true);
+      // Keep the temporary package outside the workspace package scan.
+      tempDir = Directory.systemTemp.createTempSync('zuke-build-hook-');
     });
 
     tearDown(() {
@@ -87,7 +86,7 @@ void main() {
         File('${tempDir.path}/pubspec.yaml').writeAsStringSync('''
 name: test_pkg
 environment:
-  sdk: '>=3.10.0 <3.11.0'
+  sdk: '>=3.10.0 <4.0.0'
 ''');
         final lib = Directory('${tempDir.path}/lib')..createSync();
         File('${lib.path}/main.dart').writeAsStringSync('void main() {}\n');
@@ -179,7 +178,7 @@ targets:
       File('${tempDir.path}/pubspec.yaml').writeAsStringSync('''
 name: test_pkg
 environment:
-  sdk: '>=3.10.0 <3.11.0'
+  sdk: '>=3.10.0 <4.0.0'
 ''');
       File('${libDir.path}/main.dart').writeAsStringSync('void main() {}\n');
       File('${guardDir.path}/zuke.yaml').writeAsStringSync('''

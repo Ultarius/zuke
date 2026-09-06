@@ -122,6 +122,20 @@ dart run zuke_cli:zuke gate --root . --all-profiles --format json
 dart run zuke_cli:zuke coverage --root . --format json --output coverage/report.json
 ```
 
+New coverage baselines store the measured source alongside covered line sets.
+Complete snapshots preserve line comparisons across amendments and rebases,
+even when the recorded Git revision disappears. Source snapshots stay in the
+baseline file and are omitted from coverage report output.
+
+Upgrade an existing baseline once using current coverage data with
+`dart run zuke_cli:zuke coverage --root "$PWD" --baseline quality/coverage-baseline.json --write-baseline`,
+then review the baseline diff.
+
+Regenerate baselines when intentionally accepting a new coverage reference;
+rewriting Git history alone does not require regeneration. Older baselines
+without complete snapshots still require their recorded revision in a Git
+checkout.
+
 The profile test must immediately precede its lock operation because the
 current evidence publication is replaceable and profile selections are
 deliberately different. `zuke lock --all-profiles` is available as a
@@ -134,10 +148,10 @@ the same safe sequence is available as one repository tool:
 
 ```bash
 # Discover every Zuke project from the root pubspec.yaml workspace:
-dart run tool/regenerate_profile_locks.dart
+dart run zuke_cli:zuke lock --refresh --all-profiles
 
 # Or refresh one project explicitly:
-dart run tool/regenerate_profile_locks.dart --root examples/todo_app
+dart run zuke_cli:zuke lock --refresh --all-profiles --root examples/todo_app
 ```
 
 With no `--root`, the tool reads the root `pubspec.yaml` workspace members and

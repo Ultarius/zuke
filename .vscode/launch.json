@@ -28,6 +28,20 @@
       "type": "dart",
       "program": "bin/server.dart",
       "cwd": "${workspaceFolder}/examples/calculator-product/apps/calculator_api"
+    },
+    {
+      "name": "Zuke: Refresh Profile Locks",
+      "request": "launch",
+      "type": "dart",
+      "program": "vendor-sdk/zuke_cli/bin/zuke.dart",
+      "args": [
+        "lock", "--refresh", "--all-profiles",
+        "--root",
+        "${input:zukeProject}",
+        "--runner-mode",
+        "auto"
+      ],
+      "cwd": "${workspaceFolder}"
     }
   ],
   "compounds": [
@@ -45,6 +59,20 @@
         "Shopping Cart (Flutter)",
         "Calculator Mobile (Flutter)"
       ]
+    }
+  ],
+  "inputs": [
+    {
+      "id": "zukeProject",
+      "type": "pickString",
+      "description": "Select Zuke project root (. refreshes all workspace projects)",
+      "options": [
+        ".",
+        "examples/todo_app",
+        "examples/shopping_cart",
+        "examples/calculator-product"
+      ],
+      "default": "."
     }
   ]
 }

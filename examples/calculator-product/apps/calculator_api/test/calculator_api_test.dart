@@ -2,28 +2,11 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:calculator_api/calculator_api.dart';
-import 'package:calculator_domain/calculator_domain.dart';
 import 'package:calculator_contracts/calculator_contracts.dart';
-import 'package:zuke_http_runtime/zuke_http_runtime.dart';
-import 'package:zuke/zuke.dart';
+import 'package:calculator_domain/calculator_domain.dart';
 import 'package:test/test.dart';
-
-void _emit(
-  RuleId ruleId,
-  String evidenceType,
-  String target,
-  Object result, {
-  required ScenarioId scenarioId,
-}) {
-  const SuiteEvidenceEmitter().emitPassing(
-    requirementId: ruleId.value,
-    scenarioId: scenarioId,
-    evidenceTypes: [evidenceType],
-    target: target,
-    runnerCompatibilityId: 'calculator-api-gherkin-runner-v1',
-    digestInput: jsonEncode(result),
-  );
-}
+import 'package:zuke/zuke.dart';
+import 'package:zuke_http_runtime/zuke_http_runtime.dart';
 
 Future<Map<String, Object?>> _post(
   CalculatorServer server,
@@ -61,299 +44,304 @@ Future<CalculatorServer> _server({Calculator? calculator}) async {
   return server;
 }
 
-void _emitApiScenario(
-  RuleId ruleId,
-  ScenarioId scenarioId,
-  Object result, {
-  bool security = false,
-}) {
-  const SuiteEvidenceEmitter().emitPassing(
-    requirementId: ruleId.value,
-    scenarioId: scenarioId,
-    evidenceTypes: security
-        ? const ['api-contract', 'gherkin-api', 'security-integration']
-        : const ['api-contract', 'gherkin-api'],
-    target: 'backend',
-    runnerCompatibilityId: 'calculator-api-gherkin-runner-v1',
-    digestInput: jsonEncode(result),
+Future<void> _runBasicCalculation({
+  required String first,
+  required String second,
+  required String operator,
+  required String expected,
+  required String ruleId,
+}) async {
+  final server = await _server();
+  expect(server.port, greaterThan(0));
+  expect(server.application.registration.routes, isNotEmpty);
+  final response = await _post(server, {
+    'firstOperand': first,
+    'secondOperand': second,
+    'operator': operator,
+  });
+  expect(response['status'], 200);
+  expect((response['body'] as Map)['result'], expected);
+  expect(server.application.events, hasLength(1));
+  expect(
+    server.application.events.single['name'],
+    'calculator.calculation.completed',
   );
+  expect(server.application.events.single['ruleId'], ruleId);
+}
+
+Future<void> _runDivideByZero() async {
+  final server = await _server();
+  final response = await _post(server, {
+    'firstOperand': '10',
+    'secondOperand': '0',
+    'operator': '/',
+  });
+  expect(response['status'], 422);
+  final body = response['body'] as Map;
+  expect((body['error'] as Map)['code'], 'DIVISION_BY_ZERO');
+  expect(jsonEncode(body), isNot(contains('stack')));
+  expect(jsonEncode(body), isNot(contains('source')));
+  expect(server.application.events, isEmpty);
+}
+
+Future<void> _runBadOperator() async {
+  final server = await _server();
+  final response = await _post(server, {
+    'firstOperand': '2',
+    'secondOperand': '3',
+    'operator': 'exec',
+  });
+  expect(response['status'], 400);
+  expect(
+    ((response['body'] as Map)['error'] as Map)['code'],
+    'UNSUPPORTED_OPERATOR',
+  );
+  expect(server.application.events, isEmpty);
+}
+
+Future<void> _runBadOperand() async {
+  for (final input in [
+    'one',
+    'NaN',
+    'Infinity',
+    '<script>alert(1)</script>',
+    '../../configuration',
+  ]) {
+    final server = await _server();
+    final response = await _post(server, {
+      'firstOperand': input,
+      'secondOperand': '3',
+      'operator': '+',
+    });
+    expect(response['status'], 400);
+    final body = response['body'] as Map;
+    expect((body['error'] as Map)['code'], 'INVALID_OPERAND');
+    expect(jsonEncode(body), isNot(contains(input)));
+    expect(server.application.events, isEmpty);
+  }
+}
+
+Future<void> _runOversizedBody() async {
+  final application = CalculatorApplication();
+  final response = await application.registration.dispatch(
+    ZukeHttpRequest(
+      method: 'POST',
+      path: '/v1/calculations/evaluate',
+      rawBody: List<int>.filled(16 * 1024 + 1, 65),
+    ),
+  );
+  expect(response.statusCode, 413);
+  expect(((response.body as Map)['error'] as Map)['code'], 'REQUEST_TOO_LARGE');
+  expect(application.events, isEmpty);
+}
+
+Future<void> _runRateLimit() async {
+  final server = await _server();
+  final body = {'firstOperand': '2', 'secondOperand': '3', 'operator': '+'};
+  await _post(server, body, identity: 'limited');
+  await _post(server, body, identity: 'limited');
+  final completedBeforeBlocked = server.application.events.length;
+  final blocked = await _post(server, body, identity: 'limited');
+  final completedAfterBlocked = server.application.events.length;
+  final allowed = await _post(server, body, identity: 'other');
+  expect(blocked['status'], 429);
+  expect((blocked['headers'] as Map)['retry-after'], '60');
+  expect(
+    ((blocked['body'] as Map)['error'] as Map)['code'],
+    'RATE_LIMIT_EXCEEDED',
+  );
+  expect(
+    ((blocked['body'] as Map)['error'] as Map)['message'],
+    'Too many requests.',
+  );
+  expect(allowed['status'], 200);
+  expect(completedBeforeBlocked, 2);
+  expect(completedAfterBlocked, completedBeforeBlocked);
+  expect(server.application.events.length, completedBeforeBlocked + 1);
+}
+
+Future<void> _runPerformanceBudget() async {
+  final server = await _server();
+  final samples = <int>[];
+  for (var index = 0; index < 20; index++) {
+    final stopwatch = Stopwatch()..start();
+    final response = await _post(server, {
+      'firstOperand': '2',
+      'secondOperand': '3',
+      'operator': '+',
+    }, identity: 'performance-$index');
+    stopwatch.stop();
+    expect(response['status'], 200);
+    samples.add(stopwatch.elapsedMicroseconds);
+  }
+  samples.sort();
+  final p95 = samples[(samples.length * .95).ceil() - 1];
+  expect(p95, lessThan(100000));
+}
+
+Future<void> _runUnexpectedFailure() async {
+  final application = CalculatorApplication(calculator: _ThrowingCalculator());
+  final server = CalculatorServer(application: application);
+  await server.start();
+  addTearDown(server.stop);
+  final response = await _post(server, {
+    'firstOperand': '2',
+    'secondOperand': '3',
+    'operator': '+',
+  }, correlationId: 'corr-safe');
+  expect(response['status'], 500);
+  expect(
+    ((response['body'] as Map)['error'] as Map)['code'],
+    'CALCULATION_FAILED',
+  );
+  expect(jsonEncode(response['body']), isNot(contains('_ThrowingCalculator')));
+  expect(application.logEvents.single['correlationId'], 'corr-safe');
+  expect(application.logEvents.single['first'], '[REDACTED]');
 }
 
 void main() {
   final selectedScenarios = scenarioFilterFromEnvironment(Platform.environment);
-  bool skipScenario(ScenarioId scenarioId) =>
-      !shouldRunScenario(scenarioId.value, selectedScenarios);
+  bool skipScenario(ZukeScenarioContract scenario) =>
+      !shouldRunScenario(scenario.id.value, selectedScenarios);
 
-  for (final testCase
-      in <
-        ({
-          RuleId rule,
-          ScenarioId scenario,
-          String operator,
-          String first,
-          String second,
-          String result,
-        })
-      >[
-        (
-          rule: AdditionScenarios.addIntegersApi.requirementId,
-          scenario: AdditionScenarios.addIntegersApi.id,
-          operator: '+',
-          first: '2',
-          second: '3',
-          result: '5',
-        ),
-        (
-          rule: AdditionScenarios.addValues.requirementId,
-          scenario: AdditionScenarios.addValues.id,
-          operator: '+',
-          first: '2.5',
-          second: '1.25',
-          result: '3.75',
-        ),
-        (
-          rule: SubtractionScenarios.subtract.requirementId,
-          scenario: SubtractionScenarios.subtract.id,
-          operator: '-',
-          first: '3',
-          second: '5',
-          result: '-2',
-        ),
-        (
-          rule: MultiplicationScenarios.multiply.requirementId,
-          scenario: MultiplicationScenarios.multiply.id,
-          operator: '*',
-          first: '2.5',
-          second: '4',
-          result: '10',
-        ),
-        (
-          rule: DivisionScenarios.divide.requirementId,
-          scenario: DivisionScenarios.divide.id,
-          operator: '/',
-          first: '10',
-          second: '2',
-          result: '5',
-        ),
-        (
-          rule: DivisionScenarios.divideDecimal.requirementId,
-          scenario: DivisionScenarios.divideDecimal.id,
-          operator: '/',
-          first: '1',
-          second: '4',
-          result: '0.25',
-        ),
-      ]) {
-    test(
-      '${testCase.scenario} executes through the API',
-      () async {
-        final server = await _server();
-        final response = await _post(server, {
-          'firstOperand': testCase.first,
-          'secondOperand': testCase.second,
-          'operator': testCase.operator,
-        });
-        expect(response['status'], 200);
-        expect((response['body'] as Map)['result'], testCase.result);
-        expect(server.application.events.single['ruleId'], testCase.rule.value);
-        _emitApiScenario(
-          testCase.rule,
-          testCase.scenario,
-          response,
-          security: testCase.rule == DivisionScenarios.divide.requirementId,
-        );
-      },
-      skip: skipScenario(testCase.scenario),
-    );
-  }
-
-  test(
-    '${DivisionScenarios.divideZero.id}: ${DivisionScenarios.divideZero.title}',
-    () async {
-      final server = await _server();
-      final response = await _post(server, {
-        'firstOperand': '10',
-        'secondOperand': '0',
-        'operator': '/',
-      });
-      expect(response['status'], 422);
-      final body = response['body'] as Map;
-      expect((body['error'] as Map)['code'], 'DIVISION_BY_ZERO');
-      expect(jsonEncode(body), isNot(contains('stack')));
-      _emitApiScenario(
-        DivisionScenarios.divideZero.requirementId,
-        DivisionScenarios.divideZero.id,
-        response,
-        security: true,
-      );
-    },
-    skip: skipScenario(DivisionScenarios.divideZero.id),
+  zukeTest(
+    () => _runBasicCalculation(
+      first: '2',
+      second: '3',
+      operator: '+',
+      expected: '5',
+      ruleId: FeatCalc001RequirementIds.addition,
+    ),
+    scenario: AdditionScenarios.addIntegersApi,
+    evidenceTypes: const ['api-contract', 'gherkin-api'],
+    skip: skipScenario(AdditionScenarios.addIntegersApi),
   );
-
-  test(
-    '${ValidationScenarios.badOperator.id}: ${ValidationScenarios.badOperator.title}',
-    () async {
-      final server = await _server();
-      final response = await _post(server, {
-        'firstOperand': '2',
-        'secondOperand': '3',
-        'operator': 'exec',
-      });
-      expect(response['status'], 400);
-      expect(
-        ((response['body'] as Map)['error'] as Map)['code'],
-        'UNSUPPORTED_OPERATOR',
-      );
-      _emitApiScenario(
-        ValidationScenarios.badOperator.requirementId,
-        ValidationScenarios.badOperator.id,
-        response,
-        security: true,
-      );
-    },
-    skip: skipScenario(ValidationScenarios.badOperator.id),
+  zukeTest(
+    () => _runBasicCalculation(
+      first: '2.5',
+      second: '1.25',
+      operator: '+',
+      expected: '3.75',
+      ruleId: FeatCalc001RequirementIds.addition,
+    ),
+    scenario: AdditionScenarios.addValues,
+    evidenceTypes: const ['api-contract', 'gherkin-api'],
+    skip: skipScenario(AdditionScenarios.addValues),
   );
-
-  test(
-    '${BodySizeScenarios.oversizedBody.id}: ${BodySizeScenarios.oversizedBody.title}',
-    () async {
-      final application = CalculatorApplication();
-      final response = await application.registration.dispatch(
-        ZukeHttpRequest(
-          method: 'POST',
-          path: '/v1/calculations/evaluate',
-          rawBody: List<int>.filled(16 * 1024 + 1, 65),
-        ),
-      );
-      expect(response.statusCode, 413);
-      expect(
-        ((response.body as Map)['error'] as Map)['code'],
-        'REQUEST_TOO_LARGE',
-      );
-      final result = response.body!;
-      _emitApiScenario(
-        BodySizeScenarios.oversizedBody.requirementId,
-        BodySizeScenarios.oversizedBody.id,
-        result,
-        security: true,
-      );
-    },
-    skip: skipScenario(BodySizeScenarios.oversizedBody.id),
+  zukeTest(
+    () => _runBasicCalculation(
+      first: '3',
+      second: '5',
+      operator: '-',
+      expected: '-2',
+      ruleId: FeatCalc001RequirementIds.subtraction,
+    ),
+    scenario: SubtractionScenarios.subtract,
+    evidenceTypes: const ['api-contract', 'gherkin-api'],
+    skip: skipScenario(SubtractionScenarios.subtract),
   );
-
-  test(
-    '${RateLimitScenarios.rateLimit.id}: ${RateLimitScenarios.rateLimit.title}',
-    () async {
-      final server = await _server();
-      final body = {'firstOperand': '2', 'secondOperand': '3', 'operator': '+'};
-      await _post(server, body, identity: 'limited');
-      await _post(server, body, identity: 'limited');
-      final completedBeforeBlocked = server.application.events.length;
-      final blocked = await _post(server, body, identity: 'limited');
-      final completedAfterBlocked = server.application.events.length;
-      final allowed = await _post(server, body, identity: 'other');
-      expect(blocked['status'], 429);
-      expect((blocked['headers'] as Map)['retry-after'], '60');
-      expect(
-        ((blocked['body'] as Map)['error'] as Map)['code'],
-        'RATE_LIMIT_EXCEEDED',
-      );
-      expect(
-        ((blocked['body'] as Map)['error'] as Map)['message'],
-        'Too many requests.',
-      );
-      expect(allowed['status'], 200);
-      expect(completedBeforeBlocked, 2);
-      expect(completedAfterBlocked, completedBeforeBlocked);
-      expect(server.application.events.length, completedBeforeBlocked + 1);
-      _emit(
-        RateLimitScenarios.rateLimit.requirementId,
-        'security-integration',
-        'backend',
-        {'blocked': blocked, 'allowed': allowed},
-        scenarioId: RateLimitScenarios.rateLimit.id,
-      );
-      _emit(
-        RateLimitScenarios.rateLimit.requirementId,
-        'gherkin-api',
-        'backend',
-        {'blocked': blocked, 'allowed': allowed},
-        scenarioId: RateLimitScenarios.rateLimit.id,
-      );
-    },
-    skip: skipScenario(RateLimitScenarios.rateLimit.id),
+  zukeTest(
+    () => _runBasicCalculation(
+      first: '2.5',
+      second: '4',
+      operator: '*',
+      expected: '10',
+      ruleId: FeatCalc001RequirementIds.multiplication,
+    ),
+    scenario: MultiplicationScenarios.multiply,
+    evidenceTypes: const ['api-contract', 'gherkin-api'],
+    skip: skipScenario(MultiplicationScenarios.multiply),
   );
-
-  test(
-    '${PerformanceScenarios.p95.id}: ${PerformanceScenarios.p95.title}',
-    () async {
-      final server = await _server();
-      final samples = <int>[];
-      for (var index = 0; index < 20; index++) {
-        final stopwatch = Stopwatch()..start();
-        final response = await _post(server, {
-          'firstOperand': '2',
-          'secondOperand': '3',
-          'operator': '+',
-        }, identity: 'performance-$index');
-        stopwatch.stop();
-        expect(response['status'], 200);
-        samples.add(stopwatch.elapsedMicroseconds);
-      }
-      samples.sort();
-      final p95 = samples[(samples.length * .95).ceil() - 1];
-      expect(p95, lessThan(100000));
-      _emit(
-        PerformanceScenarios.p95.requirementId,
-        'performance',
-        'backend',
-        {'p95Microseconds': p95, 'samples': samples.length},
-        scenarioId: PerformanceScenarios.p95.id,
-      );
-    },
-    skip: skipScenario(PerformanceScenarios.p95.id),
+  zukeTest(
+    () => _runBasicCalculation(
+      first: '10',
+      second: '2',
+      operator: '/',
+      expected: '5',
+      ruleId: FeatCalc001RequirementIds.division,
+    ),
+    scenario: DivisionScenarios.divide,
+    evidenceTypes: const [
+      'api-contract',
+      'gherkin-api',
+      'security-integration',
+    ],
+    skip: skipScenario(DivisionScenarios.divide),
   );
-
-  test(
-    '${ErrorRedactionScenarios.unexpectedFailure.id}: ${ErrorRedactionScenarios.unexpectedFailure.title}',
-    () async {
-      final application = CalculatorApplication(
-        calculator: _ThrowingCalculator(),
-      );
-      final server = CalculatorServer(application: application);
-      await server.start();
-      addTearDown(server.stop);
-      final response = await _post(server, {
-        'firstOperand': '2',
-        'secondOperand': '3',
-        'operator': '+',
-      }, correlationId: 'corr-safe');
-      expect(response['status'], 500);
-      expect(
-        ((response['body'] as Map)['error'] as Map)['code'],
-        'CALCULATION_FAILED',
-      );
-      expect(
-        jsonEncode(response['body']),
-        isNot(contains('_ThrowingCalculator')),
-      );
-      expect(application.logEvents.single['correlationId'], 'corr-safe');
-      expect(application.logEvents.single['first'], '[REDACTED]');
-      _emitApiScenario(
-        ErrorRedactionScenarios.unexpectedFailure.requirementId,
-        ErrorRedactionScenarios.unexpectedFailure.id,
-        response,
-        security: true,
-      );
-      _emit(
-        ErrorRedactionScenarios.unexpectedFailure.requirementId,
-        'logging-verification',
-        'backend',
-        application.logEvents.single,
-        scenarioId: ErrorRedactionScenarios.unexpectedFailure.id,
-      );
-    },
-    skip: skipScenario(ErrorRedactionScenarios.unexpectedFailure.id),
+  zukeTest(
+    () => _runBasicCalculation(
+      first: '1',
+      second: '4',
+      operator: '/',
+      expected: '0.25',
+      ruleId: FeatCalc001RequirementIds.division,
+    ),
+    scenario: DivisionScenarios.divideDecimal,
+    evidenceTypes: const ['api-contract', 'gherkin-api'],
+    skip: skipScenario(DivisionScenarios.divideDecimal),
+  );
+  zukeTest(
+    _runDivideByZero,
+    scenario: DivisionScenarios.divideZero,
+    evidenceTypes: const [
+      'api-contract',
+      'gherkin-api',
+      'security-integration',
+    ],
+    skip: skipScenario(DivisionScenarios.divideZero),
+  );
+  zukeTest(
+    _runBadOperator,
+    scenario: ValidationScenarios.badOperator,
+    evidenceTypes: const [
+      'api-contract',
+      'gherkin-api',
+      'security-integration',
+    ],
+    skip: skipScenario(ValidationScenarios.badOperator),
+  );
+  zukeTest(
+    _runBadOperand,
+    scenario: ValidationScenarios.badOperand,
+    evidenceTypes: const [
+      'api-contract',
+      'gherkin-api',
+      'security-integration',
+    ],
+    skip: skipScenario(ValidationScenarios.badOperand),
+  );
+  zukeTest(
+    _runOversizedBody,
+    scenario: BodySizeScenarios.oversizedBody,
+    evidenceTypes: const [
+      'api-contract',
+      'gherkin-api',
+      'security-integration',
+    ],
+    skip: skipScenario(BodySizeScenarios.oversizedBody),
+  );
+  zukeTest(
+    _runRateLimit,
+    scenario: RateLimitScenarios.rateLimit,
+    evidenceTypes: const ['gherkin-api', 'security-integration'],
+    skip: skipScenario(RateLimitScenarios.rateLimit),
+  );
+  zukeTest(
+    _runPerformanceBudget,
+    scenario: PerformanceScenarios.p95,
+    evidenceTypes: const ['performance'],
+    skip: skipScenario(PerformanceScenarios.p95),
+  );
+  zukeTest(
+    _runUnexpectedFailure,
+    scenario: ErrorRedactionScenarios.unexpectedFailure,
+    evidenceTypes: const [
+      'api-contract',
+      'gherkin-api',
+      'security-integration',
+      'logging-verification',
+    ],
+    skip: skipScenario(ErrorRedactionScenarios.unexpectedFailure),
   );
 }
 

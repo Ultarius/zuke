@@ -13,3 +13,4 @@ dependencies:
 dev_dependencies:
   test: ^1.26.0
   zuke: ^0.4.0
+  zuke_runner: ^0.4.0

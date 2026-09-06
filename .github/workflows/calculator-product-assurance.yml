@@ -31,8 +31,8 @@ jobs:
       ZUKE_RUN_PROCESS_INTEGRATION: 'true'
       # Keep the total Dart isolate budget bounded. Windows runs the
       # subprocess-heavy zuke_cli suite with two package processes and four
-      # isolates per package; the remaining packages queue instead of forcing
-      # zuke_cli through the five-minute package timeout.
+      # isolates per package; the remaining packages queue to avoid CPU and
+      # Flutter-tool contention.
       ZUKE_TEST_WORKERS: '8'
       ZUKE_TEST_PACKAGE_SLOTS: "${{ matrix.os == 'windows-latest' && '2' || '4' }}"
     steps:

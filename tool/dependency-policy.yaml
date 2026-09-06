@@ -19,3 +19,7 @@ packages:
     requireDev: [test]
     forbiddenRuntime: [test]
     rejectExactTestConstraint: true
+  zuke_test_support:
+    repositoryOnly: true
+    requireDev: [test]
+    forbiddenRuntime: [test, test_api, test_core, flutter, flutter_test]
