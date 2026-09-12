@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.4.0
+
+- Propagated the active workspace extraction target to the analyzer-backed
+  build hook and rejected ambiguous or invalid target membership.
+
 ## 0.3.0
 
 - Consume the published CLI tooling boundary for coordinated current validation.

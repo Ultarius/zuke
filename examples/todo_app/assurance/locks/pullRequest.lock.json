@@ -21,7 +21,7 @@
   "policyHash": "sha256:2ecf0ad85e8443672156e6401da6ee9b051e07f39960a8734cc1241c5bd48ea7",
   "evidenceRequirementsHash": "sha256:efb6f1a9ca22e0cfccb01d9097c4062a4442559136cb82e8dccfcf9820e09a9f",
   "specificationDigestScope": "discovery-inputs-v1",
-  "specificationDigest": "sha256:a9650fdcb8f6f8aa315674bc45dd3b535c55ef08d7d03589dad2a003e407aab0",
+  "specificationDigest": "sha256:c608bf00288cd2d0565c8c0e0017f9a19378fc091ed3bf7367f37e1d74c42fcd",
   "generatedManifestDigest": "sha256:0d35e5961f9422d3df46451d7cc361bd69907c051c20da98c4a98a59243b2712",
   "features": {
     "FEAT-TODO-001": {
@@ -34,7 +34,7 @@
       "version": "1.0.0",
       "compatibilityId": "dart-source-package-v1",
       "package": "todo-app",
-      "digest": "sha256:8e060c102974c299fabe5939d2234d915acef65d03f099f2df6750080fba42dc",
+      "digest": "sha256:5be81e20d6441715f98a2a2d6663617841a9a4bda45c1e85b9ad7602c37e4185",
       "completeness": {
         "annotationTargets": "complete",
         "generatedParts": "complete",
@@ -53,8 +53,55 @@
     "RULE-TODO-COMPLETE-ITEM"
   ],
   "attestations": [],
+  "implementationCoverage": [
+    {
+      "binding": {
+        "subjectKind": "requirement",
+        "subjectId": "RULE-TODO-ADD-ITEM",
+        "target": "flutter",
+        "role": "implementation",
+        "variant": "default",
+        "slot": "primary"
+      },
+      "mode": "annotationGoverned",
+      "status": "verified",
+      "evidenceDigests": [
+        "sha256:0d35e5961f9422d3df46451d7cc361bd69907c051c20da98c4a98a59243b2712",
+        "sha256:189c5e9a332826910d6a9d38e15a7a49fe6d549391f1388d2e7f423a45e2bd01",
+        "sha256:484b527359538d66f1a4c448b01f1ae77ad3a5f982e265433c659dafcdc82edc",
+        "sha256:5be81e20d6441715f98a2a2d6663617841a9a4bda45c1e85b9ad7602c37e4185",
+        "sha256:732d0c363726c35bd8b82dc38a4a67987cb21c4ecd36816ccb42490767b79668",
+        "sha256:7622edc64b7a52d9e23a39743c25a641c9ab555751bb6e200c5499563b5141c8",
+        "sha256:aa55abf88f04a1402ee354fb5e167d1d40fd886f38198b8eacb7fb72a03204ee",
+        "sha256:aff9366c379ac59c7f4ba69618d960938c0b01b2b29aeb7f5d05dca22525548f"
+      ],
+      "diagnostics": []
+    },
+    {
+      "binding": {
+        "subjectKind": "requirement",
+        "subjectId": "RULE-TODO-COMPLETE-ITEM",
+        "target": "flutter",
+        "role": "implementation",
+        "variant": "default",
+        "slot": "primary"
+      },
+      "mode": "annotationGoverned",
+      "status": "verified",
+      "evidenceDigests": [
+        "sha256:0d35e5961f9422d3df46451d7cc361bd69907c051c20da98c4a98a59243b2712",
+        "sha256:5be81e20d6441715f98a2a2d6663617841a9a4bda45c1e85b9ad7602c37e4185",
+        "sha256:64bfb1f387a41a9c28a7ee17c546ec085f180cbfc0781eb064534d2d18ec4607",
+        "sha256:732d0c363726c35bd8b82dc38a4a67987cb21c4ecd36816ccb42490767b79668",
+        "sha256:aa55abf88f04a1402ee354fb5e167d1d40fd886f38198b8eacb7fb72a03204ee",
+        "sha256:b07523599223cc61f6abfc6312a20c549e007d2c2a68be5401a6372bfe03f3f7",
+        "sha256:bb684bc086fa21a5f8b1dc4d74d019fac8d7ac2f556e78259a406b5f3795e8b2"
+      ],
+      "diagnostics": []
+    }
+  ],
   "controls": {
-    "RULE-TODO-ADD-ITEM|CTRL-TODO-VALIDATION|flutter|default": {
+    "RULE-TODO-ADD-ITEM|CTRL-TODO-VALIDATION|flutter|default|primary": {
       "assurance": "verified",
       "semantics": "verification-backed",
       "providerIds": [
@@ -62,13 +109,13 @@
       ],
       "evidenceDigests": [
         "sha256:0d35e5961f9422d3df46451d7cc361bd69907c051c20da98c4a98a59243b2712",
-        "sha256:263b35d14ed01e5e0c879e65303390a2a46c9fc89a0a0b1df87ced8ff861f9f8",
-        "sha256:5780bb66265c00c03900e85c71143b519956ab5e2022b8a986a59c713ba26a1a",
+        "sha256:189c5e9a332826910d6a9d38e15a7a49fe6d549391f1388d2e7f423a45e2bd01",
+        "sha256:484b527359538d66f1a4c448b01f1ae77ad3a5f982e265433c659dafcdc82edc",
+        "sha256:5be81e20d6441715f98a2a2d6663617841a9a4bda45c1e85b9ad7602c37e4185",
         "sha256:732d0c363726c35bd8b82dc38a4a67987cb21c4ecd36816ccb42490767b79668",
-        "sha256:7cfaa475c9f8d7877a9cb6c793fae49d10ad710bb3996e9b92da3e172418116c",
-        "sha256:8e060c102974c299fabe5939d2234d915acef65d03f099f2df6750080fba42dc",
-        "sha256:932ed8b440961050f3baa373bccbb049acc5ab87912b50e9fcc2a5ded85a7cdd",
-        "sha256:a2e5f92bd4d65a590f45a9afa9790d22f59b26c47d4939545b908d00917adf90"
+        "sha256:7622edc64b7a52d9e23a39743c25a641c9ab555751bb6e200c5499563b5141c8",
+        "sha256:aa55abf88f04a1402ee354fb5e167d1d40fd886f38198b8eacb7fb72a03204ee",
+        "sha256:aff9366c379ac59c7f4ba69618d960938c0b01b2b29aeb7f5d05dca22525548f"
       ],
       "coverage": "verified",
       "graphHash": null,
@@ -78,7 +125,7 @@
       },
       "bypassPaths": []
     },
-    "RULE-TODO-COMPLETE-ITEM|CTRL-TODO-VALIDATION|flutter|default": {
+    "RULE-TODO-COMPLETE-ITEM|CTRL-TODO-VALIDATION|flutter|default|primary": {
       "assurance": "verified",
       "semantics": "verification-backed",
       "providerIds": [
@@ -86,12 +133,12 @@
       ],
       "evidenceDigests": [
         "sha256:0d35e5961f9422d3df46451d7cc361bd69907c051c20da98c4a98a59243b2712",
-        "sha256:5780bb66265c00c03900e85c71143b519956ab5e2022b8a986a59c713ba26a1a",
-        "sha256:5db165677ecedd2dc33fa9a74efb4d481e5f10c324b8f9586e3441f843ab7df2",
+        "sha256:5be81e20d6441715f98a2a2d6663617841a9a4bda45c1e85b9ad7602c37e4185",
+        "sha256:64bfb1f387a41a9c28a7ee17c546ec085f180cbfc0781eb064534d2d18ec4607",
         "sha256:732d0c363726c35bd8b82dc38a4a67987cb21c4ecd36816ccb42490767b79668",
-        "sha256:8e060c102974c299fabe5939d2234d915acef65d03f099f2df6750080fba42dc",
-        "sha256:a9d0d2543486c250fa658abf1a22de548832650714ba5bceac4ba786feebd2ad",
-        "sha256:dccb8084213c24045b7a28575fc7ea8dc731ddf468c32a47821c932b9134cd96"
+        "sha256:aa55abf88f04a1402ee354fb5e167d1d40fd886f38198b8eacb7fb72a03204ee",
+        "sha256:b07523599223cc61f6abfc6312a20c549e007d2c2a68be5401a6372bfe03f3f7",
+        "sha256:bb684bc086fa21a5f8b1dc4d74d019fac8d7ac2f556e78259a406b5f3795e8b2"
       ],
       "coverage": "verified",
       "graphHash": null,

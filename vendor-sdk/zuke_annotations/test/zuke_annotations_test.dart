@@ -21,9 +21,10 @@ enum _Scenario implements ZukeScenarioContract {
 
 void main() {
   test('ImplementsRequirement stores requirement IDs', () {
-    final impl = ImplementsRequirement(['RULE-001'], target: 'backend');
+    final impl = ImplementsRequirement(['RULE-001']);
     expect(impl.requirementIds, contains('RULE-001'));
-    expect(impl.target, 'backend');
+    expect(impl.variant, 'default');
+    expect(impl.slot, 'primary');
   });
 
   test('ProvidesControl stores control IDs', () {
@@ -34,6 +35,15 @@ void main() {
     );
     expect(ctrl.controlIds, contains('CTRL-001'));
     expect(ctrl.kind, ControlProviderKind.applicationValidator);
+  });
+
+  test('ProvidesControl has no workspace target override', () {
+    // Target placement is resolved from package membership and the active
+    // extraction target. `target:` and `targets:` are intentionally absent
+    // named parameters, so leftover provider target metadata is rejected by
+    // the Dart analyzer instead of becoming a second placement surface.
+    const provider = ProvidesControl(['CTRL-001']);
+    expect(provider.controlIds, ['CTRL-001']);
   });
 
   test('ControlProviderKind fromValue round-trips', () {

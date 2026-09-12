@@ -1,14 +1,14 @@
 name: zuke
 description: Gherkin-driven specification, execution, and assurance APIs for Dart.
-version: 0.3.0
+version: 0.4.0
 environment:
   sdk: '>=3.10.0 <4.0.0'
 resolution: workspace
 dependencies:
   crypto: ^3.0.6
-  zuke_core: ^0.3.0
-  zuke_annotations: ^0.3.0
-  zuke_frontend: ^0.2.0
+  zuke_core: ^0.4.0
+  zuke_annotations: ^0.4.0
+  zuke_frontend: ^0.2.2
 dev_dependencies:
   test: ^1.31.1
 repository: https://github.com/Ultarius/zuke

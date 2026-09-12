@@ -1,0 +1,25 @@
+schemaVersion: 1
+# Fallback for isolated policy tests. The real workspace value is read from
+# docs/release-matrix.yaml sdk.test so the matrix remains authoritative.
+testConstraint: '1.31.x'
+packages:
+  zuke_core:
+    forbiddenRuntime: [test, test_api, test_core, flutter, flutter_test]
+  zuke:
+    forbiddenRuntime: [test, test_api, test_core, flutter, flutter_test]
+  zuke_runner:
+    requireRuntime: [test]
+    forbiddenRuntime: [test_api, test_core, flutter, flutter_test]
+    rejectExactTestConstraint: true
+  zuke_runner_flutter:
+    requireRuntimeSdk: [flutter, flutter_test]
+    forbiddenRuntime: [test, test_api, test_core]
+    forbiddenDev: [test, test_api, test_core]
+  zuke_cli:
+    requireDev: [test]
+    forbiddenRuntime: [test]
+    rejectExactTestConstraint: true
+  zuke_test_support:
+    repositoryOnly: true
+    requireDev: [test]
+    forbiddenRuntime: [test, test_api, test_core, flutter, flutter_test]

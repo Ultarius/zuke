@@ -1,6 +1,6 @@
 name: zuke_core
 description: Shared analyzer-free Zuke contracts, identities, evidence, and assurance infrastructure.
-version: 0.3.0
+version: 0.4.0
 environment:
   sdk: '>=3.10.0 <4.0.0'
 resolution: workspace

@@ -40,31 +40,51 @@ class LockCommand {
   Future<int> execute() async {
     diagnostics = const [];
     final requestedRoot = args['root'] as String? ?? Directory.current.path;
+    final check = args['check'] as bool? ?? false;
+    final update =
+        args.options.contains('update') && (args['update'] as bool? ?? false);
+    if (check && update) {
+      throw const FormatException(
+        'lock --check and lock --update are mutually exclusive',
+      );
+    }
     final allProfiles =
         args.options.contains('all-profiles') &&
         (args['all-profiles'] as bool? ?? false);
-    if (allProfiles) {
-      var result = 0;
-      final profiles = _configuredProfiles(requestedRoot);
-      for (final profile in profiles) {
-        final profileArgs = ArgParser()
-          ..addOption('root')
-          ..addOption('profile')
-          ..addFlag('check')
-          ..addFlag('quiet');
-        final values = <String>[
-          '--root',
-          requestedRoot,
-          '--profile',
-          profile,
-          if (args['check'] as bool? ?? false) '--check',
-          if (args.options.contains('quiet') &&
-              (args['quiet'] as bool? ?? false))
-            '--quiet',
-        ];
-        result |= await LockCommand(profileArgs.parse(values)).execute();
+    final profile = args['profile'] as String?;
+    final selectedProfiles = args.options.contains('profiles')
+        ? args['profiles'] as List<String>
+        : const <String>[];
+    if (selectedProfiles.isNotEmpty) {
+      if (allProfiles || profile != null) {
+        throw const FormatException(
+          'Profile selection flags are mutually exclusive',
+        );
       }
-      return result;
+      final configured = _configuredProfiles(requestedRoot);
+      if (selectedProfiles.any((value) => !configured.contains(value))) {
+        throw const FormatException('Requested profile is not configured');
+      }
+      return _executeProfiles(
+        requestedRoot,
+        profiles: selectedProfiles.toSet().toList(),
+        transactional: update,
+        checkOnly: check,
+      );
+    }
+    if (allProfiles && profile != null) {
+      throw const FormatException(
+        'lock --all-profiles and --profile are mutually exclusive',
+      );
+    }
+    final refreshAll = update && !allProfiles && profile == null;
+    if (allProfiles || refreshAll) {
+      return _executeProfiles(
+        requestedRoot,
+        profiles: _configuredProfiles(requestedRoot),
+        transactional: update,
+        checkOnly: check,
+      );
     }
     final root = Directory(
       Directory(
@@ -99,25 +119,25 @@ class LockCommand {
       return 1;
     }
     final workspace = requireCurrentWorkspace(root.path);
-    final profile = args['profile'] as String? ?? 'pullRequest';
+    final profileName = profile ?? 'pullRequest';
     final extraction = await ExtractionService().extract(workspace);
     final verifiedAttestations = await AttestationVerification().verify(
       workspace,
     );
-    final selection = const ScenarioSelector().resolve(workspace, profile);
+    final selection = const ScenarioSelector().resolve(workspace, profileName);
     final validation = ValidatorEngine().validate(
       workspace,
       outputs: extraction.outputs,
       evidenceRecords: extraction.evidenceRecords,
       verifiedAttestationProofs: verifiedAttestations,
-      profile: profile,
+      profile: profileName,
       selectedScenarioIds: selection.tagExpression == null
           ? null
           : selection.scenarioIds,
     );
     final report = validation.toReport(
       evidence: extraction.evidenceRecords
-          .where((record) => record.profile == profile)
+          .where((record) => record.profile == profileName)
           .toList(),
       requiredEvidence: validation.requiredEvidence,
       workspace: root.path,
@@ -142,10 +162,18 @@ class LockCommand {
       workspace: workspace,
       extraction: extraction,
     );
-    final lockContent = await buildLock(context, validation, profile: profile);
-    final path = resolveProfileLockPath(root.path, profile);
+    final lockContent = await buildLock(
+      context,
+      validation,
+      profile: profileName,
+    );
+    final output = args.options.contains('output')
+        ? args['output'] as String?
+        : null;
+    final path = output != null && output.isNotEmpty
+        ? output
+        : resolveProfileLockPath(root.path, profileName);
     final file = File(path);
-    final check = args['check'] as bool? ?? false;
     final quiet =
         args.options.contains('quiet') && (args['quiet'] as bool? ?? false);
     if (check) {
@@ -205,6 +233,132 @@ class LockCommand {
     return 0;
   }
 
+  Future<int> _executeProfiles(
+    String requestedRoot, {
+    required List<String> profiles,
+    required bool transactional,
+    required bool checkOnly,
+  }) async {
+    if (!transactional) {
+      var result = 0;
+      for (final profile in profiles) {
+        result |= await _executeSingleProfile(
+          requestedRoot,
+          profile,
+          check: checkOnly,
+          update: false,
+        );
+      }
+      return result;
+    }
+
+    final root = Directory(requestedRoot).absolute;
+    final staging = Directory.systemTemp.createTempSync('zuke-lock-staging-');
+    final snapshots = <String, List<int>?>{};
+    for (final profile in profiles) {
+      final path = resolveProfileLockPath(root.path, profile);
+      snapshots[path] = File(path).existsSync()
+          ? File(path).readAsBytesSync()
+          : null;
+    }
+    try {
+      for (final profile in profiles) {
+        final stagedPath =
+            '${staging.path}${Platform.pathSeparator}$profile.lock.json';
+        final result = await _executeSingleProfile(
+          requestedRoot,
+          profile,
+          output: stagedPath,
+          update: true,
+        );
+        if (result != 0 || !File(stagedPath).existsSync()) {
+          _restoreSnapshots(snapshots);
+          return result == 0 ? 1 : result;
+        }
+      }
+      for (final profile in profiles) {
+        final stagedPath =
+            '${staging.path}${Platform.pathSeparator}$profile.lock.json';
+        final destination = File(resolveProfileLockPath(root.path, profile));
+        destination.parent.createSync(recursive: true);
+        destination.writeAsBytesSync(File(stagedPath).readAsBytesSync());
+      }
+      for (final profile in profiles) {
+        final check = await _executeCheck(requestedRoot, profile);
+        if (check != 0) {
+          _restoreSnapshots(snapshots);
+          return check;
+        }
+      }
+      return 0;
+    } catch (error) {
+      _restoreSnapshots(snapshots);
+      stderr.writeln('Lock refresh failed before completion: $error');
+      return 1;
+    } finally {
+      if (staging.existsSync()) staging.deleteSync(recursive: true);
+    }
+  }
+
+  Future<int> _executeSingleProfile(
+    String root,
+    String profile, {
+    bool check = false,
+    bool update = false,
+    String? output,
+  }) async {
+    final parser = ArgParser()
+      ..addOption('root')
+      ..addOption('profile')
+      ..addOption('output')
+      ..addFlag('check')
+      ..addFlag('quiet')
+      ..addFlag('update');
+    return LockCommand(
+      parser.parse([
+        '--root',
+        root,
+        '--profile',
+        profile,
+        if (output != null) ...['--output', output],
+        if (check) '--check',
+        if (update) '--update',
+      ]),
+    ).execute();
+  }
+
+  Future<int> _executeCheck(String root, String profile) async {
+    final parser = ArgParser()
+      ..addOption('root')
+      ..addOption('profile')
+      ..addFlag('check')
+      ..addFlag('quiet')
+      ..addFlag('update');
+    return LockCommand(
+      parser.parse([
+        '--root',
+        root,
+        '--profile',
+        profile,
+        '--check',
+        '--quiet',
+      ]),
+    ).execute();
+  }
+
+  void _restoreSnapshots(Map<String, List<int>?> snapshots) {
+    for (final entry in snapshots.entries) {
+      final file = File(entry.key);
+      final bytes = entry.value;
+      if (bytes == null) {
+        if (file.existsSync()) file.deleteSync();
+      } else {
+        file.parent.createSync(recursive: true);
+        file.writeAsBytesSync(bytes);
+      }
+    }
+  }
+
   Diagnostic _legacyLockDiagnostic() => const Diagnostic(
     code: 'ZK-LOCK-LEGACY-FORMAT',
     stage: 'lock',
@@ -217,7 +371,7 @@ class LockCommand {
 
   List<String> _configuredProfiles(String root) {
     try {
-      final profiles = requireCurrentWorkspace(root).config.lockProfiles;
+      final profiles = requireCurrentWorkspace(root).config.lock.profiles;
       if (profiles.isNotEmpty) return profiles;
     } on Object {
       // Let the normal single-profile path report the configuration failure.
@@ -314,7 +468,8 @@ class LockCommand {
     for (final proof in validation.controlProofs) {
       final key = proof.requirementId == null
           ? proof.controlId
-          : '${proof.requirementId}|${proof.controlId}|${proof.target}|${proof.variant}';
+          : '${proof.requirementId}|${proof.controlId}|${proof.target}|'
+                '${proof.variant}|${proof.slot}';
       controlAssurance[key] = {
         'assurance': proof.status.name,
         'semantics': proof.semantics.wireValue,
@@ -379,6 +534,12 @@ class LockCommand {
           .map((rule) => rule.metadata.id)
           .toList(),
       'attestations': _attestations(workspace, validation.controlProofs),
+      'implementationCoverage':
+          (validation.implementationCoverage.toList()..sort(
+                (left, right) => left.binding.key.compareTo(right.binding.key),
+              ))
+              .map((coverage) => coverage.toJson())
+              .toList(),
       'controls': controlAssurance,
     };
     return const JsonEncoder.withIndent('  ').convert(data) + '\n';

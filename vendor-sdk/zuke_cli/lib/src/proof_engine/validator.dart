@@ -1,3 +1,7 @@
+import 'dart:convert';
+
+import 'package:crypto/crypto.dart';
+import 'package:zuke_core/zuke_core.dart' show BindingIdentity;
 import 'package:zuke_frontend/zuke_frontend.dart';
 import 'identity_validator.dart';
 import 'reference_resolver.dart';
@@ -6,6 +10,7 @@ import 'evidence_validator.dart';
 import 'source_mapping_validator.dart';
 import 'dominance_validator.dart';
 import 'verification_backed_validator.dart';
+import 'obligation_catalog.dart';
 import '../ir.dart' as ir;
 import '../ir.dart';
 
@@ -17,6 +22,7 @@ class ValidationResult {
   final List<ValidationMessage> warnings;
   final List<ValidationMessage> infos;
   final List<ControlProofResult> controlProofs;
+  final List<ir.ImplementationCoverageResult> implementationCoverage;
   final List<String> requiredEvidence;
   final bool hasExpectedProofs;
 
@@ -25,6 +31,7 @@ class ValidationResult {
     this.warnings = const [],
     this.infos = const [],
     this.controlProofs = const [],
+    this.implementationCoverage = const [],
     this.requiredEvidence = const [],
     this.hasExpectedProofs = false,
   });
@@ -40,6 +47,7 @@ class ValidationResult {
     Map<String, String> adapterHashes = const {},
     List<String> requiredEvidence = const [],
     List<String> staleEvidence = const [],
+    List<ir.ImplementationCoverageResult>? implementationCoverage,
   }) {
     final eligible =
         errors.isEmpty &&
@@ -52,13 +60,20 @@ class ValidationResult {
                   proof.status == ir.ProofStatus.verified ||
                   proof.status == ir.ProofStatus.attested,
             )) &&
-        evidence.every((record) => record.status == ir.EvidenceStatus.passed);
+        evidence.every((record) => record.status == ir.EvidenceStatus.passed) &&
+        (implementationCoverage ?? this.implementationCoverage).every(
+          (coverage) =>
+              coverage.status == ir.ProofStatus.proven ||
+              coverage.status == ir.ProofStatus.verified,
+        );
 
     return ir.ValidationReport(
       workspace: workspace,
       profile: profile,
       diagnostics: [...errors, ...warnings, ...infos],
       controlProofs: controlProofs,
+      implementationCoverage:
+          implementationCoverage ?? this.implementationCoverage,
       evidence: evidence,
       graphHashes: graphHashes,
       completeness: completeness,
@@ -76,10 +91,267 @@ class ValidationResult {
               proof.status != ir.ProofStatus.verified &&
               proof.status != ir.ProofStatus.attested)
             'Control proof for ${proof.controlId} is ${proof.status.name}: ${proof.diagnostics.join("; ")}',
+        for (final coverage
+            in implementationCoverage ?? this.implementationCoverage)
+          if (coverage.status != ir.ProofStatus.proven &&
+              coverage.status != ir.ProofStatus.verified)
+            'Implementation coverage for ${coverage.binding.key} is ${coverage.status.name}: ${coverage.diagnostics.join("; ")}',
         ...errors.map((e) => e.message),
       ],
     );
   }
+}
+
+_ImplementationCoverageEvaluation _implementationCoverage(
+  List<IrAdapterOutput> outputs,
+  IrGraph? explicitGraph,
+  List<ir.EvidenceRecord> evidence,
+  AssuranceObligationCatalog catalog,
+) {
+  final errors = <ValidationMessage>[];
+  // An implementation binding is owned by one configured source package.
+  // Never use a workspace-wide merged graph for its reachability proof: doing
+  // so would allow an entry point or edge from another package to discharge
+  // this package's implementation obligation.
+  final graphsByPackage = <String, List<IrGraph>>{};
+  for (final output in outputs) {
+    final graph = output.graph;
+    final packageId = output.packageName;
+    if (graph == null || packageId == null || packageId.isEmpty) continue;
+    (graphsByPackage[packageId] ??= []).add(graph);
+  }
+  // The explicit graph is a compatibility input used by direct callers that
+  // validate one workspace graph without adapter outputs. It has no package
+  // metadata, so use it only when there are no package-scoped adapter graphs.
+  if (explicitGraph != null && graphsByPackage.isEmpty) {
+    graphsByPackage[''] = [explicitGraph];
+  }
+
+  IrGraph scopedGraph(String packageId, String target) {
+    final sourceGraphs =
+        graphsByPackage[packageId] ??
+        (packageId.isEmpty ? graphsByPackage[''] : null) ??
+        const <IrGraph>[];
+    final nodes = <String, IrNode>{};
+    final edges = <IrEdge>[];
+    for (final graph in sourceGraphs) {
+      for (final node in graph.nodes) {
+        if (node.target == null || node.target == target) {
+          nodes[node.id] = node;
+        }
+      }
+      edges.addAll(graph.edges);
+    }
+    final scopedEdges = edges.where(
+      (edge) =>
+          nodes.containsKey(edge.sourceId) && nodes.containsKey(edge.targetId),
+    );
+    return IrGraph(nodes: nodes.values.toList(), edges: scopedEdges.toList());
+  }
+
+  final bindings = <String, _ImplementationBinding>{};
+  for (final obligation in catalog.implementationCoverage) {
+    final binding = obligation.binding;
+    final graph = scopedGraph(obligation.packageId, binding.target);
+    final nodeCandidates = [
+      for (final node in graph.nodes)
+        if (node.kind == NodeKind.implementation &&
+            node.target == binding.target &&
+            node.role == 'implementation' &&
+            node.variant == binding.variant &&
+            node.slot == binding.slot &&
+            (node.properties['requirementIds'] as List?)
+                    ?.whereType<String>()
+                    .contains(binding.subjectId) ==
+                true)
+          node,
+    ];
+    bindings[binding.key] = _ImplementationBinding(
+      identity: binding,
+      packageName: obligation.packageId,
+      mode: obligation.mode,
+      graph: graph,
+      node: nodeCandidates.length == 1 ? nodeCandidates.single : null,
+      nodeCount: nodeCandidates.length,
+    );
+  }
+
+  final results = <ir.ImplementationCoverageResult>[];
+  for (final binding in bindings.values) {
+    final mode = binding.mode;
+    if (mode == ir.PlacementMode.topologyAuthoritative) {
+      final reachable =
+          binding.node != null &&
+          _reachableImplementation(
+            binding.graph,
+            binding.node!.id,
+            binding.identity.target,
+          );
+      final diagnostics = <String>[];
+      if (binding.nodeCount == 0) {
+        diagnostics.add('No extracted implementation node matches binding');
+      } else if (binding.nodeCount > 1) {
+        diagnostics.add(
+          'Multiple extracted implementation nodes match binding',
+        );
+      } else if (!reachable) {
+        diagnostics.add(
+          'Implementation binding is not reachable from a target entry point',
+        );
+      }
+      final status = diagnostics.isEmpty
+          ? ir.ProofStatus.proven
+          : ir.ProofStatus.failed;
+      results.add(
+        ir.ImplementationCoverageResult(
+          binding: binding.identity,
+          mode: mode,
+          status: status,
+          governedGraphHash: _coverageGraphHash(binding.graph),
+          diagnostics: diagnostics,
+        ),
+      );
+      if (diagnostics.isNotEmpty) {
+        errors.add(
+          ValidationMessage(
+            code: binding.nodeCount == 0
+                ? 'ZK-IMPL-COVERAGE-MISSING'
+                : 'ZK-IMPL-UNREACHABLE',
+            message: '${binding.identity.key}: ${diagnostics.join('; ')}',
+            severity: Severity.error,
+          ),
+        );
+      }
+      continue;
+    }
+
+    final sameSemanticBindings = bindings.values
+        .where(
+          (other) =>
+              other.identity.subjectKind == binding.identity.subjectKind &&
+              other.identity.subjectId == binding.identity.subjectId &&
+              other.identity.target == binding.identity.target &&
+              other.identity.variant == binding.identity.variant,
+        )
+        .toList(growable: false);
+    final knownSlots = sameSemanticBindings
+        .map((other) => other.identity.slot)
+        .toSet();
+    for (final record in evidence.where(
+      (record) =>
+          record.requirementId == binding.identity.subjectId &&
+          record.target == binding.identity.target &&
+          record.variant == binding.identity.variant &&
+          record.status == ir.EvidenceStatus.passed &&
+          record.implementationSlots.isNotEmpty,
+    )) {
+      final unknownSlots = record.implementationSlots
+          .where((slot) => !knownSlots.contains(slot))
+          .toList(growable: false);
+      if (unknownSlots.isNotEmpty) {
+        errors.add(
+          ValidationMessage(
+            code: 'ZK-IMPL-SLOT-CLAIM-UNKNOWN',
+            message:
+                '${binding.identity.key}: evidence claimed unknown '
+                'implementation slot(s): ${unknownSlots.join(', ')}',
+            severity: Severity.error,
+          ),
+        );
+      }
+    }
+
+    final candidates = evidence.where((record) {
+      if (record.requirementId != binding.identity.subjectId ||
+          record.target != binding.identity.target ||
+          record.variant != binding.identity.variant ||
+          record.status != ir.EvidenceStatus.passed) {
+        return false;
+      }
+      if (record.implementationSlots.contains(binding.identity.slot)) {
+        return true;
+      }
+      return sameSemanticBindings.length == 1 &&
+          record.implementationSlots.isEmpty;
+    }).toList();
+    final missingCode =
+        candidates.isEmpty &&
+            sameSemanticBindings.length > 1 &&
+            evidence.any(
+              (record) =>
+                  record.requirementId == binding.identity.subjectId &&
+                  record.target == binding.identity.target &&
+                  record.variant == binding.identity.variant &&
+                  record.status == ir.EvidenceStatus.passed &&
+                  record.implementationSlots.isEmpty,
+            )
+        ? 'ZK-IMPL-SLOT-CLAIM-REQUIRED'
+        : 'ZK-IMPL-EVIDENCE-MISSING';
+    final diagnostics = candidates.isEmpty
+        ? [
+            'No current passing managed evidence claims implementation slot ${binding.identity.slot}',
+          ]
+        : const <String>[];
+    results.add(
+      ir.ImplementationCoverageResult(
+        binding: binding.identity,
+        mode: mode,
+        status: diagnostics.isEmpty
+            ? ir.ProofStatus.verified
+            : ir.ProofStatus.missing,
+        evidenceDigests: candidates
+            .expand((record) => record.digests.values)
+            .toSet()
+            .toList(),
+        diagnostics: diagnostics,
+      ),
+    );
+    if (diagnostics.isNotEmpty) {
+      errors.add(
+        ValidationMessage(
+          code: missingCode,
+          message: '${binding.identity.key}: ${diagnostics.join('; ')}',
+          severity: Severity.error,
+        ),
+      );
+    }
+  }
+  return _ImplementationCoverageEvaluation(results, errors);
+}
+
+bool _reachableImplementation(
+  IrGraph graph,
+  String implementationId,
+  String target,
+) {
+  final entries = graph.nodes
+      .where(
+        (node) =>
+            node.kind == NodeKind.entryPoint &&
+            (node.target == null || node.target == target),
+      )
+      .map((node) => node.id)
+      .toList();
+  final adjacency = <String, List<String>>{};
+  for (final edge in graph.edges) {
+    if ({
+      EdgeKind.routesTo,
+      EdgeKind.precedes,
+      EdgeKind.invokes,
+      EdgeKind.flowsTo,
+    }.contains(edge.kind)) {
+      (adjacency[edge.sourceId] ??= []).add(edge.targetId);
+    }
+  }
+  final queue = [...entries];
+  final visited = <String>{};
+  while (queue.isNotEmpty) {
+    final current = queue.removeAt(0);
+    if (!visited.add(current)) continue;
+    if (current == implementationId) return true;
+    queue.addAll(adjacency[current] ?? const []);
+  }
+  return false;
 }
 
 class ValidatorEngine {
@@ -121,6 +393,7 @@ class ValidatorEngine {
     final allWarnings = <ValidationMessage>[];
     final allInfos = <ValidationMessage>[];
     final allControlProofs = <ControlProofResult>[];
+    final allImplementationCoverage = <ir.ImplementationCoverageResult>[];
     final profileEvidence = evidenceRecords
         .where((record) => record.profile == profile)
         .toList();
@@ -152,6 +425,11 @@ class ValidatorEngine {
               inputDigest: '',
             ),
           ];
+    final obligationCatalog = AssuranceObligationCatalog.build(
+      workspace,
+      effectiveOutputs,
+    );
+    allErrors.addAll(obligationCatalog.diagnostics);
     _add(
       allErrors,
       allWarnings,
@@ -206,6 +484,7 @@ class ValidatorEngine {
               completeness: completeness,
             ),
             workspace: workspace,
+            obligations: obligationCatalog.controls,
           ),
         );
       }
@@ -216,7 +495,11 @@ class ValidatorEngine {
         allWarnings,
         allInfos,
         allControlProofs,
-        dominance.validate(irGraph, workspace: workspace),
+        dominance.validate(
+          irGraph,
+          workspace: workspace,
+          obligations: obligationCatalog.controls,
+        ),
       );
     }
 
@@ -244,8 +527,30 @@ class ValidatorEngine {
       allWarnings,
       allInfos,
       allControlProofs,
-      verificationBacked.validate(workspace, effectiveOutputs, profileEvidence),
+      verificationBacked.validate(
+        workspace,
+        effectiveOutputs,
+        profileEvidence,
+        obligations: obligationCatalog.controls,
+      ),
     );
+
+    final implementationCoverage = _implementationCoverage(
+      effectiveOutputs,
+      irGraph,
+      profileEvidence,
+      obligationCatalog,
+    );
+    allImplementationCoverage.addAll(implementationCoverage.results);
+    allErrors.addAll(implementationCoverage.errors);
+
+    final reconciledProofs = _reconcileProofOwnership(
+      allControlProofs,
+      allErrors,
+    );
+    allControlProofs
+      ..clear()
+      ..addAll(reconciledProofs);
 
     _add(
       allErrors,
@@ -277,11 +582,11 @@ class ValidatorEngine {
               .toList();
     final actualProofKeys = {
       for (final proof in controlProofs)
-        '${proof.requirementId ?? ''}|${proof.controlId}|${proof.target}|${proof.variant}',
+        '${proof.requirementId ?? ''}|${proof.controlId}|${proof.target}|${proof.variant}|${proof.slot}',
     };
     for (final expected in expectedProofs) {
       final key =
-          '${expected.requirementId}|${expected.controlId}|${expected.target}|${expected.variant}';
+          '${expected.requirementId}|${expected.controlId}|${expected.target}|${expected.variant}|${expected.slot}';
       if (actualProofKeys.contains(key)) continue;
       controlProofs.add(
         ControlProofResult(
@@ -289,6 +594,7 @@ class ValidatorEngine {
           requirementId: expected.requirementId,
           target: expected.target,
           variant: expected.variant,
+          slot: expected.slot,
           status: ir.ProofStatus.missing,
           semantics: expected.semantics,
           diagnostics: const [
@@ -311,10 +617,104 @@ class ValidatorEngine {
       warnings: allWarnings,
       infos: allInfos,
       controlProofs: controlProofs,
+      implementationCoverage: allImplementationCoverage,
       requiredEvidence: _requiredEvidence(workspace, selectedScenarioIds),
       hasExpectedProofs: expectedProofs.isNotEmpty,
     );
   }
+
+  List<ControlProofResult> _reconcileProofOwnership(
+    List<ControlProofResult> proofs,
+    List<ValidationMessage> errors,
+  ) {
+    final grouped = <String, List<ControlProofResult>>{};
+    for (final proof in proofs) {
+      (grouped[_proofKey(proof)] ??= []).add(proof);
+    }
+    final reconciled = <ControlProofResult>[];
+    for (final entry in grouped.entries) {
+      final candidates = entry.value;
+      if (candidates.length == 1) {
+        reconciled.add(candidates.single);
+        continue;
+      }
+      final semantics = candidates.map((proof) => proof.semantics).toSet();
+      final providerIds =
+          candidates.expand((proof) => proof.providerIds).toSet().toList()
+            ..sort();
+      final evidenceDigests =
+          candidates.expand((proof) => proof.evidenceDigests).toSet().toList()
+            ..sort();
+      final diagnostics =
+          candidates.expand((proof) => proof.diagnostics).toSet().toList()
+            ..sort();
+      final first = candidates.first;
+      final conflict = semantics.length > 1;
+      if (conflict) {
+        errors.add(
+          ValidationMessage(
+            code: 'ZK-PROOF-OWNER-CONFLICT',
+            message:
+                'Multiple proof owners produced results for ${entry.key}: '
+                '${semantics.map((value) => value.wireValue).join(', ')}',
+            severity: Severity.error,
+          ),
+        );
+      }
+      final status =
+          candidates.any((proof) => proof.status == ProofStatus.failed)
+          ? ProofStatus.failed
+          : candidates.any(
+              (proof) =>
+                  proof.status == ProofStatus.indeterminate ||
+                  proof.status == ProofStatus.missing ||
+                  proof.status == ProofStatus.expired,
+            )
+          ? candidates
+                .firstWhere(
+                  (proof) =>
+                      proof.status == ProofStatus.indeterminate ||
+                      proof.status == ProofStatus.missing ||
+                      proof.status == ProofStatus.expired,
+                )
+                .status
+          : first.status;
+      reconciled.add(
+        ControlProofResult(
+          controlId: first.controlId,
+          requirementId: first.requirementId,
+          target: first.target,
+          variant: first.variant,
+          slot: first.slot,
+          status: conflict ? ProofStatus.failed : status,
+          semantics: first.semantics,
+          providerIds: providerIds,
+          evidenceDigests: evidenceDigests,
+          bypassPaths:
+              candidates.expand((proof) => proof.bypassPaths).toSet().toList()
+                ..sort(),
+          governedGraphHash:
+              candidates
+                      .map((proof) => proof.governedGraphHash)
+                      .toSet()
+                      .length ==
+                  1
+              ? first.governedGraphHash
+              : null,
+          completeness: first.completeness,
+          diagnostics: [
+            ...diagnostics,
+            if (conflict)
+              'Exactly one validator must own each control obligation',
+          ],
+        ),
+      );
+    }
+    return reconciled;
+  }
+
+  String _proofKey(ControlProofResult proof) =>
+      '${proof.requirementId ?? ''}|${proof.controlId}|${proof.target}|${proof.variant}|${proof.slot}';
 
   Set<String>? _selectedRuleIds(
     WorkspaceDiscoveryResult workspace,
@@ -380,9 +780,10 @@ class ValidatorEngine {
             controlId: ref.id,
             target: ref.target,
             variant: ref.variant,
+            slot: ref.slot,
             semantics: semantic,
           );
-          result['${expected.requirementId}|${expected.controlId}|${expected.target}|${expected.variant}'] =
+          result['${expected.requirementId}|${expected.controlId}|${expected.target}|${expected.variant}|${expected.slot}'] =
               expected;
         }
         final profile = rule.metadata.securityProfile;
@@ -395,16 +796,19 @@ class ValidatorEngine {
             for (final raw in requires.whereType<Map>()) {
               final controlId = raw['id']?.toString();
               if (controlId == null || controlId.isEmpty) continue;
-              final target = raw['target']?.toString() ?? 'backend';
+              final target = raw['target']?.toString();
+              if (target == null || target.isEmpty) continue;
               final variant = raw['variant']?.toString() ?? 'default';
+              final slot = raw['slot']?.toString() ?? 'primary';
               final expected = _ExpectedProof(
                 requirementId: requirementId,
                 controlId: controlId,
                 target: target,
                 variant: variant,
+                slot: slot,
                 semantics: _semanticsFor(workspace, controlId),
               );
-              result['${expected.requirementId}|${expected.controlId}|${expected.target}|${expected.variant}'] =
+              result['${expected.requirementId}|${expected.controlId}|${expected.target}|${expected.variant}|${expected.slot}'] =
                   expected;
             }
           }
@@ -426,7 +830,8 @@ class ValidatorEngine {
         final direct = {
           for (final ref
               in rule.metadata.requires ?? const <ParsedControlRef>[])
-            if (ref.kind == 'control') '${ref.id}|${ref.target}|${ref.variant}',
+            if (ref.kind == 'control')
+              '${ref.id}|${ref.target}|${ref.variant}|${ref.slot}',
         };
         for (final policy in workspace.data.policies.values) {
           final profiles = policy['securityProfiles'];
@@ -437,8 +842,10 @@ class ValidatorEngine {
             if (raw['kind']?.toString() != 'control') continue;
             final id = raw['id']?.toString();
             if (id == null || id.isEmpty) continue;
+            final target = raw['target']?.toString();
+            if (target == null || target.isEmpty) continue;
             final key =
-                '${id}|${raw['target'] ?? 'backend'}|${raw['variant'] ?? 'default'}';
+                '$id|$target|${raw['variant'] ?? 'default'}|${raw['slot'] ?? 'primary'}';
             if (direct.contains(key)) {
               warnings.add(
                 ValidationMessage(
@@ -521,6 +928,7 @@ class _ExpectedProof {
   final String controlId;
   final String target;
   final String variant;
+  final String slot;
   final ir.CoverageSemantics semantics;
 
   const _ExpectedProof({
@@ -528,6 +936,35 @@ class _ExpectedProof {
     required this.controlId,
     required this.target,
     required this.variant,
+    required this.slot,
     required this.semantics,
   });
 }
+
+final class _ImplementationBinding {
+  final BindingIdentity identity;
+  final String packageName;
+  final ir.PlacementMode mode;
+  final IrGraph graph;
+  final IrNode? node;
+  final int nodeCount;
+
+  const _ImplementationBinding({
+    required this.identity,
+    required this.packageName,
+    required this.mode,
+    required this.graph,
+    required this.node,
+    required this.nodeCount,
+  });
+}
+
+final class _ImplementationCoverageEvaluation {
+  final List<ir.ImplementationCoverageResult> results;
+  final List<ValidationMessage> errors;
+
+  const _ImplementationCoverageEvaluation(this.results, this.errors);
+}
+
+String _coverageGraphHash(IrGraph graph) =>
+    'sha256:${sha256.convert(utf8.encode(canonicalJson(graph.toJson())))}';

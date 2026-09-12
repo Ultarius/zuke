@@ -20,12 +20,11 @@ class CartItemModel {
   'RULE-CART-PROMO-DISCOUNT',
   'RULE-CART-EMPTY-CHECKOUT',
   'RULE-CART-SUCCESSFUL-CHECKOUT',
-], target: 'flutter')
+])
 @ProvidesControl(
   ['CTRL-CART-VALIDATION', 'CTRL-PROMO-VALIDATION'],
   kind: ControlProviderKind.applicationValidator,
   layer: EnforcementLayer.presentation,
-  target: 'flutter',
 )
 class CartController extends ChangeNotifier {
   final List<CartItemModel> _items = [];

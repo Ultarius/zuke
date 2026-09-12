@@ -4,11 +4,13 @@ import 'package:analyzer/dart/analysis/analysis_context_collection.dart';
 import 'package:analyzer/dart/analysis/results.dart';
 import 'package:analyzer/dart/ast/ast.dart';
 import 'package:analyzer/dart/ast/visitor.dart';
+import 'package:analyzer/dart/element/element.dart';
 import 'package:dart_frog_gen/dart_frog_gen.dart';
 import 'package:path/path.dart' as path;
 import 'package:zuke_core/zuke_core.dart';
 
 import 'generated/release_contract.dart';
+import 'dart_frog_http_methods.dart';
 import 'tooling/analyzer_sdk.dart';
 import 'tooling/inspection.dart';
 
@@ -73,6 +75,7 @@ final class DartFrogAdapter implements FrameworkAdapter {
           );
         }
         for (final routeFile in entry.value) {
+          final topologyPath = _canonicalTopologyPath(routeFile.path);
           final resolved = _resolveRoutePath(
             request.packageRoot,
             routeFile.path,
@@ -101,6 +104,7 @@ final class DartFrogAdapter implements FrameworkAdapter {
           final transport = exists
               ? await _classifyTransport(resolved, request, collection)
               : const _TransportResult(kind: 'route', complete: false);
+          routeComplete = routeComplete && transport.complete;
           diagnostics.addAll(transport.diagnostics);
           final nodeId = _nodeId(request, 'route', entry.key);
           nodes.add(
@@ -108,7 +112,7 @@ final class DartFrogAdapter implements FrameworkAdapter {
               id: nodeId,
               kind: transport.kind == 'websocket' ? 'websocket-route' : 'route',
               name: routeFile.name,
-              path: routeFile.path,
+              path: topologyPath,
               attributes: {
                 'route': entry.key,
                 'parameters': routeFile.params,
@@ -117,19 +121,22 @@ final class DartFrogAdapter implements FrameworkAdapter {
                 'handlerResolved': exists,
                 'transport': transport.kind,
                 'transportResolved': transport.complete,
+                if (transport.methods.isNotEmpty) 'methods': transport.methods,
+                // Dart Frog's resolved WebSocket handler uses an HTTP GET
+                // handshake. This does not describe ordinary HTTP branches.
+                if (transport.kind == 'websocket')
+                  'httpUpgradeMethods': const ['GET'],
+                if (transport.implementationTypes.isNotEmpty)
+                  'implementationTypes': transport.implementationTypes,
               },
             ),
           );
           nodes.add(
             TopologyNode(
-              id: _nodeId(
-                request,
-                'route-alias',
-                '${entry.key}|${routeFile.path}',
-              ),
+              id: _nodeId(request, 'route-alias', '${entry.key}|$topologyPath'),
               kind: 'route-alias',
               name: routeFile.name,
-              path: routeFile.path,
+              path: topologyPath,
               attributes: {'route': entry.key, 'target': nodeId},
             ),
           );
@@ -244,20 +251,21 @@ final class DartFrogAdapter implements FrameworkAdapter {
       for (var index = 0; index < inspection.calls.length; index++) {
         final call = inspection.calls[index];
         final name = call.name;
+        final topologyPath = _canonicalTopologyPath(
+          path.relative(filePath, from: request.packageRoot),
+        );
         nodes.add(
           TopologyNode(
-            id: _nodeId(
-              request,
-              'middleware',
-              '${path.relative(filePath, from: request.packageRoot)}|$name',
-            ),
+            id: _nodeId(request, 'middleware', '$topologyPath|$name'),
             kind: 'middleware',
             name: name,
-            path: path.relative(filePath, from: request.packageRoot),
+            path: topologyPath,
             attributes: {
               'incomingOrder': index,
               'chainResolved': true,
               if (call.controlId != null) 'controlId': call.controlId,
+              if (call.implementationTypes.isNotEmpty)
+                'implementationTypes': call.implementationTypes,
             },
           ),
         );
@@ -266,11 +274,18 @@ final class DartFrogAdapter implements FrameworkAdapter {
     return _MiddlewareResult(complete: complete, diagnostics: diagnostics);
   }
 
+  String _canonicalTopologyPath(String value) => value.replaceAll('\\', '/');
+
   Future<_TransportResult> _classifyTransport(
     String filePath,
     AdapterRequest request,
-    AnalysisContextCollection collection,
-  ) async {
+    AnalysisContextCollection collection, [
+    Set<String>? visited,
+  ]) async {
+    visited ??= <String>{};
+    if (!visited.add(filePath)) {
+      return const _TransportResult(kind: 'indeterminate', complete: false);
+    }
     final resolved = await _resolveUnit(filePath, collection);
     if (resolved == null) {
       return _TransportResult(
@@ -284,10 +299,55 @@ final class DartFrogAdapter implements FrameworkAdapter {
         ],
       );
     }
+    final functions = resolved.unit.declarations
+        .whereType<FunctionDeclaration>()
+        .where((declaration) => declaration.name.lexeme == 'onRequest');
+    final variables = resolved.unit.declarations
+        .whereType<TopLevelVariableDeclaration>()
+        .expand((declaration) => declaration.variables.variables)
+        .where((declaration) => declaration.name.lexeme == 'onRequest');
+    if (functions.length + variables.length != 1) {
+      return const _TransportResult(kind: 'indeterminate', complete: false);
+    }
+    final body = functions.isNotEmpty
+        ? functions.single.functionExpression.body
+        : variables.single.initializer;
+    if (body == null) {
+      return const _TransportResult(kind: 'indeterminate', complete: false);
+    }
+    // Follow direct route aliases using resolved symbols; visited stops cycles.
+    final returned = functions.isNotEmpty
+        ? _returnedExpression(functions.single)
+        : variables.single.initializer;
+    final directReturn =
+        body is ExpressionFunctionBody ||
+        (body is BlockFunctionBody && body.block.statements.length == 1);
+    final forwardedCall =
+        directReturn &&
+        returned is MethodInvocation &&
+        functions.isNotEmpty &&
+        _forwardsParameters(returned, functions.single);
+    final alias = switch (returned) {
+      MethodInvocation value when forwardedCall => value.methodName.element,
+      PrefixedIdentifier value => value.identifier.element,
+      SimpleIdentifier value => value.element,
+      _ => null,
+    };
+    if (alias is ExecutableElement &&
+        alias.name == 'onRequest' &&
+        (alias is GetterElement || forwardedCall)) {
+      final aliasPath = alias.library.firstFragment.source.fullName;
+      final root = path.normalize(Directory(request.packageRoot).absolute.path);
+      if (path.isWithin(root, aliasPath)) {
+        return _classifyTransport(aliasPath, request, collection, visited);
+      }
+    }
     var sawCandidate = false;
     var resolvedWebSocket = false;
     var unresolvedCandidate = false;
-    resolved.unit.accept(
+    final implementationTypes = <String>{};
+    var unresolvedImplementationLink = false;
+    body.accept(
       _InvocationVisitor(
         onInvocation: (invocation) {
           final name = switch (invocation) {
@@ -317,15 +377,51 @@ final class DartFrogAdapter implements FrameworkAdapter {
             unresolvedCandidate = true;
           }
         },
+        onMethodInvocation: (invocation) {
+          if (invocation.methodName.name != 'read') return;
+          final method = invocation.methodName.element;
+          final enclosing = method?.enclosingElement;
+          if (enclosing is! InterfaceElement ||
+              enclosing.name != 'RequestContext') {
+            return;
+          }
+          final arguments = invocation.typeArguments?.arguments ?? const [];
+          if (arguments.length != 1) {
+            unresolvedImplementationLink = true;
+            return;
+          }
+          final type = arguments.single;
+          final element = type.element;
+          final name = element?.name ?? type.name.lexeme;
+          if (element == null || name == null || name.isEmpty) {
+            unresolvedImplementationLink = true;
+            return;
+          }
+          implementationTypes.add(name);
+        },
       ),
     );
+    final linkedTypes = implementationTypes.toList()..sort();
     if (resolvedWebSocket) {
-      return const _TransportResult(kind: 'websocket', complete: true);
+      return _TransportResult(
+        kind: 'websocket',
+        complete: !unresolvedImplementationLink,
+        implementationTypes: linkedTypes,
+        diagnostics: unresolvedImplementationLink
+            ? [
+                _warning(
+                  'ZK-DART-FROG-IMPL-001',
+                  'A RequestContext.read<T>() implementation link could not be resolved: $filePath',
+                ),
+              ]
+            : const [],
+      );
     }
     if (sawCandidate || unresolvedCandidate) {
       return _TransportResult(
         kind: 'indeterminate',
         complete: false,
+        implementationTypes: linkedTypes,
         diagnostics: [
           _warning(
             'ZK-DART-FROG-WS-002',
@@ -334,7 +430,40 @@ final class DartFrogAdapter implements FrameworkAdapter {
         ],
       );
     }
-    return const _TransportResult(kind: 'http', complete: true);
+    return _TransportResult(
+      kind: 'http',
+      methods: functions.isNotEmpty
+          ? dartFrogHttpMethods(functions.single)
+          : const [],
+      complete: !unresolvedImplementationLink,
+      implementationTypes: linkedTypes,
+      diagnostics: unresolvedImplementationLink
+          ? [
+              _warning(
+                'ZK-DART-FROG-IMPL-001',
+                'A RequestContext.read<T>() implementation link could not be resolved: $filePath',
+              ),
+            ]
+          : const [],
+    );
+  }
+
+  bool _forwardsParameters(MethodInvocation call, FunctionDeclaration handler) {
+    final parameters = handler.functionExpression.parameters?.parameters;
+    if (parameters == null ||
+        parameters.length != call.argumentList.arguments.length) {
+      return false;
+    }
+    for (var index = 0; index < parameters.length; index++) {
+      final argument = call.argumentList.arguments[index];
+      final parameter = parameters[index].declaredFragment?.element;
+      if (parameter == null ||
+          argument is! SimpleIdentifier ||
+          argument.element != parameter) {
+        return false;
+      }
+    }
+    return true;
   }
 
   Future<_MiddlewareInspection> _inspectMiddleware(
@@ -414,7 +543,7 @@ final class DartFrogAdapter implements FrameworkAdapter {
       final arguments = invocation.argumentList.arguments;
       final argument = arguments.length == 1 ? arguments.single : null;
       final name = argument == null ? null : _middlewareName(argument);
-      if (name == null) {
+      if (argument == null || name == null) {
         complete = false;
         diagnostics.add(
           _warning(
@@ -424,7 +553,18 @@ final class DartFrogAdapter implements FrameworkAdapter {
         );
         continue;
       }
-      calls.add(_MiddlewareCall(name: name, controlId: controls[name]));
+      final implementationTypes = await _middlewareImplementationTypes(
+        argument,
+        packageRoot,
+        collection,
+      );
+      calls.add(
+        _MiddlewareCall(
+          name: name,
+          controlId: controls[name],
+          implementationTypes: implementationTypes,
+        ),
+      );
     }
     return _MiddlewareInspection(
       complete: complete,
@@ -451,6 +591,17 @@ final class DartFrogAdapter implements FrameworkAdapter {
       if (expression.methodName.element == null) return null;
       return expression.methodName.name;
     }
+    if (expression is FunctionExpressionInvocation) {
+      final function = expression.function;
+      if (function is SimpleIdentifier && function.element != null) {
+        return function.name;
+      }
+      if (function is PrefixedIdentifier &&
+          function.identifier.element != null) {
+        return function.identifier.name;
+      }
+      return null;
+    }
     if (expression is SimpleIdentifier) {
       return expression.element == null ? null : expression.name;
     }
@@ -460,6 +611,125 @@ final class DartFrogAdapter implements FrameworkAdapter {
           : expression.identifier.name;
     }
     return null;
+  }
+
+  Future<List<String>> _middlewareImplementationTypes(
+    Expression expression,
+    String packageRoot,
+    AnalysisContextCollection collection,
+  ) async {
+    final function = switch (expression) {
+      FunctionExpressionInvocation invocation => invocation.function,
+      _ => null,
+    };
+    final element = switch (expression) {
+      MethodInvocation invocation => invocation.methodName.element,
+      _ => switch (function) {
+        SimpleIdentifier identifier => identifier.element,
+        PrefixedIdentifier identifier => identifier.identifier.element,
+        _ => null,
+      },
+    };
+    if (element is! ExecutableElement) return const [];
+
+    final types = <String>{};
+    final visited = <String>{};
+
+    late Future<void> Function(ExecutableElement) inspectExecutable;
+    late Future<void> Function(AstNode) inspectBody;
+
+    inspectExecutable = (ExecutableElement executable) async {
+      final source = executable.library.firstFragment.source;
+      final filePath = path.normalize(source.fullName);
+      final root = path.normalize(File(packageRoot).absolute.path);
+      final rootWithSeparator = '$root${path.separator}';
+      if (filePath != root && !filePath.startsWith(rootWithSeparator)) return;
+      if (!visited.add('${filePath}|${executable.name}')) return;
+
+      final resolved = await _resolveUnit(filePath, collection);
+      if (resolved == null) return;
+      final declarations = resolved.unit.declarations
+          .whereType<FunctionDeclaration>()
+          .where((candidate) => candidate.name.lexeme == executable.name)
+          .toList(growable: false);
+      final declaration = declarations.length == 1 ? declarations.single : null;
+      if (declaration == null) {
+        final owner = executable.enclosingElement;
+        for (final classDeclaration
+            in resolved.unit.declarations.whereType<ClassDeclaration>()) {
+          if (owner is! InterfaceElement ||
+              _classDeclarationName(classDeclaration) != owner.name) {
+            continue;
+          }
+          if (executable is ConstructorElement) {
+            final constructors = _classDeclarationMembers(classDeclaration)
+                .whereType<ConstructorDeclaration>()
+                .where(
+                  (candidate) =>
+                      (candidate.name?.lexeme ?? '') == executable.name,
+                )
+                .toList(growable: false);
+            if (constructors.length == 1) {
+              await inspectBody(constructors.single.body);
+              return;
+            }
+            continue;
+          }
+          final methods = _classDeclarationMembers(classDeclaration)
+              .whereType<MethodDeclaration>()
+              .where((candidate) => candidate.name.lexeme == executable.name)
+              .toList(growable: false);
+          if (methods.length == 1) {
+            await inspectBody(methods.single.body);
+            return;
+          }
+        }
+        return;
+      }
+      await inspectBody(declaration.functionExpression.body);
+    };
+
+    inspectBody = (AstNode body) async {
+      final invocations = <ExecutableElement>{};
+      body.accept(
+        _InitializationVisitor(
+          onType: (name) {
+            if (name != null && name.isNotEmpty) types.add(name);
+          },
+          onExecutable: (candidate) {
+            if (candidate != null) invocations.add(candidate);
+          },
+        ),
+      );
+      for (final invocation in invocations) {
+        await inspectExecutable(invocation);
+      }
+    };
+
+    await inspectExecutable(element);
+    return types.toList()..sort();
+  }
+
+  String _classDeclarationName(ClassDeclaration declaration) {
+    // Analyzer 12 moved the class name and members below namePart/body.
+    // Keep the adapter source-compatible with the older Analyzer versions
+    // supported by the release matrix while using the new public API when it
+    // is available.
+    final dynamic node = declaration;
+    try {
+      return node.namePart.typeName.lexeme as String;
+    } on Object {
+      return node.name.lexeme as String;
+    }
+  }
+
+  Iterable<ClassMember> _classDeclarationMembers(ClassDeclaration declaration) {
+    final dynamic node = declaration;
+    try {
+      return (node.body.members as Iterable).cast<ClassMember>();
+    } on Object {
+      return (node.members as Iterable).cast<ClassMember>();
+    }
   }
 
   Future<ResolvedUnitResult?> _resolveUnit(
@@ -519,13 +789,17 @@ final class DartFrogAdapter implements FrameworkAdapter {
 }
 
 final class _TransportResult {
+  final List<String> methods;
   final String kind;
   final bool complete;
+  final List<String> implementationTypes;
   final List<Diagnostic> diagnostics;
 
   const _TransportResult({
+    this.methods = const [],
     required this.kind,
     required this.complete,
+    this.implementationTypes = const [],
     this.diagnostics = const [],
   });
 }
@@ -533,8 +807,13 @@ final class _TransportResult {
 final class _MiddlewareCall {
   final String name;
   final String? controlId;
+  final List<String> implementationTypes;
 
-  const _MiddlewareCall({required this.name, this.controlId});
+  const _MiddlewareCall({
+    required this.name,
+    this.controlId,
+    this.implementationTypes = const [],
+  });
 }
 
 final class _MiddlewareInspection {
@@ -551,18 +830,71 @@ final class _MiddlewareInspection {
 
 final class _InvocationVisitor extends RecursiveAstVisitor<void> {
   final void Function(InvocationExpression invocation) onInvocation;
+  final void Function(MethodInvocation invocation)? onMethodInvocation;
 
-  const _InvocationVisitor({required this.onInvocation});
+  const _InvocationVisitor({
+    required this.onInvocation,
+    this.onMethodInvocation,
+  });
 
   @override
   void visitMethodInvocation(MethodInvocation node) {
     onInvocation(node);
+    onMethodInvocation?.call(node);
     super.visitMethodInvocation(node);
   }
 
   @override
   void visitFunctionExpressionInvocation(FunctionExpressionInvocation node) {
     onInvocation(node);
+    super.visitFunctionExpressionInvocation(node);
+  }
+}
+
+final class _InitializationVisitor extends RecursiveAstVisitor<void> {
+  final void Function(String? name) onType;
+  final void Function(ExecutableElement? executable) onExecutable;
+
+  const _InitializationVisitor({
+    required this.onType,
+    required this.onExecutable,
+  });
+
+  @override
+  void visitFunctionExpression(FunctionExpression node) {
+    // Provider factories and other callbacks are executed later, when a
+    // request is handled. They are not process-initialization edges.
+  }
+
+  @override
+  void visitInstanceCreationExpression(InstanceCreationExpression node) {
+    onType(
+      node.constructorName.type.element?.name ??
+          node.constructorName.type.name.lexeme,
+    );
+    final constructor = node.constructorName.element;
+    if (constructor is ExecutableElement) onExecutable(constructor);
+    super.visitInstanceCreationExpression(node);
+  }
+
+  @override
+  void visitMethodInvocation(MethodInvocation node) {
+    final method = node.methodName.element;
+    final owner = method?.enclosingElement;
+    if (owner is ClassElement) onType(owner.name);
+    if (method is ExecutableElement) onExecutable(method);
+    super.visitMethodInvocation(node);
+  }
+
+  @override
+  void visitFunctionExpressionInvocation(FunctionExpressionInvocation node) {
+    final function = node.function;
+    final element = switch (function) {
+      SimpleIdentifier identifier => identifier.element,
+      PrefixedIdentifier identifier => identifier.identifier.element,
+      _ => null,
+    };
+    if (element is ExecutableElement) onExecutable(element);
     super.visitFunctionExpressionInvocation(node);
   }
 }

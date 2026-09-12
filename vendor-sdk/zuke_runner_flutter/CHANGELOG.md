@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.4.0
+
+- Coordinated Flutter runner result emission with explicit extraction targets
+  and the current proof ownership model.
+- Added explicit `provedImplementationSlots` claims for multi-slot
+  implementation coverage; ordinary evidence remains slot-independent.
+
+## 0.3.1
+
+- Include the managed widget-test case identity when emitting suite and
+  scenario results so distinct cases and sequential profile runs cannot
+  collide during validation.
+
 ## 0.3.0
 
 - Added the analyzer-free core dependency and current source identity emission for

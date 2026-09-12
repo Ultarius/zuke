@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.4.0
+
+- Coordinated runner identity and result emission with the target-aware
+  provider and proof-routing release.
+- Added explicit `provedImplementationSlots` claims for multi-slot
+  implementation coverage; ordinary evidence remains slot-independent.
+
+## 0.3.1
+
+- Include the managed test case identity when emitting suite and scenario
+  results so distinct cases and sequential profile runs cannot collide during
+  validation.
+
 ## 0.3.0
 
 - Coordinated the compatibility facade with the current result identity contract.

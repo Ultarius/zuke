@@ -41,16 +41,24 @@ String setupPackageWithGuard(Directory tempDir) {
   File('${tempDir.path}/pubspec.yaml').writeAsStringSync('''
 name: test_pkg
 environment:
-  sdk: '>=3.10.0 <3.11.0'
+  sdk: '>=3.10.0 <4.0.0'
 ''');
   File('${libDir.path}/main.dart').writeAsStringSync('void main() {}\n');
   File('${tempDir.path}/zuke.yaml').writeAsStringSync('''
-schemaVersion: 2
+schemaVersion: 3
 workspace:
   name: test
   root: .
-specifications: {}
-targets: {}
+specifications:
+  features: []
+targets:
+  backend:
+    language: dart
+    framework: dart
+    packages:
+      - id: test_pkg
+        path: .
+        roots: [lib]
 ''');
   return tempDir.path;
 }
@@ -60,9 +68,8 @@ void main() {
     late Directory tempDir;
 
     setUp(() {
-      tempDir = Directory(
-        'test/temp_hook_${DateTime.now().millisecondsSinceEpoch}',
-      )..createSync(recursive: true);
+      // Keep the temporary package outside the workspace package scan.
+      tempDir = Directory.systemTemp.createTempSync('zuke-build-hook-');
     });
 
     tearDown(() {
@@ -79,10 +86,36 @@ void main() {
         File('${tempDir.path}/pubspec.yaml').writeAsStringSync('''
 name: test_pkg
 environment:
-  sdk: '>=3.10.0 <3.11.0'
+  sdk: '>=3.10.0 <4.0.0'
 ''');
         final lib = Directory('${tempDir.path}/lib')..createSync();
         File('${lib.path}/main.dart').writeAsStringSync('void main() {}\n');
+        File('${tempDir.path}/zuke.yaml').writeAsStringSync('''
+schemaVersion: 3
+workspace:
+  name: test
+  root: .
+specifications:
+  features: []
+targets:
+  backend:
+    language: dart
+    framework: dart
+    packages:
+      - id: test_pkg
+        path: .
+        roots: [lib]
+        ''');
+        final generated = await Process.run(
+          Platform.resolvedExecutable,
+          <String>['run', 'zuke_cli:zuke', 'generate', '--root', tempDir.path],
+        );
+        expect(
+          generated.exitCode,
+          0,
+          reason:
+              'Fixture generation failed: ${generated.stdout}\n${generated.stderr}',
+        );
         final outputDirectory = Directory('${tempDir.path}/hook-output')
           ..createSync();
         final config = File('${tempDir.path}/input.json');
@@ -145,16 +178,24 @@ environment:
       File('${tempDir.path}/pubspec.yaml').writeAsStringSync('''
 name: test_pkg
 environment:
-  sdk: '>=3.10.0 <3.11.0'
+  sdk: '>=3.10.0 <4.0.0'
 ''');
       File('${libDir.path}/main.dart').writeAsStringSync('void main() {}\n');
       File('${guardDir.path}/zuke.yaml').writeAsStringSync('''
-schemaVersion: 2
+schemaVersion: 3
 workspace:
   name: test
   root: .
-specifications: {}
-targets: {}
+specifications:
+  features: []
+targets:
+  backend:
+    language: dart
+    framework: dart
+    packages:
+      - id: test_pkg
+        path: .
+        roots: [lib]
 ''');
 
       await expectLater(

@@ -1,5 +1,74 @@
 # Zuke Flutter integration guide
 
+## Start with a framework preset
+
+Run `dart run zuke_cli:zuke init --preset flutter` in an existing Flutter
+package, or choose `dart` or `dart-frog`. The default `auto` detects Flutter
+and Dart Frog dependencies in `pubspec.yaml`. `--dry-run` prints the proposed
+configuration without writing files; an existing `zuke.yaml` is never replaced.
+Presets configure the source package, generated barrel, managed test runner,
+and four lock profiles. Add your specifications, scenario registrations, and
+project-specific policy and trust material before requesting assurance.
+
+Add `--editor vscode` to create two lock tasks: verification of all profiles and
+refresh with a picker for all profiles or a configured profile. It also creates
+pull-request gate, generation, alignment, and doctor tasks. Refresh runs through
+Tasks, without a duplicate launch entry. This works in an initialized workspace without
+replacing `zuke.yaml`. The preset merges only those exact named entries,
+preserves other entries and JSONC comments, and rejects malformed or ambiguous
+editor files before writing. It invokes `dart run zuke_cli:zuke`, so it works
+with published packages and does not require a sibling Zuke checkout. Use
+`--dry-run` to preview. Obsolete generated refresh aliases are removed unless
+another task or launch configuration references them; referenced aliases retain
+their original scope so existing task dependencies continue to work.
+
+`dart run zuke_cli:zuke lock --refresh --all-profiles` discovers Zuke roots from a pub
+workspace when the selected directory has no `zuke.yaml`. Use repeated
+`--roots <path>` for multiple explicit roots, and repeated `--profiles <name>`
+for a subset of profiles. Each root publishes its selected locks
+transactionally after generation, managed tests, and validation succeed.
+Roots run sequentially; a later root failure does not roll back a completed
+earlier root. VS Code tasks invoke this command directly.
+
+Pass `--diff-output <path>` with `lock --refresh` to write a deterministic JSON
+receipt containing the changed profile-lock hashes. The receipt must be a new
+file outside the lock directory; existing files are never overwritten. Use
+`zuke artifacts package --output <dir> --include <path>...` to assemble and
+audit an upload bundle from framework-produced directories and files; the
+destination must be new and every input is checked for links, collisions, and
+sensitive material before upload.
+Package `--output-file` and `--summary-file` must stay outside the bundle so
+writing the audit result cannot change the files that were just audited.
+
+Use generated enum values in direct registrations. For ordinary unit tests,
+`zukeUnit(body, scenario: GeneratedScenario.example)` defaults to the scenario
+ID as its case ID, `unit` evidence, and the `primary` implementation slot.
+Give multiple cases distinct IDs. The static audit rejects arbitrary
+`contractFor('SCN-...')` helpers and reconciles registrations with managed
+execution separately.
+
+Scenario aliases must be `final` or `const`; mutable bindings are unresolved
+instead of being attributed to their initial value. For an ordinary integrity
+test, call `const WorkspaceRegistrationAudit().inspect('.')` from
+`package:zuke_cli/zuke_cli.dart` and assert its diagnostics are empty. The API
+discovers configured runner roots and generated contracts, checks missing and
+duplicate registrations, and reports invalid specification discovery. It does
+not replace managed execution evidence.
+
+`gate --all-profiles --runner-mode <mode>` forwards the requested mode to every
+profile. Release trust failures retain their specific diagnostic, project
+ownership, and remediation in structured summaries and handoffs. Provision an
+authorized public release key through your trust process; creating a manifest
+does not itself establish release trust.
+
+For an append-only history of a structured gate summary, run
+`zuke gate record --summary-file <json> --blocker-file <history.txt>`.
+Optional `--release-id` and `--commit-sha` preserve release identity.
+`zuke gate handoff --summary-file <json> --output <handoff.txt>` renders
+current framework-owned diagnostics. Neither command treats historical
+failures as current release state. The existing gate auxiliary JSON flags
+remain current snapshots.
+
 `examples/todo_app` is the recommended beginner Flutter integration.
 `examples/shopping_cart` expands that setup with additional UI coverage, and
 `examples/calculator-product` is the advanced mixed Flutter, Dart HTTP,
@@ -22,13 +91,13 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  zuke_annotations: ^0.3.0
+  zuke_annotations: ^0.4.0
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
-  zuke_cli: ^0.4.0
-  zuke_runner_flutter: ^0.3.0
+  zuke_cli: ^0.5.0
+  zuke_runner_flutter: ^0.4.0
   # Optional hosted build-time check:
   # zuke_dart_build_hook: ^0.3.0
 ```
@@ -49,7 +118,7 @@ target is the next intentional breaking semver release after supported consumer
 imports have migrated and the hosted Linux/Windows certification lanes are
 green. No new API should be added to `zuke_runner`.
 
-For development from this repository, use `dart pub get` at the workspace root;
+For development from this repository, use `flutter pub get` at the workspace root;
 the Pub workspace resolves these hosted constraints to the local packages.
 
 ### Compatibility matrix
@@ -65,6 +134,78 @@ The repository intentionally does not declare a separate Flutter lower bound:
 Flutter supplies the Dart runtime that resolves these packages. Pin a Flutter
 SDK in CI or your version manager, then verify that its bundled Dart version is
 within the supported range above.
+
+### Hosted certification and Flutter test pins
+
+Hosted release certification is deliberately independent of any consumer
+workspace. It renders a fresh Dart capsule and a fresh Flutter capsule outside
+this checkout, uses exact versions from `docs/release-matrix.yaml`, and rejects
+path dependencies, Git dependencies, dependency overrides, workspace
+inheritance, and private Zuke packages. The host is explicit; the checker never
+switches to Flutter merely because Flutter happens to be installed.
+
+Use the canonical commands after the coordinated tuple is available in the
+hosted registry:
+
+```bash
+dart run zuke_cli:zuke certify hosted --platform linux --host dart
+dart run zuke_cli:zuke certify hosted --platform windows --host dart
+dart run zuke_cli:zuke certify hosted --platform linux --host flutter \
+  --flutter-version 3.44.8
+dart run zuke_cli:zuke certify hosted --platform windows --host flutter \
+  --flutter-version 3.44.8
+```
+
+The Flutter capsule uses `flutter_test` from the SDK and does not declare a
+direct `package:test` dependency. The Dart capsule uses the matrix test
+constraint.
+The capsule declares only the selected runner surface plus the CLI as a
+development tool; it does not manufacture runtime dependencies on optional
+packages such as the HTTP runtime or build hook. Every resolved Zuke package
+must still be a public matrix package at its exact matrix version. Both
+capsules use a fresh temporary `HOME` and `PUB_CACHE`, verify hosted/SDK
+sources in the resolved lock, run all four profiles, and compare the canonical
+gate result across stdout, summary, and safe artifact output.
+
+The current matrix records one certified Flutter version: `minimum` and
+`current` are intentionally both `3.44.8`. This is baseline certification,
+not evidence for an older-to-current support band. A second CI lane and a
+distinct matrix version are required before describing the release as a
+Flutter version band.
+
+`zuke certify hosted` is a published-tuple certificate, not a PR or Git-branch
+candidate certificate. Before publication, use the checked-out framework
+suites, a genuine staging hosted registry, or a first-party consumer's
+explicit Git dependency override. A green published lane must not be
+described as proof that an unpublished PR archive is installable from a
+hosted registry.
+
+The matrix workflow combines the per-host reports into a generated
+`compatibility.yaml` artifact with:
+
+```bash
+dart run tool/build_compatibility_manifest.dart \
+  --input generated/certification/report.json \
+  --output generated/compatibility.yaml
+```
+
+That manifest is evidence from resolved graphs, not a hand-maintained version
+compatibility table. Duplicate host/platform tuples or reports from different
+release tuples fail closed.
+
+For a real application workspace, diagnose its own SDK pin without changing
+dependencies:
+
+```bash
+dart run zuke_cli:zuke doctor test-host --root . --format json
+```
+
+This command is diagnostic-only. It does not write an override or claim that a
+consumer workspace conflict is a Zuke hosted-certification failure. Its JSON
+details report `compatible`, `incompatible`, or `undetermined`; a missing
+lockfile or unresolved SDK tuple is never reported as compatible. Use
+`flutter pub get` in a workspace containing Flutter so its SDK pins participate
+in the solve intentionally.
 
 If you started with `flutter create`, update or delete its default
 `test/widget_test.dart` when replacing the generated `MyApp`. Leaving that test
@@ -84,6 +225,14 @@ in place makes `flutter analyze` fail before Zuke runs.
 Each package README carries its tier-specific support contract. The release
 surface checks in `vendor-sdk/check_docs.dart` are the authoritative package
 inventory and support boundary.
+
+`zuke_test_support` is deliberately repository-only and is limited to helpers
+such as `deleteTemporaryDirectory`. The portable WebSocket scenario driver is
+owned by `package:zuke_runner/testing.dart`, with VM and channel adapters
+available from its platform entry points. Consumers should depend on
+`zuke_runner` only under `dev_dependencies`; they may use
+`zuke_test_support` through a test-tree bridge or as a direct development
+dependency, never from shipped library code.
 
 ---
 
@@ -499,14 +648,11 @@ import 'package:flutter/foundation.dart';
 import 'package:shopping_cart/shopping_cart.dart';
 import 'package:zuke_annotations/zuke_annotations.dart';
 
-@ImplementsRequirement([
-  FeatCart001RequirementIds.promoDiscount,
-], target: 'flutter')
+@ImplementsRequirement([FeatCart001RequirementIds.promoDiscount])
 @ProvidesControl(
   ['CTRL-PROMO-VALIDATION'],
   kind: ControlProviderKind.applicationValidator,
   layer: EnforcementLayer.presentation,
-  target: 'flutter',
 )
 class CartController extends ChangeNotifier {}
 ```
@@ -533,11 +679,71 @@ before hashing it, and creates the sealed binding hierarchy, typed contract
 interfaces (`FeatCart001FlutterBindings`, `FeatCart001FlutterDriver`), and
 `.zuke/analyzer-index.json`.
 
+To generate a public barrel and a scenario lookup together, configure the
+existing export option on the target that owns the contracts:
+
+```yaml
+targets:
+  flutter:
+    # Keep this target's language, framework, and packages here too.
+    contractOutput: lib/src/generated
+    contractExport: lib/product_contracts.dart
+```
+
+Import `package:your_product/product_contracts.dart` to use the feature enums,
+the immutable `generatedScenarioContracts` map keyed by scenario ID, or
+`zukeScenarioContract('SCN-CART-001')`. The lookup returns the generated enum
+instance with its original rule, title, and controls; an unknown ID throws
+`StateError`. Catalog membership does not prove registration or execution.
+For direct registrations, prefer the feature enum (`scenario:
+FeatCart001Scenario.id001`). The source registration audit does not currently
+resolve arbitrary lookup calls such as `zukeScenarioContract(...)`; migrating
+an existing consumer's `contractFor` support function requires keeping its
+registration checks and managed execution tests.
+
+The CLI reads the contract package's name from its `pubspec.yaml` and generates
+`package:` imports, including for custom output paths and nested packages.
+Without package metadata, the generator retains relative imports. The barrel
+excludes generated test step libraries. Unambiguous legacy rule
+aliases remain exported. If several features share a rule alias such as
+`Id001Scenarios`, use their canonical feature enums through the barrel or import
+the individual feature library for that alias.
+
+`generate --check` verifies the barrel and its catalog along with the other
+generated outputs. Exact legacy export-only barrels recorded in the generated
+manifest are upgraded automatically. Handwritten barrels are protected: during
+migration, generate to a new path, verify the catalog and registrations, switch
+imports, and then remove the old catalog/barrel. Refresh affected profile locks
+through managed tests and validation because the generated manifest changes.
+
 ---
 
 ## 7. Test runner setup & reusable step vocabulary
 
 Widget tests execute scenarios using `ScenarioExecutor<W>` and register vendor or project step vocabulary.
+
+For ordinary Dart or Flutter unit tests, import the canonical testing surface and
+use `zukeUnit` when the test publishes the standard `unit` evidence. It keeps
+the scenario identity and primary implementation-slot declaration consistent
+across consumers while remaining a direct `package:test` registration:
+
+```dart pseudocode
+import 'package:zuke/testing.dart';
+
+zukeUnit(
+  () async {
+    // Arrange, act, and assert product behavior.
+  },
+  scenario: FeatCart001Scenario.id001,
+  caseId: 'cart-unit-001',
+);
+```
+
+Use `zukeTest` for tests that need several evidence kinds, controls, or
+implementation slots. Keep `zukeTestWidgets` for tests that need the Flutter
+widget host. The compatibility `zuke_runner` package re-exports the testing
+API for existing consumers; new registrations should import
+`package:zuke/testing.dart` or `package:zuke/zuke.dart`.
 
 ### World Setup
 The world class **must** extend `ScenarioWorld`:
@@ -746,6 +952,9 @@ dart run zuke_cli:zuke test --profile pullRequest
 dart run zuke_cli:zuke validate --profile pullRequest
 dart run zuke_cli:zuke lock --profile pullRequest
 dart run zuke_cli:zuke lock --profile pullRequest --check
+# For a complete reviewed refresh, run generation, managed tests, validation,
+# and transactional lock publication in one command.
+dart run zuke_cli:zuke lock --all-profiles --refresh
 dart run zuke_cli:zuke gate --profile pullRequest
 # Remove only repository-local test/temp_* directories; use --dry-run first if needed.
 dart run zuke_cli:zuke clean --root vendor-sdk/zuke_cli --dry-run
@@ -762,6 +971,9 @@ dart run zuke_cli:zuke check --root examples/calculator-product --root examples/
 - **`lock`**: Updates the selected `assurance/locks/<profile>.lock.json`
   proof record (`lock --profile <name> --check` verifies no drift; use
   `--all-profiles` for the official four-profile set).
+- **`lock --refresh`**: Composes generation, managed execution, validation, and
+  transactional lock publication. It stops before writing locks when any
+  selected profile is not eligible.
 - **`gate`**: Combines validation, clean generation checks, test execution if evidence is missing, lock checking, and release trust checks into a single command.
 - **`check`**: Runs generation, configured runners, validation, lock synchronization, and an observational report for each supplied root. Roots can run concurrently; `--format json` emits exactly one `kind: zuke.check` document.
 - **`clean`**: Removes only directories matching `test/temp_*` beneath the supplied root. It does not remove source, locks, generated contracts, evidence, caches, or build output. Use `--dry-run` to preview.

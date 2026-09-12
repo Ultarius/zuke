@@ -51,6 +51,14 @@ const decoy = '.use(notMiddleware())';
         'dependencies',
       ]);
       expect(
+        middleware.every(
+          (node) =>
+              !node.id.contains('\\') && !(node.path?.contains('\\') ?? false),
+        ),
+        isTrue,
+        reason: 'topology identities must use portable separators',
+      );
+      expect(
         output.nodes.map((node) => node.id).toSet(),
         hasLength(output.nodes.length),
       );
@@ -68,7 +76,7 @@ const decoy = '.use(notMiddleware())';
     final game = Directory('${routes.path}/game')..createSync();
     File('${game.path}/index.dart').writeAsStringSync('''
 Object webSocketHandler(Object callback) => Object();
-final handler = webSocketHandler(() {});
+Object get onRequest => webSocketHandler(() {});
 ''');
 
     final output = await const DartFrogAdapter().extract(
@@ -84,6 +92,12 @@ final handler = webSocketHandler(() {});
     expect(output.nodes.any((node) => node.kind == 'websocket-route'), isFalse);
     expect(
       output.nodes.any(
+        (node) => node.attributes.containsKey('httpUpgradeMethods'),
+      ),
+      isFalse,
+    );
+    expect(
+      output.nodes.any(
         (node) => node.attributes['transport'] == 'indeterminate',
       ),
       isTrue,
@@ -93,4 +107,94 @@ final handler = webSocketHandler(() {});
       contains('ZK-DART-FROG-WS-002'),
     );
   });
+
+  test('links a resolved RequestContext.read type to the route', () async {
+    final root = await Directory.systemTemp.createTemp('zuke-dart-frog-');
+    addTearDown(() => root.delete(recursive: true));
+    final routes = Directory('${root.path}/routes')
+      ..createSync(recursive: true);
+    File('${routes.path}/_middleware.dart').writeAsStringSync('''
+typedef Handler = Object Function(Object);
+Handler middleware(Handler handler) => handler;
+''');
+    File('${routes.path}/index.dart').writeAsStringSync('''
+class RequestContext {
+  T read<T>() => throw UnimplementedError();
+}
+
+class CreateLobbyUseCase {}
+
+final context = RequestContext();
+
+Object onRequest(Object request) {
+  context.read<CreateLobbyUseCase>();
+  return Object();
+}
+''');
+
+    final output = await const DartFrogAdapter().extract(
+      AdapterRequest(
+        workspaceRoot: root.path,
+        targetId: 'backend',
+        packageId: 'backend',
+        packageRoot: root.path,
+        configuredRoots: ['routes'],
+      ),
+    );
+
+    final route = output.nodes.singleWhere((node) => node.kind == 'route');
+    expect(
+      route.attributes['implementationTypes'],
+      contains('CreateLobbyUseCase'),
+    );
+    expect(route.attributes['transportResolved'], isTrue);
+  });
+
+  test(
+    'links middleware initialization to constructed implementations',
+    () async {
+      final root = await Directory.systemTemp.createTemp('zuke-dart-frog-');
+      addTearDown(() => root.delete(recursive: true));
+      final routes = Directory('${root.path}/routes')
+        ..createSync(recursive: true);
+      File('${routes.path}/index.dart').writeAsStringSync('''
+Object onRequest(Object request) => Object();
+''');
+      // Keep the factory in the middleware library so the analyzer can resolve
+      // the call graph without relying on a package pubspec or generated files.
+      File('${routes.path}/_middleware.dart').writeAsStringSync('''
+typedef Handler = Object Function(Object);
+Handler middleware(Handler handler) => handler.use(dependencies());
+Handler dependencies() => Runtime.create() as Handler;
+class OutboxDispatcher {
+  static Object create() => Object();
+}
+class DriftUnitOfWork {}
+class Runtime {
+  static Object create() {
+    final unitOfWork = DriftUnitOfWork();
+    return OutboxDispatcher.create();
+  }
+}
+''');
+
+      final output = await const DartFrogAdapter().extract(
+        AdapterRequest(
+          workspaceRoot: root.path,
+          targetId: 'backend',
+          packageId: 'backend',
+          packageRoot: root.path,
+          configuredRoots: ['lib', 'routes'],
+        ),
+      );
+
+      final dependencies = output.nodes.singleWhere(
+        (node) => node.kind == 'middleware' && node.name == 'dependencies',
+      );
+      expect(
+        dependencies.attributes['implementationTypes'],
+        containsAll(<String>['DriftUnitOfWork', 'OutboxDispatcher']),
+      );
+    },
+  );
 }

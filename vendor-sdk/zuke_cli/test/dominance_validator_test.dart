@@ -12,11 +12,19 @@ void main() {
           IrNode(
             id: 'provider:mw',
             kind: NodeKind.provider,
+            target: 'backend',
+            role: 'provider',
+            variant: 'default',
+            slot: 'primary',
             properties: {'controlId': 'CTRL-CALC-BODY-SIZE'},
           ),
           IrNode(
             id: 'implementation:ctrl',
             kind: NodeKind.implementation,
+            target: 'backend',
+            role: 'implementation',
+            variant: 'default',
+            slot: 'primary',
             properties: {
               'requiredControls': ['CTRL-CALC-BODY-SIZE'],
             },
@@ -49,14 +57,18 @@ void main() {
             id: 'provider:mw',
             kind: NodeKind.provider,
             target: 'backend',
+            role: 'provider',
             variant: 'default',
+            slot: 'primary',
             properties: {'controlId': 'CTRL-CALC-BODY-SIZE'},
           ),
           IrNode(
             id: 'implementation:ctrl',
             kind: NodeKind.implementation,
             target: 'backend',
+            role: 'implementation',
             variant: 'default',
+            slot: 'primary',
             properties: {
               'requirementIds': ['RULE-CALC-BODY-SIZE'],
               'requiredControls': ['CTRL-CALC-BODY-SIZE'],
@@ -94,11 +106,19 @@ void main() {
           IrNode(
             id: 'provider:middleware',
             kind: NodeKind.provider,
+            target: 'backend',
+            role: 'provider',
+            variant: 'default',
+            slot: 'primary',
             properties: {'controlId': 'CTRL-CALC-BODY-SIZE'},
           ),
           IrNode(
             id: 'implementation:controller',
             kind: NodeKind.implementation,
+            target: 'backend',
+            role: 'implementation',
+            variant: 'default',
+            slot: 'primary',
             properties: {
               'requiredControls': ['CTRL-CALC-BODY-SIZE'],
             },
@@ -137,12 +157,18 @@ void main() {
             id: 'provider:edge-policy',
             kind: NodeKind.provider,
             target: 'edge',
+            role: 'provider',
+            variant: 'default',
+            slot: 'primary',
             properties: {'controlId': 'CTRL-CALC-BODY-SIZE'},
           ),
           IrNode(
             id: 'implementation:edge-route',
             kind: NodeKind.implementation,
             target: 'edge',
+            role: 'implementation',
+            variant: 'default',
+            slot: 'primary',
             properties: {
               'requiredControls': ['CTRL-CALC-BODY-SIZE'],
             },
@@ -174,11 +200,19 @@ void main() {
           IrNode(
             id: 'provider:mw',
             kind: NodeKind.provider,
+            target: 'backend',
+            role: 'provider',
+            variant: 'default',
+            slot: 'primary',
             properties: {'controlId': 'CTRL-CALC-BODY-SIZE'},
           ),
           IrNode(
             id: 'implementation:ctrl',
             kind: NodeKind.implementation,
+            target: 'backend',
+            role: 'implementation',
+            variant: 'default',
+            slot: 'primary',
             properties: {
               'requiredControls': ['CTRL-CALC-BODY-SIZE'],
             },
@@ -243,14 +277,18 @@ void main() {
             id: 'provider:flutter-phone',
             kind: NodeKind.provider,
             target: 'flutter',
+            role: 'provider',
             variant: 'phone',
+            slot: 'primary',
             properties: {'controlId': 'CTRL-CALC-BODY-SIZE'},
           ),
           IrNode(
             id: 'implementation:backend-default',
             kind: NodeKind.implementation,
             target: 'backend',
+            role: 'implementation',
             variant: 'default',
+            slot: 'primary',
             properties: {
               'requiredControls': ['CTRL-CALC-BODY-SIZE'],
             },
@@ -275,6 +313,135 @@ void main() {
       expect(proof.status, ProofStatus.missing);
     });
 
+    test('does not evaluate a control declared for another target', () {
+      const workspace = WorkspaceDiscoveryResult(
+        config: ZukeConfig(),
+        data: MetadataExtractorResult(
+          controls: {
+            'CTRL-BACKEND-ONLY': {'coverageSemantics': 'ingress-dominance'},
+          },
+          features: [
+            ParsedFeature(
+              tags: [],
+              featureElement: GherkinElement(
+                keyword: GherkinKeyword.feature,
+                title: 'Target isolation',
+                source: SourceLocation(file: 'target.feature', line: 1),
+              ),
+              metadata: ParsedMetadata(
+                id: 'FEAT-TARGET',
+                source: SourceLocation(file: 'target.feature', line: 1),
+              ),
+              rules: [
+                ParsedRule(
+                  tags: [],
+                  ruleElement: GherkinElement(
+                    keyword: GherkinKeyword.rule,
+                    title: 'Backend control',
+                    source: SourceLocation(file: 'target.feature', line: 2),
+                  ),
+                  metadata: ParsedMetadata(
+                    id: 'RULE-BACKEND-ONLY',
+                    requires: [
+                      ParsedControlRef(
+                        id: 'CTRL-BACKEND-ONLY',
+                        target: 'backend',
+                      ),
+                    ],
+                    source: SourceLocation(file: 'target.feature', line: 2),
+                  ),
+                  scenarios: [],
+                ),
+              ],
+            ),
+          ],
+        ),
+      );
+      const graph = IrGraph(
+        nodes: [
+          IrNode(
+            id: 'implementation:flutter-domain',
+            kind: NodeKind.implementation,
+            target: 'flutter',
+            role: 'implementation',
+            variant: 'default',
+            slot: 'primary',
+            properties: {
+              'requirementIds': ['RULE-BACKEND-ONLY'],
+            },
+          ),
+        ],
+      );
+
+      final result = DominanceValidator().validate(graph, workspace: workspace);
+
+      expect(result.errors, isEmpty);
+      expect(result.controlProofs, isEmpty);
+    });
+
+    test('does not send verification-backed controls through dominance', () {
+      const workspace = WorkspaceDiscoveryResult(
+        config: ZukeConfig(),
+        data: MetadataExtractorResult(
+          controls: {
+            'CTRL-VERIFIED': {'coverageSemantics': 'verification-backed'},
+          },
+          features: [
+            ParsedFeature(
+              tags: [],
+              featureElement: GherkinElement(
+                keyword: GherkinKeyword.feature,
+                title: 'Verification-backed control',
+                source: SourceLocation(file: 'verified.feature', line: 1),
+              ),
+              metadata: ParsedMetadata(
+                id: 'FEAT-VERIFIED',
+                source: SourceLocation(file: 'verified.feature', line: 1),
+              ),
+              rules: [
+                ParsedRule(
+                  tags: [],
+                  ruleElement: GherkinElement(
+                    keyword: GherkinKeyword.rule,
+                    title: 'A verified control',
+                    source: SourceLocation(file: 'verified.feature', line: 2),
+                  ),
+                  metadata: ParsedMetadata(
+                    id: 'RULE-VERIFIED',
+                    requires: [
+                      ParsedControlRef(id: 'CTRL-VERIFIED', target: 'flutter'),
+                    ],
+                    source: SourceLocation(file: 'verified.feature', line: 2),
+                  ),
+                  scenarios: [],
+                ),
+              ],
+            ),
+          ],
+        ),
+      );
+      const graph = IrGraph(
+        nodes: [
+          IrNode(
+            id: 'implementation:flutter-controller',
+            kind: NodeKind.implementation,
+            target: 'flutter',
+            role: 'implementation',
+            variant: 'default',
+            slot: 'primary',
+            properties: {
+              'requirementIds': ['RULE-VERIFIED'],
+            },
+          ),
+        ],
+      );
+
+      final result = DominanceValidator().validate(graph, workspace: workspace);
+
+      expect(result.errors, isEmpty);
+      expect(result.controlProofs, isEmpty);
+    });
+
     test(
       'does not compose disjoint partial providers into a dominance proof',
       () {
@@ -285,16 +452,28 @@ void main() {
             IrNode(
               id: 'provider:a',
               kind: NodeKind.provider,
+              target: 'backend',
+              role: 'provider',
+              variant: 'default',
+              slot: 'primary',
               properties: {'controlId': 'CTRL-CALC-BODY-SIZE'},
             ),
             IrNode(
               id: 'provider:b',
               kind: NodeKind.provider,
+              target: 'backend',
+              role: 'provider',
+              variant: 'default',
+              slot: 'primary',
               properties: {'controlId': 'CTRL-CALC-BODY-SIZE'},
             ),
             IrNode(
               id: 'implementation:ctrl',
               kind: NodeKind.implementation,
+              target: 'backend',
+              role: 'implementation',
+              variant: 'default',
+              slot: 'primary',
               properties: {
                 'requiredControls': ['CTRL-CALC-BODY-SIZE'],
               },
@@ -341,11 +520,19 @@ void main() {
           IrNode(
             id: 'provider:mw',
             kind: NodeKind.provider,
+            target: 'backend',
+            role: 'provider',
+            variant: 'default',
+            slot: 'primary',
             properties: {'controlId': 'CTRL-CALC-BODY-SIZE'},
           ),
           IrNode(
             id: 'implementation:ctrl',
             kind: NodeKind.implementation,
+            target: 'backend',
+            role: 'implementation',
+            variant: 'default',
+            slot: 'primary',
             properties: {
               'requirementIds': ['RULE-CALC-BODY-SIZE'],
             },
@@ -386,6 +573,10 @@ void main() {
             IrNode(
               id: 'implementation:ctrl',
               kind: NodeKind.implementation,
+              target: 'backend',
+              role: 'implementation',
+              variant: 'default',
+              slot: 'primary',
               properties: {
                 'requiredControls': ['CTRL-CALC-ERROR-REDACTION'],
                 'coverageSemantics': 'failure-to-public-egress',
@@ -424,6 +615,10 @@ void main() {
             IrNode(
               id: 'implementation:ctrl',
               kind: NodeKind.implementation,
+              target: 'backend',
+              role: 'implementation',
+              variant: 'default',
+              slot: 'primary',
               properties: {
                 'requiredControls': ['CTRL-CALC-LOG-REDACTION'],
                 'coverageSemantics': 'sensitive-data-to-log-sink',
@@ -458,6 +653,10 @@ void main() {
             IrNode(
               id: 'implementation:ctrl',
               kind: NodeKind.implementation,
+              target: 'backend',
+              role: 'implementation',
+              variant: 'default',
+              slot: 'primary',
               properties: {
                 'requiredControls': ['CTRL-CALC-ERROR-REDACTION'],
                 'coverageSemantics': 'failure-to-public-egress',
@@ -471,6 +670,10 @@ void main() {
             IrNode(
               id: 'provider:mapper',
               kind: NodeKind.provider,
+              target: 'backend',
+              role: 'provider',
+              variant: 'default',
+              slot: 'primary',
               properties: {'controlId': 'CTRL-CALC-ERROR-REDACTION'},
             ),
             IrNode(

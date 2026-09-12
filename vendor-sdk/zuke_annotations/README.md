@@ -6,7 +6,7 @@ Dart annotations for Gherkin-driven specification binding.
 
 ```yaml
 dependencies:
-  zuke_annotations: ^0.3.0
+  zuke_annotations: ^0.4.0
 ```
 
 ## Support tier

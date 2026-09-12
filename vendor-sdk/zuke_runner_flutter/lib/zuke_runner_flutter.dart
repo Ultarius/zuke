@@ -12,25 +12,72 @@ import 'package:zuke_annotations/zuke_annotations.dart';
 import 'package:zuke_frontend/zuke_frontend.dart';
 import 'package:zuke_core/zuke_core.dart';
 import 'package:zuke/runner.dart';
+import 'package:zuke_runner/zuke_runner.dart' as zuke_runner;
 
 import 'src/flutter_binding_key.dart';
 
 export 'package:zuke_annotations/zuke_annotations.dart';
 export 'package:zuke_frontend/zuke_frontend.dart';
 export 'package:zuke/runner.dart';
+export 'package:zuke_runner/zuke_runner.dart' show defaultZukeDescription;
 export 'src/flutter_binding_key.dart';
 
 final _registeredFlutterScenarioCases = <String>{};
 final _registeredFlutterScenarioIds = <String>{};
 
-/// Registers a normal Flutter widget test that publishes evidence only when
-/// the test process is managed by the Zuke CLI.
-void zukeTestWidgets(
-  String description,
-  Future<void> Function(WidgetTester tester) body, {
+/// Registers a non-widget test from a Flutter package.
+///
+/// Flutter packages frequently contain protocol, repository, and token tests
+/// beside widget tests. This explicit Flutter entry point keeps those cases on
+/// the same managed lifecycle and evidence path as [zukeTestWidgets] without
+/// requiring a dummy WidgetTester assertion.
+///
+/// If [description] is omitted, it defaults to
+/// `'Zuke ${scenario.id.value}: ${scenario.title}'` (with caseId suffix if specified).
+void zukeTest(
+  FutureOr<dynamic> Function() body, {
   required ZukeScenarioContract scenario,
+  String? description,
   Iterable<String> evidenceTypes = const [],
   Set<ControlId> provedControls = const {},
+  Iterable<String> provedImplementationSlots = const [],
+  String? caseId,
+  String? testOn,
+  Timeout? timeout,
+  Object? skip,
+  Object? tags,
+  Map<String, dynamic>? onPlatform,
+  int? retry,
+}) {
+  zuke_runner.zukeTest(
+    body,
+    scenario: scenario,
+    description: description,
+    evidenceTypes: evidenceTypes,
+    provedControls: provedControls,
+    provedImplementationSlots: provedImplementationSlots,
+    caseId: caseId,
+    testOn: testOn,
+    timeout: timeout,
+    skip: skip,
+    tags: tags,
+    onPlatform: onPlatform,
+    retry: retry,
+  );
+}
+
+/// Registers a normal Flutter widget test that publishes evidence only when
+/// the test process is managed by the Zuke CLI.
+///
+/// If [description] is omitted, it defaults to
+/// `'Zuke ${scenario.id.value}: ${scenario.title}'` (with caseId suffix if specified).
+void zukeTestWidgets(
+  Future<void> Function(WidgetTester tester) body, {
+  required ZukeScenarioContract scenario,
+  String? description,
+  Iterable<String> evidenceTypes = const [],
+  Set<ControlId> provedControls = const {},
+  Iterable<String> provedImplementationSlots = const [],
   String? caseId,
   bool? skip,
   Timeout? timeout,
@@ -46,6 +93,8 @@ void zukeTestWidgets(
     selectedScenarios,
   );
   final types = evidenceTypes.toSet().toList();
+  final implementationSlots = provedImplementationSlots.toSet().toList()
+    ..sort();
   if (context != null) {
     if (types.isEmpty) {
       throw ArgumentError.value(
@@ -62,6 +111,15 @@ void zukeTestWidgets(
       throw ArgumentError(
         'Proved controls are not declared by ${scenario.id.value}: '
         '${invalidControls.join(', ')}',
+      );
+    }
+    final invalidSlots = implementationSlots
+        .where((slot) => !isValidBindingSlot(slot))
+        .toList(growable: false);
+    if (invalidSlots.isNotEmpty) {
+      throw ArgumentError(
+        'Implementation slots must be stable kebab-case tokens: '
+        '${invalidSlots.join(', ')}',
       );
     }
     if (caseId != null && caseId.trim().isEmpty) {
@@ -87,8 +145,11 @@ void zukeTestWidgets(
     _registeredFlutterScenarioIds.add(scenario.id.value);
   }
 
+  final effectiveDescription =
+      description ?? zuke_runner.defaultZukeDescription(scenario, caseId);
+
   testWidgets(
-    description,
+    effectiveDescription,
     (tester) async {
       await body(tester);
       if (context == null) return;
@@ -102,6 +163,7 @@ void zukeTestWidgets(
               ..sort(),
         'provedControls':
             provedControls.map((control) => control.value).toList()..sort(),
+        'provedImplementationSlots': implementationSlots,
         'evidenceTypes': sortedTypes,
         'caseId': caseId,
         'profile': context.profile,
@@ -118,10 +180,12 @@ void zukeTestWidgets(
         runnerCompatibilityId: context.runnerCompatibilityId,
         digestInput: sha256.convert(utf8.encode(digestInput)).toString(),
         controlIds: provedControls.map((control) => control.value),
+        implementationSlots: implementationSlots,
         profile: context.profile,
         runnerId: context.runnerId,
         outputDirectory: context.resultDirectory,
         sourceIdentity: context.sourceIdentity,
+        caseId: caseId,
       );
     },
     skip: skip ?? !scenarioSelected,
@@ -393,6 +457,7 @@ final class ZukeFlutterHarness<W extends ScenarioWorld> {
         runnerCompatibilityId: runnerCompatibilityId,
         sourceIdentity: identity,
         digests: digests,
+        caseId: scenarioExampleCaseId(exampleCase),
       );
       final result = await executor.executeScenario(
         feature,

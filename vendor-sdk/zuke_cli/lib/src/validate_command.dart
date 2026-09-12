@@ -2,6 +2,7 @@ import 'dart:io';
 import 'dart:convert';
 
 import 'package:args/args.dart';
+import 'package:zuke_core/zuke_core.dart';
 
 import 'extraction_service.dart';
 import 'attestation_verification.dart';
@@ -11,10 +12,13 @@ import 'configuration_preflight.dart';
 
 class ValidateCommand {
   final ArgResults args;
+  List<Diagnostic> diagnostics = const [];
 
   ValidateCommand(this.args);
 
   Future<int> execute() async {
+    final collectedDiagnostics = <Diagnostic>[];
+    diagnostics = collectedDiagnostics;
     final root = args['root'] as String? ?? Directory.current.path;
     final profile = args['profile'] as String? ?? 'pullRequest';
     final jsonMode = (args['format'] as String? ?? 'text') == 'json';
@@ -34,6 +38,13 @@ class ValidateCommand {
     final extraction = await ExtractionService().extract(workspace);
     for (final error in extraction.errors) {
       stderr.writeln('  ERROR: $error');
+      collectedDiagnostics.add(
+        _textDiagnostic(
+          error,
+          fallbackCode: 'ZK-VALIDATE-EXTRACTION',
+          severity: DiagnosticSeverity.error,
+        ),
+      );
     }
 
     info('Validating...');
@@ -53,9 +64,13 @@ class ValidateCommand {
     );
     for (final msg in result.errors) {
       stderr.writeln('  ERROR: $msg');
+      collectedDiagnostics.add(_validationDiagnostic(msg));
     }
     for (final msg in result.warnings) {
       stderr.writeln('  WARNING: $msg');
+      collectedDiagnostics.add(
+        _validationDiagnostic(msg, severity: DiagnosticSeverity.warning),
+      );
     }
 
     final report = result.toReport(
@@ -76,6 +91,17 @@ class ValidateCommand {
     if (!report.eligible) {
       for (final reason in report.ineligibilityReasons) {
         stderr.writeln('  ERROR: $reason');
+        if (!collectedDiagnostics.any(
+          (diagnostic) => diagnostic.message == reason,
+        )) {
+          collectedDiagnostics.add(
+            _textDiagnostic(
+              reason,
+              fallbackCode: 'ZK-VALIDATE-INELIGIBLE',
+              severity: DiagnosticSeverity.error,
+            ),
+          );
+        }
       }
     }
     if (jsonMode) {
@@ -109,5 +135,42 @@ class ValidateCommand {
       return 3;
     }
     return passed ? 0 : 1;
+  }
+
+  Diagnostic _validationDiagnostic(
+    ValidationMessage message, {
+    DiagnosticSeverity? severity,
+  }) => Diagnostic(
+    code: message.code,
+    stage: 'validate',
+    severity:
+        severity ??
+        switch (message.severity) {
+          Severity.error => DiagnosticSeverity.error,
+          Severity.warning => DiagnosticSeverity.warning,
+          Severity.info => DiagnosticSeverity.info,
+        },
+    owner: DiagnosticOwner.unknown,
+    message: message.message,
+    remediation: 'Inspect the validation report and resolve this finding.',
+  );
+
+  Diagnostic _textDiagnostic(
+    String text, {
+    required String fallbackCode,
+    required DiagnosticSeverity severity,
+  }) {
+    final match = RegExp(r'^([A-Z][A-Z0-9-]+):\s*(.*)$').firstMatch(text);
+    final matchedMessage = match?.group(2)?.trim();
+    return Diagnostic(
+      code: match?.group(1) ?? fallbackCode,
+      stage: 'validate',
+      severity: severity,
+      owner: DiagnosticOwner.unknown,
+      message: matchedMessage == null || matchedMessage.isEmpty
+          ? text
+          : matchedMessage,
+      remediation: 'Inspect the validation report and resolve this finding.',
+    );
   }
 }

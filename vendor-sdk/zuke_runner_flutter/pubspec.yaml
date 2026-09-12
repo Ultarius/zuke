@@ -1,6 +1,6 @@
 name: zuke_runner_flutter
 description: Flutter testWidgets integration boundary for Zuke scenarios.
-version: 0.3.0
+version: 0.4.0
 environment:
   sdk: '>=3.10.0 <4.0.0'
 resolution: workspace
@@ -10,10 +10,13 @@ dependencies:
     sdk: flutter
   flutter_test:
     sdk: flutter
-  zuke_annotations: ^0.3.0
-  zuke_core: ^0.3.0
-  zuke_frontend: ^0.2.0
-  zuke: ^0.3.0
+  zuke_annotations: ^0.4.0
+  zuke_core: ^0.4.0
+  zuke_frontend: ^0.2.2
+  zuke: ^0.4.0
+  zuke_runner: ^0.4.0
+
+dev_dependencies:
 repository: https://github.com/Ultarius/zuke
 issue_tracker: https://github.com/Ultarius/zuke/issues
 documentation: https://github.com/Ultarius/zuke/blob/main/docs/integration-guide.md

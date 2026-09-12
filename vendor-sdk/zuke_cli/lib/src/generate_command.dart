@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 import 'package:args/args.dart';
+import 'package:yaml/yaml.dart';
 import 'package:zuke_cli/tooling.dart';
 import 'package:zuke_frontend/zuke_frontend.dart';
 
@@ -34,6 +35,7 @@ class GenerateCommand {
       workspace: workspace,
       outputDir: outputDir,
       exportPath: workspace.config.contractExport,
+      contractPackage: _contractPackage(root, outputDir),
     );
 
     if (result.errors.isNotEmpty) {
@@ -55,7 +57,14 @@ class GenerateCommand {
         : normalizedOutput.split('/').take(2).join('/');
     final manifestPath = '$root/$packageDir/.zuke-generated.json';
     final indexPath = '$root/.zuke/analyzer-index.json';
-    final packageLibDir = Directory('$root/$packageDir/lib');
+    // Keep the existing manifest location, including lib/src for root packages,
+    // but permit their public barrel in lib rather than the fictitious
+    // lib/src/lib directory.
+    final packageLibDir = Directory(
+      normalizedOutput.startsWith('lib/')
+          ? '$root/lib'
+          : '$root/$packageDir/lib',
+    );
     final generatedStepRoots = _generatedStepRoots(root, workspace);
     final expectedManifest = result.manifest.toJson();
     final expectedIndex = _buildAnalyzerIndex(
@@ -76,6 +85,19 @@ class GenerateCommand {
       generatedStepRoots: generatedStepRoots,
     );
     final stalePaths = previousPaths.difference(expectedPaths).toList()..sort();
+    // Older generators omitted the marker on barrels. Recognize only the
+    // exact export-only content reconstructed from their existing manifest;
+    // arbitrary handwritten barrels must still be refused.
+    final exportPath = workspace.config.contractExport?.replaceAll('\\', '/');
+    final legacyExport =
+        exportPath != null && previousPaths.contains(exportPath)
+        ? previousPaths
+              .where((path) => path != exportPath)
+              .map(
+                (path) => "export 'src/generated/${path.split('/').last}';\n",
+              )
+              .join()
+        : null;
     final writes = <String, String>{};
     final deletions = <String>[];
     var staleCount = 0;
@@ -105,7 +127,16 @@ class GenerateCommand {
           info('  OK: ${file.path}');
         }
       } else {
-        if (exists && !contentMatch && !_isGenerated(diskFile)) {
+        final isLegacyExport =
+            file.path.replaceAll('\\', '/') == exportPath &&
+            legacyExport != null &&
+            exists &&
+            diskFile.readAsStringSync().replaceAll('\r\n', '\n') ==
+                legacyExport;
+        if (exists &&
+            !contentMatch &&
+            !_isGenerated(diskFile) &&
+            !isLegacyExport) {
           stderr.writeln('  REFUSED HANDWRITTEN FILE: ${file.path}');
           return 1;
         }
@@ -188,6 +219,28 @@ class GenerateCommand {
 
     info('Generated ${result.files.length} file(s).');
     return 0;
+  }
+
+  ContractPackage? _contractPackage(String root, String outputDir) {
+    final output = outputDir.replaceAll('\\', '/');
+    final index = output.indexOf('/lib/');
+    final lib = output.startsWith('lib/')
+        ? 'lib'
+        : index > 0
+        ? output.substring(0, index + 4)
+        : null;
+    if (lib == null) return null;
+    final packagePath = lib == 'lib'
+        ? root
+        : '$root/${lib.substring(0, lib.length - 4)}';
+    final pubspec = File('$packagePath/pubspec.yaml');
+    if (!pubspec.existsSync()) return null;
+    final document = loadYaml(pubspec.readAsStringSync());
+    final name = document is Map ? document['name'] : null;
+    if (name is! String || !RegExp(r'^[a-z][a-z0-9_]*$').hasMatch(name)) {
+      return null;
+    }
+    return ContractPackage(name: name, libPath: lib);
   }
 
   ZukeIndex _buildAnalyzerIndex({

@@ -30,12 +30,13 @@ void main() {
           ..createSync(recursive: true);
         File('${srcDir.path}/math.dart').writeAsStringSync('const a = 1;');
         File('${tempDir.path}/pubspec.yaml').writeAsStringSync(
-          'name: test_pkg\nenvironment:\n  sdk: ">=3.10.0 <3.11.0"\n',
+          'name: test_pkg\nenvironment:\n  sdk: ">=3.10.0 <4.0.0"\n',
         );
 
         final output1 = await DartExtractor().extract(
           tempDir.path,
           roots: ['lib'],
+          target: 'backend',
         );
         final digest1 = output1.inputDigest;
 
@@ -43,6 +44,7 @@ void main() {
         final output2 = await DartExtractor().extract(
           tempDir.path,
           roots: ['lib'],
+          target: 'backend',
         );
         final digest2 = output2.inputDigest;
 
@@ -64,12 +66,13 @@ void main() {
         "import 'constants/values.dart';\nconst result = baseValue + 5;\n",
       );
       File('${tempDir.path}/pubspec.yaml').writeAsStringSync(
-        'name: test_pkg\nenvironment:\n  sdk: ">=3.10.0 <3.11.0"\n',
+        'name: test_pkg\nenvironment:\n  sdk: ">=3.10.0 <4.0.0"\n',
       );
 
       final output1 = await DartExtractor().extract(
         tempDir.path,
         roots: ['lib'],
+        target: 'backend',
       );
       final digest1 = output1.inputDigest;
 
@@ -79,6 +82,7 @@ void main() {
       final output2 = await DartExtractor().extract(
         tempDir.path,
         roots: ['lib'],
+        target: 'backend',
       );
       final digest2 = output2.inputDigest;
 
@@ -120,6 +124,44 @@ void main() {
           (cacheJson['adapter'] as Map)['compatibilityId'],
           DartExtractor.compatibilityId,
         );
+      },
+    );
+
+    test(
+      'does not duplicate annotation-only providers when the cache is reused',
+      () async {
+        _writeAnnotationOnlyPackage(tempDir);
+        File('${tempDir.path}/lib/app.dart').writeAsStringSync('''
+import 'package:zuke_annotations/zuke_annotations.dart';
+
+@ProvidesControl(
+  ['CTRL-CACHE-REVISION'],
+  kind: ControlProviderKind.applicationValidator,
+)
+void provideControl() {}
+''');
+        final workspace = _workspace(tempDir);
+        final service = ExtractionService();
+
+        final first = await service.extract(workspace);
+        expect(first.errors, isEmpty);
+        final current = first.outputs.single;
+        expect(
+          current.symbols.where((symbol) => symbol.kind == 'controlProvider'),
+          hasLength(1),
+        );
+
+        // The next extraction is served by the cache namespace. A stale cache
+        // produced by the previous implementation would contain a synthetic
+        // provider symbol as well as the annotation declaration.
+        final second = await service.extract(workspace);
+        expect(second.errors, isEmpty);
+        final cached = second.outputs.single;
+        final providers = cached.symbols.where(
+          (symbol) => symbol.kind == 'controlProvider',
+        );
+        expect(providers, hasLength(1));
+        expect(providers.single.symbolId, endsWith('#provideControl'));
       },
     );
 
@@ -190,23 +232,20 @@ Handler middleware(Handler handler) => handler;
           '${routes.path}/index.dart',
         ).writeAsStringSync('Object onRequest(Object request) => Object();');
         File('${tempDir.path}/pubspec.yaml').writeAsStringSync(
-          'name: dart_frog_fixture\\nenvironment:\\n  sdk: \">=3.10.0 <3.11.0\"\\n',
+          'name: dart_frog_fixture\\nenvironment:\\n  sdk: \">=3.10.0 <4.0.0\"\\n',
         );
         final workspace = WorkspaceDiscoveryResult(
           config: ZukeConfig(
             root: tempDir.path,
-            targetsConfig: {
-              'backend': {
-                'language': 'dart',
-                'framework': 'dart-frog',
-                'packages': [
-                  {
-                    'id': 'backend',
-                    'path': '.',
-                    'roots': ['routes'],
-                  },
+            workspaceTargets: {
+              'backend': const WorkspaceTarget(
+                id: 'backend',
+                language: 'dart',
+                framework: 'dart-frog',
+                packages: [
+                  WorkspacePackage(id: 'backend', path: '.', roots: ['routes']),
                 ],
-              },
+              ),
             },
           ),
           data: const MetadataExtractorResult(),
@@ -235,6 +274,203 @@ Handler middleware(Handler handler) => handler;
           ),
           isTrue,
         );
+        expect(
+          topologyProjection.inputDigest,
+          matches(RegExp(r'^[a-f0-9]{64}$')),
+        );
+        expect(
+          topologyProjection.inputDigest,
+          isNot(equals(topologyProjection.adapter.compatibilityId)),
+        );
+      },
+    );
+
+    test('can limit extraction to the requested target', () async {
+      _writePackage(tempDir);
+      final workspace = WorkspaceDiscoveryResult(
+        config: ZukeConfig(
+          root: tempDir.path,
+          workspaceTargets: {
+            'backend': const WorkspaceTarget(
+              id: 'backend',
+              language: 'dart',
+              framework: 'dart',
+              packages: [
+                WorkspacePackage(id: 'test_pkg', path: '.', roots: ['lib']),
+              ],
+            ),
+            'missing': const WorkspaceTarget(
+              id: 'missing',
+              language: 'dart',
+              framework: 'dart',
+              packages: [
+                WorkspacePackage(
+                  id: 'missing_pkg',
+                  path: 'missing',
+                  roots: ['lib'],
+                ),
+              ],
+            ),
+          },
+        ),
+        data: const MetadataExtractorResult(),
+      );
+
+      final result = await ExtractionService().extract(
+        workspace,
+        includeEvidence: false,
+        targetId: 'backend',
+      );
+
+      expect(result.errors, isEmpty);
+      expect(result.outputs, hasLength(1));
+      expect(result.outputs.single.packageName, 'test_pkg');
+    });
+
+    test('can extract only Dart Frog topology', () async {
+      final routes = Directory('${tempDir.path}/routes')
+        ..createSync(recursive: true);
+      File('${routes.path}/_middleware.dart').writeAsStringSync('''
+typedef Handler = Object Function(Object);
+Handler middleware(Handler handler) => handler;
+''');
+      File(
+        '${routes.path}/index.dart',
+      ).writeAsStringSync('Object onRequest(Object request) => Object();');
+      final evidence = Directory('${tempDir.path}/evidence')
+        ..createSync(recursive: true);
+      File('${evidence.path}/malformed.json').writeAsStringSync('{not-json');
+      File('${tempDir.path}/pubspec.yaml').writeAsStringSync(
+        'name: dart_frog_topology_fixture\nenvironment:\n'
+        '  sdk: ">=3.10.0 <4.0.0"\n',
+      );
+      final workspace = WorkspaceDiscoveryResult(
+        config: ZukeConfig(
+          root: tempDir.path,
+          evidenceOutput: 'evidence',
+          workspaceTargets: {
+            'backend': const WorkspaceTarget(
+              id: 'backend',
+              language: 'dart',
+              framework: 'dart-frog',
+              packages: [
+                WorkspacePackage(id: 'backend', path: '.', roots: ['routes']),
+              ],
+            ),
+            'dart': const WorkspaceTarget(
+              id: 'dart',
+              language: 'dart',
+              framework: 'dart',
+              packages: [
+                WorkspacePackage(id: 'dart', path: '.', roots: ['lib']),
+              ],
+            ),
+          },
+        ),
+        data: const MetadataExtractorResult(),
+      );
+
+      final result = await ExtractionService().extract(
+        workspace,
+        targetId: 'backend',
+        topologyOnly: true,
+      );
+
+      expect(result.errors, isEmpty);
+      expect(result.outputs, isEmpty);
+      expect(result.evidenceRecords, isEmpty);
+      expect(result.topologyOutputs, hasLength(1));
+      expect(
+        result.topologyOutputs.single.nodes.any((node) => node.kind == 'route'),
+        isTrue,
+      );
+    });
+
+    test(
+      'projects middleware initialization edges to annotated implementations',
+      () async {
+        final lib = Directory('${tempDir.path}/lib')
+          ..createSync(recursive: true);
+        final routes = Directory('${tempDir.path}/routes')
+          ..createSync(recursive: true);
+        File('${lib.path}/background.dart').writeAsStringSync('''
+import 'package:zuke_annotations/zuke_annotations.dart';
+
+@ImplementsRequirement(['RULE-TEST-001'])
+class BackgroundWorker {
+  static Object create() => Object();
+}
+''');
+        File('${routes.path}/_middleware.dart').writeAsStringSync('''
+import '../lib/background.dart';
+
+class Handler {
+  Handler use(Object middleware) => this;
+}
+Handler middleware(Handler handler) => handler.use(dependencies());
+Handler dependencies() => BackgroundWorker.create() as Handler;
+''');
+        File(
+          '${routes.path}/index.dart',
+        ).writeAsStringSync('Object onRequest(Object request) => Object();');
+        File('${tempDir.path}/pubspec.yaml').writeAsStringSync(
+          'name: extraction_fixture\\nenvironment:\\n'
+          '  sdk: ">=3.10.0 <4.0.0"\\n',
+        );
+        final packageConfig = _workspacePackageConfig();
+        final toolDirectory = Directory('${tempDir.path}/.dart_tool')
+          ..createSync(recursive: true);
+        final workspaceUri = packageConfig.parent.parent.uri.toString();
+        final resolvedConfig = packageConfig.readAsStringSync().replaceAll(
+          '"rootUri": "../',
+          '"rootUri": "$workspaceUri',
+        );
+        File(
+          '${toolDirectory.path}/package_config.json',
+        ).writeAsStringSync(resolvedConfig);
+
+        final result = await ExtractionService().extract(
+          WorkspaceDiscoveryResult(
+            config: ZukeConfig(
+              root: tempDir.path,
+              workspaceTargets: {
+                'backend': const WorkspaceTarget(
+                  id: 'backend',
+                  language: 'dart',
+                  framework: 'dart-frog',
+                  packages: [
+                    WorkspacePackage(
+                      id: 'backend',
+                      path: '.',
+                      roots: ['lib', 'routes'],
+                    ),
+                  ],
+                ),
+              },
+            ),
+            data: const MetadataExtractorResult(),
+          ),
+          includeEvidence: false,
+        );
+
+        expect(result.errors, isEmpty);
+        final projection = result.outputs.firstWhere(
+          (output) =>
+              output.graph?.edges.any(
+                (edge) =>
+                    edge.sourceId.contains('/middleware/') &&
+                    edge.targetId.contains('#BackgroundWorker'),
+              ) ??
+              false,
+        );
+        expect(
+          projection.graph!.edges.any(
+            (edge) =>
+                edge.sourceId.contains('/middleware/') &&
+                edge.targetId.contains('#BackgroundWorker'),
+          ),
+          isTrue,
+        );
       },
     );
 
@@ -242,17 +478,19 @@ Handler middleware(Handler handler) => handler;
       final workspace = WorkspaceDiscoveryResult(
         config: ZukeConfig(
           root: tempDir.path,
-          targetsConfig: {
-            'ignored-language': {'language': 'typescript'},
-            'not-a-map': 'invalid',
-            'dart': {
-              'language': 'dart',
-              'packages': [
-                'invalid',
-                {'path': 42},
-                {'path': 'missing'},
+          workspaceTargets: {
+            'dart': const WorkspaceTarget(
+              id: 'dart',
+              language: 'dart',
+              framework: 'dart',
+              packages: [
+                WorkspacePackage(
+                  id: 'missing',
+                  path: 'missing',
+                  roots: ['lib'],
+                ),
               ],
-            },
+            ),
           },
         ),
         data: const MetadataExtractorResult(),
@@ -278,7 +516,6 @@ void present() {}
 @VerifiesRequirement(
   ['RULE-TEST-001'],
   evidenceType: 'domain-unit',
-  target: 'backend',
   scenarioIds: ['SCN-TEST-001'],
 )
 void verify() {}
@@ -352,20 +589,40 @@ environment:
   ).writeAsStringSync(resolvedConfig);
 }
 
+void _writeAnnotationOnlyPackage(Directory root) {
+  final lib = Directory('${root.path}/lib')..createSync(recursive: true);
+  File('${lib.path}/placeholder.dart').writeAsStringSync('const value = 1;');
+  File('${root.path}/pubspec.yaml').writeAsStringSync('''
+name: extraction_fixture
+environment:
+  sdk: ">=3.10.0 <4.0.0"
+''');
+  final packageConfig = _workspacePackageConfig();
+  final toolDirectory = Directory('${root.path}/.dart_tool')
+    ..createSync(recursive: true);
+  final workspaceUri = packageConfig.parent.parent.uri.toString();
+  final resolvedConfig = packageConfig.readAsStringSync().replaceAll(
+    '"rootUri": "../',
+    '"rootUri": "$workspaceUri',
+  );
+  File(
+    '${toolDirectory.path}/package_config.json',
+  ).writeAsStringSync(resolvedConfig);
+}
+
 WorkspaceDiscoveryResult _workspace(Directory root) => WorkspaceDiscoveryResult(
   config: ZukeConfig(
     root: root.path,
     evidenceOutput: 'evidence',
-    targetsConfig: {
-      'backend': {
-        'language': 'dart',
-        'packages': [
-          {
-            'path': '.',
-            'roots': ['lib'],
-          },
+    workspaceTargets: {
+      'backend': const WorkspaceTarget(
+        id: 'backend',
+        language: 'dart',
+        framework: 'dart',
+        packages: [
+          WorkspacePackage(id: 'test_pkg', path: '.', roots: ['lib']),
         ],
-      },
+      ),
     },
   ),
   data: const MetadataExtractorResult(),

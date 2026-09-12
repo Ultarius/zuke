@@ -467,18 +467,13 @@ final application = ZukeHttpApplication(
         addTearDown(server.close);
 
         for (final wsPath in [lfRootPath, crlfRootPath]) {
-          await Process.run(Platform.resolvedExecutable, [
-            '--suppress-analytics',
-            'run',
-            'zuke_cli:zuke',
+          final generateResult = await runInProcessCli([
             'generate',
             '--root',
             wsPath,
           ]);
-          final lres = await Process.run(Platform.resolvedExecutable, [
-            '--suppress-analytics',
-            'run',
-            'zuke_cli:zuke',
+          expect(generateResult.exitCode, 0, reason: generateResult.stderr);
+          final lres = await runInProcessCli([
             'lock',
             '--root',
             wsPath,

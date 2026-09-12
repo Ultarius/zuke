@@ -107,6 +107,12 @@ class ManifestCommand {
       'policyHash': await _computeHash(root, 'policies'),
       'evidenceRequirementsHash': await _computeHash(root, 'evidence'),
       'assurance': report.controlProofs.map((proof) => proof.toJson()).toList(),
+      'implementationCoverage':
+          (report.implementationCoverage.toList()..sort(
+                (left, right) => left.binding.key.compareTo(right.binding.key),
+              ))
+              .map((coverage) => coverage.toJson())
+              .toList(),
       'evidenceDigests':
           report.evidence
               .map(

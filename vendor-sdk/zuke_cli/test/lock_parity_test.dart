@@ -18,6 +18,240 @@ void main() {
 
     tearDown(() => deleteTemporaryDirectory(root));
 
+    test('refresh produces a receipt and protects lock destinations', () async {
+      final lock = File('${root.path}/assurance/locks/pullRequest.lock.json');
+      final rejected = await runInProcessCli([
+        'lock',
+        '--refresh',
+        '--root',
+        root.path,
+        '--diff-output',
+        lock.path,
+      ]);
+      expect(rejected.exitCode, isNot(0));
+      expect(lock.existsSync(), isFalse);
+      final receipt = File('${root.path}/lock-diff.json');
+      final refreshed = await runInProcessCli([
+        'lock',
+        '--refresh',
+        '--root',
+        root.path,
+        '--profile',
+        'pullRequest',
+        '--diff-output',
+        receipt.path,
+      ]);
+      expect(refreshed.exitCode, 0, reason: refreshed.stderr);
+      final json = jsonDecode(receipt.readAsStringSync()) as Map;
+      final change = (json['changed'] as List).single as Map;
+      expect(change['profile'], 'pullRequest');
+      expect(change['beforePresent'], isFalse);
+      expect(change['afterPresent'], isTrue);
+      expect(change['afterSha256'], hasLength(64));
+      final bytes = receipt.readAsBytesSync();
+      final repeated = await runInProcessCli([
+        'lock',
+        '--refresh',
+        '--root',
+        root.path,
+        '--diff-output',
+        receipt.path,
+      ]);
+      expect(repeated.exitCode, isNot(0));
+      expect(receipt.readAsBytesSync(), bytes);
+    });
+
+    test(
+      'lock update refreshes every configured profile and is not check mode',
+      () async {
+        await runInProcessCli(['generate', '--root', root.path]);
+
+        final result = await runInProcessCli([
+          'lock',
+          '--root',
+          root.path,
+          '--update',
+        ]);
+
+        expect(result.exitCode, 0);
+        for (final profile in ['pullRequest', 'merge', 'release', 'nightly']) {
+          expect(
+            File(
+              '${root.path}/assurance/locks/$profile.lock.json',
+            ).existsSync(),
+            isTrue,
+          );
+        }
+        final check = await runInProcessCli([
+          'lock',
+          '--root',
+          root.path,
+          '--all-profiles',
+          '--check',
+        ]);
+        expect(check.exitCode, 0);
+      },
+    );
+
+    test('refreshes multiple roots and only the requested profiles', () async {
+      final second = Directory.systemTemp.createTempSync('zuke-second-root-');
+      addTearDown(() => deleteTemporaryDirectory(second));
+      await createEligibleWorkspace(second);
+      final result = await runInProcessCli([
+        'lock',
+        '--refresh',
+        '--roots',
+        root.path,
+        '--roots',
+        second.path,
+        '--profiles',
+        'pullRequest',
+        '--profiles',
+        'merge',
+      ]);
+      expect(result.exitCode, 0, reason: result.stderr);
+      for (final directory in [root, second]) {
+        for (final profile in ['pullRequest', 'merge']) {
+          final checked = await runInProcessCli([
+            'lock',
+            '--root',
+            directory.path,
+            '--profile',
+            profile,
+            '--check',
+          ]);
+          expect(checked.exitCode, 0, reason: checked.stderr);
+        }
+        expect(
+          File(
+            '${directory.path}/assurance/locks/release.lock.json',
+          ).existsSync(),
+          isFalse,
+        );
+      }
+    });
+
+    test(
+      'invalid later root selection fails before changing the first root',
+      () async {
+        final invalid = Directory.systemTemp.createTempSync(
+          'zuke-invalid-root-',
+        );
+        addTearDown(() => deleteTemporaryDirectory(invalid));
+        File('${invalid.path}/zuke.yaml').writeAsStringSync('schemaVersion: 0');
+        final result = await runInProcessCli([
+          'lock',
+          '--refresh',
+          '--roots',
+          root.path,
+          '--roots',
+          invalid.path,
+        ]);
+        expect(result.exitCode, isNot(0));
+        expect(Directory('${root.path}/assurance/locks').existsSync(), isFalse);
+        expect(
+          Directory('${root.path}/generated/evidence').existsSync(),
+          isFalse,
+        );
+      },
+    );
+
+    test('publication failure restores an already replaced profile', () async {
+      await runInProcessCli(['generate', '--root', root.path]);
+      final lock = File('${root.path}/assurance/locks/pullRequest.lock.json');
+      lock.parent.createSync(recursive: true);
+      lock.writeAsStringSync('previous lock bytes');
+      Directory('${root.path}/assurance/locks/merge.lock.json').createSync();
+      final result = await runInProcessCli([
+        'lock',
+        '--root',
+        root.path,
+        '--update',
+        '--profiles',
+        'pullRequest',
+        '--profiles',
+        'merge',
+      ]);
+      expect(result.exitCode, isNot(0));
+      expect(lock.readAsStringSync(), 'previous lock bytes');
+    });
+
+    test('lock update and check are rejected together', () async {
+      final result = await runInProcessCli([
+        'lock',
+        '--root',
+        root.path,
+        '--update',
+        '--check',
+      ]);
+
+      expect(result.exitCode, 2);
+      expect(result.stderr, contains('mutually exclusive'));
+    });
+
+    test('all-profiles and a selected profile are rejected together', () async {
+      final result = await runInProcessCli([
+        'lock',
+        '--root',
+        root.path,
+        '--all-profiles',
+        '--profile',
+        'pullRequest',
+      ]);
+
+      expect(result.exitCode, 2);
+      expect(result.stderr, contains('mutually exclusive'));
+    });
+
+    test(
+      'lock refresh runs the managed pipeline before attempting a lock write',
+      () async {
+        final result = await runInProcessCli([
+          'lock',
+          '--root',
+          root.path,
+          '--all-profiles',
+          '--refresh',
+        ]);
+
+        expect(result.exitCode, 0);
+        expect(result.stdout, contains('Refreshing Zuke evidence'));
+        expect(
+          File(
+            '${root.path}/assurance/locks/pullRequest.lock.json',
+          ).existsSync(),
+          isTrue,
+        );
+      },
+    );
+
+    test(
+      'lock refresh does not publish locks when managed execution fails',
+      () async {
+        final config = File('${root.path}/zuke.yaml');
+        final original = config.readAsStringSync();
+        final failing = Platform.isWindows
+            ? original.replaceFirst('exit 0', 'exit 7')
+            : original.replaceFirst(
+                "executable: 'true'",
+                "executable: 'false'",
+              );
+        config.writeAsStringSync(failing);
+
+        final result = await runInProcessCli([
+          'lock',
+          '--root',
+          root.path,
+          '--profile',
+          'pullRequest',
+          '--refresh',
+        ]);
+
+        expect(result.exitCode, isNot(0));
+        expect(Directory('${root.path}/assurance/locks').existsSync(), isFalse);
+      },
+    );
+
     test(
       'specificationDigest is non-empty and changes when specs change',
       () async {

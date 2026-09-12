@@ -31,11 +31,11 @@ For a Dart or backend package:
 
 ```yaml
 dependencies:
-  zuke: ^0.3.0
+  zuke: ^0.4.0
   zuke_http_runtime: ^0.1.1 # Optional: inspect a real HTTP application
 
 dev_dependencies:
-  zuke_cli: ^0.4.0
+  zuke_cli: ^0.5.0
 ```
 
 For a Flutter application, the narrow dependency layout remains valid and is
@@ -44,11 +44,11 @@ belongs to tests:
 
 ```yaml
 dependencies:
-  zuke_annotations: ^0.3.0
+  zuke_annotations: ^0.4.0
 
 dev_dependencies:
-  zuke_runner_flutter: ^0.3.0
-  zuke_cli: ^0.4.0
+  zuke_runner_flutter: ^0.4.0
+  zuke_cli: ^0.5.0
 ```
 
 For strict backend separation, keep annotation and application registration
@@ -56,12 +56,12 @@ packages in `dependencies`, and place execution APIs in `dev_dependencies`:
 
 ```yaml
 dependencies:
-  zuke_annotations: ^0.3.0
+  zuke_annotations: ^0.4.0
   zuke_http_runtime: ^0.1.1
 
 dev_dependencies:
   test: ^1.31.0
-  zuke: ^0.3.0
+  zuke: ^0.4.0
 ```
 
 ## Public API

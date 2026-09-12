@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'package:args/args.dart';
+import 'package:path/path.dart' as p;
 import 'package:zuke_core/zuke_core.dart';
 import 'package:crypto/crypto.dart';
 import 'package:yaml/yaml.dart';
@@ -33,6 +34,19 @@ import 'test_run_summary.dart';
 import 'command_result.dart';
 import 'generated/release_contract.dart';
 import 'source_output_catalog.dart';
+import 'test_host_doctor.dart';
+import 'artifact_audit.dart';
+import 'alignment_doctor.dart';
+import 'openapi_contract.dart';
+import 'policy_command.dart';
+import 'registration_audit.dart';
+import 'workspace_registration_audit.dart';
+import 'path_safety.dart';
+import 'init_preset.dart';
+import 'vscode_preset.dart';
+import 'lock_refresh_roots.dart';
+import 'gate_record.dart';
+import 'owner_handoff.dart';
 
 const _runnerModeNames = ['auto', 'cli', 'directSnapshot'];
 
@@ -45,6 +59,9 @@ ToolRunnerMode? _runnerModeFromValue(String? value) {
     _ => throw FormatException('Unknown runner mode: $value'),
   };
 }
+
+bool _isZukePackageName(String name) =>
+    name == 'zuke' || name.startsWith('zuke_');
 
 class _EvidencePublication {
   final int recordCount;
@@ -101,6 +118,7 @@ class ZukeCli {
           ArgParser()
             ..addOption('root', abbr: 'r')
             ..addOption('package', help: 'Package path relative to workspace')
+            ..addOption('target', help: 'Active configured extraction target')
             ..addOption('emit', help: 'Optional diagnostic fragment path'),
         ),
       )
@@ -109,9 +127,27 @@ class ZukeCli {
         'lock',
         ArgParser()
           ..addOption('root', abbr: 'r')
-          ..addOption('profile', defaultsTo: 'pullRequest')
+          ..addMultiOption(
+            'roots',
+            help: 'Additional roots or pub workspaces for --refresh',
+          )
+          ..addMultiOption('profiles', help: 'Selected profiles for --refresh')
+          ..addOption('profile')
           ..addFlag('check')
           ..addFlag('all-profiles')
+          ..addFlag('update', help: 'Refresh selected locks transactionally')
+          ..addFlag(
+            'refresh',
+            help:
+                'Generate contracts, execute managed tests, validate, and refresh locks',
+          )
+          ..addOption('runner-mode', allowed: _runnerModeNames)
+          ..addOption(
+            'diff-output',
+            help:
+                'Write a framework-owned JSON summary of changed profile locks',
+          )
+          ..addOption('output', hide: true)
           // Reserved for composed commands which must keep stdout structured.
           ..addFlag('quiet', hide: true),
       )
@@ -124,7 +160,32 @@ class ZukeCli {
           ..addOption('format', allowed: ['text', 'json'], defaultsTo: 'text')
           ..addOption('summary-file')
           ..addOption('artifact-dir')
-          ..addOption('runner-mode', allowed: _runnerModeNames),
+          ..addFlag(
+            'audit-artifacts',
+            help: 'Audit the final safe artifact bundle before returning',
+          )
+          ..addOption('blocker-file')
+          ..addOption('handoff-file')
+          ..addOption('runner-mode', allowed: _runnerModeNames)
+          ..addCommand(
+            'record',
+            ArgParser()
+              ..addOption('summary-file', mandatory: true)
+              ..addOption('blocker-file')
+              ..addOption('output')
+              ..addOption('release-id')
+              ..addOption('commit-sha'),
+          )
+          ..addCommand(
+            'handoff',
+            ArgParser()
+              ..addOption('summary-file')
+              ..addOption('blocker-file')
+              ..addOption('output')
+              ..addOption('release-id')
+              ..addOption('commit-sha')
+              ..addOption('coverage'),
+          ),
       )
       ..addCommand(
         'check',
@@ -193,11 +254,81 @@ class ZukeCli {
         ),
       )
       ..addCommand(
+        'contract',
+        ArgParser()..addCommand(
+          'verify',
+          ArgParser()
+            ..addOption('root', abbr: 'r')
+            ..addFlag('openapi')
+            ..addOption('input')
+            ..addOption('target')
+            ..addOption('format', allowed: ['text', 'json'], defaultsTo: 'text')
+            ..addOption('summary-file'),
+        ),
+      )
+      ..addCommand(
+        'artifacts',
+        ArgParser()
+          ..addCommand(
+            'audit',
+            ArgParser()
+              ..addOption('input', mandatory: true)
+              ..addOption('output')
+              ..addOption('summary-file')
+              ..addOption(
+                'format',
+                allowed: ['text', 'json'],
+                defaultsTo: 'text',
+              ),
+          )
+          ..addCommand(
+            'package',
+            ArgParser()
+              ..addOption('output', mandatory: true)
+              ..addMultiOption('include')
+              ..addOption('output-file')
+              ..addOption('summary-file')
+              ..addOption(
+                'format',
+                allowed: ['text', 'json'],
+                defaultsTo: 'text',
+              ),
+          ),
+      )
+      ..addCommand(
         'doctor',
         ArgParser()
           ..addOption('root', abbr: 'r', help: 'Workspace root directory')
           ..addOption('format', allowed: ['text', 'json'], defaultsTo: 'text')
-          ..addOption('summary-file'),
+          ..addOption('summary-file')
+          ..addFlag('check-alignment')
+          ..addFlag('check-overrides')
+          ..addCommand(
+            'test-host',
+            ArgParser()
+              ..addOption('root', abbr: 'r', help: 'Workspace root directory')
+              ..addOption(
+                'format',
+                allowed: ['text', 'json'],
+                defaultsTo: 'text',
+              )
+              ..addOption('summary-file'),
+          ),
+      )
+      ..addCommand(
+        'policy',
+        ArgParser()..addCommand(
+          'check',
+          ArgParser()
+            ..addOption('root', abbr: 'r')
+            ..addOption('input')
+            ..addOption('policy')
+            ..addOption('commit')
+            ..addOption('release')
+            ..addOption('now')
+            ..addOption('format', allowed: ['text', 'json'], defaultsTo: 'text')
+            ..addOption('summary-file'),
+        ),
       )
       ..addCommand(
         'clean',
@@ -212,6 +343,16 @@ class ZukeCli {
         'init',
         ArgParser()
           ..addOption('root', abbr: 'r')
+          ..addOption(
+            'preset',
+            allowed: ['auto', 'dart', 'flutter', 'dart-frog'],
+            defaultsTo: 'auto',
+          )
+          ..addOption(
+            'editor',
+            allowed: ['vscode'],
+            help: 'Merge Zuke editor commands, preserving existing entries',
+          )
           ..addFlag('enable-dart-build-hooks')
           ..addFlag('dry-run', help: 'Describe changes without writing files')
           ..addOption(
@@ -269,8 +410,25 @@ class ZukeCli {
         ..addOption('minimum')
         ..addOption('changed-line-minimum')
         ..addOption('baseline')
+        ..addFlag(
+          'write-baseline',
+          help: 'Write the configured coverage baseline from this LCOV run',
+        )
         ..addOption('output')
         ..addOption('format', allowed: ['text', 'json'], defaultsTo: 'text'),
+    );
+    parser.addCommand(
+      'certify',
+      ArgParser()..addCommand(
+        'hosted',
+        ArgParser()
+          ..addOption('root', abbr: 'r')
+          ..addOption('platform', allowed: ['linux', 'windows'])
+          ..addOption('host', allowed: ['dart', 'flutter'])
+          ..addOption('flutter-version')
+          ..addOption('output')
+          ..addFlag('keep-fixture'),
+      ),
     );
   }
 
@@ -300,6 +458,9 @@ class ZukeCli {
         case 'generate':
           return await GenerateCommand(command).execute();
         case 'doctor':
+          if (command.command?.name == 'test-host') {
+            return await _runTestHostDoctor(command.command!);
+          }
           return await _runDoctor(command);
         case 'clean':
           return CleanCommand(command).execute();
@@ -314,8 +475,25 @@ class ZukeCli {
         case 'report':
           return await ReportCommand(command).execute();
         case 'lock':
+          if (command['refresh'] as bool? ?? false) {
+            return await _runLockRefresh(command);
+          }
+          if ((command['diff-output'] as String?) != null) {
+            throw const FormatException(
+              '--diff-output requires lock --refresh',
+            );
+          }
+          if ((command['roots'] as List<String>).isNotEmpty) {
+            throw const FormatException('--roots requires lock --refresh');
+          }
           return await LockCommand(command).execute();
         case 'gate':
+          if (command.command?.name == 'record') {
+            return recordGate(command.command!);
+          }
+          if (command.command?.name == 'handoff') {
+            return writeOwnerHandoff(command.command!);
+          }
           return await GateCommand(command, testRunner: _runTests).execute();
         case 'check':
           return await CheckCommand(command, testRunner: _runTests).execute();
@@ -366,6 +544,27 @@ class ZukeCli {
           }
           _printHelp();
           return 1;
+        case 'artifacts':
+          if (command.command?.name == 'audit') {
+            return ArtifactAuditCommand(command.command!).execute();
+          }
+          if (command.command?.name == 'package') {
+            return ArtifactPackageCommand(command.command!).execute();
+          }
+          _printHelp();
+          return 1;
+        case 'contract':
+          if (command.command?.name == 'verify') {
+            return OpenApiContractCommand(command.command!).execute();
+          }
+          _printHelp();
+          return 1;
+        case 'policy':
+          if (command.command?.name == 'check') {
+            return PolicyCommand(command.command!).execute();
+          }
+          _printHelp();
+          return 1;
         case 'init':
           return _runInit(command);
         case 'adopt':
@@ -382,6 +581,12 @@ class ZukeCli {
           return await _runTests(command);
         case 'coverage':
           return await CoverageCommand(command).execute();
+        case 'certify':
+          if (command.command?.name == 'hosted') {
+            return await _runHostedCertification(command.command!);
+          }
+          _printHelp();
+          return 1;
         default:
           _printHelp();
           return 0;
@@ -409,21 +614,80 @@ Usage:
   zuke trace RULE-ID Show requirement trace
   zuke report       Emit compiled spec model JSON (zuke-model.json)
   zuke lock --profile <name>|--all-profiles  Write or check profile locks
+  zuke lock --update                     Refresh selected locks transactionally
+  zuke lock --refresh                    Run generation, tests, validation, and lock refresh
   zuke gate         Run validate, generation, and lock gates
   zuke check        Verify one or more workspaces with isolated stage output
   zuke manifest create|verify|export  Manage trusted Ed25519 history
   zuke attestation create           Create a signed external-control attestation
   zuke gateway canonicalize-apim    Canonicalize APIM gateway evidence
+  zuke artifacts audit              Audit the exact upload artifact bundle
+  zuke artifacts package            Build and audit an upload artifact bundle
+  zuke contract verify --openapi    Compare OpenAPI paths with route topology
+  zuke policy check                 Validate consumer risk acceptance
   zuke doctor       Diagnose project setup
+  zuke doctor --check-alignment  Check the supported Zuke dependency tuple
+  zuke doctor --check-overrides   Reject release-unsafe dependency overrides
+  zuke doctor test-host  Explain Flutter/test SDK compatibility
   zuke clean        Remove Zuke test temporary directories
   zuke init         Create a starter configuration
   zuke watch        Run generation and validation once
   zuke affected     List requirements affected by a git change
   zuke test         Run configured verification suites
   zuke coverage     Evaluate LCOV as an independent quality gate
+  zuke certify hosted  Certify the published tuple (framework checkout only)
   zuke --help       Show this help
   zuke --version    Show version
 ''');
+  }
+
+  Future<int> _runHostedCertification(ArgResults cmd) async {
+    final root = cmd['root'] as String? ?? Directory.current.path;
+    final platform = cmd['platform'] as String?;
+    final host = cmd['host'] as String?;
+    if (platform == null || host == null) {
+      stderr.writeln(
+        'certify hosted requires --platform <linux|windows> and '
+        '--host <dart|flutter>',
+      );
+      return 2;
+    }
+    final script = File(
+      '$root${Platform.pathSeparator}tool${Platform.pathSeparator}'
+      'check_hosted_consumer.dart',
+    );
+    if (!script.existsSync()) {
+      stderr.writeln(
+        'Hosted certification must run from a Zuke framework checkout.',
+      );
+      return 2;
+    }
+    final arguments = <String>[
+      '--suppress-analytics',
+      'run',
+      script.path,
+      '--platform',
+      platform,
+      '--host',
+      host,
+      if (cmd['flutter-version'] case final String version) ...[
+        '--flutter-version',
+        version,
+      ],
+      if (cmd['output'] case final String output) ...['--output', output],
+      if (cmd['keep-fixture'] as bool? ?? false) '--keep-fixture',
+    ];
+    final process = await Process.start(
+      Platform.resolvedExecutable,
+      arguments,
+      workingDirectory: root,
+      runInShell: Platform.isWindows,
+    );
+    await Future.wait([
+      stdout.addStream(process.stdout),
+      stderr.addStream(process.stderr),
+    ]);
+    return process.exitCode;
   }
 
   Future<int> _runDoctor(ArgResults cmd) async {
@@ -437,7 +701,18 @@ Usage:
       'retiredPackages': releaseRetiredPackages.toList()..sort(),
       'operatingSystems': releaseSupportedOperatingSystems,
       'compatibilityIds': Map<String, String>.from(releaseCompatibilityIds),
+      'flutterCertification': releaseFlutterCertification,
     };
+    final checkAlignment =
+        cmd.options.contains('check-alignment') &&
+        (cmd['check-alignment'] as bool? ?? false);
+    final checkOverrides =
+        cmd.options.contains('check-overrides') &&
+        (cmd['check-overrides'] as bool? ?? false);
+    if (checkOverrides && !checkAlignment) {
+      // Override validation uses the same effective dependency inspection as
+      // alignment; keep the two switches composable for release workflows.
+    }
     int finish(int code) {
       final result = CommandResult(
         command: 'doctor',
@@ -446,7 +721,11 @@ Usage:
         status: code == 0 ? CommandStatus.passed : CommandStatus.failed,
         eligible: code == 0,
         diagnostics: diagnostics,
-        details: {'release': releaseDetails},
+        details: {
+          'release': releaseDetails,
+          if (checkAlignment) 'alignmentChecked': true,
+          if (checkOverrides) 'overridesChecked': true,
+        },
       );
       final encoded = encodeCommandResult(result);
       if (jsonMode) {
@@ -480,6 +759,71 @@ Usage:
       return finish(1);
     }
     if (!jsonMode) print('  zuke.yaml: found');
+    if (!jsonMode) {
+      for (final diagnostic in configurationDiagnostics.where(
+        (diagnostic) => diagnostic.severity == DiagnosticSeverity.warning,
+      )) {
+        stderr.writeln('  [${diagnostic.code}] WARNING: ${diagnostic.message}');
+      }
+    }
+
+    if (checkAlignment || checkOverrides) {
+      final alignment = const AlignmentDoctor().inspect(Directory(root));
+      diagnostics.addAll(alignment.diagnostics);
+      releaseDetails['alignment'] = alignment.details;
+      if (checkOverrides) {
+        final overrides = alignment.details['overrides'];
+        if (overrides is Map) {
+          for (final entry in overrides.entries) {
+            final name = entry.key.toString();
+            final value = entry.value.toString();
+            if (name == 'analyzer') {
+              diagnostics.add(
+                const Diagnostic(
+                  code: 'ZK-ALIGNMENT-ANALYZER-OVERRIDE',
+                  stage: 'doctor',
+                  severity: DiagnosticSeverity.error,
+                  owner: DiagnosticOwner.project,
+                  message: 'An analyzer dependency override is release-unsafe.',
+                  remediation:
+                      'Remove the analyzer override and use a supported SDK tuple.',
+                ),
+              );
+            }
+            if (_isZukePackageName(name) && value.startsWith('path:')) {
+              diagnostics.add(
+                Diagnostic(
+                  code: 'ZK-ALIGNMENT-PATH-OVERRIDE',
+                  stage: 'doctor',
+                  severity: DiagnosticSeverity.error,
+                  owner: DiagnosticOwner.project,
+                  message: '$name uses a local path override.',
+                  remediation:
+                      'Use a pinned hosted or Git revision for release verification.',
+                ),
+              );
+            }
+          }
+        }
+      }
+      final overrideFailed = diagnostics.any(
+        (diagnostic) => diagnostic.severity == DiagnosticSeverity.error,
+      );
+      if (!alignment.passed || overrideFailed) {
+        if (!jsonMode) {
+          for (final diagnostic in alignment.diagnostics) {
+            stderr.writeln(
+              '  ERROR [${diagnostic.code}]: ${diagnostic.message}',
+            );
+            if (diagnostic.remediation.isNotEmpty) {
+              stderr.writeln('  Remediation: ${diagnostic.remediation}');
+            }
+          }
+        }
+        return finish(1);
+      }
+      if (!jsonMode) print('  Zuke dependency tuple: aligned');
+    }
 
     final featuresDir = Directory('$root/specs/features');
     if (!featuresDir.existsSync()) {
@@ -532,6 +876,268 @@ Usage:
     return finish(0);
   }
 
+  Future<int> _runTestHostDoctor(ArgResults cmd) async {
+    final root = cmd['root'] as String? ?? Directory.current.path;
+    final jsonMode = (cmd['format'] as String? ?? 'text') == 'json';
+    final report = TestHostDoctor(Directory(root)).inspect();
+    final diagnostics = report.diagnostics;
+    final compatible = report.status == 'compatible';
+    final result = CommandResult(
+      command: 'doctor test-host',
+      stage: 'doctor',
+      exitCode: compatible
+          ? 0
+          : report.status == 'incompatible'
+          ? 1
+          : 2,
+      status: compatible ? CommandStatus.passed : CommandStatus.failed,
+      eligible: compatible,
+      diagnostics: diagnostics,
+      details: {'testHost': report.details, 'root': root},
+    );
+    final encoded = encodeCommandResult(result);
+    if (jsonMode) {
+      stdout.write(encoded);
+    } else {
+      print('Checking consumer test-host compatibility...');
+      for (final diagnostic in diagnostics) {
+        final prefix = diagnostic.severity == DiagnosticSeverity.error
+            ? 'ERROR'
+            : 'WARNING';
+        stderr.writeln('  $prefix [${diagnostic.code}]: ${diagnostic.message}');
+        if (diagnostic.remediation.isNotEmpty) {
+          stderr.writeln('  Remediation: ${diagnostic.remediation}');
+        }
+      }
+      if (diagnostics.isEmpty) print('  No SDK pin conflict detected.');
+    }
+    writeCommandSummaryBytes(cmd['summary-file'] as String?, encoded);
+    return result.exitCode;
+  }
+
+  /// Runs the complete lock refresh pipeline in one process.
+  ///
+  /// Keeping orchestration here means consumers do not need a copy of the
+  /// framework's generate/test/validate/lock loop.  LockCommand still owns
+  /// the transactional write and final stale-lock checks; this method only
+  /// supplies the fresh inputs it requires.
+  Future<int> _runLockRefresh(ArgResults cmd) async {
+    final additionalRoots = cmd['roots'] as List<String>;
+    final roots = lockRefreshRoots([
+      if (cmd['root'] case final String root) root,
+      ...additionalRoots,
+      if (cmd['root'] == null && additionalRoots.isEmpty)
+        Directory.current.path,
+    ]);
+    // Resolve every root and profile before any generation or evidence writes.
+    for (final root in roots) {
+      final configured = requireCurrentWorkspace(root.path).config.lockProfiles;
+      final requested = [
+        if (cmd['profile'] case final String profile) profile,
+        ...cmd['profiles'] as List<String>,
+      ];
+      if (requested.any((profile) => !configured.contains(profile))) {
+        throw FormatException(
+          'Requested profile is not configured at ${root.path}',
+        );
+      }
+    }
+    final diffOutput = cmd['diff-output'] as String?;
+    if (diffOutput != null && diffOutput.isNotEmpty && roots.length != 1) {
+      throw const FormatException(
+        'lock --diff-output requires exactly one refreshed workspace root',
+      );
+    }
+    if (diffOutput != null && diffOutput.isNotEmpty) {
+      final outputPath = canonicalComparablePath(diffOutput);
+      final lockDirectory = canonicalComparablePath(
+        p.join(
+          roots.single.path,
+          requireCurrentWorkspace(roots.single.path).config.lockDirectory ??
+              'assurance/locks',
+        ),
+      );
+      if (pathEqualsOrWithin(lockDirectory, outputPath) ||
+          FileSystemEntity.typeSync(outputPath, followLinks: false) !=
+              FileSystemEntityType.notFound) {
+        throw const FormatException(
+          '--diff-output must be a new file outside the lock directory',
+        );
+      }
+    }
+    final before = roots.length == 1
+        ? _lockSnapshot(roots.single)
+        : <String, String?>{};
+    var exitCode = 0;
+    try {
+      for (final root in roots) {
+        final result = await _runLockRefreshRoot(cmd, root.path);
+        if (result != 0) {
+          exitCode = result;
+          break;
+        }
+      }
+      return exitCode;
+    } finally {
+      if (diffOutput != null && diffOutput.isNotEmpty) {
+        _writeLockDiff(roots.single, before, diffOutput);
+      }
+    }
+  }
+
+  Map<String, String?> _lockSnapshot(Directory root) {
+    final workspace = requireCurrentWorkspace(root.path);
+    final directory = workspace.config.lockDirectory ?? 'assurance/locks';
+    return {
+      for (final profile in workspace.config.lockProfiles)
+        profile:
+            File(
+              '${root.path}${Platform.pathSeparator}$directory${Platform.pathSeparator}$profile.lock.json',
+            ).existsSync()
+            ? File(
+                '${root.path}${Platform.pathSeparator}$directory${Platform.pathSeparator}$profile.lock.json',
+              ).readAsStringSync()
+            : null,
+    };
+  }
+
+  void _writeLockDiff(
+    Directory root,
+    Map<String, String?> before,
+    String output,
+  ) {
+    final after = _lockSnapshot(root);
+    final changed = <Map<String, Object?>>[];
+    for (final profile in {...before.keys, ...after.keys}.toList()..sort()) {
+      final previous = before[profile];
+      final current = after[profile];
+      if (previous == current) continue;
+      changed.add({
+        'profile': profile,
+        'beforeSha256': previous == null
+            ? null
+            : sha256.convert(utf8.encode(previous)).toString(),
+        'afterSha256': current == null
+            ? null
+            : sha256.convert(utf8.encode(current)).toString(),
+        'beforePresent': previous != null,
+        'afterPresent': current != null,
+      });
+    }
+    final file = File(output);
+    file.parent.createSync(recursive: true);
+    file.writeAsStringSync(
+      '${const JsonEncoder.withIndent('  ').convert({'kind': 'zuke.lock-diff', 'root': root.path, 'changed': changed})}\n',
+    );
+  }
+
+  Future<int> _runLockRefreshRoot(ArgResults cmd, String root) async {
+    if (cmd['check'] as bool? ?? false) {
+      throw const FormatException(
+        'lock --refresh and lock --check are mutually exclusive',
+      );
+    }
+    final output = cmd['output'] as String?;
+    if (output != null && output.isNotEmpty) {
+      throw const FormatException(
+        'lock --refresh cannot be combined with --output',
+      );
+    }
+    final requestedProfile = cmd['profile'] as String?;
+    final requestedProfiles = cmd['profiles'] as List<String>;
+    final allProfiles = cmd['all-profiles'] as bool? ?? false;
+    if ((allProfiles &&
+            (requestedProfile != null || requestedProfiles.isNotEmpty)) ||
+        (requestedProfile != null && requestedProfiles.isNotEmpty)) {
+      throw const FormatException(
+        'lock --all-profiles and --profile are mutually exclusive',
+      );
+    }
+    final workspace = requireCurrentWorkspace(root);
+    final configuredProfiles = workspace.config.lockProfiles;
+    final profiles = requestedProfiles.isNotEmpty
+        ? requestedProfiles.toSet().toList()
+        : requestedProfile == null
+        ? (configuredProfiles.isEmpty
+              ? const ['pullRequest', 'merge', 'release', 'nightly']
+              : configuredProfiles)
+        : [requestedProfile];
+
+    final generateParser = ArgParser()
+      ..addOption('root')
+      ..addFlag('check')
+      ..addOption('output')
+      ..addFlag('quiet');
+    final generated = await GenerateCommand(
+      generateParser.parse(['--root', root]),
+    ).execute();
+    if (generated != 0) return generated;
+    final generationCheck = await GenerateCommand(
+      generateParser.parse(['--root', root, '--check', '--quiet']),
+    ).execute();
+    if (generationCheck != 0) return generationCheck;
+
+    final testParser = ArgParser()
+      ..addOption('root')
+      ..addOption('profile')
+      ..addOption('format')
+      ..addOption('runner-mode')
+      ..addFlag('quiet');
+    final validateParser = ArgParser()
+      ..addOption('root')
+      ..addOption('profile')
+      ..addOption('format')
+      ..addFlag('quiet');
+    for (final profile in profiles) {
+      stdout.writeln('Refreshing Zuke evidence for profile $profile...');
+      final testArgs = <String>[
+        '--root',
+        root,
+        '--profile',
+        profile,
+        '--format',
+        'text',
+        if (cmd['runner-mode'] case final String runnerMode) ...[
+          '--runner-mode',
+          runnerMode,
+        ],
+      ];
+      final tested = await _runTests(testParser.parse(testArgs));
+      if (tested != 0) return tested;
+      final validated = await ValidateCommand(
+        validateParser.parse([
+          '--root',
+          root,
+          '--profile',
+          profile,
+          '--format',
+          'text',
+        ]),
+      ).execute();
+      if (validated != 0) return validated;
+    }
+
+    final lockParser = ArgParser()
+      ..addOption('root')
+      ..addOption('profile')
+      ..addMultiOption('profiles')
+      ..addFlag('all-profiles')
+      ..addFlag('update')
+      ..addFlag('check')
+      ..addFlag('quiet');
+    final lockArgs = <String>['--root', root, '--update'];
+    if (requestedProfiles.isNotEmpty) {
+      for (final profile in profiles) {
+        lockArgs.addAll(['--profiles', profile]);
+      }
+    } else if (requestedProfile != null) {
+      lockArgs.addAll(['--profile', requestedProfile]);
+    } else {
+      lockArgs.add('--all-profiles');
+    }
+    return LockCommand(lockParser.parse(lockArgs)).execute();
+  }
+
   int _runInit(ArgResults cmd) {
     final root = cmd['root'] as String? ?? Directory.current.path;
     final enableHooks = cmd['enable-dart-build-hooks'] as bool? ?? false;
@@ -544,22 +1150,47 @@ Usage:
       return 2;
     }
     final file = File('$root/zuke.yaml');
-    if (file.existsSync()) {
+    final editorRequested = cmd['editor'] == 'vscode';
+    final existingConfig = file.existsSync();
+    if (existingConfig && !editorRequested) {
       stderr.writeln('zuke.yaml already exists');
       return 1;
     }
+    final editorUpdates = editorRequested
+        ? prepareVscodePreset(root)
+        : const <EditorFileUpdate>[];
     if (enableHooks) {
       final adoption = _adoptBuildHook(root, packagePath!, dryRun: true);
       if (adoption != 0) return adoption;
     }
-    final config =
-        '''schemaVersion: 3\nworkspace:\n  name: ${Directory(root).uri.pathSegments.where((s) => s.isNotEmpty).last}\n  root: .\nspecifications:\n  features: [specs/features/**/*.feature]\ntargets: {}\ntrust:\n  bundle: assurance-history/trust/ed25519.json\n  algorithm: ed25519\n''';
+    final preset = switch (cmd['preset']) {
+      'flutter' => InitPreset.flutter,
+      'dart-frog' => InitPreset.dartFrog,
+      'dart' => InitPreset.dart,
+      _ => InitPreset.detect(Directory(root)),
+    };
+    final config = preset.configuration(Directory(root));
     if (dryRun) {
-      print('Would create ${file.path}');
+      if (!existingConfig) {
+        print('Would create ${file.path}');
+        print(config);
+      }
+      for (final update in editorUpdates) {
+        print('Would update ${update.file.path}');
+        print(update.contents);
+      }
       return 0;
     }
-    file.writeAsStringSync(config);
-    print('Created ${file.path}');
+    if (!existingConfig) {
+      file.parent.createSync(recursive: true);
+      file.writeAsStringSync(config);
+      Directory('$root/specs/features').createSync(recursive: true);
+      print('Created ${file.path}');
+    }
+    for (final update in editorUpdates) {
+      update.write();
+      print('Updated ${update.file.path}');
+    }
     if (enableHooks) {
       return _adoptBuildHook(root, packagePath!);
     }
@@ -912,13 +1543,30 @@ Future<void> main(List<String> arguments) => zuke.build(arguments);
       '${workspace.config.root}${Platform.pathSeparator}generated${Platform.pathSeparator}evidence${Platform.pathSeparator}.results-${pid}-${DateTime.now().microsecondsSinceEpoch}',
     ).absolute..createSync(recursive: true);
     final configuredRunners = workspace.config.executionConfig['runners'];
+    // Typed runner view takes precedence; raw map remains for forward-compat
+    // keys. Defaults preserved: kind `test`, runnerMode `auto`, timeout 600.
+    // CLI `--runner-mode` always overrides configured runnerMode below.
+    final typedRunners = {
+      for (final typed in workspace.config.workspaceRunners) typed.id: typed,
+    };
     try {
       if (configuredRunners is List) {
         for (final runner in configuredRunners.whereType<Map>()) {
-          final profiles = runner['profiles'];
-          if (profiles is List &&
-              !profiles.whereType<String>().contains(profile)) {
-            continue;
+          final runnerIdForFilter = runner['id'] as String?;
+          final typedRunner = runnerIdForFilter == null
+              ? null
+              : typedRunners[runnerIdForFilter];
+          final typedProfiles = typedRunner?.profiles;
+          if (typedProfiles != null &&
+              (typedRunner!.hasProfileRestriction ||
+                  typedProfiles.isNotEmpty)) {
+            if (!typedProfiles.contains(profile)) continue;
+          } else {
+            final profiles = runner['profiles'];
+            if (profiles is List &&
+                !profiles.whereType<String>().contains(profile)) {
+              continue;
+            }
           }
           final runnerId = runner['id'] as String?;
           if (runnerId == null || runnerId.isEmpty) return 2;
@@ -955,11 +1603,39 @@ Future<void> main(List<String> arguments) => zuke.build(arguments);
               'configured for target $runnerTarget',
             );
           }
-          final runnerKind = runner['kind'] as String? ?? 'test';
+          final runnerKind =
+              typedRunner?.kind ?? runner['kind'] as String? ?? 'test';
           if (runnerKind != 'setup' &&
               runnerKind != 'test' &&
               runnerKind != 'gherkin') {
             return 2;
+          }
+          final expectedRunnerScenarios = _selectedScenarioIdsForTarget(
+            workspace,
+            selection,
+            runnerTarget,
+          );
+          final registrationAudit = _auditRunnerRegistrations(
+            workspace,
+            runner,
+            expectedScenarioIds: expectedRunnerScenarios,
+            knownScenarioIds: _allScenarioIds(workspace),
+          );
+          if (!registrationAudit.passed) {
+            throw StateError(
+              'ZK-REGISTRATION-AUDIT: ${registrationAudit.diagnostics.map((diagnostic) => diagnostic.toJson()).join('; ')}',
+            );
+          }
+          // A tag-selected profile may contain scenarios for another
+          // execution target.  Do not launch a target runner with an empty
+          // selection: an empty result directory is correct in that case and
+          // must not be confused with a runner that omitted required cases.
+          // Runner-managed (unfiltered) executions still launch every runner,
+          // because an empty selection there means "run all".
+          if (runnerKind != 'setup' &&
+              selection.tagExpression != null &&
+              expectedRunnerScenarios.isEmpty) {
+            continue;
           }
           final resultDirectory = Directory(
             '${runRoot.path}${Platform.pathSeparator}$runnerId',
@@ -975,14 +1651,19 @@ Future<void> main(List<String> arguments) => zuke.build(arguments);
             ((runner['args'] as List?) ?? const []).cast<String>(),
           );
           final configuredRunnerMode = _runnerModeFromValue(
-            runner['runnerMode']?.toString(),
+            typedRunner?.runnerMode ?? runner['runnerMode']?.toString(),
           );
           final runnerMode = isFlutterTool(configuredExecutable)
               ? (cliRunnerMode ?? configuredRunnerMode ?? ToolRunnerMode.auto)
               : (configuredRunnerMode ?? ToolRunnerMode.auto);
-          final workingDirectory = runner['workingDirectory'] is String
+          final typedWorkingDirectory = typedRunner?.workingDirectory;
+          final rawWorkingDirectory = runner['workingDirectory'];
+          final effectiveWorkingDirectory =
+              typedWorkingDirectory ??
+              (rawWorkingDirectory is String ? rawWorkingDirectory : null);
+          final workingDirectory = effectiveWorkingDirectory != null
               ? Directory(
-                  '${workspace.config.root}/${runner['workingDirectory']}',
+                  '${workspace.config.root}/$effectiveWorkingDirectory',
                 ).path
               : root;
           if (!jsonMode && !quiet) {
@@ -1015,7 +1696,10 @@ Future<void> main(List<String> arguments) => zuke.build(arguments);
                 },
                 startupTimeout: const Duration(seconds: 60),
                 executionTimeout: Duration(
-                  seconds: (runner['timeoutSeconds'] as num?)?.toInt() ?? 600,
+                  seconds:
+                      typedRunner?.timeoutSeconds ??
+                      (runner['timeoutSeconds'] as num?)?.toInt() ??
+                      600,
                 ),
                 runnerMode: runnerMode,
                 firstOutputTimeout:
@@ -1081,6 +1765,17 @@ Future<void> main(List<String> arguments) => zuke.build(arguments);
                   'Runner $runnerId did not produce expected results: ${missing.toList()..sort()}',
                 );
               }
+            }
+            final executionAudit = const RegistrationExecutionAudit().reconcile(
+              registrations: registrationAudit.registrations,
+              executions: runnerArtifacts,
+              selectedScenarioIds: expectedRunnerScenarios,
+              target: runnerTarget,
+            );
+            if (!executionAudit.passed) {
+              throw StateError(
+                'ZK-REGISTRATION-EXECUTION: ${executionAudit.diagnostics.map((diagnostic) => diagnostic.toJson()).join('; ')}',
+              );
             }
             artifacts.addAll(runnerArtifacts);
           }
@@ -1250,13 +1945,18 @@ Future<void> main(List<String> arguments) => zuke.build(arguments);
     // never evidence. Only records emitted by a successfully executed runner
     // may cross this boundary.
     if (records.isEmpty) {
-      final hasRequiredEvidence = workspace.data.features.any(
-        (feature) => feature.rules.any(
-          (rule) =>
-              rule.metadata.requiredEvidence != null &&
-              rule.metadata.requiredEvidence!.isNotEmpty,
-        ),
-      );
+      final hasRequiredEvidence = selection.tagExpression == null
+          ? workspace.data.features.any(
+              (feature) => feature.rules.any(
+                (rule) =>
+                    rule.metadata.requiredEvidence != null &&
+                    rule.metadata.requiredEvidence!.isNotEmpty,
+              ),
+            )
+          : _requiredEvidenceForSelectedScenarios(
+              workspace,
+              selection.scenarioIds,
+            ).isNotEmpty;
       if (hasRequiredEvidence) {
         throw StateError('No execution result artifacts were produced');
       }
@@ -1266,12 +1966,22 @@ Future<void> main(List<String> arguments) => zuke.build(arguments);
       );
     }
 
+    // Profile runs share the configured evidence directory. Replace only the
+    // current profile's records so sequential profile execution retains the
+    // independently proved records needed by later validation and lock
+    // construction. Malformed files are intentionally not carried forward;
+    // the successful current run replaces the publication set atomically.
+    final retainedRecords = _loadPublishedEvidence(
+      directory,
+    ).where((record) => record.profile != profile).toList(growable: false);
+    final publishedRecords = <EvidenceRecord>[...retainedRecords, ...records];
+
     final staging = Directory(
       '${directory.path}.publish-${pid}-${DateTime.now().microsecondsSinceEpoch}',
     );
     final backup = Directory('${staging.path}.previous');
     try {
-      for (final record in records) {
+      for (final record in publishedRecords) {
         _writeSemanticEvidenceAtomic(staging.path, record);
       }
       if (directory.existsSync()) await _renameDirectory(directory, backup);
@@ -1321,6 +2031,31 @@ Future<void> main(List<String> arguments) => zuke.build(arguments);
     } finally {
       if (staging.existsSync()) staging.deleteSync(recursive: true);
     }
+  }
+
+  List<EvidenceRecord> _loadPublishedEvidence(Directory directory) {
+    if (!directory.existsSync()) return const [];
+    final files =
+        directory
+            .listSync()
+            .whereType<File>()
+            .where((file) => file.path.endsWith('.json'))
+            .toList()
+          ..sort((left, right) => left.path.compareTo(right.path));
+    final records = <EvidenceRecord>[];
+    for (final file in files) {
+      try {
+        final decoded = jsonDecode(file.readAsStringSync());
+        if (decoded is! Map) continue;
+        records.add(
+          EvidenceRecord.fromJson(Map<Object?, Object?>.from(decoded)),
+        );
+      } on Object {
+        // A fresh successful profile run is allowed to replace malformed
+        // prior publication files instead of carrying them forward.
+      }
+    }
+    return records;
   }
 
   Future<void> _renameDirectory(Directory source, Directory destination) async {
@@ -1422,10 +2157,90 @@ Future<void> main(List<String> arguments) => zuke.build(arguments);
     String target,
     String packageId,
   ) =>
-      workspace.config.targetPackages[target]?.any(
-        (package) => package['id'] == packageId,
+      workspace.config.workspaceTargets[target]?.packages.any(
+        (package) => package.id == packageId,
       ) ??
       false;
+
+  RegistrationAuditResult _auditRunnerRegistrations(
+    WorkspaceDiscoveryResult workspace,
+    Map runner, {
+    required Set<String> expectedScenarioIds,
+    required Set<String> knownScenarioIds,
+  }) => const WorkspaceRegistrationAudit().inspectRunner(
+    workspace,
+    target: runner['target']?.toString(),
+    sourcePackage: runner['sourcePackage']?.toString(),
+    workingDirectory: runner['workingDirectory']?.toString(),
+    expectedScenarioIds: expectedScenarioIds,
+    knownScenarioIds: knownScenarioIds,
+  );
+
+  Set<String> _allScenarioIds(WorkspaceDiscoveryResult workspace) => {
+    for (final feature in workspace.data.features)
+      for (final rule in feature.rules)
+        for (final scenario in rule.scenarios)
+          for (final tag in scenario.tags)
+            if (tag.name.startsWith('SCN-')) tag.name,
+  };
+
+  Set<String> _selectedScenarioIdsForTarget(
+    WorkspaceDiscoveryResult workspace,
+    ScenarioSelection selection,
+    String target,
+  ) {
+    final selected = selection.scenarioIds.toSet();
+    final result = <String>{};
+    for (final feature in workspace.data.features) {
+      final targets = feature.metadata.targets;
+      if (targets != null && targets.isNotEmpty && !targets.contains(target)) {
+        continue;
+      }
+      for (final rule in feature.rules) {
+        // Feature targets describe the broad product surface, while the
+        // rule-level evidence slots identify which configured execution
+        // target actually proves a rule. A feature can legitimately contain
+        // backend, Flutter, and dashboard rules together, so selecting every
+        // scenario from a multi-target feature would report valid
+        // target-specific registrations as missing.
+        final evidenceTargets = (rule.metadata.evidenceRequirements ?? const [])
+            .map((slot) => slot['target'])
+            .whereType<String>()
+            .where((value) => value.isNotEmpty)
+            .toSet();
+        if (evidenceTargets.isNotEmpty && !evidenceTargets.contains(target)) {
+          continue;
+        }
+        for (final scenario in rule.scenarios) {
+          final scenarioTags = scenario.tags
+              .map((tag) => tag.name.replaceFirst('@', '').toLowerCase())
+              .toSet();
+          // Rule evidence is intentionally aggregated for the rule, but a
+          // scenario can still be target-specific. Do not make a backend
+          // runner register a UI-only case, or a Flutter runner register an
+          // API-only case, merely because sibling scenarios in the same rule
+          // have evidence for both targets. Shared cases tagged with both
+          // `api` and `ui` remain selected for both targets.
+          if (target == 'backend' &&
+              scenarioTags.contains('ui') &&
+              !scenarioTags.contains('api')) {
+            continue;
+          }
+          if (target == 'flutter' &&
+              scenarioTags.contains('api') &&
+              !scenarioTags.contains('ui')) {
+            continue;
+          }
+          for (final tag in scenario.tags) {
+            if (tag.name.startsWith('SCN-') && selected.contains(tag.name)) {
+              result.add(tag.name);
+            }
+          }
+        }
+      }
+    }
+    return result;
+  }
 
   Future<List<EvidenceRecord>> _recordsFromArtifacts(
     WorkspaceDiscoveryResult workspace,
@@ -1504,6 +2319,7 @@ Future<void> main(List<String> arguments) => zuke.build(arguments);
         status: EvidenceStatus.passed,
         scenarioIds: artifact.scenarioIds,
         controlIds: artifact.controlIds,
+        implementationSlots: artifact.implementationSlots,
         digests: {
           'source': sourceDigest,
           'contract': contractDigest,

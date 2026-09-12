@@ -26,7 +26,9 @@ class ScenarioSelector {
       // configured. This is a current execution mode, not a legacy format.
       return ScenarioSelection.runnerManaged(profile);
     }
-    final expression = profileConfig['tagExpression'];
+    final expression =
+        workspace.config.executionProfiles[profile]?.tagExpression ??
+        profileConfig['tagExpression'];
     if (expression is! String || expression.trim().isEmpty) {
       throw FormatException(
         'execution profile "$profile" requires a non-empty tagExpression',

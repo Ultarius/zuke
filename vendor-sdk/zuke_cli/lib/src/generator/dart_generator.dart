@@ -1,8 +1,17 @@
 import 'dart:convert';
 import 'package:crypto/crypto.dart';
 import 'package:dart_style/dart_style.dart';
+import 'package:path/path.dart' as p;
 import 'package:zuke_frontend/zuke_frontend.dart';
 import 'manifest.dart';
+
+/// Package metadata used when emitting imports for generated contracts.
+final class ContractPackage {
+  const ContractPackage({required this.name, required this.libPath});
+
+  final String name;
+  final String libPath;
+}
 
 class GeneratedFile {
   final String path;
@@ -100,12 +109,15 @@ class DartContractGenerator {
     required WorkspaceDiscoveryResult workspace,
     String outputDir = 'lib/src/generated',
     String? exportPath,
+    ContractPackage? contractPackage,
   }) {
     final files = <GeneratedFile>[];
     final manifestEntries = <ManifestEntry>[];
     final errors = <String>[];
     final reservedScenarioIds = <String, _ScenarioLocation>{};
     final reservedFeatureTypes = <String>{};
+    final contractTypes = <String, String?>{};
+    final ruleAliases = <String, Set<String>>{};
 
     for (final feature in workspace.data.features) {
       final featId = feature.metadata.id;
@@ -544,6 +556,10 @@ class DartContractGenerator {
 
       files.add(GeneratedFile(path: filePath, content: content, hash: hash));
       manifestEntries.add(ManifestEntry(path: filePath, contentHash: hash));
+      contractTypes[filePath] = allScenarios.isEmpty
+          ? null
+          : featureScenarioType;
+      ruleAliases[filePath] = scenarioClassNames;
 
       final generatedStepPaths = <String>{};
       for (final supportTarget in _generatedStepTargets(workspace)) {
@@ -576,13 +592,95 @@ class DartContractGenerator {
       }
     }
 
-    // Export file
-    if (files.isNotEmpty && exportPath != null) {
-      final exportContent = StringBuffer();
-      for (final file in files) {
-        final lastPart = file.path.split('/').last;
-        exportContent.writeln("export 'src/generated/$lastPart';");
+    // Only contract libraries belong in the public aggregate. Generated test
+    // steps can live outside lib and may depend on a different test host.
+    if (exportPath != null) {
+      String normalized(String path) =>
+          p.posix.normalize(path.replaceAll('\\', '/'));
+      if (files.any(
+        (file) => normalized(file.path) == normalized(exportPath),
+      )) {
+        errors.add(
+          'Contract export collides with generated output: $exportPath',
+        );
+        return GenerationResult(
+          files: files,
+          manifest: Manifest(entries: manifestEntries),
+          errors: errors,
+        );
       }
+      final paths = contractTypes.keys.toList()..sort();
+      final aliasCounts = <String, int>{};
+      for (final aliases in ruleAliases.values) {
+        for (final alias in aliases) {
+          aliasCounts.update(alias, (count) => count + 1, ifAbsent: () => 1);
+        }
+      }
+      String importUri(String path) {
+        final package = contractPackage;
+        if (package != null &&
+            p.posix.isWithin(normalized(package.libPath), normalized(path))) {
+          final relative = p.posix.relative(
+            normalized(path),
+            from: normalized(package.libPath),
+          );
+          return _dartStringLiteral(
+            Uri(
+              scheme: 'package',
+              path: '${package.name}/$relative',
+            ).toString(),
+          );
+        }
+        return _dartStringLiteral(
+          Uri(
+            path: p.posix.relative(
+              normalized(path),
+              from: p.posix.dirname(normalized(exportPath)),
+            ),
+          ).toString(),
+        );
+      }
+
+      final exportContent = StringBuffer('// GENERATED. DO NOT EDIT.\n\n')
+        ..writeln("import 'package:zuke_annotations/zuke_annotations.dart';");
+      for (var i = 0; i < paths.length; i++) {
+        if (contractTypes[paths[i]] != null) {
+          exportContent.writeln('import ${importUri(paths[i])} as c$i;');
+        }
+      }
+      exportContent.writeln();
+      for (final path in paths) {
+        // Preserve unambiguous rule aliases for existing users. Repeated rule
+        // suffixes (e.g. RULE-A-001 / RULE-B-001) remain available via direct
+        // imports, while the aggregate exposes canonical feature types.
+        final hidden =
+            ruleAliases[path]!
+                .where((alias) => aliasCounts[alias]! > 1)
+                .toList()
+              ..sort();
+        final hide = hidden.isEmpty ? '' : ' hide ${hidden.join(', ')}';
+        exportContent.writeln('export ${importUri(path)}$hide;');
+      }
+      exportContent.writeln('''
+
+/// Generated identities only; catalog membership is not execution evidence.
+final Map<String, ZukeScenarioContract> generatedScenarioContracts =
+    Map.unmodifiable(<String, ZukeScenarioContract>{''');
+      for (var i = 0; i < paths.length; i++) {
+        final type = contractTypes[paths[i]];
+        if (type != null) {
+          exportContent.writeln(
+            '  for (final scenario in c$i.$type.values) scenario.id.value: scenario,',
+          );
+        }
+      }
+      exportContent.writeln('''
+});
+
+ZukeScenarioContract zukeScenarioContract(String id) =>
+    generatedScenarioContracts[id] ??
+    (throw StateError('No generated contract exists for \$id'));
+''');
       late final String content;
       try {
         content = _formatDart(exportContent.toString());

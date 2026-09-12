@@ -1,11 +1,31 @@
 import 'dart:io';
 
 import 'package:zuke_cli/src/dart_extractor.dart';
+import 'package:zuke_cli/src/generated/release_contract.dart';
 import 'package:test/test.dart';
 
 import '../support/temporary_directory.dart';
 
 void main() {
+  test('requires an explicit extraction target', () async {
+    final root = Directory.systemTemp.createTempSync('dart-extractor-target-');
+    addTearDown(() => deleteTemporaryDirectory(root));
+
+    await expectLater(
+      DartExtractor().extract(root.path),
+      throwsA(isA<ArgumentError>()),
+    );
+  });
+
+  test('emits the matrix-owned Dart source compatibility identity', () {
+    expect(DartExtractor.compatibilityId, releaseDartSourceCompatibilityId);
+    expect(DartExtractor.compatibilityId, 'dart-source-package-v1');
+    expect(
+      DartExtractor().adapterInfo.compatibilityId,
+      'dart-source-package-v1',
+    );
+  });
+
   test('DartExtractionResult stores fragments', () {
     final result = DartExtractionResult();
     expect(result.fragments, isEmpty);
@@ -80,7 +100,6 @@ void presentRequirement() {}
 @VerifiesRequirement(
   ['RULE-VERIFIED'],
   evidenceType: 'unit',
-  target: 'backend',
   variant: 'preview',
   scenarioIds: ['SCN-VERIFIED'],
 )
@@ -212,7 +231,11 @@ final unsupportedField = Object();
 class UnsupportedVerification {}
 ''');
 
-      final output = await DartExtractor().extract(root.path, roots: ['lib']);
+      final output = await DartExtractor().extract(
+        root.path,
+        roots: ['lib'],
+        target: 'backend',
+      );
 
       expect(output.inputDigest, hasLength(64));
       expect(
@@ -236,6 +259,29 @@ class UnsupportedVerification {}
           'CTRL-PROCESSOR',
         ]),
       );
+      final annotationOnlyProviderSymbols = output.symbols
+          .where(
+            (symbol) =>
+                symbol.kind == 'controlProvider' &&
+                symbol.symbolId.contains('#provideControl'),
+          )
+          .toList();
+      expect(annotationOnlyProviderSymbols, hasLength(1));
+      expect(
+        annotationOnlyProviderSymbols.single.symbolId,
+        'package:dart_extractor_behavior_fixture/app.dart#provideControl',
+      );
+      final targetedOutput = await DartExtractor().extract(
+        root.path,
+        roots: ['lib'],
+        target: 'flutter',
+      );
+      expect(
+        targetedOutput.symbols
+            .where((symbol) => symbol.kind == 'controlProvider')
+            .every((symbol) => symbol.target == 'flutter'),
+        isTrue,
+      );
       expect(output.graph, isNotNull);
       expect(
         output.graph!.nodes.map((node) => node.id),
@@ -250,6 +296,26 @@ class UnsupportedVerification {}
           'provider:Processor',
           'sink:Sink',
         ]),
+      );
+      // Runtime registrations are authoritative for applications using
+      // ZukeHttpApplication. Annotation-only declarations that are not part
+      // of that runtime graph must not become isolated implementation or
+      // provider paths and create false dominance failures.
+      expect(
+        output.graph!.nodes.map((node) => node.id),
+        isNot(
+          contains(
+            'implementation:package:dart_extractor_behavior_fixture/app.dart#RequirementMixin',
+          ),
+        ),
+      );
+      expect(
+        output.graph!.nodes.map((node) => node.id),
+        isNot(
+          contains(
+            'provider:package:dart_extractor_behavior_fixture/app.dart#provideControl',
+          ),
+        ),
       );
       expect(
         output.diagnostics.map((diagnostic) => diagnostic.message),
@@ -274,13 +340,13 @@ class UnsupportedVerification {}
     addTearDown(() => deleteTemporaryDirectory(root));
 
     expect(
-      () => DartExtractor().extract(root.path),
+      () => DartExtractor().extract(root.path, target: 'backend'),
       throwsA(isA<FormatException>()),
     );
 
     File('${root.path}/pubspec.yaml').writeAsStringSync('environment: {}\n');
     expect(
-      () => DartExtractor().extract(root.path),
+      () => DartExtractor().extract(root.path, target: 'backend'),
       throwsA(isA<FormatException>()),
     );
 
@@ -293,7 +359,11 @@ environment:
     File(
       '${root.path}/lib/broken.dart',
     ).writeAsStringSync('void broken( => missing;');
-    final output = await DartExtractor().extract(root.path, roots: ['lib']);
+    final output = await DartExtractor().extract(
+      root.path,
+      roots: ['lib'],
+      target: 'backend',
+    );
     expect(output.diagnostics, isNotEmpty);
     expect(output.graph, isNull);
   });

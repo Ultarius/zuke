@@ -20,11 +20,26 @@ void main() {
     expect(DocumentationChecker(root).check(), isEmpty);
   });
 
+  test(
+    'accepts a retired package that has been removed from the workspace',
+    () {
+      final matrix = File('${root.path}/docs/release-matrix.yaml');
+      matrix.writeAsStringSync(
+        matrix.readAsStringSync().replaceFirst(
+          'retiredPackages: {}',
+          'retiredPackages:\n  removed_package: Consolidated into zuke_cli.',
+        ),
+      );
+
+      expect(DocumentationChecker(root).check(), isEmpty);
+    },
+  );
+
   test('rejects path dependencies and retired identities', () {
     File(
       '${root.path}/vendor-sdk/zuke_frontend/pubspec.yaml',
     ).writeAsStringSync(
-      'name: zuke_frontend\nversion: 0.2.0\nresolution: workspace\n'
+      'name: zuke_frontend\nversion: 0.2.1\nresolution: workspace\n'
       'dependencies:\n  yaml:\n    path: ../yaml\n',
     );
     File(
@@ -134,22 +149,22 @@ void _writeBaseline(Directory root) {
       'support': 'Supported frontend and configuration API.',
     },
     'zuke': {
-      'version': '0.3.0',
-      'previousVersion': '0.2.0',
+      'version': '0.3.1',
+      'previousVersion': '0.3.0',
       'action': 'publish',
       'tier': 'Primary SDK',
       'support': 'Primary pure-Dart Zuke SDK and supported facade.',
     },
     'zuke_runner': {
-      'version': '0.3.0',
-      'previousVersion': '0.2.0',
+      'version': '0.3.1',
+      'previousVersion': '0.3.0',
       'action': 'publish',
       'tier': 'Compatibility',
       'support': 'Compatibility package for the primary Zuke SDK.',
     },
     'zuke_runner_flutter': {
-      'version': '0.3.0',
-      'previousVersion': '0.2.1',
+      'version': '0.3.1',
+      'previousVersion': '0.3.0',
       'action': 'publish',
       'tier': 'Specialized SDK',
       'support': 'Supported Flutter testWidgets integration boundary.',

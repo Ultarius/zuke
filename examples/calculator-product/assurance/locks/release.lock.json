@@ -32,11 +32,11 @@
   "policyHash": "sha256:0e415690723d2589b09681eeb983daab39231d75e659f9754f94a51cea8556dd",
   "evidenceRequirementsHash": "sha256:d63cef243ff1530bc5b8199c3812af46310998bf18f528bcec11d8e97c825b5f",
   "specificationDigestScope": "discovery-inputs-v1",
-  "specificationDigest": "sha256:04db7464325b422560fa9e307090c67b71529bb7f69a26eac194d2e928519092",
-  "generatedManifestDigest": "sha256:b7946474c87077afe8e19de2c58a8c75c1f9a92faf24a32a4ffa00c17b882045",
+  "specificationDigest": "sha256:d33d39fce65675b476f8dcdba5e0246446f2d4f8aa9f0c55eff54e0eef5b8a5d",
+  "generatedManifestDigest": "sha256:9b6f181d733bbaef84d8d285781298141fdfa17c9f3c26ae4a3f5a88401e698c",
   "features": {
     "FEAT-CALC-001": {
-      "sourceHash": "sha256:0516a86d5b1caa3116a09adda52c3bc384740633772005f3259e0123133f02d1"
+      "sourceHash": "sha256:10bba2c94f4f76d70fd3248de3c985e876b21c6ed6c29679bb07b1e9c5678d5e"
     },
     "FEAT-CALC-002": {
       "sourceHash": "sha256:94272360e99f4b91d9fe198bb6d828bcf5f603d470c198f48c72cd9f0ee94720"
@@ -47,8 +47,8 @@
       "adapter": "zuke.dart",
       "version": "1.0.0",
       "compatibilityId": "dart-source-package-v1",
-      "package": "calculator_api",
-      "digest": "sha256:ab644a390986c6464746d5ab308aa47b5fcf3330dc83235d1ef87261433b0c1c",
+      "package": "calculator-api",
+      "digest": "sha256:526bc7c80dd8037360fcb4c6752c6ee46755d171b306711c61d5bb5b505607c9",
       "completeness": {
         "annotationTargets": "complete",
         "generatedParts": "complete",
@@ -64,8 +64,8 @@
       "adapter": "zuke.dart",
       "version": "1.0.0",
       "compatibilityId": "dart-source-package-v1",
-      "package": "calculator_domain",
-      "digest": "sha256:64104c94a1e963ea009a7a367dd76cc8688808e93c153c3a9a9586dc9938ea13",
+      "package": "calculator-domain",
+      "digest": "sha256:8278359423e9c0f05ec55f5847eb1218b1d74443cd8c08c34e7b9d55cb9add5b",
       "completeness": {
         "annotationTargets": "complete",
         "generatedParts": "complete",
@@ -81,8 +81,8 @@
       "adapter": "zuke.dart",
       "version": "1.0.0",
       "compatibilityId": "dart-source-package-v1",
-      "package": "calculator_mobile",
-      "digest": "sha256:1720656afcc7a6109cd4af8e31b053107750b8bb457f2c71f25e2dbb5d8ccf26",
+      "package": "calculator-mobile",
+      "digest": "sha256:76846c89b2353b92b1ff7efe05ad760d01d808f1959bce2d4e34d661ddb5087f",
       "completeness": {
         "annotationTargets": "complete",
         "generatedParts": "complete",
@@ -111,8 +111,243 @@
     "RULE-CALC-ERROR-REDACTION"
   ],
   "attestations": [],
+  "implementationCoverage": [
+    {
+      "binding": {
+        "subjectKind": "requirement",
+        "subjectId": "RULE-CALC-ADDITION",
+        "target": "backend",
+        "role": "implementation",
+        "variant": "default",
+        "slot": "primary"
+      },
+      "mode": "topologyAuthoritative",
+      "status": "proven",
+      "governedGraphHash": "sha256:bfd503a79861301439a263dadcdc2becfd34d8ed90188e6a87c96b1000448f18",
+      "evidenceDigests": [],
+      "diagnostics": []
+    },
+    {
+      "binding": {
+        "subjectKind": "requirement",
+        "subjectId": "RULE-CALC-ADDITION",
+        "target": "flutter",
+        "role": "implementation",
+        "variant": "default",
+        "slot": "primary"
+      },
+      "mode": "annotationGoverned",
+      "status": "verified",
+      "evidenceDigests": [
+        "sha256:2289fca4435074f9d5f61dc5fae1faca82220bce0bc87643e5ffac754834f731",
+        "sha256:22b5383f8e2a0c764d9dfc075acdccdea2f033d503bf50094d60056130ccbc98",
+        "sha256:39643c6c1034d04a0a04d8aee3ed140b130a3177f5daf3f3236d1e13809a14bc",
+        "sha256:701aa3ee8c8d0e86065ccd88061ae4a3e4d2c60f56dd67077d0780b650303053",
+        "sha256:76846c89b2353b92b1ff7efe05ad760d01d808f1959bce2d4e34d661ddb5087f",
+        "sha256:9b6f181d733bbaef84d8d285781298141fdfa17c9f3c26ae4a3f5a88401e698c",
+        "sha256:d487c51aa2733b882f882e714a3533b1c581e14410bc6899619758bbc47868b7",
+        "sha256:fcb64d4a5b7fd3992d585601b9e9362e02a2d2ecb07aaca9bca4b0c057b3dbc0"
+      ],
+      "diagnostics": []
+    },
+    {
+      "binding": {
+        "subjectKind": "requirement",
+        "subjectId": "RULE-CALC-BODY-SIZE",
+        "target": "backend",
+        "role": "implementation",
+        "variant": "default",
+        "slot": "primary"
+      },
+      "mode": "topologyAuthoritative",
+      "status": "proven",
+      "governedGraphHash": "sha256:bfd503a79861301439a263dadcdc2becfd34d8ed90188e6a87c96b1000448f18",
+      "evidenceDigests": [],
+      "diagnostics": []
+    },
+    {
+      "binding": {
+        "subjectKind": "requirement",
+        "subjectId": "RULE-CALC-DIVISION",
+        "target": "backend",
+        "role": "implementation",
+        "variant": "default",
+        "slot": "primary"
+      },
+      "mode": "topologyAuthoritative",
+      "status": "proven",
+      "governedGraphHash": "sha256:bfd503a79861301439a263dadcdc2becfd34d8ed90188e6a87c96b1000448f18",
+      "evidenceDigests": [],
+      "diagnostics": []
+    },
+    {
+      "binding": {
+        "subjectKind": "requirement",
+        "subjectId": "RULE-CALC-DIVISION",
+        "target": "flutter",
+        "role": "implementation",
+        "variant": "default",
+        "slot": "primary"
+      },
+      "mode": "annotationGoverned",
+      "status": "verified",
+      "evidenceDigests": [
+        "sha256:2289fca4435074f9d5f61dc5fae1faca82220bce0bc87643e5ffac754834f731",
+        "sha256:26230788ee7cd940f1f732dd3a2713e46b970293da97e42250f7093831ed32f7",
+        "sha256:34b1e247d094a584695a6d11a1ae7a3d7015520bd003202d8aacedc7089c5d1e",
+        "sha256:76846c89b2353b92b1ff7efe05ad760d01d808f1959bce2d4e34d661ddb5087f",
+        "sha256:7f65936bee0220b802ac8eb92f38cf36b168d70b95be0c5fb27e2b72f21da943",
+        "sha256:9b6f181d733bbaef84d8d285781298141fdfa17c9f3c26ae4a3f5a88401e698c",
+        "sha256:c8338b73ed6f0a62d04fd237c1d761b4f8bbdb22b6d49aa85ba3aa96b00e1d38",
+        "sha256:d487c51aa2733b882f882e714a3533b1c581e14410bc6899619758bbc47868b7",
+        "sha256:ef352d3487f50e70b28055bd8984f99be750a4034ddb0a41747b9d66e9add801",
+        "sha256:f2df1daa06a670528172e919212ce3c54cee8279124ad8fa4598353da9ba7439"
+      ],
+      "diagnostics": []
+    },
+    {
+      "binding": {
+        "subjectKind": "requirement",
+        "subjectId": "RULE-CALC-ERROR-REDACTION",
+        "target": "backend",
+        "role": "implementation",
+        "variant": "default",
+        "slot": "primary"
+      },
+      "mode": "topologyAuthoritative",
+      "status": "proven",
+      "governedGraphHash": "sha256:bfd503a79861301439a263dadcdc2becfd34d8ed90188e6a87c96b1000448f18",
+      "evidenceDigests": [],
+      "diagnostics": []
+    },
+    {
+      "binding": {
+        "subjectKind": "requirement",
+        "subjectId": "RULE-CALC-MULTIPLICATION",
+        "target": "backend",
+        "role": "implementation",
+        "variant": "default",
+        "slot": "primary"
+      },
+      "mode": "topologyAuthoritative",
+      "status": "proven",
+      "governedGraphHash": "sha256:bfd503a79861301439a263dadcdc2becfd34d8ed90188e6a87c96b1000448f18",
+      "evidenceDigests": [],
+      "diagnostics": []
+    },
+    {
+      "binding": {
+        "subjectKind": "requirement",
+        "subjectId": "RULE-CALC-MULTIPLICATION",
+        "target": "flutter",
+        "role": "implementation",
+        "variant": "default",
+        "slot": "primary"
+      },
+      "mode": "annotationGoverned",
+      "status": "verified",
+      "evidenceDigests": [
+        "sha256:13aeb2db21067d1b15ccc4dec4907844d887f18417ddd7d9946d9b9de9c33bcb",
+        "sha256:2289fca4435074f9d5f61dc5fae1faca82220bce0bc87643e5ffac754834f731",
+        "sha256:76846c89b2353b92b1ff7efe05ad760d01d808f1959bce2d4e34d661ddb5087f",
+        "sha256:965781c45af6fa633e553d7bb6738a4c40c91e994f99803ee3b4127197229731",
+        "sha256:9b6f181d733bbaef84d8d285781298141fdfa17c9f3c26ae4a3f5a88401e698c",
+        "sha256:d487c51aa2733b882f882e714a3533b1c581e14410bc6899619758bbc47868b7",
+        "sha256:e8ded291224c1c32b5344619e7b2055533fb1c5aeb29ce5eaa17abca56bf7d59"
+      ],
+      "diagnostics": []
+    },
+    {
+      "binding": {
+        "subjectKind": "requirement",
+        "subjectId": "RULE-CALC-RATE-LIMIT",
+        "target": "backend",
+        "role": "implementation",
+        "variant": "default",
+        "slot": "primary"
+      },
+      "mode": "topologyAuthoritative",
+      "status": "proven",
+      "governedGraphHash": "sha256:bfd503a79861301439a263dadcdc2becfd34d8ed90188e6a87c96b1000448f18",
+      "evidenceDigests": [],
+      "diagnostics": []
+    },
+    {
+      "binding": {
+        "subjectKind": "requirement",
+        "subjectId": "RULE-CALC-SUBTRACTION",
+        "target": "backend",
+        "role": "implementation",
+        "variant": "default",
+        "slot": "primary"
+      },
+      "mode": "topologyAuthoritative",
+      "status": "proven",
+      "governedGraphHash": "sha256:bfd503a79861301439a263dadcdc2becfd34d8ed90188e6a87c96b1000448f18",
+      "evidenceDigests": [],
+      "diagnostics": []
+    },
+    {
+      "binding": {
+        "subjectKind": "requirement",
+        "subjectId": "RULE-CALC-SUBTRACTION",
+        "target": "flutter",
+        "role": "implementation",
+        "variant": "default",
+        "slot": "primary"
+      },
+      "mode": "annotationGoverned",
+      "status": "verified",
+      "evidenceDigests": [
+        "sha256:2289fca4435074f9d5f61dc5fae1faca82220bce0bc87643e5ffac754834f731",
+        "sha256:6b7bbd01b5c46dcbb120aecfb83cdab6d4ad8ceef27762a56226476ba6763032",
+        "sha256:76846c89b2353b92b1ff7efe05ad760d01d808f1959bce2d4e34d661ddb5087f",
+        "sha256:7fc49b46c25710fc2468396c082ae6390302dee19a5fd043f28f851123eaa4f9",
+        "sha256:9b6f181d733bbaef84d8d285781298141fdfa17c9f3c26ae4a3f5a88401e698c",
+        "sha256:b545392f87475a2f2b43d208054408fd054877797c7d158730ed68761e87123b",
+        "sha256:d487c51aa2733b882f882e714a3533b1c581e14410bc6899619758bbc47868b7"
+      ],
+      "diagnostics": []
+    },
+    {
+      "binding": {
+        "subjectKind": "requirement",
+        "subjectId": "RULE-CALC-VALIDATION",
+        "target": "backend",
+        "role": "implementation",
+        "variant": "default",
+        "slot": "primary"
+      },
+      "mode": "topologyAuthoritative",
+      "status": "proven",
+      "governedGraphHash": "sha256:bfd503a79861301439a263dadcdc2becfd34d8ed90188e6a87c96b1000448f18",
+      "evidenceDigests": [],
+      "diagnostics": []
+    },
+    {
+      "binding": {
+        "subjectKind": "requirement",
+        "subjectId": "RULE-CALC-VALIDATION",
+        "target": "flutter",
+        "role": "implementation",
+        "variant": "default",
+        "slot": "primary"
+      },
+      "mode": "annotationGoverned",
+      "status": "verified",
+      "evidenceDigests": [
+        "sha256:20e665bec84aac385c073ee3a8bb07839481e30be5f5099ef71982b525248350",
+        "sha256:2289fca4435074f9d5f61dc5fae1faca82220bce0bc87643e5ffac754834f731",
+        "sha256:74e11b56d26c012a95ef03a4fc87a17cf99a36366c01d1eb1c33371e942a6061",
+        "sha256:76846c89b2353b92b1ff7efe05ad760d01d808f1959bce2d4e34d661ddb5087f",
+        "sha256:9b6f181d733bbaef84d8d285781298141fdfa17c9f3c26ae4a3f5a88401e698c",
+        "sha256:d487c51aa2733b882f882e714a3533b1c581e14410bc6899619758bbc47868b7"
+      ],
+      "diagnostics": []
+    }
+  ],
   "controls": {
-    "RULE-CALC-DIVISION|CTRL-CALC-ERROR-REDACTION|backend|default": {
+    "RULE-CALC-DIVISION|CTRL-CALC-ERROR-REDACTION|backend|default|primary": {
       "assurance": "proven",
       "semantics": "failure-to-public-egress",
       "providerIds": [
@@ -120,7 +355,7 @@
       ],
       "evidenceDigests": [],
       "coverage": "proven",
-      "graphHash": "sha256:e9380c516cf94f7235460a8292f9d75e993dbbb45b4625e9d442f0bceb247166",
+      "graphHash": "sha256:abb860d715a8068eef9a835ec7c4ae995d82b5df2220b560db706d4610c63362",
       "completeness": {
         "routeRegistration": "complete",
         "middlewareOrder": "complete",
@@ -131,7 +366,7 @@
       },
       "bypassPaths": []
     },
-    "RULE-CALC-ERROR-REDACTION|CTRL-CALC-ERROR-REDACTION|backend|default": {
+    "RULE-CALC-ERROR-REDACTION|CTRL-CALC-ERROR-REDACTION|backend|default|primary": {
       "assurance": "proven",
       "semantics": "failure-to-public-egress",
       "providerIds": [
@@ -139,7 +374,7 @@
       ],
       "evidenceDigests": [],
       "coverage": "proven",
-      "graphHash": "sha256:e9380c516cf94f7235460a8292f9d75e993dbbb45b4625e9d442f0bceb247166",
+      "graphHash": "sha256:abb860d715a8068eef9a835ec7c4ae995d82b5df2220b560db706d4610c63362",
       "completeness": {
         "routeRegistration": "complete",
         "middlewareOrder": "complete",
@@ -150,7 +385,7 @@
       },
       "bypassPaths": []
     },
-    "RULE-CALC-VALIDATION|CTRL-CALC-INPUT-VALIDATION|backend|default": {
+    "RULE-CALC-VALIDATION|CTRL-CALC-INPUT-VALIDATION|backend|default|primary": {
       "assurance": "proven",
       "semantics": "ingress-dominance",
       "providerIds": [
@@ -158,7 +393,7 @@
       ],
       "evidenceDigests": [],
       "coverage": "proven",
-      "graphHash": "sha256:e9380c516cf94f7235460a8292f9d75e993dbbb45b4625e9d442f0bceb247166",
+      "graphHash": "sha256:abb860d715a8068eef9a835ec7c4ae995d82b5df2220b560db706d4610c63362",
       "completeness": {
         "routeRegistration": "complete",
         "middlewareOrder": "complete",
@@ -169,7 +404,7 @@
       },
       "bypassPaths": []
     },
-    "RULE-CALC-BODY-SIZE|CTRL-CALC-BODY-SIZE|backend|default": {
+    "RULE-CALC-BODY-SIZE|CTRL-CALC-BODY-SIZE|backend|default|primary": {
       "assurance": "proven",
       "semantics": "ingress-dominance",
       "providerIds": [
@@ -177,7 +412,7 @@
       ],
       "evidenceDigests": [],
       "coverage": "proven",
-      "graphHash": "sha256:e9380c516cf94f7235460a8292f9d75e993dbbb45b4625e9d442f0bceb247166",
+      "graphHash": "sha256:abb860d715a8068eef9a835ec7c4ae995d82b5df2220b560db706d4610c63362",
       "completeness": {
         "routeRegistration": "complete",
         "middlewareOrder": "complete",
@@ -188,7 +423,7 @@
       },
       "bypassPaths": []
     },
-    "RULE-CALC-BODY-SIZE|CTRL-CALC-LOG-REDACTION|backend|default": {
+    "RULE-CALC-BODY-SIZE|CTRL-CALC-LOG-REDACTION|backend|default|primary": {
       "assurance": "proven",
       "semantics": "sensitive-data-to-log-sink",
       "providerIds": [
@@ -196,7 +431,7 @@
       ],
       "evidenceDigests": [],
       "coverage": "proven",
-      "graphHash": "sha256:e9380c516cf94f7235460a8292f9d75e993dbbb45b4625e9d442f0bceb247166",
+      "graphHash": "sha256:abb860d715a8068eef9a835ec7c4ae995d82b5df2220b560db706d4610c63362",
       "completeness": {
         "routeRegistration": "complete",
         "middlewareOrder": "complete",
@@ -207,7 +442,7 @@
       },
       "bypassPaths": []
     },
-    "RULE-CALC-RATE-LIMIT|CTRL-CALC-LOG-REDACTION|backend|default": {
+    "RULE-CALC-RATE-LIMIT|CTRL-CALC-LOG-REDACTION|backend|default|primary": {
       "assurance": "proven",
       "semantics": "sensitive-data-to-log-sink",
       "providerIds": [
@@ -215,7 +450,7 @@
       ],
       "evidenceDigests": [],
       "coverage": "proven",
-      "graphHash": "sha256:e9380c516cf94f7235460a8292f9d75e993dbbb45b4625e9d442f0bceb247166",
+      "graphHash": "sha256:abb860d715a8068eef9a835ec7c4ae995d82b5df2220b560db706d4610c63362",
       "completeness": {
         "routeRegistration": "complete",
         "middlewareOrder": "complete",
@@ -226,7 +461,7 @@
       },
       "bypassPaths": []
     },
-    "RULE-CALC-ERROR-REDACTION|CTRL-CALC-LOG-REDACTION|backend|default": {
+    "RULE-CALC-ERROR-REDACTION|CTRL-CALC-LOG-REDACTION|backend|default|primary": {
       "assurance": "proven",
       "semantics": "sensitive-data-to-log-sink",
       "providerIds": [
@@ -234,7 +469,7 @@
       ],
       "evidenceDigests": [],
       "coverage": "proven",
-      "graphHash": "sha256:e9380c516cf94f7235460a8292f9d75e993dbbb45b4625e9d442f0bceb247166",
+      "graphHash": "sha256:abb860d715a8068eef9a835ec7c4ae995d82b5df2220b560db706d4610c63362",
       "completeness": {
         "routeRegistration": "complete",
         "middlewareOrder": "complete",
@@ -245,7 +480,7 @@
       },
       "bypassPaths": []
     },
-    "RULE-CALC-RATE-LIMIT|CTRL-CALC-RATE-LIMIT|backend|default": {
+    "RULE-CALC-RATE-LIMIT|CTRL-CALC-RATE-LIMIT|backend|default|primary": {
       "assurance": "proven",
       "semantics": "ingress-dominance",
       "providerIds": [
@@ -253,7 +488,7 @@
       ],
       "evidenceDigests": [],
       "coverage": "proven",
-      "graphHash": "sha256:e9380c516cf94f7235460a8292f9d75e993dbbb45b4625e9d442f0bceb247166",
+      "graphHash": "sha256:abb860d715a8068eef9a835ec7c4ae995d82b5df2220b560db706d4610c63362",
       "completeness": {
         "routeRegistration": "complete",
         "middlewareOrder": "complete",

@@ -10,11 +10,28 @@ import 'trust_bundle.dart';
 import 'validate_command.dart';
 import 'command_result.dart';
 import 'configuration_preflight.dart';
+import 'artifact_audit.dart';
+
+final class _ArtifactAuditOutcome {
+  const _ArtifactAuditOutcome({required this.report, this.diagnostic});
+
+  final ArtifactAuditReport report;
+  final Diagnostic? diagnostic;
+}
+
+typedef GateProcessRunner =
+    Future<ProcessResult> Function(
+      String executable,
+      List<String> arguments, {
+      String? workingDirectory,
+    });
 
 class GateCommand {
   final ArgResults args;
   final Future<int> Function(ArgResults)? testRunner;
-  GateCommand(this.args, {this.testRunner});
+  final GateProcessRunner processRunner;
+  GateCommand(this.args, {this.testRunner, GateProcessRunner? processRunner})
+    : processRunner = processRunner ?? Process.run;
 
   Future<int> execute() async {
     final root = args['root'] as String? ?? Directory.current.path;
@@ -60,53 +77,90 @@ class GateCommand {
     }
 
     int finish(int exitCode) {
-      final artifactDiagnostic = _artifactSafetyDiagnostic(
-        args['artifact-dir'] as String?,
-      );
-      final finalExitCode = artifactDiagnostic == null ? exitCode : 1;
-      final diagnostics = [
-        for (final entry in stages.entries)
-          if (entry.value == 'failed') ...[...diagnosticsFor(entry.key)],
-        if (artifactDiagnostic != null) artifactDiagnostic,
-      ];
-      final result = CommandResult(
-        command: 'gate',
-        stage: 'gate',
-        exitCode: finalExitCode,
-        status: finalExitCode == 0
-            ? CommandStatus.passed
-            : CommandStatus.failed,
-        eligible: finalExitCode == 0,
-        diagnostics: diagnostics,
-        details: {
-          'profile': profile,
-          'stages': [
-            for (final entry in stages.entries)
-              {
-                'name': entry.key,
-                'status': entry.value,
-                'exitCode': entry.value == 'failed' ? 1 : 0,
-                'eligible': entry.value == 'passed',
-                'remediation': entry.value == 'failed'
-                    ? 'Inspect the stage diagnostics and resolve the reported failure.'
-                    : '',
-                'diagnostics': entry.value == 'failed'
-                    ? diagnosticsFor(entry.key)
-                          .map((diagnostic) => diagnostic.toJson())
-                          .toList(growable: false)
-                    : const <Object?>[],
-              },
-          ],
-        },
-      );
-      final encoded = encodeCommandResult(result);
-      if (jsonMode) {
-        stdout.write(encoded);
+      final artifactDirectory = args['artifact-dir'] as String?;
+      final artifactDiagnostic = _artifactSafetyDiagnostic(artifactDirectory);
+      final auditRequested =
+          args.options.contains('audit-artifacts') &&
+          (args['audit-artifacts'] as bool? ?? false);
+      Diagnostic? artifactAuditDiagnostic;
+      ArtifactAuditReport? artifactAuditReport;
+      if (auditRequested &&
+          (artifactDirectory == null || artifactDirectory.isEmpty)) {
+        artifactAuditDiagnostic = const Diagnostic(
+          code: 'ZK-GATE-ARTIFACT-AUDIT-REQUIRES-DIRECTORY',
+          stage: 'artifact',
+          severity: DiagnosticSeverity.error,
+          owner: DiagnosticOwner.zuke,
+          message: 'gate --audit-artifacts requires --artifact-dir.',
+          remediation:
+              'Provide the exact artifact directory that will be uploaded and rerun the gate.',
+        );
       }
+
+      CommandResult buildResult(int resultExitCode) {
+        final diagnostics = [
+          for (final entry in stages.entries)
+            if (entry.value == 'failed') ...[...diagnosticsFor(entry.key)],
+          if (artifactDiagnostic != null) artifactDiagnostic,
+          if (artifactAuditDiagnostic != null) artifactAuditDiagnostic,
+        ];
+        return CommandResult(
+          command: 'gate',
+          stage: 'gate',
+          exitCode: resultExitCode,
+          status: resultExitCode == 0
+              ? CommandStatus.passed
+              : CommandStatus.failed,
+          eligible: resultExitCode == 0,
+          diagnostics: diagnostics,
+          details: {
+            'profile': profile,
+            'stages': [
+              for (final entry in stages.entries)
+                {
+                  'name': entry.key,
+                  'status': entry.value,
+                  'exitCode': entry.value == 'failed' ? 1 : 0,
+                  'eligible': entry.value == 'passed',
+                  'remediation': entry.value == 'failed'
+                      ? 'Inspect the stage diagnostics and resolve the reported failure.'
+                      : '',
+                  'diagnostics': entry.value == 'failed'
+                      ? diagnosticsFor(entry.key)
+                            .map((diagnostic) => diagnostic.toJson())
+                            .toList(growable: false)
+                      : const <Object?>[],
+                },
+            ],
+            if (artifactAuditReport != null)
+              'artifactAudit': artifactAuditReport!.toJson(),
+          },
+        );
+      }
+
+      final initialExitCode = artifactDiagnostic == null ? exitCode : 1;
+      if (auditRequested &&
+          artifactDirectory != null &&
+          artifactDiagnostic == null &&
+          artifactAuditDiagnostic == null) {
+        final outcome = _auditFinalArtifactBundle(artifactDirectory, (report) {
+          artifactAuditReport = report;
+          return encodeCommandResult(buildResult(initialExitCode));
+        });
+        artifactAuditReport = outcome.report;
+        artifactAuditDiagnostic = outcome.diagnostic;
+      }
+      var finalExitCode = artifactAuditDiagnostic == null ? initialExitCode : 1;
+      var result = buildResult(finalExitCode);
+      var encoded = encodeCommandResult(result);
+      if (artifactDiagnostic == null && artifactAuditDiagnostic == null) {
+        if (!auditRequested) _writeArtifactSummary(artifactDirectory, encoded);
+      } else if (artifactDirectory != null) {
+        _deleteArtifactSummary(artifactDirectory);
+      }
+      if (jsonMode) stdout.write(encoded);
       writeCommandSummaryBytes(args['summary-file'] as String?, encoded);
-      if (artifactDiagnostic == null) {
-        _writeArtifactSummary(args['artifact-dir'] as String?, encoded);
-      }
+      _writeAuxiliaryResults(result);
       return finalExitCode;
     }
 
@@ -188,7 +242,7 @@ class GateCommand {
     stages['input-stability'] = stable ? 'passed' : 'failed';
     reportStage('input-stability', stages['input-stability']!);
     reportStage('validate', 'running');
-    final validateResult = await ValidateCommand(
+    final validateCommand = ValidateCommand(
       validateParser.parse([
         '--root',
         root,
@@ -200,11 +254,13 @@ class GateCommand {
         'text',
         if (jsonMode) '--quiet',
       ]),
-    ).execute();
+    );
+    final validateResult = await validateCommand.execute();
+    stageDiagnostics['validate'] = validateCommand.diagnostics;
     stages['validate'] = validateResult == 0 ? 'passed' : 'failed';
     reportStage('validate', stages['validate']!);
     reportStage('lock', 'running');
-    final lockResult = await LockCommand(
+    final lockCommand = LockCommand(
       lockParser.parse([
         '--root',
         root,
@@ -215,13 +271,22 @@ class GateCommand {
           args['profile'] as String,
         ],
       ]),
-    ).execute();
+    );
+    final lockResult = await lockCommand.execute();
+    stageDiagnostics['lock'] = lockCommand.diagnostics;
     stages['lock'] = lockResult == 0 ? 'passed' : 'failed';
     reportStage('lock', stages['lock']!);
     if (profile == 'release') {
       reportStage('trust', 'running');
       final trustResult = _checkTrustEligibility(root);
-      stages['trust'] = trustResult == 0 ? 'passed' : 'failed';
+      stageDiagnostics['trust'] = trustResult;
+      if (!jsonMode) {
+        for (final diagnostic in trustResult) {
+          stderr.writeln('${diagnostic.code}: ${diagnostic.message}');
+          stderr.writeln('  ${diagnostic.remediation}');
+        }
+      }
+      stages['trust'] = trustResult.isEmpty ? 'passed' : 'failed';
       reportStage('trust', stages['trust']!);
     }
     final failed = stages.values.any((status) => status == 'failed');
@@ -229,11 +294,39 @@ class GateCommand {
   }
 
   Future<int> _executeAllProfiles(String root) async {
-    final artifactDiagnostic = _artifactSafetyDiagnostic(
-      args['artifact-dir'] as String?,
-    );
-    if (artifactDiagnostic != null) {
+    final artifactDirectory = args['artifact-dir'] as String?;
+    final auditRequested =
+        args.options.contains('audit-artifacts') &&
+        (args['audit-artifacts'] as bool? ?? false);
+    if (auditRequested &&
+        (artifactDirectory == null || artifactDirectory.isEmpty)) {
       final result = CommandResult(
+        command: 'gate',
+        stage: 'artifact',
+        exitCode: 1,
+        status: CommandStatus.failed,
+        eligible: false,
+        diagnostics: [
+          const Diagnostic(
+            code: 'ZK-GATE-ARTIFACT-AUDIT-REQUIRES-DIRECTORY',
+            stage: 'artifact',
+            severity: DiagnosticSeverity.error,
+            owner: DiagnosticOwner.zuke,
+            message: 'gate --audit-artifacts requires --artifact-dir.',
+            remediation:
+                'Provide the exact artifact directory that will be uploaded and rerun the gate.',
+          ),
+        ],
+        details: const {'profiles': <Object?>[]},
+      );
+      final encoded = encodeCommandResult(result);
+      stdout.write(encoded);
+      writeCommandSummaryBytes(args['summary-file'] as String?, encoded);
+      return 1;
+    }
+    final artifactDiagnostic = _artifactSafetyDiagnostic(artifactDirectory);
+    if (artifactDiagnostic != null) {
+      var result = CommandResult(
         command: 'gate',
         stage: 'gate',
         exitCode: 1,
@@ -254,7 +347,7 @@ class GateCommand {
       for (final profile in profiles) {
         final summary = File('${temporary.path}/$profile.json');
         final artifactDir = Directory('${temporary.path}/$profile-artifacts');
-        final process = await Process.run(
+        final process = await processRunner(
           Platform.resolvedExecutable,
           [
             'run',
@@ -270,6 +363,11 @@ class GateCommand {
             summary.path,
             '--artifact-dir',
             artifactDir.path,
+            if (args['runner-mode'] != null) ...[
+              '--runner-mode',
+              args['runner-mode'] as String,
+            ],
+            if (auditRequested) '--audit-artifacts',
           ],
           // Resolve the package executable from the caller's workspace. The
           // checked root may be an example or nested application without its
@@ -357,20 +455,75 @@ class GateCommand {
         }
       }
     }
-    final result = CommandResult(
-      command: 'gate',
-      stage: 'gate',
-      exitCode: failed ? 1 : 0,
-      status: failed ? CommandStatus.failed : CommandStatus.passed,
-      eligible: !failed,
-      diagnostics: diagnostics,
-      details: {'profiles': profileResults},
-    );
+    ArtifactAuditReport? artifactAuditReport;
+    Diagnostic? artifactAuditDiagnostic;
+    CommandResult buildResult(ArtifactAuditReport? report) {
+      final resultExitCode = artifactAuditDiagnostic == null && !failed ? 0 : 1;
+      return CommandResult(
+        command: 'gate',
+        stage: 'gate',
+        exitCode: resultExitCode,
+        status: resultExitCode == 0
+            ? CommandStatus.passed
+            : CommandStatus.failed,
+        eligible: resultExitCode == 0,
+        diagnostics: [
+          ...diagnostics,
+          if (artifactAuditDiagnostic != null) artifactAuditDiagnostic,
+        ],
+        details: {
+          'profiles': profileResults,
+          if (report != null) 'artifactAudit': report.toJson(),
+        },
+      );
+    }
+
+    if (auditRequested && artifactDirectory != null) {
+      final outcome = _auditFinalArtifactBundle(
+        artifactDirectory,
+        (report) => encodeCommandResult(buildResult(report)),
+      );
+      artifactAuditReport = outcome.report;
+      artifactAuditDiagnostic = outcome.diagnostic;
+    }
+
+    final result = buildResult(artifactAuditReport);
     final encoded = encodeCommandResult(result);
+    if (!auditRequested && artifactAuditDiagnostic == null) {
+      _writeArtifactSummary(artifactDirectory, encoded);
+    }
     stdout.write(encoded);
     writeCommandSummaryBytes(args['summary-file'] as String?, encoded);
-    _writeArtifactSummary(args['artifact-dir'] as String?, encoded);
-    return failed ? 1 : 0;
+    _writeAuxiliaryResults(result);
+    return result.exitCode;
+  }
+
+  void _writeAuxiliaryResults(CommandResult result) {
+    final blocker = args['blocker-file'] as String?;
+    final handoff = args['handoff-file'] as String?;
+    if ((blocker == null || blocker.isEmpty) &&
+        (handoff == null || handoff.isEmpty)) {
+      return;
+    }
+    final diagnostics = result.diagnostics
+        .map(
+          (diagnostic) => {
+            'code': diagnostic.code,
+            'stage': diagnostic.stage,
+            'owner': diagnostic.owner.name,
+            if (diagnostic.profile != null) 'profile': diagnostic.profile,
+            'remediation': diagnostic.remediation,
+          },
+        )
+        .toList(growable: false);
+    final payload =
+        '${canonicalJson({'kind': 'zuke.gate-auxiliary', 'status': result.status.name, 'eligible': result.eligible, 'blocked': !result.eligible, 'ownerDiagnostics': diagnostics})}\n';
+    for (final path in [blocker, handoff]) {
+      if (path == null || path.isEmpty) continue;
+      final file = File(path);
+      file.parent.createSync(recursive: true);
+      writeCommandResult(file, payload);
+    }
   }
 
   List<String> _profilesFor(String root) {
@@ -434,6 +587,75 @@ class GateCommand {
     writeCommandResult(File('${dir.path}/command-result.json'), encoded);
   }
 
+  _ArtifactAuditOutcome _auditFinalArtifactBundle(
+    String directory,
+    String Function(ArtifactAuditReport report) encode,
+  ) {
+    // The summary is part of the bundle. The gate rejects every pre-existing
+    // file except command-result.json, so the staged bundle has one file and
+    // can be assembled with the deterministic safe report before auditing.
+    // No bytes are written after the final read-only audit.
+    final stagedReport = ArtifactAuditReport(
+      input: directory,
+      filesScanned: 1,
+      findings: const [],
+    );
+    _writeArtifactSummary(directory, encode(stagedReport));
+    final audit = const ArtifactAudit().inspect(Directory(directory));
+    final finalReport = ArtifactAuditReport(
+      input: directory,
+      filesScanned: audit.filesScanned,
+      findings: audit.findings,
+    );
+    if (!audit.safe ||
+        canonicalJson(stagedReport.toJson()) !=
+            canonicalJson(finalReport.toJson())) {
+      _deleteArtifactSummary(directory);
+      final report = audit.safe
+          ? ArtifactAuditReport(
+              input: directory,
+              filesScanned: finalReport.filesScanned,
+              findings: const [
+                ArtifactAuditFinding(
+                  category: 'unstable-input',
+                  path: 'command-result.json',
+                  message:
+                      'The staged artifact report did not match the final bundle.',
+                ),
+              ],
+            )
+          : finalReport;
+      return _ArtifactAuditOutcome(
+        report: report,
+        diagnostic: _artifactAuditDiagnostic(report),
+      );
+    }
+    return _ArtifactAuditOutcome(report: finalReport);
+  }
+
+  void _deleteArtifactSummary(String directory) {
+    final file = File(
+      '${Directory(directory).path}${Platform.pathSeparator}command-result.json',
+    );
+    if (file.existsSync()) file.deleteSync();
+  }
+
+  Diagnostic _artifactAuditDiagnostic(ArtifactAuditReport report) {
+    final locations = report.findings
+        .map((finding) => '${finding.category} at ${finding.path}')
+        .join(', ');
+    return Diagnostic(
+      code: 'ZK-GATE-ARTIFACT-AUDIT-FAILED',
+      stage: 'artifact',
+      severity: DiagnosticSeverity.error,
+      owner: DiagnosticOwner.zuke,
+      message:
+          'Artifact audit rejected ${report.findings.length} finding(s): $locations.',
+      remediation:
+          'Run `zuke artifacts audit --input <exact-bundle>` and remove every reported finding before upload.',
+    );
+  }
+
   Diagnostic? _artifactSafetyDiagnostic(String? directory) {
     if (directory == null || directory.isEmpty) return null;
     final unsafe = _unsafeArtifactEntry(Directory(directory));
@@ -469,7 +691,20 @@ class GateCommand {
     return null;
   }
 
-  int _checkTrustEligibility(String root) {
+  List<Diagnostic> _checkTrustEligibility(String root) {
+    List<Diagnostic> failure(String message) => [
+      Diagnostic(
+        code: 'ZUKE-TRUST-001',
+        stage: 'trust',
+        severity: DiagnosticSeverity.error,
+        owner: DiagnosticOwner.project,
+        message: message,
+        remediation:
+            'Configure the trust bundle with an authorized public signing key '
+            'whose status is active and whose usages include release.',
+        profile: 'release',
+      ),
+    ];
     try {
       final workspace = requireCurrentWorkspace(root);
       final trustFile = configuredTrustBundle(
@@ -477,13 +712,9 @@ class GateCommand {
         configuredPath: workspace.config.trustBundle,
       );
       if (!trustFile.existsSync()) {
-        stderr.writeln(
-          'ZUKE-TRUST-001: Ed25519 attestation trust bundle is missing at ${trustFile.path}',
+        return failure(
+          'Ed25519 attestation trust bundle is missing at ${trustFile.path}',
         );
-        stderr.writeln(
-          '  Run `zuke manifest create --signer-id <id>` to initialize the Ed25519 trust bundle.',
-        );
-        return 1;
       }
       final trust = loadTrustBundle(
         root,
@@ -493,21 +724,13 @@ class GateCommand {
           .where((k) => k.active && k.usages.contains('release'))
           .toList();
       if (activeReleaseKeys.isEmpty) {
-        stderr.writeln(
-          'ZUKE-TRUST-001: No active release signers in ${trustFile.path}',
-        );
-        stderr.writeln(
-          '  At least one trust key must have status "active" and usage "release".',
-        );
-        return 1;
+        return failure('No active release signers in ${trustFile.path}');
       }
     } on FormatException catch (e) {
-      stderr.writeln('ZUKE-TRUST-001: $e');
-      return 1;
+      return failure(e.message);
     } on StateError catch (e) {
-      stderr.writeln('ZUKE-TRUST-001: ${e.message}');
-      return 1;
+      return failure('${e.message}');
     }
-    return 0;
+    return const [];
   }
 }

@@ -7,3 +7,4 @@ resolution: workspace
 publish_to: none
 dev_dependencies:
   test: ^1.31.1
+  zuke_runner: ^0.4.0
