@@ -5,6 +5,8 @@
 - Added normalized binding identities with explicit target, role, variant, and
   slot fields, implementation-coverage results, and deterministic proof
   ownership data.
+- Added the public risk-acceptance requirements and verifier contracts, keeping
+  approval authentication separate from consumer-supplied acceptance records.
 - Kept `dart-source-package-v1` unchanged because the serialized adapter
   contract is unchanged.
 

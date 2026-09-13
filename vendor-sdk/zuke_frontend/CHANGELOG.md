@@ -4,6 +4,10 @@
 
 - Read `contractOutput` and `contractExport` from any configured extraction
   target, including backend and custom targets.
+- Added typed workspace coverage, tooling, lock, evidence, and execution
+  profile models with explicit defaults and validation.
+- Preserved forward-compatible extension keys while surfacing unknown
+  configuration keys as structured warnings.
 
 ## 0.2.1
 

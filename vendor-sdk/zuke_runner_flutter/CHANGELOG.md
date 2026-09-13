@@ -6,6 +6,8 @@
   and the current proof ownership model.
 - Added explicit `provedImplementationSlots` claims for multi-slot
   implementation coverage; ordinary evidence remains slot-independent.
+- Added managed non-widget and widget test registration helpers that share
+  evidence, selection, and case identity rules.
 
 ## 0.3.1
 

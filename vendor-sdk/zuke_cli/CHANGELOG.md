@@ -17,6 +17,17 @@
   implementations in the extracted topology.
 - Kept `dart-source-package-v1` stable; the extraction cache revision is
   internal and independent of the public adapter contract.
+- Added typed workspace and consumer-policy validation plus alignment, artifact,
+  registration, OpenAPI, and gate diagnostics for CI assurance workflows.
+- Added attestation, trust, and owner-handoff commands for signed release
+  evidence.
+- Made `zuke-cli` the generation authority for typed contracts and explicit
+  contract barrels; consumer workflows can keep generated source committed and
+  disable build-runner generation.
+- Added portable coverage baselines that preserve line comparisons across
+  amended or rebased Git history.
+- Added generated VS Code presets and lock-refresh support for the current CLI
+  workflow.
 
 ## 0.4.1
 

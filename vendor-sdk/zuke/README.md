@@ -22,8 +22,9 @@ Zuke connects four things that are usually kept separate:
 This package owns the pure-Dart runner implementation, runtime events, feature
 flags, and HTTP scenario-test helpers. It re-exports the supported annotation
 and Gherkin frontend APIs so a complete Dart integration can use one package.
-It does not depend on Flutter, the CLI, the HTTP application runtime, or build
-hooks.
+It also exposes managed `zukeTest` and `zukeUnit` registration helpers, so
+`package:test` is a runtime dependency. It does not depend on Flutter, the CLI,
+the HTTP application runtime, or build hooks.
 
 ## Installation
 

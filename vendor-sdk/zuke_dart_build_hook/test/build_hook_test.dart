@@ -106,10 +106,15 @@ targets:
         path: .
         roots: [lib]
         ''');
-        final generated = await Process.run(
-          Platform.resolvedExecutable,
-          <String>['run', 'zuke_cli:zuke', 'generate', '--root', tempDir.path],
-        );
+        final generated =
+            await Process.run(Platform.resolvedExecutable, <String>[
+              '--suppress-analytics',
+              'run',
+              'zuke_cli:zuke',
+              'generate',
+              '--root',
+              tempDir.path,
+            ]);
         expect(
           generated.exitCode,
           0,

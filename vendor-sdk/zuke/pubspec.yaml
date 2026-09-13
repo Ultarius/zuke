@@ -9,8 +9,7 @@ dependencies:
   zuke_core: ^0.4.0
   zuke_annotations: ^0.4.0
   zuke_frontend: ^0.2.2
-dev_dependencies:
-  test: ^1.31.1
+  test: ^1.31.0
 repository: https://github.com/Ultarius/zuke
 issue_tracker: https://github.com/Ultarius/zuke/issues
 documentation: https://github.com/Ultarius/zuke/blob/main/docs/integration-guide.md

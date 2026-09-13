@@ -6,6 +6,8 @@
   provider and proof-routing release.
 - Added explicit `provedImplementationSlots` claims for multi-slot
   implementation coverage; ordinary evidence remains slot-independent.
+- Added portable channel, VM, and browser WebSocket scenario entry points for
+  application-facing test integrations.
 
 ## 0.3.1
 

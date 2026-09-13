@@ -92,6 +92,15 @@ Future<void> main(List<String> args) async {
         target = _readPublishTarget(root, package, matrix);
         if (versionChecker != null) {
           final release = matrix.packages[target.package]!;
+          if (await versionChecker.contains(target.package, target.version)) {
+            stdout.writeln(
+              'Skipping ${target.package} ${target.version}: '
+              'this version already exists on pub.dev.',
+            );
+            skipped++;
+            continue;
+          }
+
           final latestPublished = await versionChecker.latest(target.package);
           if (latestPublished != release.previousVersion) {
             throw StateError(
@@ -100,14 +109,6 @@ Future<void> main(List<String> args) async {
               '${latestPublished ?? 'unpublished'}; update the matrix or '
               'publish the missing intermediate release first.',
             );
-          }
-          if (await versionChecker.contains(target.package, target.version)) {
-            stdout.writeln(
-              'Skipping ${target.package} ${target.version}: '
-              'this version already exists on pub.dev.',
-            );
-            skipped++;
-            continue;
           }
         }
       } on Object catch (error) {
