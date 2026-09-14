@@ -55,6 +55,25 @@ Future<void> _calculate(
   await tester.pumpAndSettle();
 }
 
+Future<String> _runVisibleCalculation(
+  WidgetTester tester, {
+  required String first,
+  required String operator,
+  required String second,
+  required String expected,
+}) async {
+  final bindings = await _pumpCalculator(tester);
+  await _calculate(
+    tester,
+    bindings,
+    first: first,
+    operator: operator,
+    second: second,
+  );
+  expect(find.text(expected), findsOneWidget);
+  return expected;
+}
+
 @VerifiesRequirement(
   [
     FeatCalc001RequirementIds.addition,
@@ -66,7 +85,6 @@ Future<void> _calculate(
     FeatCalc001RequirementIds.accessibility,
   ],
   evidenceType: 'flutter-widget',
-  target: 'flutter',
   variant: 'default',
 )
 void main() {
@@ -76,65 +94,46 @@ void main() {
   );
 
   evidenceHarness.registerAll([
-    for (final testCase
-        in <
-          ({
-            String rule,
-            ZukeScenarioContract scenario,
-            String operator,
-            String first,
-            String second,
-            String result,
-          })
-        >[
-          (
-            rule: FeatCalc001RequirementIds.addition,
-            scenario: AdditionScenarios.addIntegersUi,
-            operator: '+',
-            first: '2',
-            second: '3',
-            result: '5',
-          ),
-          (
-            rule: FeatCalc001RequirementIds.subtraction,
-            scenario: SubtractionScenarios.subtract,
-            operator: '-',
-            first: '3',
-            second: '5',
-            result: '-2',
-          ),
-          (
-            rule: FeatCalc001RequirementIds.multiplication,
-            scenario: MultiplicationScenarios.multiply,
-            operator: '×',
-            first: '2.5',
-            second: '4',
-            result: '10',
-          ),
-          (
-            rule: FeatCalc001RequirementIds.division,
-            scenario: DivisionScenarios.divide,
-            operator: '÷',
-            first: '10',
-            second: '2',
-            result: '5',
-          ),
-        ])
-      FlutterEvidenceCase(
-        scenario: testCase.scenario,
-        body: (tester) async {
-          final bindings = await _pumpCalculator(tester);
-          await _calculate(
-            tester,
-            bindings,
-            first: testCase.first,
-            operator: testCase.operator,
-            second: testCase.second,
-          );
-          expect(find.text(testCase.result), findsOneWidget);
-          return testCase.result;
-        },
+    FlutterEvidenceCase(
+      scenario: AdditionScenarios.addIntegersUi,
+      body: (tester) => _runVisibleCalculation(
+        tester,
+        first: '2',
+        operator: '+',
+        second: '3',
+        expected: '5',
       ),
+    ),
+    FlutterEvidenceCase(
+      scenario: SubtractionScenarios.subtract,
+      body: (tester) => _runVisibleCalculation(
+        tester,
+        first: '3',
+        operator: '-',
+        second: '5',
+        expected: '-2',
+      ),
+    ),
+    FlutterEvidenceCase(
+      scenario: MultiplicationScenarios.multiply,
+      body: (tester) => _runVisibleCalculation(
+        tester,
+        first: '2.5',
+        operator: '×',
+        second: '4',
+        expected: '10',
+      ),
+    ),
+    FlutterEvidenceCase(
+      scenario: DivisionScenarios.divide,
+      body: (tester) => _runVisibleCalculation(
+        tester,
+        first: '10',
+        operator: '÷',
+        second: '2',
+        expected: '5',
+      ),
+    ),
     FlutterEvidenceCase(
       scenario: DivisionScenarios.divideZero,
       body: (tester) async {

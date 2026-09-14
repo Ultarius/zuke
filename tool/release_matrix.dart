@@ -17,6 +17,7 @@ final class ReleaseMatrix {
     required this.packages,
     required this.publicationOrder,
     required this.retiredPackages,
+    required this.flutterCertification,
   });
 
   const ReleaseMatrix.empty()
@@ -27,7 +28,8 @@ final class ReleaseMatrix {
       contracts = const {},
       packages = const {},
       publicationOrder = const [],
-      retiredPackages = const {};
+      retiredPackages = const {},
+      flutterCertification = const FlutterCertification.empty();
 
   final int schemaVersion;
   final Map<String, Object?> sdk;
@@ -37,6 +39,7 @@ final class ReleaseMatrix {
   final Map<String, PackageRelease> packages;
   final List<String> publicationOrder;
   final Set<String> retiredPackages;
+  final FlutterCertification flutterCertification;
 
   Map<String, String> get versions => {
     for (final entry in packages.entries) entry.key: entry.value.version,
@@ -48,6 +51,29 @@ final class ReleaseMatrix {
           entry.value.releaseAction == 'reuse')
         entry.key: entry.value.version,
   };
+}
+
+/// The exact Flutter versions exercised by hosted certification.
+///
+/// This is release evidence configuration, not a replacement for the Dart
+/// SDK constraint in [ReleaseMatrix.sdk].
+final class FlutterCertification {
+  const FlutterCertification({
+    required this.minimum,
+    required this.current,
+    required this.channels,
+  });
+
+  const FlutterCertification.empty()
+    : minimum = '',
+      current = '',
+      channels = const [];
+
+  final String minimum;
+  final String current;
+  final List<String> channels;
+
+  bool get isConfigured => minimum.isNotEmpty && current.isNotEmpty;
 }
 
 final class PackageRelease {
@@ -92,6 +118,7 @@ ReleaseMatrix readReleaseMatrix(Directory root) {
     'compatibilityIds',
     'contracts',
     'publicationOrder',
+    'certification',
   };
   final unknownRootFields = decoded.keys
       .map((key) => key.toString())
@@ -254,9 +281,80 @@ ReleaseMatrix readReleaseMatrix(Directory root) {
   }
   final operatingSystems = decoded['operatingSystems'];
   if (operatingSystems is! List ||
+      operatingSystems.isEmpty ||
       operatingSystems.any((value) => value is! String || value.isEmpty)) {
     throw const FormatException(
       'release matrix operatingSystems must be a non-empty string list',
+    );
+  }
+
+  var flutterCertification = const FlutterCertification.empty();
+  final rawCertification = decoded['certification'];
+  if (rawCertification != null) {
+    if (rawCertification is! Map) {
+      throw const FormatException(
+        'release matrix certification must be a mapping',
+      );
+    }
+    const allowedCertificationFields = {'flutter'};
+    final unknownCertificationFields = rawCertification.keys
+        .map((key) => key.toString())
+        .where((key) => !allowedCertificationFields.contains(key))
+        .toList();
+    if (unknownCertificationFields.isNotEmpty) {
+      throw FormatException(
+        'release matrix certification has unknown fields: '
+        '${unknownCertificationFields.join(', ')}',
+      );
+    }
+    final rawFlutter = rawCertification['flutter'];
+    if (rawFlutter is! Map) {
+      throw const FormatException(
+        'release matrix certification.flutter must be a mapping',
+      );
+    }
+    const allowedFlutterFields = {'minimum', 'current', 'channels'};
+    final unknownFlutterFields = rawFlutter.keys
+        .map((key) => key.toString())
+        .where((key) => !allowedFlutterFields.contains(key))
+        .toList();
+    if (unknownFlutterFields.isNotEmpty) {
+      throw FormatException(
+        'release matrix certification.flutter has unknown fields: '
+        '${unknownFlutterFields.join(', ')}',
+      );
+    }
+    String requiredFlutterString(String key) {
+      final value = rawFlutter[key];
+      if (value is! String || value.trim().isEmpty) {
+        throw FormatException(
+          'release matrix certification.flutter.$key must be non-empty',
+        );
+      }
+      return value;
+    }
+
+    final channels = rawFlutter['channels'];
+    if (channels is! List ||
+        channels.isEmpty ||
+        channels.any((value) => value is! String || value.trim().isEmpty)) {
+      throw const FormatException(
+        'release matrix certification.flutter.channels must be a non-empty string list',
+      );
+    }
+    final versionPattern = RegExp(r'^\d+\.\d+\.\d+$');
+    final minimum = requiredFlutterString('minimum');
+    final current = requiredFlutterString('current');
+    if (!versionPattern.hasMatch(minimum) ||
+        !versionPattern.hasMatch(current)) {
+      throw const FormatException(
+        'release matrix certification Flutter versions must be exact semantic versions',
+      );
+    }
+    flutterCertification = FlutterCertification(
+      minimum: minimum,
+      current: current,
+      channels: List.unmodifiable(channels.cast<String>()),
     );
   }
 
@@ -269,5 +367,6 @@ ReleaseMatrix readReleaseMatrix(Directory root) {
     packages: Map.unmodifiable(packages),
     publicationOrder: List.unmodifiable(order),
     retiredPackages: Set.unmodifiable(retiredPackages),
+    flutterCertification: flutterCertification,
   );
 }

@@ -50,6 +50,9 @@ final class EvidenceRecord {
   final EvidenceStatus status;
   final List<ScenarioId> scenarioIds;
   final List<String> controlIds;
+
+  /// Implementation slots explicitly claimed by a managed test.
+  final List<String> implementationSlots;
   final Map<String, String> digests;
   final String? candidateId;
   final String profile;
@@ -69,6 +72,7 @@ final class EvidenceRecord {
     this.status = EvidenceStatus.passed,
     this.scenarioIds = const [],
     this.controlIds = const [],
+    this.implementationSlots = const [],
     this.digests = const {},
     this.candidateId,
     required this.profile,
@@ -96,6 +100,8 @@ final class EvidenceRecord {
       'status': status.name,
       'scenarioIds': scenarioIds.map((id) => id.value).toList()..sort(),
       'controlIds': [...controlIds]..sort(),
+      if (implementationSlots.isNotEmpty)
+        'implementationSlots': [...implementationSlots]..sort(),
       if (digests.isNotEmpty) 'digests': Map<String, String>.from(digests),
       if (candidateId != null) 'candidateId': candidateId,
       'profile': profile,
@@ -186,6 +192,7 @@ final class EvidenceRecord {
         for (final id in strings('scenarioIds')) ScenarioId.parse(id),
       ],
       controlIds: strings('controlIds'),
+      implementationSlots: strings('implementationSlots'),
       digests: digests,
       candidateId: required('candidateId'),
       profile: required('profile'),

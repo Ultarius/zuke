@@ -58,7 +58,7 @@ void main() {
       bindings: TodoBindings(),
     ),
     runnerId: 'todo-flutter-tests',
-    runnerCompatibilityId: 'todo-flutter-tests-v1',
+    runnerCompatibilityId: 'todo-flutter-runner-v1',
     digests: const {'runner': 'zuke-runner-flutter-v1'},
   ).registerAll();
 

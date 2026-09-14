@@ -3,6 +3,7 @@ import '../ir.dart';
 import 'dart:convert';
 import 'package:crypto/crypto.dart';
 
+import 'obligation_catalog.dart';
 import 'validator.dart';
 
 /// Framework-neutral control proof analysis.
@@ -14,6 +15,7 @@ class DominanceValidator {
   ValidationResult validate(
     IrGraph graph, {
     WorkspaceDiscoveryResult? workspace,
+    Iterable<ControlObligation>? obligations,
   }) {
     final errors = <ValidationMessage>[];
     final proofs = <ControlProofResult>[];
@@ -37,8 +39,26 @@ class DominanceValidator {
     final implementations = graph.nodes.where(
       (node) => node.kind == NodeKind.implementation,
     );
+    final structuralKeys = obligations
+        ?.where(
+          (obligation) => obligation.owner == ProofOwner.structuralDominance,
+        )
+        .map((obligation) => obligation.key)
+        .toSet();
 
     for (final implementation in implementations) {
+      final implementationTarget = implementation.target;
+      final implementationVariant = implementation.variant;
+      if (implementationTarget == null || implementationVariant == null) {
+        errors.add(
+          const ValidationMessage(
+            code: 'ZK-BINDING-IDENTITY-MISSING',
+            message: 'Implementation binding is missing target or variant',
+            severity: Severity.error,
+          ),
+        );
+        continue;
+      }
       final requirementIds =
           (implementation.properties['requirementIds'] as List?)
               ?.whereType<String>()
@@ -53,16 +73,47 @@ class DominanceValidator {
       }
 
       for (final controlId in requiredControls) {
-        final implementationTarget = implementation.target ?? 'backend';
-        final implementationVariant = implementation.variant ?? 'default';
+        final controlReference = _controlReference(
+          workspace,
+          requirementIds,
+          controlId,
+        );
+        final controlTarget = controlReference?.target ?? implementationTarget;
+        final controlVariant =
+            controlReference?.variant ?? implementationVariant;
+        final controlSlot = controlReference?.slot ?? 'primary';
+        if (structuralKeys != null) {
+          final subjects = requirementIds.isEmpty
+              ? [implementation.id]
+              : requirementIds;
+          final owned = subjects.any(
+            (subject) => structuralKeys.contains(
+              '$subject|$controlId|$controlTarget|$controlVariant|$controlSlot',
+            ),
+          );
+          if (!owned) continue;
+        }
+        // A rule may govern multiple targets. A control requirement belongs
+        // to the target declared by its exact reference; it must not be
+        // evaluated against an implementation extracted from another target.
+        // This prevents a Flutter/domain annotation from becoming an
+        // uncovered backend path merely because both sides mention the same
+        // control identifier.
+        if (!_appliesToTarget(
+          workspace,
+          requirementIds,
+          controlId,
+          implementationTarget,
+        )) {
+          continue;
+        }
         final providers = graph.nodes
             .where(
               (node) =>
                   node.kind == NodeKind.provider &&
-                  (node.target == null ||
-                      node.target == implementationTarget) &&
-                  (node.variant == null ||
-                      node.variant == implementationVariant) &&
+                  node.target == controlTarget &&
+                  node.variant == controlVariant &&
+                  node.slot == controlSlot &&
                   (node.properties['controlId'] == controlId ||
                       (node.properties['controlIds'] is List &&
                           (node.properties['controlIds'] as List).contains(
@@ -87,6 +138,7 @@ class DominanceValidator {
               status: ProofStatus.indeterminate,
               semantics: CoverageSemantics.ingressDominance,
               providerIds: providerIds,
+              slot: controlSlot,
               completeness: _completenessMap(graph.completeness),
               diagnostics: const [
                 'Control coverageSemantics is not configured',
@@ -103,6 +155,16 @@ class DominanceValidator {
             continue;
           }
         }
+        // Verification-backed controls have a different proof contract from
+        // structural controls.  They are proved by
+        // VerificationBackedValidator using a resolved provider and current
+        // passing evidence, not by graph dominance.  Do not emit a competing
+        // structural proof (or a structural error) for the same control.
+        // Skipping here is not an auto-pass: the dedicated validator remains
+        // responsible for producing the required verified proof.
+        if (workspace != null && configuredSemantics == 'verification-backed') {
+          continue;
+        }
         final completeness = _completenessMap(graph.completeness);
         final semantics = _semantics(workspace, controlId, graph);
         if (semantics == null) {
@@ -115,6 +177,7 @@ class DominanceValidator {
             status: ProofStatus.indeterminate,
             semantics: CoverageSemantics.ingressDominance,
             providerIds: providerIds,
+            slot: controlSlot,
             completeness: completeness,
             diagnostics: const ['Unknown coverageSemantics value'],
           );
@@ -189,16 +252,14 @@ class DominanceValidator {
                   : [requirementIds.first])
             : matchingRequirementIds;
         for (final reqId in targetReqIds) {
-          final controlTarget =
-              (workspace?.data.controls[controlId]?['target'] as String?) ??
-              implementationTarget;
           final normalized = ControlProofResult(
             controlId: controlId,
             requirementId: reqId,
             target: semantics == CoverageSemantics.externalAttestation
                 ? controlTarget
                 : implementationTarget,
-            variant: implementationVariant,
+            variant: controlVariant,
+            slot: controlSlot,
             status: result.status,
             semantics: semantics,
             providerIds: providerIds,
@@ -299,6 +360,67 @@ class DominanceValidator {
       }
     }
     return result;
+  }
+
+  bool _appliesToTarget(
+    WorkspaceDiscoveryResult? workspace,
+    List<String> requirementIds,
+    String controlId,
+    String implementationTarget,
+  ) {
+    if (workspace == null || requirementIds.isEmpty) return true;
+    final declaredTargets = <String>[];
+    for (final feature in workspace.data.features) {
+      for (final rule in feature.rules) {
+        if (!requirementIds.contains(rule.metadata.id)) continue;
+        for (final reference
+            in rule.metadata.requires ?? const <ParsedControlRef>[]) {
+          if (reference.kind == 'control' && reference.id == controlId) {
+            declaredTargets.add(reference.target);
+          }
+        }
+        final profile = rule.metadata.securityProfile;
+        if (profile == null) continue;
+        for (final policy in workspace.data.policies.values) {
+          final profiles = policy['securityProfiles'];
+          final definition = profiles is Map ? profiles[profile] : null;
+          final requires = definition is Map ? definition['requires'] : null;
+          if (requires is! List) continue;
+          for (final raw in requires.whereType<Map>()) {
+            if (raw['id']?.toString() == controlId) {
+              final target = raw['target']?.toString();
+              if (target != null && target.isNotEmpty) {
+                declaredTargets.add(target);
+              }
+            }
+          }
+        }
+      }
+    }
+    // Preserve the legacy unit-fixture behavior when no target declaration
+    // exists. Workspace references with an explicit target remain exact.
+    return declaredTargets.isEmpty ||
+        declaredTargets.contains(implementationTarget);
+  }
+
+  ParsedControlRef? _controlReference(
+    WorkspaceDiscoveryResult? workspace,
+    List<String> requirementIds,
+    String controlId,
+  ) {
+    if (workspace == null) return null;
+    for (final feature in workspace.data.features) {
+      for (final rule in feature.rules) {
+        if (!requirementIds.contains(rule.metadata.id)) continue;
+        for (final reference
+            in rule.metadata.requires ?? const <ParsedControlRef>[]) {
+          if (reference.kind == 'control' && reference.id == controlId) {
+            return reference;
+          }
+        }
+      }
+    }
+    return null;
   }
 
   String _graphHash(IrGraph graph) =>

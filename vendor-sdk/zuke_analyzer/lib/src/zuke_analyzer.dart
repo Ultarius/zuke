@@ -4,15 +4,24 @@ import 'package:zuke_cli/tooling.dart';
 
 class ZukeAnalyzer {
   Future<List<ZukeDiagnostic>> analyzePackage(String packageRoot) async {
-    final output = await DartExtractor().extract(packageRoot);
+    late final ResolvedPlacement placement;
+    try {
+      placement = resolvePlacement(packageRoot);
+    } on PlacementFailure catch (error) {
+      return [ZukeDiagnostic(code: error.code, message: error.message)];
+    }
+    final workspaceRoot = Directory(placement.workspaceRoot);
+    final output = await DartExtractor().extract(
+      packageRoot,
+      roots: placement.package.roots,
+      target: placement.target.id,
+    );
     final diagnostics = output.errors
         .map(
           (error) =>
               ZukeDiagnostic(code: 'ZUKE-ANNOTATION-001', message: error),
         )
         .toList();
-    final workspaceRoot = _findWorkspaceRoot(Directory(packageRoot));
-    if (workspaceRoot == null) return diagnostics;
 
     final indexFile = File('${workspaceRoot.path}/.zuke/analyzer-index.json');
     ZukeIndex index;
@@ -83,16 +92,6 @@ class ZukeAnalyzer {
     message:
         'Unknown $kind ID "$id" on $symbolId; run generation or fix the annotation.',
   );
-
-  Directory? _findWorkspaceRoot(Directory start) {
-    var current = start.absolute;
-    while (true) {
-      if (File('${current.path}/zuke.yaml').existsSync()) return current;
-      final parent = current.parent;
-      if (parent.path == current.path) return null;
-      current = parent;
-    }
-  }
 }
 
 class ZukeDiagnostic {

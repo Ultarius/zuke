@@ -16,12 +16,12 @@ runs release gates for the primary `zuke` SDK.
 
 ```yaml
 dev_dependencies:
-  zuke_cli: ^0.4.0
+  zuke_cli: ^0.5.0
 ```
 
 Projects that regenerate non-Flutter steps with the current CLI should add
-`zuke: ^0.3.0` to the dependency section used by those tests. Flutter steps
-use `zuke_runner_flutter: ^0.3.0`.
+`zuke: ^0.4.0` to the dependency section used by those tests. Flutter steps
+use `zuke_runner_flutter: ^0.4.0`.
 
 ## Support tier
 

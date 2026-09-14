@@ -31,6 +31,28 @@ void main() {
       );
     });
 
+    test(
+      'dot segments and trailing separators preserve trust path confinement',
+      () {
+        final expected = configuredTrustBundle(tempDir.path).path;
+        for (final root in [
+          '${tempDir.path}/.',
+          '${tempDir.path}/',
+          '${tempDir.path}/child/..',
+        ]) {
+          expect(configuredTrustBundle(root).path, expected);
+          expect(
+            () => configuredTrustBundle(root, configuredPath: '../trust.json'),
+            throwsFormatException,
+          );
+        }
+        expect(
+          configuredTrustBundle('.').path,
+          configuredTrustBundle(Directory.current.path).path,
+        );
+      },
+    );
+
     test('reads the trust bundle path from schema-v3 configuration', () {
       File('${tempDir.path}/zuke.yaml').writeAsStringSync('''
 schemaVersion: 3
@@ -199,9 +221,19 @@ Feature: Dummy
           tempDir.path,
           '--profile',
           'release',
+          '--format',
+          'json',
         ]);
 
-        expect(result.stderr, contains('ZUKE-TRUST-001'));
+        final summary = jsonDecode(result.stdout) as Map;
+        final diagnostics = (summary['diagnostics'] as List).cast<Map>();
+        final trust = diagnostics.singleWhere(
+          (item) => item['code'] == 'ZUKE-TRUST-001',
+        );
+        expect(trust['message'], contains('No active release signers'));
+        expect(trust['owner'], 'project');
+        expect(trust['remediation'], contains('authorized public signing key'));
+        expect(trust['remediation'], isNot(contains('manifest create')));
         expect(result.exitCode, isNot(0));
       },
     );

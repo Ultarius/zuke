@@ -1,0 +1,16 @@
+schemaVersion: 1
+id: EPIC-HOSTED-001
+title: Hosted Consumer Certification
+owner: zuke-release
+strategicGoal: >-
+  Prove that a clean consumer can use the supported hosted Zuke package tuple.
+businessContext: >-
+  This fixture is generated outside the framework checkout and exercises the
+  normal public runner, generation, validation, lock, and gate workflow.
+scope:
+  in:
+    - hosted package resolution
+    - generated scenario contracts
+    - managed evidence publication
+  out:
+    - application-specific framework adapters

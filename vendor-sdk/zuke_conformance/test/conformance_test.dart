@@ -334,9 +334,15 @@ void main() {
         ),
         isTrue,
       );
-      final provenErrorRedaction =
-          controls['RULE-CALC-DIVISION|CTRL-CALC-ERROR-REDACTION|backend|default']
-              as Map;
+      final provenErrorRedaction = controls.entries
+          .where(
+            (entry) => entry.key.toString().startsWith(
+              'RULE-CALC-DIVISION|CTRL-CALC-ERROR-REDACTION|backend|default',
+            ),
+          )
+          .map((entry) => entry.value)
+          .whereType<Map>()
+          .single;
       expect(provenErrorRedaction['assurance'], 'proven');
       expect(
         provenErrorRedaction['providerIds'],

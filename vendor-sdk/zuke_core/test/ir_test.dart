@@ -171,12 +171,18 @@ void main() {
             id: 'provider-a',
             kind: NodeKind.provider,
             target: 'backend',
+            role: 'provider',
+            variant: 'default',
+            slot: 'primary',
             properties: {'controlId': 'CTRL-1'},
           ),
           IrNode(
             id: 'provider-b',
             kind: NodeKind.provider,
             target: 'backend',
+            role: 'provider',
+            variant: 'default',
+            slot: 'primary',
             properties: {'controlId': 'CTRL-1'},
           ),
         ],
@@ -201,7 +207,7 @@ void main() {
 
       final diagnostics = graph.validate();
 
-      expect(diagnostics, contains(contains('Duplicate provider identity')));
+      expect(diagnostics, contains(contains('ZK-BINDING-IDENTITY-DUPLICATE')));
       expect(diagnostics, contains(contains('Duplicate IR edge')));
       expect(diagnostics, contains(contains('Runtime flow cycle')));
     },

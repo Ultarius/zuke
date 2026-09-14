@@ -1,7 +1,7 @@
 {
   "kind": "zuke.analyzer-index",
-  "inputDigest": "sha256:6f981eecac87638aee208e0fde0694829762d18b9588d8bbdc4045d704d7dbeb",
-  "generatedManifestDigest": "sha256:b7946474c87077afe8e19de2c58a8c75c1f9a92faf24a32a4ffa00c17b882045",
+  "inputDigest": "sha256:f7cdd34bb037166c721df1909c4e546b04760cbf7207acfcdaf4a88dfb58c72e",
+  "generatedManifestDigest": "sha256:9fb0b0c12ba708add80917825b8a7d3d8fd5d427e0243a99537ca3507474b75d",
   "generatedManifestPath": "packages/calculator_contracts/.zuke-generated.json",
   "inputs": [
     {
@@ -22,7 +22,7 @@
     },
     {
       "path": "specs/features/calculator_operations.feature",
-      "digest": "sha256:183d15a2570568c150bc219174aefc487b6b6eb9eedc88e9883610e6a25de3e1"
+      "digest": "sha256:10bba2c94f4f76d70fd3248de3c985e876b21c6ed6c29679bb07b1e9c5678d5e"
     },
     {
       "path": "specs/features/calculator_security.feature",
@@ -54,7 +54,7 @@
     },
     {
       "path": "zuke.yaml",
-      "digest": "sha256:0f86c0920f49880f216e7808139d66dc5cce675d8e64414c3b11de3f1a77d432"
+      "digest": "sha256:45e725cca22602dca2642a92a36753ba12833f941ed424854d1fced43be09913"
     }
   ],
   "inputPatterns": [

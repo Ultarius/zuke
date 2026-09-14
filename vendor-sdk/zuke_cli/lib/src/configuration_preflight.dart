@@ -54,9 +54,26 @@ final class WorkspacePreflight {
 
     try {
       final workspace = WorkspaceDiscovery().discover(canonicalRoot);
+      // Surface non-fatal config warnings as structured warning diagnostics.
+      // Warnings never block eligibility and never touch stdout directly;
+      // JSON consumers read them from the command-result diagnostics array.
+      final warnings = [
+        for (final warning in workspace.config.warnings)
+          Diagnostic(
+            code: 'ZK-CONFIG-UNKNOWN-KEY',
+            stage: 'doctor',
+            severity: DiagnosticSeverity.warning,
+            owner: DiagnosticOwner.project,
+            message: warning.message,
+            remediation:
+                'Remove the unrecognized key or pin a CLI that documents it.',
+            context: {'path': warning.path},
+          ),
+      ];
       return WorkspacePreflightResult(
         root: canonicalRoot,
         workspace: workspace,
+        diagnostics: warnings,
       );
     } on LegacyWorkspaceConfigError catch (error) {
       return WorkspacePreflightResult(

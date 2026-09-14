@@ -1,4 +1,6 @@
 analyzer:
+  exclude:
+    - tool/fixtures/**
   plugins:
     - zuke_analyzer
 

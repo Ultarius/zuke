@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+import 'package:path/path.dart' as path;
 
 import 'package:zuke_core/zuke_core.dart';
 import 'package:zuke_frontend/zuke_frontend.dart';
@@ -11,17 +12,13 @@ File configuredTrustBundle(String root, {String? configuredPath}) {
   if (File(relativePath).isAbsolute) {
     throw FormatException('Trust bundle path must be workspace-relative');
   }
-  final workspace = Directory(root).absolute;
-  final candidate = File(
-    workspace.uri.resolve(relativePath).toFilePath(),
-  ).absolute;
-  final normalizedRoot = workspace.path.replaceAll('\\', '/');
-  final normalizedCandidate = candidate.path.replaceAll('\\', '/');
-  if (normalizedCandidate != normalizedRoot &&
-      !normalizedCandidate.startsWith('$normalizedRoot/')) {
+  final workspace = path.normalize(path.absolute(root));
+  final candidate = path.normalize(path.join(workspace, relativePath));
+  if (!path.equals(candidate, workspace) &&
+      !path.isWithin(workspace, candidate)) {
     throw FormatException('Trust bundle must stay inside the workspace');
   }
-  return candidate;
+  return File(candidate);
 }
 
 String _trustBundlePathFromConfig(String root) {

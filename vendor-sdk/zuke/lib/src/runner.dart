@@ -257,6 +257,7 @@ abstract interface class ExecutionResult {
   String get target;
   String get variant;
   String get candidateId;
+  String? get caseId;
   String get profile;
   String get runnerId;
   String get runnerCompatibilityId;
@@ -265,6 +266,7 @@ abstract interface class ExecutionResult {
   String? get sourceCompatibilityId;
   List<ScenarioId> get scenarioIds;
   List<String> get controlIds;
+  List<String> get implementationSlots;
   List<String> get attachmentDigests;
   String? get error;
   bool get isPassed;
@@ -309,6 +311,8 @@ class ScenarioResult implements ExecutionResult {
   @override
   final String candidateId;
   @override
+  final String? caseId;
+  @override
   final String profile;
   @override
   final String runnerId;
@@ -324,6 +328,8 @@ class ScenarioResult implements ExecutionResult {
   final List<ScenarioId> scenarioIds;
   @override
   final List<String> controlIds;
+  @override
+  final List<String> implementationSlots;
   @override
   final List<String> attachmentDigests;
   @override
@@ -341,6 +347,7 @@ class ScenarioResult implements ExecutionResult {
     required this.target,
     this.variant = 'default',
     required this.candidateId,
+    this.caseId,
     required this.profile,
     required this.runnerId,
     required this.runnerCompatibilityId,
@@ -349,6 +356,7 @@ class ScenarioResult implements ExecutionResult {
     this.sourceCompatibilityId,
     this.scenarioIds = const [],
     this.controlIds = const [],
+    this.implementationSlots = const [],
     this.attachmentDigests = const [],
     this.error,
   });
@@ -363,6 +371,7 @@ class ScenarioResult implements ExecutionResult {
         target: target,
         variant: variant,
         candidateId: candidateId,
+        caseId: caseId,
         profile: profile,
         runnerId: runnerId,
         runnerCompatibilityId: runnerCompatibilityId,
@@ -371,6 +380,7 @@ class ScenarioResult implements ExecutionResult {
         sourceCompatibilityId: identity.sourceCompatibilityId,
         scenarioIds: scenarioIds,
         controlIds: controlIds,
+        implementationSlots: implementationSlots,
         attachmentDigests: attachmentDigests,
         error: error,
       );
@@ -390,12 +400,14 @@ class ScenarioResult implements ExecutionResult {
       'target': target,
       'variant': variant,
       'candidateId': candidateId,
+      if (caseId != null) 'caseId': caseId,
       'profile': profile,
       'runnerId': runnerId,
       'runnerCompatibilityId': runnerCompatibilityId,
       ...identity.toJson(),
       'scenarioIds': scenarioIds.map((id) => id.value).toList()..sort(),
       'controlIds': [...controlIds]..sort(),
+      'implementationSlots': [...implementationSlots]..sort(),
       'attachmentDigests': [...attachmentDigests]..sort(),
       'steps': steps.map((s) => s.toJson()).toList(),
       if (error != null) 'error': error,
@@ -443,6 +455,7 @@ class ScenarioResult implements ExecutionResult {
       target: required('target'),
       variant: required('variant'),
       candidateId: required('candidateId'),
+      caseId: json['caseId'] as String?,
       profile: required('profile'),
       runnerId: required('runnerId'),
       runnerCompatibilityId: required('runnerCompatibilityId'),
@@ -453,6 +466,7 @@ class ScenarioResult implements ExecutionResult {
         for (final id in strings('scenarioIds')) ScenarioId.parse(id),
       ],
       controlIds: strings('controlIds'),
+      implementationSlots: strings('implementationSlots'),
       attachmentDigests: strings('attachmentDigests'),
       steps: rawSteps
           .map(
@@ -485,6 +499,8 @@ class SuiteResult implements ExecutionResult {
   @override
   final String candidateId;
   @override
+  final String? caseId;
+  @override
   final String profile;
   @override
   final String runnerId;
@@ -502,6 +518,8 @@ class SuiteResult implements ExecutionResult {
   @override
   final List<String> controlIds;
   @override
+  final List<String> implementationSlots;
+  @override
   final List<String> attachmentDigests;
   @override
   final String? error;
@@ -517,6 +535,7 @@ class SuiteResult implements ExecutionResult {
     required this.target,
     this.variant = 'default',
     required this.candidateId,
+    this.caseId,
     required this.profile,
     required this.runnerId,
     required this.runnerCompatibilityId,
@@ -526,6 +545,7 @@ class SuiteResult implements ExecutionResult {
     required this.resultDigest,
     this.scenarioIds = const [],
     this.controlIds = const [],
+    this.implementationSlots = const [],
     this.attachmentDigests = const [],
     this.error,
   });
@@ -539,6 +559,7 @@ class SuiteResult implements ExecutionResult {
         target: target,
         variant: variant,
         candidateId: candidateId,
+        caseId: caseId,
         profile: profile,
         runnerId: runnerId,
         runnerCompatibilityId: runnerCompatibilityId,
@@ -548,6 +569,7 @@ class SuiteResult implements ExecutionResult {
         resultDigest: resultDigest,
         scenarioIds: scenarioIds,
         controlIds: controlIds,
+        implementationSlots: implementationSlots,
         attachmentDigests: attachmentDigests,
         error: error,
       );
@@ -567,6 +589,7 @@ class SuiteResult implements ExecutionResult {
       'target': target,
       'variant': variant,
       'candidateId': candidateId,
+      if (caseId != null) 'caseId': caseId,
       'profile': profile,
       'runnerId': runnerId,
       'runnerCompatibilityId': runnerCompatibilityId,
@@ -574,6 +597,7 @@ class SuiteResult implements ExecutionResult {
       'resultDigest': resultDigest,
       'scenarioIds': scenarioIds.map((id) => id.value).toList()..sort(),
       'controlIds': [...controlIds]..sort(),
+      'implementationSlots': [...implementationSlots]..sort(),
       'attachmentDigests': [...attachmentDigests]..sort(),
       if (error != null) 'error': error,
     };
@@ -614,6 +638,7 @@ class SuiteResult implements ExecutionResult {
       target: required('target'),
       variant: required('variant'),
       candidateId: required('candidateId'),
+      caseId: json['caseId'] as String?,
       profile: required('profile'),
       runnerId: required('runnerId'),
       runnerCompatibilityId: required('runnerCompatibilityId'),
@@ -625,6 +650,7 @@ class SuiteResult implements ExecutionResult {
         for (final id in strings('scenarioIds')) ScenarioId.parse(id),
       ],
       controlIds: strings('controlIds'),
+      implementationSlots: strings('implementationSlots'),
       attachmentDigests: strings('attachmentDigests'),
       error: json['error'] as String?,
     );
@@ -702,11 +728,13 @@ final class SuiteEvidenceEmitter {
     required String runnerCompatibilityId,
     required String digestInput,
     Iterable<String> controlIds = const [],
+    Iterable<String> implementationSlots = const [],
     String variant = 'default',
     String? outputDirectory,
     String? profile,
     String? runnerId,
     ExecutionSourceIdentity? sourceIdentity,
+    String? caseId,
   }) {
     final managedContext = RunnerExecutionContext.fromEnvironment(
       Platform.environment,
@@ -765,18 +793,30 @@ final class SuiteEvidenceEmitter {
     }
     final digest = 'sha256:${sha256.convert(utf8.encode(digestInput))}';
     final sortedControlIds = [...controlIds.toSet()]..sort();
+    final sortedImplementationSlots = [...implementationSlots.toSet()]..sort();
     final identity = effectiveIdentity;
     final writer = ExecutionResultWriter(identity: identity);
     final files = <File>[];
     for (final evidenceType in evidenceTypes.toSet()) {
+      final executionId = _suiteExecutionId(
+        profile: effectiveProfile,
+        requirementId: requirementId,
+        scenarioId: scenarioId,
+        evidenceType: evidenceType,
+        target: target,
+        variant: variant,
+        runnerCompatibilityId: runnerCompatibilityId,
+        caseId: caseId,
+      );
       final result = SuiteResult(
-        executionId: 'exec-$evidenceType-$requirementId-${scenarioId.value}',
+        executionId: executionId,
         status: SuiteStatus.passed,
         requirementId: requirementId,
         evidenceType: evidenceType,
         target: target,
         variant: variant,
         candidateId: scenarioId.value,
+        caseId: caseId,
         profile: effectiveProfile,
         runnerId: effectiveRunnerId,
         runnerCompatibilityId: runnerCompatibilityId,
@@ -786,10 +826,34 @@ final class SuiteEvidenceEmitter {
         resultDigest: digest,
         scenarioIds: [scenarioId],
         controlIds: sortedControlIds,
+        implementationSlots: sortedImplementationSlots,
       );
       files.add(writer.writeSuite(effectiveOutputDirectory, result));
     }
     return files;
+  }
+
+  String _suiteExecutionId({
+    required String profile,
+    required String requirementId,
+    required ScenarioId scenarioId,
+    required String evidenceType,
+    required String target,
+    required String variant,
+    required String runnerCompatibilityId,
+    required String? caseId,
+  }) {
+    final identity = canonicalJson({
+      'profile': profile,
+      'requirementId': requirementId,
+      'scenarioId': scenarioId.value,
+      'evidenceType': evidenceType,
+      'target': target,
+      'variant': variant,
+      'runnerCompatibilityId': runnerCompatibilityId,
+      'caseId': caseId,
+    });
+    return 'exec-${sha256.convert(utf8.encode(identity))}';
   }
 }
 
@@ -811,6 +875,16 @@ final class ScenarioExampleCase {
     required this.displayLabel,
     required this.values,
   });
+}
+
+/// Returns the stable managed identity for one scenario case.
+///
+/// A plain Scenario has one implicit default case and keeps the historical
+/// null identity. Scenario Outline rows receive an identity independent of
+/// display text so renamed Examples labels do not change evidence identity.
+String? scenarioExampleCaseId(ScenarioExampleCase exampleCase) {
+  if (exampleCase.displayLabel.isEmpty) return null;
+  return 'examples-${exampleCase.examplesIndex + 1}-row-${exampleCase.rowIndex + 1}';
 }
 
 /// Enumerates every executable case for [scenario] in source order.
@@ -906,6 +980,7 @@ class ScenarioExecutor<W extends ScenarioWorld> {
   final String variant;
   final String profile;
   final ScenarioId? candidateId;
+  final String? caseId;
   final Map<String, String> digests;
   final String? runnerId;
   final String? runnerCompatibilityId;
@@ -921,6 +996,7 @@ class ScenarioExecutor<W extends ScenarioWorld> {
     this.variant = 'default',
     this.profile = 'pullRequest',
     this.candidateId,
+    this.caseId,
     this.digests = const {},
     this.runnerId,
     this.runnerCompatibilityId,
@@ -994,6 +1070,7 @@ class ScenarioExecutor<W extends ScenarioWorld> {
       target: target,
       variant: variant,
       candidateId: candidateId?.value ?? executionId,
+      caseId: caseId,
       profile: profile,
       runnerId: runnerId ?? 'zuke-runner',
       runnerCompatibilityId: runnerCompatibilityId ?? 'zuke-runner-scenario-v1',
@@ -1080,7 +1157,8 @@ class ScenarioExecutor<W extends ScenarioWorld> {
     final input =
         '$stableFeature\x00$stableRule\x00$stableScenario\x00'
         '${examplesTitle ?? ''}\x00$examplesIndex\x00$rowIndex\x00'
-        '$rowIdentity\x00$target\x00$variant\x00$digestIdentity';
+        '$rowIdentity\x00$profile\x00$target\x00$variant\x00'
+        '$digestIdentity';
     return sha256.convert(utf8.encode(input)).toString();
   }
 

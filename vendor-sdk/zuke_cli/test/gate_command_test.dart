@@ -52,6 +52,90 @@ void main() {
     });
 
     test(
+      'gate audits the exact canonical artifact bundle before upload',
+      () async {
+        await runInProcessCli(['generate', '--root', root.path]);
+        await runInProcessCli(['lock', '--root', root.path]);
+        final artifacts = Directory('${root.path}/audited-artifacts');
+
+        final result = await runInProcessCli([
+          'gate',
+          '--root',
+          root.path,
+          '--format',
+          'json',
+          '--artifact-dir',
+          artifacts.path,
+          '--audit-artifacts',
+        ]);
+
+        expect(result.exitCode, 0);
+        final document = jsonDecode(result.stdout) as Map;
+        expect((document['artifactAudit'] as Map)['safe'], isTrue);
+        expect(
+          jsonDecode(
+            File('${artifacts.path}/command-result.json').readAsStringSync(),
+          ),
+          document,
+        );
+      },
+    );
+
+    test('artifact auditing requires an explicit upload directory', () async {
+      await runInProcessCli(['generate', '--root', root.path]);
+      await runInProcessCli(['lock', '--root', root.path]);
+
+      final result = await runInProcessCli([
+        'gate',
+        '--root',
+        root.path,
+        '--format',
+        'json',
+        '--audit-artifacts',
+      ]);
+
+      expect(result.exitCode, 1);
+      expect(
+        result.stdout,
+        contains('ZK-GATE-ARTIFACT-AUDIT-REQUIRES-DIRECTORY'),
+      );
+    });
+
+    test('gate writes sanitized blocker and handoff diagnostics', () async {
+      await runInProcessCli(['generate', '--root', root.path]);
+      await runInProcessCli(['lock', '--root', root.path]);
+      final feature = File('${root.path}/specs/features/gateway.feature');
+      feature.writeAsStringSync('${feature.readAsStringSync()}\n# changed\n');
+      final blocker = File('${root.path}/blocker.json');
+      final handoff = File('${root.path}/handoff.json');
+
+      final result = await runInProcessCli([
+        'gate',
+        '--root',
+        root.path,
+        '--profile',
+        'pullRequest',
+        '--format',
+        'json',
+        '--blocker-file',
+        blocker.path,
+        '--handoff-file',
+        handoff.path,
+      ]);
+
+      expect(result.exitCode, 1);
+      expect(blocker.existsSync(), isTrue);
+      expect(handoff.existsSync(), isTrue);
+      final blockerText = blocker.readAsStringSync();
+      expect(blockerText, contains('ZK-LOCK-STALE'));
+      expect(blockerText, contains('ownerDiagnostics'));
+      // Auxiliary files must not copy arbitrary diagnostic messages or secret
+      // values into an owner-facing handoff.
+      expect(blockerText, isNot(contains('stale or missing')));
+      expect(handoff.readAsStringSync(), equals(blockerText));
+    });
+
+    test(
       'gate rejects legacy configuration before running later stages',
       () async {
         File('${root.path}/zuke.yaml').writeAsStringSync('''
@@ -211,6 +295,7 @@ targets: {}
 
     test(
       'all-profiles returns one canonical result with every profile',
+      timeout: Timeout(const Duration(minutes: 2)),
       () async {
         await runInProcessCli(['generate', '--root', root.path]);
         await runInProcessCli(['lock', '--root', root.path, '--all-profiles']);
@@ -244,6 +329,7 @@ targets: {}
 
     test(
       'all-profile artifact is byte-identical to stdout and summary',
+      timeout: Timeout(const Duration(minutes: 2)),
       () async {
         await runInProcessCli(['generate', '--root', root.path]);
         await runInProcessCli(['lock', '--root', root.path, '--all-profiles']);
@@ -264,6 +350,36 @@ targets: {}
 
         expect(result.exitCode, 0);
         expect(summary.readAsStringSync(), result.stdout);
+        expect(
+          File('${artifacts.path}/command-result.json').readAsStringSync(),
+          result.stdout,
+        );
+      },
+    );
+
+    test(
+      'all-profile gate audits its final artifact bundle',
+      timeout: Timeout(const Duration(minutes: 2)),
+      () async {
+        await runInProcessCli(['generate', '--root', root.path]);
+        await runInProcessCli(['lock', '--root', root.path, '--all-profiles']);
+        final artifacts = Directory('${root.path}/all-audited-artifacts');
+
+        final result = await runInProcessCli([
+          'gate',
+          '--root',
+          root.path,
+          '--all-profiles',
+          '--format',
+          'json',
+          '--artifact-dir',
+          artifacts.path,
+          '--audit-artifacts',
+        ]);
+
+        expect(result.exitCode, 0);
+        final document = jsonDecode(result.stdout) as Map;
+        expect((document['artifactAudit'] as Map)['safe'], isTrue);
         expect(
           File('${artifacts.path}/command-result.json').readAsStringSync(),
           result.stdout,

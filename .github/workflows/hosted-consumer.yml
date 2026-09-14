@@ -10,7 +10,7 @@ permissions:
 
 jobs:
   hosted-consumer-certification:
-    name: Hosted consumer certification (${{ matrix.platform }})
+    name: Hosted consumer certification (${{ matrix.host }}, ${{ matrix.platform }})
     runs-on: ${{ matrix.os }}
     timeout-minutes: 35
     strategy:
@@ -19,8 +19,16 @@ jobs:
         include:
           - os: ubuntu-latest
             platform: linux
+            host: dart
           - os: windows-latest
             platform: windows
+            host: dart
+          - os: ubuntu-latest
+            platform: linux
+            host: flutter
+          - os: windows-latest
+            platform: windows
+            host: flutter
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
       - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2
@@ -29,16 +37,60 @@ jobs:
           channel: stable
           cache: true
       - name: Resolve framework tooling
-        run: dart --suppress-analytics pub get
+        run: flutter --suppress-analytics pub get
       - name: Certify the exact hosted package tuple
         run: >-
-          dart --suppress-analytics run tool/check_hosted_consumer.dart
+          dart --suppress-analytics run zuke_cli:zuke certify hosted
           --platform ${{ matrix.platform }}
-          --output generated/hosted-consumer-certification-${{ matrix.platform }}.json
+          --host ${{ matrix.host }}
+          --flutter-version 3.44.8
+          --output generated/hosted-consumer-certification-${{ matrix.host }}-${{ matrix.platform }}.json
       - name: Upload hosted consumer result
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
-          name: hosted-consumer-certification-${{ matrix.platform }}-${{ github.run_id }}
+          name: hosted-consumer-certification-${{ matrix.host }}-${{ matrix.platform }}-${{ github.run_id }}
           if-no-files-found: warn
-          path: generated/hosted-consumer-certification-${{ matrix.platform }}.json
+          path: generated/hosted-consumer-certification-${{ matrix.host }}-${{ matrix.platform }}.json
+
+  hosted-compatibility-manifest:
+    name: Build hosted compatibility manifest
+    if: always()
+    needs: hosted-consumer-certification
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          pattern: hosted-consumer-certification-*
+          path: generated/certification
+          merge-multiple: true
+      - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2
+        with:
+          flutter-version: '3.44.8'
+          channel: stable
+          cache: true
+      - name: Resolve framework tooling
+        run: flutter --suppress-analytics pub get
+      - name: Build compatibility manifest from certification evidence
+        run: |
+          set -euo pipefail
+          mapfile -t reports < <(find generated/certification -type f -name '*.json' -print | sort)
+          if [[ "${#reports[@]}" -eq 0 ]]; then
+            echo 'No hosted certification reports were downloaded.' >&2
+            exit 1
+          fi
+          args=()
+          for report in "${reports[@]}"; do
+            args+=(--input "$report")
+          done
+          dart --suppress-analytics run tool/build_compatibility_manifest.dart \
+            "${args[@]}" \
+            --output generated/compatibility.yaml
+      - name: Upload hosted compatibility manifest
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: hosted-compatibility-manifest-${{ github.run_id }}
+          if-no-files-found: warn
+          path: generated/compatibility.yaml

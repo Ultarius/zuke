@@ -4,6 +4,48 @@ on:
   pull_request:
 
 jobs:
+  maintenance-parity:
+    name: consumer maintenance parity (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2
+        with:
+          flutter-version: '3.44.8'
+          channel: stable
+          cache: true
+      - run: flutter --suppress-analytics pub get
+      - name: Verify framework replacements and rollback
+        working-directory: vendor-sdk/zuke_cli
+        run: >-
+          dart --suppress-analytics test
+          test/lock_parity_test.dart test/lock_refresh_roots_test.dart
+          test/gate_record_test.dart test/artifact_audit_test.dart
+          test/alignment_doctor_test.dart test/registration_audit_test.dart
+          test/init_preset_test.dart test/zuke_generator_test.dart
+          test/vscode_preset_test.dart test/workspace_registration_audit_test.dart
+          test/gate_composition_test.dart test/trust_gate_test.dart
+          test/generate_command_test.dart
+
+  dependency-firewall:
+    name: test-host dependency firewall
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2
+        with:
+          flutter-version: '3.44.8'
+          channel: stable
+          cache: true
+      - run: flutter --suppress-analytics pub get
+      - name: Check test-host dependency firewall
+        run: dart --suppress-analytics run tool/check_dependency_firewall.dart
+
   shopping-cart-assurance:
     uses: ./.github/workflows/flutter-example-assurance.yml
     with:

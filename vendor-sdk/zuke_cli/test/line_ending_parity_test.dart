@@ -77,9 +77,6 @@ dependencies:
   zuke_http_runtime:
     path: '$repositoryRoot/vendor-sdk/zuke_http_runtime'
 dependency_overrides:
-  # This fixture runs in the workspace's analyzer-8 compatibility lane. The
-  # standalone analyzer-14 smoke test covers the published zuke_core graph.
-  analyzer: 8.2.0
   zuke_core:
     path: '$repositoryRoot/vendor-sdk/zuke_core'
 '''
@@ -467,18 +464,13 @@ final application = ZukeHttpApplication(
         addTearDown(server.close);
 
         for (final wsPath in [lfRootPath, crlfRootPath]) {
-          await Process.run(Platform.resolvedExecutable, [
-            '--suppress-analytics',
-            'run',
-            'zuke_cli:zuke',
+          final generateResult = await runInProcessCli([
             'generate',
             '--root',
             wsPath,
           ]);
-          final lres = await Process.run(Platform.resolvedExecutable, [
-            '--suppress-analytics',
-            'run',
-            'zuke_cli:zuke',
+          expect(generateResult.exitCode, 0, reason: generateResult.stderr);
+          final lres = await runInProcessCli([
             'lock',
             '--root',
             wsPath,

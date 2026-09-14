@@ -13,7 +13,7 @@ Feature: Hosted consumer certification
 
   # rule-spec-begin
   # id: RULE-HOSTED-ADD
-  # requiredEvidence: [{type: domain-unit, target: fixture, sourcePackage: hosted-consumer, sourceAdapter: dart, variant: default}]
+  # requiredEvidence: [{type: domain-unit, target: fixture, sourcePackage: hosted-consumer, sourceAdapter: dart-source, variant: default}]
   # rule-spec-end
   @RULE-HOSTED-ADD
   Rule: Add values

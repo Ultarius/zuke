@@ -11,6 +11,7 @@ import 'package:analyzer/dart/element/element.dart';
 import 'package:analyzer/error/error.dart' as analyzer_error;
 import 'package:analyzer/source/line_info.dart';
 import 'package:crypto/crypto.dart';
+import 'package:zuke_core/zuke_core.dart';
 import 'package:zuke_cli/src/ir.dart';
 import '../inspection.dart';
 import '../../generated/release_contract.dart';
@@ -85,7 +86,15 @@ class DartExtractor implements DartSourceExtractor {
   Future<IrAdapterOutput> extract(
     String rootPath, {
     List<String> roots = const ['lib'],
+    String? target,
   }) async {
+    if (target == null || target.trim().isEmpty) {
+      throw ArgumentError.value(
+        target,
+        'target',
+        'Dart extraction requires an explicit workspace target',
+      );
+    }
     late final String root;
     try {
       root = Directory(rootPath).resolveSymbolicLinksSync();
@@ -173,6 +182,7 @@ class DartExtractor implements DartSourceExtractor {
               packageName: packageName,
               file: file,
               lineInfo: result.lineInfo,
+              target: target,
               symbols: symbols,
               errors: errors,
               graphNodes: graphNodes,
@@ -214,7 +224,7 @@ class DartExtractor implements DartSourceExtractor {
       graphNodes[entry.key] = IrNode(
         id: node.id,
         kind: node.kind,
-        target: implementation.single.target ?? node.target,
+        target: node.target,
         role: node.role,
         variant: implementation.single.variant,
         slot: implementation.single.slot,
@@ -248,7 +258,7 @@ class DartExtractor implements DartSourceExtractor {
       graphNodes[entry.key] = IrNode(
         id: node.id,
         kind: node.kind,
-        target: provider.single.target ?? node.target,
+        target: node.target,
         role: node.role,
         variant: provider.single.variant,
         slot: provider.single.slot,
@@ -262,28 +272,58 @@ class DartExtractor implements DartSourceExtractor {
       );
     }
 
+    // Native Dart Frog applications do not construct ZukeHttpApplication
+    // registrations. Their framework topology is extracted separately, while
+    // this analyzer pass still owns the resolved annotation declarations. A
+    // validator must see those declarations as graph nodes; otherwise a
+    // valid @ImplementsRequirement-only package looks like an empty governed
+    // implementation graph.
+    //
+    // A package that does construct a ZukeHttpApplication is different: its
+    // runtime registration graph is authoritative. Materializing every
+    // annotation in that package would turn unrelated domain annotations into
+    // isolated implementation paths, which correctly fail dominance because
+    // they are not reachable from a registered route. Only materialize
+    // annotation-only nodes when no runtime topology was discovered.
+    final hasRuntimeTopology = graphNodes.values.any(
+      (node) => node.kind == NodeKind.entryPoint,
+    );
+    if (!hasRuntimeTopology) {
+      _materializeAnnotationNodes(symbols, graphNodes);
+    }
+
     symbols.sort((a, b) {
       final left = '${a.source.uri}:${a.source.offset}:${a.kind}:${a.symbolId}';
       final right =
           '${b.source.uri}:${b.source.offset}:${b.kind}:${b.symbolId}';
       return left.compareTo(right);
     });
-    if (graphNodes.isNotEmpty) {
+    if (hasRuntimeTopology && graphNodes.isNotEmpty) {
       final incomplete = errors.any((error) => error.contains('dynamic'));
       graphCompleteness = GraphCompleteness(
-        routeRegistration: incomplete
+        routeRegistration: !hasRuntimeTopology
+            ? CompletenessValue.notApplicable
+            : incomplete
             ? CompletenessValue.indeterminate
             : CompletenessValue.complete,
-        middlewareOrder: incomplete
+        middlewareOrder: !hasRuntimeTopology
+            ? CompletenessValue.notApplicable
+            : incomplete
             ? CompletenessValue.indeterminate
             : CompletenessValue.complete,
-        failureFlow: incomplete
+        failureFlow: !hasRuntimeTopology
+            ? CompletenessValue.notApplicable
+            : incomplete
             ? CompletenessValue.indeterminate
             : CompletenessValue.complete,
-        logFlow: incomplete
+        logFlow: !hasRuntimeTopology
+            ? CompletenessValue.notApplicable
+            : incomplete
             ? CompletenessValue.indeterminate
             : CompletenessValue.complete,
-        dynamicRegistration: incomplete
+        dynamicRegistration: !hasRuntimeTopology
+            ? CompletenessValue.notApplicable
+            : incomplete
             ? CompletenessValue.indeterminate
             : CompletenessValue.complete,
         externalVisibility: CompletenessValue.notApplicable,
@@ -315,7 +355,7 @@ class DartExtractor implements DartSourceExtractor {
             symbolId: '$sourceUri#${node.id}',
             controlIds: [control],
             providerKind: providerKind,
-            target: 'backend',
+            target: target,
             source: ExtractedSourceLocation(
               uri: sourceUri,
               offset: 0,
@@ -361,6 +401,86 @@ class DartExtractor implements DartSourceExtractor {
               edges: graphEdges,
               completeness: graphCompleteness,
             ),
+    );
+  }
+
+  void _materializeAnnotationNodes(
+    List<ExtractedSymbol> symbols,
+    Map<String, IrNode> graphNodes,
+  ) {
+    for (final symbol in symbols) {
+      if (symbol.kind == 'requirementBoundary') {
+        _materializeAnnotationNode(
+          graphNodes,
+          symbol,
+          prefix: 'implementation',
+          kind: NodeKind.implementation,
+          role: 'implementation',
+          properties: {
+            'requirementIds': symbol.requirementIds,
+            'sourceUri': symbol.source.uri,
+            'sourceLine': symbol.source.line,
+          },
+        );
+      } else if (symbol.kind == 'controlProvider') {
+        _materializeAnnotationNode(
+          graphNodes,
+          symbol,
+          prefix: 'provider',
+          kind: NodeKind.provider,
+          role: 'provider',
+          properties: {
+            'controlIds': symbol.controlIds,
+            if (symbol.controlIds.length == 1)
+              'controlId': symbol.controlIds.single,
+            if (symbol.providerKind != null)
+              'providerKind': symbol.providerKind,
+            if (symbol.layer != null) 'layer': symbol.layer,
+            'sourceUri': symbol.source.uri,
+            'sourceLine': symbol.source.line,
+          },
+        );
+      }
+    }
+  }
+
+  void _materializeAnnotationNode(
+    Map<String, IrNode> graphNodes,
+    ExtractedSymbol symbol, {
+    required String prefix,
+    required NodeKind kind,
+    required String role,
+    required Map<String, Object?> properties,
+  }) {
+    final typeName = symbol.symbolId.split('#').last;
+    final conventionalId = '$prefix:$typeName';
+    final existingRuntimeNode = graphNodes[conventionalId];
+    final id = existingRuntimeNode != null && existingRuntimeNode.kind == kind
+        ? conventionalId
+        : '$prefix:${symbol.symbolId}';
+    final existing = graphNodes[id];
+    if (existing != null && existing.kind != kind) {
+      final disambiguated = '$id:${symbol.source.offset}';
+      graphNodes[disambiguated] = IrNode(
+        id: disambiguated,
+        kind: kind,
+        target: symbol.target,
+        role: role,
+        variant: symbol.variant,
+        slot: symbol.slot,
+        properties: properties,
+      );
+      return;
+    }
+    graphNodes[id] = IrNode(
+      id: id,
+      kind: kind,
+      target: symbol.target,
+      role: role,
+      variant: symbol.variant,
+      slot: symbol.slot,
+      properties: {...?existing?.properties, ...properties},
+      source: existing?.source,
     );
   }
 
@@ -424,6 +544,7 @@ class _ResolvedVisitor extends RecursiveAstVisitor<void> {
   final String packageName;
   final String file;
   final LineInfo lineInfo;
+  final String target;
   final List<ExtractedSymbol> symbols;
   final List<String> errors;
   final Map<String, IrNode> graphNodes;
@@ -433,6 +554,7 @@ class _ResolvedVisitor extends RecursiveAstVisitor<void> {
     required this.packageName,
     required this.file,
     required this.lineInfo,
+    required this.target,
     required this.symbols,
     required this.errors,
     required this.graphNodes,
@@ -541,7 +663,7 @@ class _ResolvedVisitor extends RecursiveAstVisitor<void> {
           id: id,
           kind: kind,
           target: kind == NodeKind.provider || kind == NodeKind.implementation
-              ? 'backend'
+              ? target
               : null,
           role: kind == NodeKind.provider
               ? 'provider'
@@ -903,7 +1025,7 @@ class _ResolvedVisitor extends RecursiveAstVisitor<void> {
             'domain',
             name,
             source,
-            target: _fieldString(value, 'target') ?? 'backend',
+            target: target,
             variant: _fieldString(value, 'variant') ?? 'default',
             slot: _fieldString(value, 'slot') ?? 'primary',
           );
@@ -916,7 +1038,7 @@ class _ResolvedVisitor extends RecursiveAstVisitor<void> {
             'flutter',
             name,
             source,
-            target: _fieldString(value, 'target') ?? 'flutter',
+            target: target,
             variant: _fieldString(value, 'variant') ?? 'default',
             slot: _fieldString(value, 'slot') ?? 'primary',
           );
@@ -930,8 +1052,9 @@ class _ResolvedVisitor extends RecursiveAstVisitor<void> {
             name,
             source,
             evidenceType: _fieldString(value, 'evidenceType'),
-            target: _fieldString(value, 'target'),
+            target: target,
             variant: _fieldString(value, 'variant') ?? 'default',
+            slot: _fieldString(value, 'slot') ?? 'primary',
             scenarioIds: _strings(value.getField('scenarioIds')) ?? const [],
           );
           break;
@@ -962,7 +1085,7 @@ class _ResolvedVisitor extends RecursiveAstVisitor<void> {
     String name,
     ExtractedSourceLocation source, {
     String? evidenceType,
-    String? target,
+    required String target,
     String variant = 'default',
     String slot = 'primary',
     List<String> scenarioIds = const [],
@@ -971,6 +1094,13 @@ class _ResolvedVisitor extends RecursiveAstVisitor<void> {
     if (ids == null || ids.isEmpty) {
       errors.add(
         '${source.uri}:${source.line}: annotation field $field must be a non-empty constant list',
+      );
+      return;
+    }
+    if (!isValidBindingSlot(slot)) {
+      errors.add(
+        '${source.uri}:${source.line}: ZK-BINDING-SLOT-INVALID: '
+        'invalid binding slot "$slot"',
       );
       return;
     }
@@ -1004,6 +1134,14 @@ class _ResolvedVisitor extends RecursiveAstVisitor<void> {
     }
     final kind = _enumName(value.getField('kind'));
     final layer = _enumName(value.getField('layer'));
+    final slot = _fieldString(value, 'slot') ?? 'primary';
+    if (!isValidBindingSlot(slot)) {
+      errors.add(
+        '${source.uri}:${source.line}: ZK-BINDING-SLOT-INVALID: '
+        'invalid binding slot "$slot"',
+      );
+      return;
+    }
     symbols.add(
       ExtractedSymbol(
         kind: 'controlProvider',
@@ -1012,9 +1150,9 @@ class _ResolvedVisitor extends RecursiveAstVisitor<void> {
         controlIds: ids,
         providerKind: kind,
         layer: layer,
-        target: _fieldString(value, 'target') ?? 'backend',
+        target: target,
         variant: _fieldString(value, 'variant') ?? 'default',
-        slot: _fieldString(value, 'slot') ?? 'primary',
+        slot: slot,
         source: source,
       ),
     );
@@ -1033,6 +1171,14 @@ class _ResolvedVisitor extends RecursiveAstVisitor<void> {
       );
       return;
     }
+    final slot = _fieldString(value, 'slot') ?? 'primary';
+    if (!isValidBindingSlot(slot)) {
+      errors.add(
+        '${source.uri}:${source.line}: ZK-BINDING-SLOT-INVALID: '
+        'invalid binding slot "$slot"',
+      );
+      return;
+    }
     symbols.add(
       ExtractedSymbol(
         kind: 'binding',
@@ -1040,7 +1186,8 @@ class _ResolvedVisitor extends RecursiveAstVisitor<void> {
         symbolId: '${source.uri}#$name',
         bindingId: bindingId,
         variant: _fieldString(value, 'variant') ?? 'default',
-        target: _fieldString(value, 'target') ?? 'flutter',
+        target: target,
+        slot: slot,
         source: source,
       ),
     );

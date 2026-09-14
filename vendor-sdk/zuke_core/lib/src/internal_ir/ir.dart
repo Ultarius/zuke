@@ -2,6 +2,7 @@
 library;
 
 import '../canonical_json.dart';
+import '../binding_identity.dart';
 
 /// A workspace-relative source span in a Dart or specification file.
 class SourceSpan {
@@ -352,13 +353,42 @@ class IrGraph {
     for (final node in nodes) {
       if (node.id.trim().isEmpty) diagnostics.add('IR node id is empty');
       if (!seen.add(node.id)) diagnostics.add('Duplicate IR node: ${node.id}');
+      if (node.kind == NodeKind.provider ||
+          node.kind == NodeKind.implementation) {
+        if (node.target == null ||
+            node.role == null ||
+            node.variant == null ||
+            node.slot == null) {
+          diagnostics.add(
+            'Missing binding identity for ${node.kind.name} node: ${node.id}',
+          );
+          continue;
+        }
+        if (!isValidBindingSlot(node.slot!)) {
+          diagnostics.add(
+            'ZK-BINDING-SLOT-INVALID: invalid binding slot "${node.slot}" '
+            'for ${node.id}',
+          );
+        }
+      }
       if (node.kind == NodeKind.provider) {
         final control = node.properties['controlId'];
         if (control is String) {
-          final key =
-              '$control|${node.target ?? 'backend'}|${node.variant ?? 'default'}|${node.slot ?? 'primary'}';
-          if (!identityKeys.add(key)) {
-            diagnostics.add('Duplicate provider identity: $key');
+          if (node.target != null &&
+              node.role != null &&
+              node.variant != null &&
+              node.slot != null) {
+            final key = BindingIdentity(
+              subjectKind: 'control',
+              subjectId: control,
+              target: node.target!,
+              role: node.role!,
+              variant: node.variant!,
+              slot: node.slot!,
+            ).key;
+            if (!identityKeys.add(key)) {
+              diagnostics.add('ZK-BINDING-IDENTITY-DUPLICATE: $key');
+            }
           }
         }
       }
@@ -366,10 +396,21 @@ class IrGraph {
         final requirements = node.properties['requirementIds'];
         if (requirements is List) {
           for (final requirement in requirements.whereType<String>()) {
-            final key =
-                '$requirement|${node.target ?? 'backend'}|${node.role ?? 'implementation'}|${node.variant ?? 'default'}|${node.slot ?? 'primary'}';
-            if (!identityKeys.add(key)) {
-              diagnostics.add('Duplicate implementation identity: $key');
+            if (node.target != null &&
+                node.role != null &&
+                node.variant != null &&
+                node.slot != null) {
+              final key = BindingIdentity(
+                subjectKind: 'requirement',
+                subjectId: requirement,
+                target: node.target!,
+                role: node.role!,
+                variant: node.variant!,
+                slot: node.slot!,
+              ).key;
+              if (!identityKeys.add(key)) {
+                diagnostics.add('ZK-BINDING-IDENTITY-DUPLICATE: $key');
+              }
             }
           }
         }

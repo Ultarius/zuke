@@ -24,6 +24,11 @@ class WorkspaceExtraction {
 }
 
 class ExtractionService {
+  // The public adapter compatibility ID describes the extracted contract. It
+  // must not change for an internal cache-shape correction, so keep a separate
+  // cache revision to invalidate fragments produced by older implementations.
+  static const _cacheRevision = '3';
+
   CompletenessValue _completeness(Object? value) => switch (value) {
     'complete' => CompletenessValue.complete,
     'indeterminate' => CompletenessValue.indeterminate,
@@ -31,114 +36,148 @@ class ExtractionService {
     _ => CompletenessValue.notApplicable,
   };
 
+  /// Extracts configured Dart targets and their framework topology.
+  ///
+  /// [targetId] scopes work to one configured target. [topologyOnly] skips
+  /// Dart IR, evidence, source digests, and non-Dart Frog targets when a
+  /// caller only needs route topology, such as OpenAPI verification.
   Future<WorkspaceExtraction> extract(
     WorkspaceDiscoveryResult workspace, {
     bool includeEvidence = true,
+    String? targetId,
+    bool topologyOnly = false,
   }) async {
     final root = workspace.config.root!;
     final outputs = <IrAdapterOutput>[];
     final topologyOutputs = <AdapterOutput>[];
     final errors = <String>[];
-    for (final target in workspace.config.targetsConfig.entries) {
-      final targetConfig = target.value;
-      if (targetConfig is! Map) continue;
-      final language = targetConfig['language'];
-      if (language == 'dart') {
-        final framework = targetConfig['framework'] as String?;
-        final packages = targetConfig['packages'];
-        if (packages is! List) continue;
-        for (final package in packages) {
-          if (package is! Map || package['path'] is! String) continue;
-          final packageId =
-              package['id'] as String? ?? package['path'] as String;
-          final packageDirectory = Directory(
-            _join(root, package['path'] as String),
+    for (final targetEntry in workspace.config.workspaceTargets.entries) {
+      final target = targetEntry.value;
+      if (targetId != null && target.id != targetId) continue;
+      if (target.language != 'dart') continue;
+      final framework = target.framework;
+      if (topologyOnly && framework != 'dart-frog') continue;
+      for (final package in target.packages) {
+        final packageDirectory = Directory(_join(root, package.path));
+        if (!packageDirectory.existsSync()) {
+          final packageRoot = packageDirectory.absolute.path;
+          errors.add('target package not found: $packageRoot');
+          continue;
+        }
+        final packageRoot = packageDirectory.resolveSymbolicLinksSync();
+        final roots = package.roots;
+        // The source digest is also the identity of the source snapshot
+        // used by the projected topology output.  Keep it in the same
+        // digest format as the analyzer output; publication normalizes the
+        // value to the canonical sha256:<hex> wire form.
+        // Topology-only extraction never projects an IR output, so the
+        // source digest is intentionally omitted from this fast path.
+        final inputDigest = topologyOnly
+            ? ''
+            : _sourceDigest(
+                packageRoot,
+                roots,
+                framework == 'dart-frog' ? 'dart-frog' : 'dart-http-v3',
+                framework == 'dart-frog'
+                    ? dartFrogCompatibilityId
+                    : DartExtractor.compatibilityId,
+              );
+        AdapterOutput? topology;
+        if (framework == 'dart-frog') {
+          topology = await const DartFrogAdapter().extract(
+            AdapterRequest(
+              workspaceRoot: root,
+              targetId: target.id,
+              packageId: package.id,
+              packageRoot: packageRoot,
+              configuredRoots: roots,
+            ),
           );
-          if (!packageDirectory.existsSync()) {
-            final packageRoot = packageDirectory.absolute.path;
-            errors.add('target package not found: $packageRoot');
+          errors.addAll(
+            topology.diagnostics
+                .where(
+                  (diagnostic) =>
+                      diagnostic.severity == DiagnosticSeverity.error,
+                )
+                .map(
+                  (diagnostic) => '${diagnostic.code}: ${diagnostic.message}',
+                ),
+          );
+          if (topologyOnly) {
+            topologyOutputs.add(topology);
             continue;
           }
-          final packageRoot = packageDirectory.resolveSymbolicLinksSync();
-          final roots =
-              (package['roots'] as List?)?.whereType<String>().toList() ??
-              const ['lib'];
-          if (framework == 'dart-frog') {
-            final topology = await const DartFrogAdapter().extract(
-              AdapterRequest(
-                workspaceRoot: root,
-                targetId: target.key,
-                packageId: packageId,
-                packageRoot: packageRoot,
-                configuredRoots: roots,
+        }
+        // A package can be inspected under different configured targets.
+        // Cache identity must include that namespace; otherwise an output
+        // extracted as backend can be reused for the same package under
+        // flutter (or vice versa).
+        final cacheKey = sha256
+            .convert(
+              utf8.encode(
+                '$_cacheRevision|${target.id}|${package.id}|$inputDigest',
               ),
+            )
+            .toString();
+        final cached = _loadCached(root, 'dart', cacheKey);
+        IrAdapterOutput output;
+        if (cached != null) {
+          output = cached;
+        } else {
+          try {
+            // Extraction is a tooling phase, not a proof.  Bound it so a
+            // stuck analyzer cannot turn `validate` into an unreported
+            // hang or be mistaken for successful topology discovery.
+            output = await DartExtractor()
+                .extract(packageRoot, roots: roots, target: target.id)
+                .timeout(const Duration(seconds: 60));
+          } on TimeoutException {
+            errors.add(
+              'ZUKE-EXTRACT-TIMEOUT: Dart extraction exceeded 60 seconds for $packageRoot',
             );
-            topologyOutputs.add(topology);
-            // The adapter output is retained for reporting and also projected
-            // into the canonical IR consumed by the proof engine.
-            // Keeping this bridge here prevents a successful adapter run from
-            // becoming diagnostics-only evidence.
-            outputs.add(_topologyAdapterOutput(topology, packageRoot));
-            errors.addAll(
-              topology.diagnostics
-                  .where(
-                    (diagnostic) =>
-                        diagnostic.severity == DiagnosticSeverity.error,
-                  )
-                  .map(
-                    (diagnostic) => '${diagnostic.code}: ${diagnostic.message}',
-                  ),
-            );
+            continue;
+          } catch (error) {
+            errors.add('ZUKE-EXTRACT-FAILED: $packageRoot: $error');
+            continue;
           }
-          final cacheKey = _sourceDigest(
-            packageRoot,
-            roots,
-            framework == 'dart-frog' ? 'dart-frog' : 'dart-http-v3',
-            framework == 'dart-frog'
-                ? dartFrogCompatibilityId
-                : DartExtractor.compatibilityId,
+        }
+        // The configured package id is the stable assurance identity. The
+        // analyzer may report the pubspec name, which may differ from that
+        // identity, so bind the output to the configured namespace before
+        // it enters the shared source catalog.
+        output = _withConfiguredPackageIdentity(
+          output,
+          package.id,
+          packageRoot,
+        );
+        if (output.graph != null) {
+          errors.addAll(output.graph!.validate());
+        }
+        if (cached == null) _writeCached(root, 'dart', cacheKey, output);
+        outputs.add(output);
+        errors.addAll(output.errors);
+        if (topology != null) {
+          topologyOutputs.add(topology);
+          // The adapter output is retained for reporting and also projected
+          // into the canonical IR consumed by the proof engine.  The Dart
+          // extractor is passed in so resolved RequestContext.read<T>()
+          // links can be joined to annotated requirement implementations.
+          outputs.insert(
+            outputs.length - 1,
+            _topologyAdapterOutput(
+              topology,
+              packageRoot,
+              inputDigest,
+              symbols: output.symbols,
+              existingNodeIds: output.graph?.nodes
+                  .map((node) => node.id)
+                  .toSet(),
+            ),
           );
-          final cached = _loadCached(root, 'dart', cacheKey);
-          IrAdapterOutput output;
-          if (cached != null) {
-            output = cached;
-          } else {
-            try {
-              // Extraction is a tooling phase, not a proof.  Bound it so a
-              // stuck analyzer cannot turn `validate` into an unreported
-              // hang or be mistaken for successful topology discovery.
-              output = await DartExtractor()
-                  .extract(packageRoot, roots: roots)
-                  .timeout(const Duration(seconds: 60));
-            } on TimeoutException {
-              errors.add(
-                'ZUKE-EXTRACT-TIMEOUT: Dart extraction exceeded 60 seconds for $packageRoot',
-              );
-              continue;
-            } catch (error) {
-              errors.add('ZUKE-EXTRACT-FAILED: $packageRoot: $error');
-              continue;
-            }
-          }
-          // The configured package id is the stable assurance identity. The
-          // analyzer may report the pubspec name, which may differ from that
-          // identity, so bind the output to the configured namespace before
-          // it enters the shared source catalog.
-          output = _withConfiguredPackageIdentity(
-            output,
-            packageId,
-            packageRoot,
-          );
-          if (output.graph != null) {
-            errors.addAll(output.graph!.validate());
-          }
-          if (cached == null) _writeCached(root, 'dart', cacheKey, output);
-          outputs.add(output);
-          errors.addAll(output.errors);
         }
       }
     }
-    final evidenceLoad = includeEvidence
+    final evidenceLoad = includeEvidence && !topologyOnly
         ? _loadEvidence(root, workspace.config.evidenceOutput)
         : const _EvidenceLoad([], []);
     errors.addAll(evidenceLoad.errors);
@@ -217,7 +256,10 @@ class ExtractionService {
   IrAdapterOutput _topologyAdapterOutput(
     AdapterOutput output,
     String packageRoot,
-  ) {
+    String inputDigest, {
+    List<ExtractedSymbol> symbols = const [],
+    Set<String>? existingNodeIds,
+  }) {
     CompletenessValue completeness(CompletenessStatus status) =>
         switch (status) {
           CompletenessStatus.complete => CompletenessValue.complete,
@@ -247,6 +289,9 @@ class ExtractionService {
         ),
       );
     }
+    final requirementSymbols = symbols
+        .where((symbol) => symbol.kind == 'requirementBoundary')
+        .toList(growable: false);
     final routeNodes = output.nodes
         .where((node) => node.kind == 'route' || node.kind == 'websocket-route')
         .toList();
@@ -262,6 +307,99 @@ class ExtractionService {
       if (target is String) {
         edges.add(
           IrEdge(sourceId: alias.id, targetId: target, kind: EdgeKind.routesTo),
+        );
+      }
+    }
+    final linkedImplementations = <String>{};
+    for (final route in routeNodes) {
+      final types =
+          (route.attributes['implementationTypes'] as List?)
+              ?.whereType<String>()
+              .toSet()
+              .toList()
+            ?..sort();
+      if (types == null) continue;
+      for (final type in types) {
+        final matches = requirementSymbols
+            .where((symbol) => symbol.symbolId.endsWith('#$type'))
+            .toList(growable: false);
+        if (matches.length != 1) continue;
+        final symbol = matches.single;
+        final implementationId = 'implementation:${symbol.symbolId}';
+        if (linkedImplementations.add(implementationId)) {
+          // The Dart extractor is the single materialization owner for
+          // annotation-backed implementation nodes. The topology projection
+          // contributes the route edge only when that node was not already
+          // produced by the resolved annotation graph. This prevents the
+          // extractor and Dart Frog adapter from publishing conflicting copies
+          // of one semantic binding.
+          if (!(existingNodeIds?.contains(implementationId) ?? false)) {
+            nodes.add(
+              IrNode(
+                id: implementationId,
+                kind: NodeKind.implementation,
+                target: output.targetId,
+                role: 'implementation',
+                variant: symbol.variant,
+                slot: symbol.slot,
+                properties: {
+                  'requirementIds': symbol.requirementIds,
+                  'sourceUri': symbol.source.uri,
+                  'sourceLine': symbol.source.line,
+                },
+              ),
+            );
+          }
+        }
+        edges.add(
+          IrEdge(
+            sourceId: route.id,
+            targetId: implementationId,
+            kind: EdgeKind.invokes,
+          ),
+        );
+      }
+    }
+    for (final middleware in middlewareNodes) {
+      final types =
+          (middleware.attributes['implementationTypes'] as List?)
+              ?.whereType<String>()
+              .toSet()
+              .toList()
+            ?..sort();
+      if (types == null) continue;
+      for (final type in types) {
+        final matches = requirementSymbols
+            .where((symbol) => symbol.symbolId.endsWith('#$type'))
+            .toList(growable: false);
+        if (matches.length != 1) continue;
+        final symbol = matches.single;
+        final implementationId = 'implementation:${symbol.symbolId}';
+        if (linkedImplementations.add(implementationId)) {
+          if (!(existingNodeIds?.contains(implementationId) ?? false)) {
+            nodes.add(
+              IrNode(
+                id: implementationId,
+                kind: NodeKind.implementation,
+                target: output.targetId,
+                role: 'implementation',
+                variant: symbol.variant,
+                slot: symbol.slot,
+                properties: {
+                  'requirementIds': symbol.requirementIds,
+                  'sourceUri': symbol.source.uri,
+                  'sourceLine': symbol.source.line,
+                },
+              ),
+            );
+          }
+        }
+        edges.add(
+          IrEdge(
+            sourceId: middleware.id,
+            targetId: implementationId,
+            kind: EdgeKind.invokes,
+          ),
         );
       }
     }
@@ -308,7 +446,7 @@ class ExtractionService {
         ),
       ),
       symbols: const [],
-      inputDigest: output.compatibilityId,
+      inputDigest: inputDigest,
       diagnostics: output.diagnostics
           .map(
             (diagnostic) => IrDiagnostic(

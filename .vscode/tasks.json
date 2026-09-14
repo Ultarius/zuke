@@ -2,6 +2,56 @@
   "version": "2.0.0",
   "tasks": [
     {
+      "label": "Zuke: Refresh Profile Locks",
+      "type": "process",
+      "command": "dart",
+      "args": [
+        "run",
+        "zuke_cli:zuke",
+        "lock",
+        "--refresh",
+        "--root",
+        "${input:zukeProject}",
+        "--runner-mode",
+        "auto",
+        "${input:zukeLockScope}"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "presentation": {
+        "group": "zuke",
+        "panel": "dedicated",
+        "reveal": "always"
+      },
+      "problemMatcher": [],
+      "detail": "Refreshes locks for a specific example project and scope (mutating; All profiles uses an explicit --all-profiles flag)."
+    },
+    {
+      "label": "Zuke: Verify Profile Locks (No Mutation)",
+      "type": "process",
+      "command": "dart",
+      "args": [
+        "run",
+        "zuke_cli:zuke",
+        "lock",
+        "--root",
+        "${input:zukeProject}",
+        "--all-profiles",
+        "--check"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "presentation": {
+        "group": "zuke",
+        "panel": "dedicated",
+        "reveal": "always"
+      },
+      "problemMatcher": [],
+      "detail": "Verifies all profile locks in the selected project without mutating them."
+    },
+    {
       "label": "Zuke: Run All Specification Gates (zuke:gate:all)",
       "type": "shell",
       "command": "dart run melos run zuke:gate:all",
@@ -48,6 +98,61 @@
       "detail": "Generates contract code from Gherkin feature specifications."
     },
     {
+      "label": "Zuke: Check Version Alignment",
+      "type": "process",
+      "command": "dart",
+      "args": [
+        "run",
+        "zuke_cli:zuke",
+        "doctor",
+        "--root",
+        "${input:zukeProject}",
+        "--check-alignment"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "problemMatcher": [],
+      "detail": "Checks supported Zuke dependency alignment for the selected project."
+    },
+    {
+      "label": "Zuke: Doctor Check",
+      "type": "process",
+      "command": "dart",
+      "args": [
+        "run",
+        "zuke_cli:zuke",
+        "doctor",
+        "--root",
+        "${input:zukeProject}"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "problemMatcher": [],
+      "detail": "Diagnoses project setup for the selected project."
+    },
+    {
+      "label": "Zuke: Doctor Test Host Compatibility",
+      "type": "process",
+      "command": "dart",
+      "args": [
+        "run",
+        "zuke_cli:zuke",
+        "doctor",
+        "test-host",
+        "--root",
+        "${input:zukeProject}",
+        "--format",
+        "json"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "problemMatcher": [],
+      "detail": "Explains Flutter/test SDK compatibility for the selected project."
+    },
+    {
       "label": "Melos: Coverage Check (coverage:check)",
       "type": "shell",
       "command": "dart run melos run coverage:check",
@@ -62,6 +167,32 @@
       "problemMatcher": [],
       "group": "build",
       "detail": "Runs pub get and connects workspace members using Dart Pub Workspaces."
+    }
+  ],
+  "inputs": [
+    {
+      "id": "zukeLockScope",
+      "type": "pickString",
+      "description": "Select profile scope to refresh (All profiles or one configured profile)",
+      "options": [
+        "--all-profiles",
+        "--profile=pullRequest",
+        "--profile=merge",
+        "--profile=release",
+        "--profile=nightly"
+      ],
+      "default": "--all-profiles"
+    },
+    {
+      "id": "zukeProject",
+      "type": "pickString",
+      "description": "Select Zuke project root",
+      "options": [
+        "examples/todo_app",
+        "examples/shopping_cart",
+        "examples/calculator-product"
+      ],
+      "default": "examples/todo_app"
     }
   ]
 }

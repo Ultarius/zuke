@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.2.2
+
+- Read `contractOutput` and `contractExport` from any configured extraction
+  target, including backend and custom targets.
+- Added typed workspace coverage, tooling, lock, evidence, and execution
+  profile models with explicit defaults and validation.
+- Preserved forward-compatible extension keys while surfacing unknown
+  configuration keys as structured warnings.
+
+## 0.2.1
+
+- Read generated contract output and export paths from the configured target,
+  rather than assuming a Flutter target exists.
+
 ## 0.2.0
 
 - Added strict schemaVersion 3 workspace configuration with stable targets,

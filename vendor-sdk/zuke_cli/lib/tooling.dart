@@ -5,4 +5,5 @@
 library;
 
 export 'src/dart_extractor.dart';
+export 'src/tooling/extraction_target.dart';
 export 'src/tooling/inspection.dart';

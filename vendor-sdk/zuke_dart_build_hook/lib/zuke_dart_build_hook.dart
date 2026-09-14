@@ -76,9 +76,19 @@ String normalizeBuildHookMode(Object? value) {
   );
 }
 
-Future<List<String>> _validatePackage(String packageRoot) async => [
-  ...(await DartExtractor().extract(packageRoot)).errors,
-];
+Future<List<String>> _validatePackage(String packageRoot) async {
+  late final ResolvedPlacement placement;
+  try {
+    placement = resolvePlacement(packageRoot);
+  } on PlacementFailure catch (error) {
+    return ['${error.code}: ${error.message}'];
+  }
+  return (await DartExtractor().extract(
+    packageRoot,
+    roots: placement.package.roots,
+    target: placement.target.id,
+  )).errors;
+}
 
 _WorkspaceInputs _workspaceInputs(String packageRoot, {Uri? customRoot}) {
   if (customRoot != null) {

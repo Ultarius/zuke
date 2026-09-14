@@ -1,6 +1,7 @@
 import 'package:zuke_frontend/zuke_frontend.dart';
 import '../ir.dart';
 
+import 'obligation_catalog.dart';
 import 'validator.dart';
 
 /// Verifies Flutter/application controls from a resolved provider declaration
@@ -10,8 +11,9 @@ class VerificationBackedValidator {
   ValidationResult validate(
     WorkspaceDiscoveryResult workspace,
     List<IrAdapterOutput> outputs,
-    List<EvidenceRecord> evidence,
-  ) {
+    List<EvidenceRecord> evidence, {
+    Iterable<ControlObligation>? obligations,
+  }) {
     final proofs = <ControlProofResult>[];
     final providers = <_Provider>[];
     for (final output in outputs) {
@@ -21,7 +23,23 @@ class VerificationBackedValidator {
         }
       }
     }
-    for (final expected in _expected(workspace)) {
+    final expected = obligations == null
+        ? _expected(workspace)
+        : obligations
+              .where(
+                (obligation) =>
+                    obligation.owner == ProofOwner.verificationBacked,
+              )
+              .map(
+                (obligation) => _Expected(
+                  obligation.requirementId,
+                  obligation.controlId,
+                  obligation.target,
+                  obligation.variant,
+                  obligation.slot,
+                ),
+              );
+    for (final expected in expected) {
       final definition =
           workspace.data.controls[expected.controlId] ?? const {};
       final candidates = providers
@@ -29,7 +47,8 @@ class VerificationBackedValidator {
             (provider) =>
                 provider.symbol.controlIds.contains(expected.controlId) &&
                 provider.symbol.target == expected.target &&
-                provider.symbol.variant == expected.variant,
+                provider.symbol.variant == expected.variant &&
+                provider.symbol.slot == expected.slot,
           )
           .toList();
       final allowedKinds =
@@ -86,6 +105,7 @@ class VerificationBackedValidator {
           controlId: expected.controlId,
           target: expected.target,
           variant: expected.variant,
+          slot: expected.slot,
           semantics: CoverageSemantics.verificationBacked,
           status: diagnostics.isEmpty
               ? ProofStatus.verified
@@ -93,6 +113,7 @@ class VerificationBackedValidator {
           providerIds:
               completeProviders
                   .map((provider) => provider.symbol.symbolId)
+                  .toSet()
                   .toList()
                 ..sort(),
           completeness: completeProviders.isEmpty
@@ -132,17 +153,22 @@ class VerificationBackedValidator {
             final definition = profiles is Map ? profiles[profile] : null;
             final requires = definition is Map ? definition['requires'] : null;
             if (requires is List) {
-              refs.addAll(
-                requires.whereType<Map>().map(
-                  (raw) => ParsedControlRef(
+              for (final raw in requires.whereType<Map>()) {
+                final target = raw['target']?.toString();
+                if (target == null || target.isEmpty) continue;
+                final id = raw['id']?.toString();
+                if (id == null || id.isEmpty) continue;
+                refs.add(
+                  ParsedControlRef(
                     kind: raw['kind']?.toString() ?? 'control',
-                    id: raw['id']!.toString(),
-                    target: raw['target']?.toString() ?? 'backend',
+                    id: id,
+                    target: target,
                     cardinality: raw['cardinality']?.toString() ?? 'oneOrMore',
                     variant: raw['variant']?.toString() ?? 'default',
+                    slot: raw['slot']?.toString() ?? 'primary',
                   ),
-                ),
-              );
+                );
+              }
             }
           }
         }
@@ -155,6 +181,7 @@ class VerificationBackedValidator {
             ref.id,
             ref.target,
             ref.variant,
+            ref.slot,
           );
           result[expected.key] = expected;
         }
@@ -193,11 +220,13 @@ class _Expected {
   final String controlId;
   final String target;
   final String variant;
+  final String slot;
   const _Expected(
     this.requirementId,
     this.controlId,
     this.target,
     this.variant,
+    this.slot,
   );
-  String get key => '$requirementId|$controlId|$target|$variant';
+  String get key => '$requirementId|$controlId|$target|$variant|$slot';
 }

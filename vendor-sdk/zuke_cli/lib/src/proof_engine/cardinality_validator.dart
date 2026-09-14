@@ -13,8 +13,20 @@ class CardinalityValidator {
     // Index extracted symbols by binding ID
     for (final sym in extractedSymbols) {
       if (sym.bindingId != null) {
-        final key =
-            '${sym.bindingId}|${sym.target ?? 'backend'}|${sym.variant}';
+        final target = sym.target;
+        if (target == null || target.isEmpty) {
+          messages.add(
+            ValidationMessage(
+              code: 'ZK-BINDING-IDENTITY-MISSING',
+              message:
+                  'Binding provider "${sym.bindingId}" is missing an '
+                  'explicit extraction target.',
+              severity: Severity.error,
+            ),
+          );
+          continue;
+        }
+        final key = '${sym.bindingId}|$target|${sym.variant}';
         byBindingKey.putIfAbsent(key, () => []).add(sym);
       }
     }

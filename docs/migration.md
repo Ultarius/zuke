@@ -17,18 +17,41 @@ An illustrative migration is:
 
 ```yaml
 dev_dependencies:
-  # Previous coordinated set:
-  # zuke_cli: ^0.3.1
-  # zuke_runner_flutter: ^0.2.1
+  # Previous coordinated set (last published tuple):
+  # zuke_core: ^0.3.0
+  # zuke_annotations: ^0.3.0
+  # zuke_frontend: ^0.2.1
+  # zuke: ^0.3.1
+  # zuke_runner: ^0.3.1
+  # zuke_runner_flutter: ^0.3.1
+  # zuke_http_runtime: ^0.1.1
+  # zuke_cli: ^0.4.1
+  # zuke_dart_build_hook: ^0.3.0
 
-  # Current set:
-  zuke: ^0.3.0
-  zuke_cli: ^0.4.0
-  zuke_runner_flutter: ^0.3.0
+  # Current coordinated set:
+  # zuke_core: ^0.4.0
+  # zuke_annotations: ^0.4.0
+  # zuke_frontend: ^0.2.2
+  zuke: ^0.4.0
+  zuke_runner: ^0.4.0
+  zuke_runner_flutter: ^0.4.0
+  zuke_http_runtime: ^0.1.1
+  zuke_cli: ^0.5.0
+  zuke_dart_build_hook: ^0.4.0
 ```
 
 Keep the versions in the same coordinated row. Do not add path dependencies
 or dependency overrides to make a hosted consumer resolve.
+
+The coordinated release removes placement `target` from `ImplementsRequirement`,
+`PresentsRequirement`, `ZukeBinding`, and `VerifiesRequirement` as well as
+`ProvidesControl`. Placement is resolved from workspace package membership and
+the active extraction target. Standalone extraction with multiple applicable
+targets fails closed; pass the target explicitly. If two implementations share
+one requirement, give them distinct stable slots such as `create` and `join`;
+all slots are required by default. Verification-backed controls are validated
+by their provider and current evidence, while structural controls remain owned
+by graph dominance.
 
 ## 2. Remove retired package dependencies
 
@@ -44,6 +67,7 @@ Implementation modules are now folded into the supported hosted packages:
 | `zuke_generator` | `zuke_cli` |
 | `zuke_reporter` | `zuke_cli` |
 | `zuke_adapter_dart_frog` | `zuke_cli` |
+| `zuke_flutter_runtime` | `zuke_runner_flutter` |
 | `zuke_analyzer`, `zuke_conformance`, `zuke_verifier`, `zuke_test_support` | repository-only tooling |
 
 Applications should depend on the public facades and should not import these
@@ -98,12 +122,46 @@ dart run zuke_cli:zuke gate --root . --all-profiles --format json
 dart run zuke_cli:zuke coverage --root . --format json --output coverage/report.json
 ```
 
+New coverage baselines store the measured source alongside covered line sets.
+Complete snapshots preserve line comparisons across amendments and rebases,
+even when the recorded Git revision disappears. Source snapshots stay in the
+baseline file and are omitted from coverage report output.
+
+Upgrade an existing baseline once using current coverage data with
+`dart run zuke_cli:zuke coverage --root "$PWD" --baseline quality/coverage-baseline.json --write-baseline`,
+then review the baseline diff.
+
+Regenerate baselines when intentionally accepting a new coverage reference;
+rewriting Git history alone does not require regeneration. Older baselines
+without complete snapshots still require their recorded revision in a Git
+checkout.
+
 The profile test must immediately precede its lock operation because the
 current evidence publication is replaceable and profile selections are
 deliberately different. `zuke lock --all-profiles` is available as a
 convenience when a workflow retains current evidence for every profile; in a
 replaceable single-output workflow, use the explicit sequence above so a
 single profile cannot be mistaken for all-profile proof.
+
+For checked-in examples or other workspaces maintained from this repository,
+the same safe sequence is available as one repository tool:
+
+```bash
+# Discover every Zuke project from the root pubspec.yaml workspace:
+dart run zuke_cli:zuke lock --refresh --all-profiles
+
+# Or refresh one project explicitly:
+dart run zuke_cli:zuke lock --refresh --all-profiles --root examples/todo_app
+```
+
+With no `--root`, the tool reads the root `pubspec.yaml` workspace members and
+walks each member upward to its nearest `zuke.yaml`. This discovers nested
+projects such as `examples/calculator-product` while ignoring SDK-only package
+members that do not own profile locks. It then reads `lock.profiles` from each
+project, runs `zuke test` for each profile, generates that profile's lock, and
+immediately runs its non-mutating check. It does not edit lock JSON directly.
+Multiple roots and selected profiles can be supplied with repeated `--root`
+and `--profile` options.
 
 The current lock files are:
 
@@ -174,25 +232,38 @@ application and framework workspaces with no path dependencies or overrides.
 Run the exact package tuple on every supported operating-system lane before
 closing the migration.
 
-The framework repository owns the clean-room hosted check. Run it from the
-repository root after the coordinated versions are available:
+The framework repository owns the clean-room hosted check. Run the canonical
+certification command from the repository root after the coordinated versions
+are available:
 
 ```bash
-dart run tool/check_hosted_consumer.dart --platform linux
-dart run tool/check_hosted_consumer.dart --platform windows
+dart run zuke_cli:zuke certify hosted --platform linux --host dart
+dart run zuke_cli:zuke certify hosted --platform windows --host dart
+dart run zuke_cli:zuke certify hosted --platform linux --host flutter \
+  --flutter-version 3.44.8
+dart run zuke_cli:zuke certify hosted --platform windows --host flutter \
+  --flutter-version 3.44.8
 ```
 
 The check creates its fixture outside the repository, reads exact package
 versions from `docs/release-matrix.yaml`, rejects path dependencies and
 overrides, and removes the fixture after the run unless `--keep-fixture` is
-provided for diagnosis. When the matrix contains Flutter-bound packages, the
-checker requires Flutter on the machine, uses `flutter pub get`/`flutter test`,
-and reports the Flutter package lane separately. It fails closed rather than
-silently claiming the complete hosted tuple was verified with Dart alone.
+provided for diagnosis. Dart and Flutter are explicit host lanes: the Dart
+capsule uses `dart pub get`/`dart test`, while the Flutter capsule uses
+`flutter pub get`/`flutter test` and must not declare a direct `package:test`
+dependency. It fails closed rather than silently claiming the required hosted
+consumer surface was verified with the wrong SDK; optional public packages are
+covered by the release publication dry-run rather than artificial fixture
+dependencies.
 
 The framework repository also provides `.github/workflows/hosted-consumer.yml`.
 It runs the same checker on Linux and Windows after a published release, and
 can be started manually when a hosted package tuple is ready for verification.
+
+This hosted lane certifies the published package tuple only. A pull-request or
+Git-branch candidate must be verified through the framework checkout, a genuine
+staging registry, or an explicit consumer-side Git override; it must not be
+described as hosted-registry certification.
 
 ## 7. If you are not ready yet
 

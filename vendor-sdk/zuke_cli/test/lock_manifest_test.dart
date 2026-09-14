@@ -12,14 +12,16 @@ void main() {
     late Directory tempDir;
 
     setUp(() {
-      tempDir = Directory(
-        'test/temp_fixture_${DateTime.now().millisecondsSinceEpoch}',
-      )..createSync(recursive: true);
+      // Keep the temporary package outside the workspace package scan. The
+      // copied package config below still lets the analyzer resolve Zuke
+      // imports without running pub get for a nested package.
+      tempDir = Directory.systemTemp.createTempSync('zuke-lock-fixture-');
       File('${tempDir.path}/pubspec.yaml').writeAsStringSync('''
 name: zuke_extractor_fixture
 environment:
-  sdk: '>=3.10.0 <3.11.0'
+  sdk: '>=3.10.0 <4.0.0'
 ''');
+      _writeWorkspacePackageConfig(tempDir);
     });
 
     tearDown(() {
@@ -41,6 +43,7 @@ environment:
         final output1 = await DartExtractor().extract(
           tempDir.path,
           roots: ['src'],
+          target: 'backend',
         );
         expect(output1.inputDigest, isNotEmpty);
 
@@ -50,8 +53,9 @@ environment:
           File('${tempDir2.path}/pubspec.yaml').writeAsStringSync('''
 name: zuke_extractor_fixture
 environment:
-  sdk: '>=3.10.0 <3.11.0'
+  sdk: '>=3.10.0 <4.0.0'
 ''');
+          _writeWorkspacePackageConfig(tempDir2);
           final srcDir2 = Directory('${tempDir2.path}/src')
             ..createSync(recursive: true);
           final file2 = File('${srcDir2.path}/app.dart');
@@ -60,6 +64,7 @@ environment:
           final output2 = await DartExtractor().extract(
             tempDir2.path,
             roots: ['src'],
+            target: 'backend',
           );
           expect(output2.inputDigest, equals(output1.inputDigest));
         } finally {
@@ -83,7 +88,11 @@ class MyController implements ZukeController {
 }
 ''');
 
-      final output = await DartExtractor().extract(tempDir.path, roots: ['.']);
+      final output = await DartExtractor().extract(
+        tempDir.path,
+        roots: ['.'],
+        target: 'backend',
+      );
       final requirementIds = output.symbols
           .where((s) => s.kind == 'requirementBoundary')
           .expand((s) => s.requirementIds)
@@ -137,7 +146,11 @@ class MutatedApp {
 }
 ''');
 
-      final output = await DartExtractor().extract(tempDir.path, roots: ['.']);
+      final output = await DartExtractor().extract(
+        tempDir.path,
+        roots: ['.'],
+        target: 'backend',
+      );
       expect(
         output.diagnostics.any(
           (d) =>
@@ -189,6 +202,7 @@ class MyUnresolvedApp {
         final output = await DartExtractor().extract(
           tempDir.path,
           roots: ['.'],
+          target: 'backend',
         );
         expect(
           output.diagnostics.any(
@@ -241,7 +255,11 @@ class MyApp {
 }
 ''');
 
-      final output = await DartExtractor().extract(tempDir.path, roots: ['.']);
+      final output = await DartExtractor().extract(
+        tempDir.path,
+        roots: ['.'],
+        target: 'backend',
+      );
       final nodeIds = output.graph?.nodes.map((n) => n.id).toList() ?? [];
       expect(nodeIds, contains('implementation:MockController'));
       expect(nodeIds, contains('implementation:RealController'));
@@ -703,4 +721,37 @@ Feature: Gateway
       },
     );
   });
+}
+
+void _writeWorkspacePackageConfig(Directory root) {
+  final workspaceConfig = _findWorkspacePackageConfig();
+  final dartTool = Directory('${root.path}/.dart_tool')
+    ..createSync(recursive: true);
+  final workspaceUri = workspaceConfig.parent.parent.uri.toString();
+  final resolved = workspaceConfig.readAsStringSync().replaceAll(
+    '"rootUri": "../',
+    '"rootUri": "$workspaceUri',
+  );
+  File('${dartTool.path}/package_config.json').writeAsStringSync(resolved);
+}
+
+File _findWorkspacePackageConfig() {
+  var directory = Directory.current.absolute;
+  while (true) {
+    final packageConfig = File(
+      '${directory.path}${Platform.pathSeparator}.dart_tool'
+      '${Platform.pathSeparator}package_config.json',
+    );
+    if (packageConfig.existsSync() &&
+        File(
+          '${directory.path}${Platform.pathSeparator}melos.yaml',
+        ).existsSync()) {
+      return packageConfig;
+    }
+    final parent = directory.parent;
+    if (parent.path == directory.path) {
+      throw StateError('Could not locate the workspace package config.');
+    }
+    directory = parent;
+  }
 }

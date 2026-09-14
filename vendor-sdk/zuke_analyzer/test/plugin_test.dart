@@ -28,7 +28,7 @@ void main() {
       'analyzer plugin extracts diagnostics from out-of-date index',
       () async {
         File('${tempDir.path}/pubspec.yaml').writeAsStringSync(
-          'name: test_pkg\nenvironment:\n  sdk: ">=3.10.0 <3.11.0"\n',
+          'name: test_pkg\nenvironment:\n  sdk: ">=3.10.0 <4.0.0"\n',
         );
         final libDir = Directory('${tempDir.path}/lib')
           ..createSync(recursive: true);
@@ -38,6 +38,7 @@ import 'package:zuke_annotations/zuke_annotations.dart';
 @ImplementsRequirement([])
 class MyService {}
 ''');
+        _writeCurrentConfig(tempDir);
 
         final diagnostics = await ZukeAnalyzer().analyzePackage(tempDir.path);
         expect(diagnostics.any((d) => d.code == 'ZUKE-ANNOTATION-001'), isTrue);
@@ -46,7 +47,7 @@ class MyService {}
 
     test('analyzer plugin results agree with CLI extract results', () async {
       File('${tempDir.path}/pubspec.yaml').writeAsStringSync(
-        'name: test_pkg\nenvironment:\n  sdk: ">=3.10.0 <3.11.0"\n',
+        'name: test_pkg\nenvironment:\n  sdk: ">=3.10.0 <4.0.0"\n',
       );
       final libDir = Directory('${tempDir.path}/lib')
         ..createSync(recursive: true);
@@ -59,12 +60,29 @@ class ValidService {}
 class NoAnnotation {}
 ''');
 
+      final config = _writeCurrentConfig(tempDir);
+      final manifest = File('${tempDir.path}/generated-manifest.json')
+        ..writeAsStringSync('{"files":[]}');
+      final index = ZukeIndex.create(
+        root: tempDir.path,
+        inputPaths: [config.path],
+        generatedManifestContent: manifest.readAsStringSync(),
+        generatedManifestPath: 'generated-manifest.json',
+        requirementIds: const ['RULE-TEST-001'],
+        controlIds: const [],
+        bindingIds: const [],
+      );
+      final indexFile = File('${tempDir.path}/.zuke/analyzer-index.json')
+        ..createSync(recursive: true);
+      indexFile.writeAsStringSync(jsonEncode(index.toJson()));
+
       final pluginDiagnostics = await ZukeAnalyzer().analyzePackage(
         tempDir.path,
       );
       final extractOutput = await DartExtractor().extract(
         tempDir.path,
         roots: ['lib'],
+        target: 'backend',
       );
       final extractErrors = extractOutput.errors;
       expect(pluginDiagnostics.length, equals(extractErrors.length));
@@ -74,13 +92,9 @@ class NoAnnotation {}
     });
 
     test('reports a missing workspace index as stale', () async {
-      File('${tempDir.path}/zuke.yaml').writeAsStringSync('''
-schemaVersion: 2
-specifications:
-  features: [specs/features/**/*.feature]
-''');
+      _writeCurrentConfig(tempDir);
       File('${tempDir.path}/pubspec.yaml').writeAsStringSync(
-        'name: test_pkg\nenvironment:\n  sdk: ">=3.10.0 <3.11.0"\n',
+        'name: test_pkg\nenvironment:\n  sdk: ">=3.10.0 <4.0.0"\n',
       );
       (Directory('${tempDir.path}/lib')..createSync(recursive: true));
 
@@ -89,14 +103,9 @@ specifications:
     });
 
     test('current index reports unknown IDs and duplicate bindings', () async {
-      final config = File('${tempDir.path}/zuke.yaml')
-        ..writeAsStringSync('''
-schemaVersion: 2
-specifications:
-  features: [specs/features/**/*.feature]
-''');
+      final config = _writeCurrentConfig(tempDir);
       File('${tempDir.path}/pubspec.yaml').writeAsStringSync(
-        'name: test_pkg\nenvironment:\n  sdk: ">=3.10.0 <3.11.0"\n',
+        'name: test_pkg\nenvironment:\n  sdk: ">=3.10.0 <4.0.0"\n',
       );
       final lib = Directory('${tempDir.path}/lib')..createSync();
       File('${lib.path}/app.dart').writeAsStringSync('''
@@ -333,6 +342,27 @@ Directory _findWorkspaceRoot() {
     }
     current = parent;
   }
+}
+
+File _writeCurrentConfig(Directory root) {
+  final config = File('${root.path}/zuke.yaml')
+    ..writeAsStringSync('''
+schemaVersion: 3
+workspace:
+  name: test
+  root: .
+specifications:
+  features: []
+targets:
+  backend:
+    language: dart
+    framework: dart
+    packages:
+      - id: test_pkg
+        path: .
+        roots: [lib]
+''');
+  return config;
 }
 
 void _walk(AstNode node, AstVisitor<void> visitor) {

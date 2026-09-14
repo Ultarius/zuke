@@ -3,12 +3,11 @@ import 'cart_controller.dart';
 import 'generated/feat_cart_001_contracts.g.dart';
 import 'package:zuke_annotations/zuke_annotations.dart';
 
-@PresentsRequirement(['RULE-CART-ACCESSIBILITY'], target: 'flutter')
+@PresentsRequirement(['RULE-CART-ACCESSIBILITY'])
 @ProvidesControl(
   ['CTRL-CART-ACCESSIBLE'],
   kind: ControlProviderKind.semanticsProvider,
   layer: EnforcementLayer.presentation,
-  target: 'flutter',
 )
 class ShoppingScreen extends StatefulWidget {
   final CartController controller;

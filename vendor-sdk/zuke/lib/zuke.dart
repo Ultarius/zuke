@@ -7,4 +7,5 @@ export 'package:zuke_core/zuke_core.dart';
 export 'adapter.dart';
 export 'assurance.dart';
 export 'runner.dart';
+export 'testing.dart';
 export 'runtime.dart' show ZukeEvent, ZukeEventBus, ZukeFeatureFlags;

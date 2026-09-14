@@ -6,7 +6,7 @@ Flutter testWidgets integration boundary for Zuke scenarios.
 
 ```yaml
 dependencies:
-  zuke_runner_flutter: ^0.3.0
+  zuke_runner_flutter: ^0.4.0
 ```
 
 Flutter test code can use this package as its single Zuke facade. It

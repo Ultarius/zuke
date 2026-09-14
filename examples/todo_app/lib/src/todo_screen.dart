@@ -3,12 +3,11 @@ import 'todo_controller.dart';
 import 'generated/feat_todo_001_contracts.g.dart';
 import 'package:zuke_runner_flutter/zuke_runner_flutter.dart';
 
-@PresentsRequirement(['RULE-TODO-COMPLETE-ITEM'], target: 'flutter')
+@PresentsRequirement(['RULE-TODO-COMPLETE-ITEM'])
 @ProvidesControl(
   ['CTRL-TODO-ACCESSIBLE'],
   kind: ControlProviderKind.semanticsProvider,
   layer: EnforcementLayer.presentation,
-  target: 'flutter',
 )
 class TodoScreen extends StatefulWidget {
   final TodoController controller;

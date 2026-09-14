@@ -108,7 +108,11 @@ execution:
   release:
     tagExpression: '@pr or @merge or @release'
   nightly:
-    tagExpression: '@nightly or @performance'
+    # Nightly is the full assurance run plus performance scenarios. Every
+    # profile must collect current implementation coverage for all active
+    # bindings; selecting only the performance scenario would leave the
+    # calculator implementations unproved.
+    tagExpression: '@pr or @nightly or @performance'
 
 evidence:
   output: generated/evidence/records

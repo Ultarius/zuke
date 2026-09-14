@@ -39,26 +39,24 @@ void main() {
 
     tearDown(() => deleteTemporaryDirectory(tempDir));
 
-    test(
-      'generates Dart contracts and step support for a Flutter workspace',
-      () {
-        writeSchema3Workspace(
-          tempDir,
-          name: 'test-app',
-          target: 'flutter',
-          packageId: 'test-app',
-          framework: 'flutter',
-          roots: const ['lib', 'test'],
-          sourceAdapter: 'dart-source',
-          sourceCompatibilityId: 'dart-source-package-v1',
-          runnerCompatibilityId: 'flutter-runner-v1',
-          contractOutput: 'lib/src/generated',
-          generatedStepsOutput: 'test/support/generated',
-        );
+    test('generates Dart contracts and step support for a Flutter workspace', () {
+      writeSchema3Workspace(
+        tempDir,
+        name: 'test-app',
+        target: 'flutter',
+        packageId: 'test-app',
+        framework: 'flutter',
+        roots: const ['lib', 'test'],
+        sourceAdapter: 'dart-source',
+        sourceCompatibilityId: 'dart-source-package-v1',
+        runnerCompatibilityId: 'flutter-runner-v1',
+        contractOutput: 'lib/src/generated',
+        generatedStepsOutput: 'test/support/generated',
+      );
 
-        Directory('${tempDir.path}/specs/features').createSync(recursive: true);
-        File('${tempDir.path}/specs/features/sample.feature').writeAsStringSync(
-          '''
+      Directory('${tempDir.path}/specs/features').createSync(recursive: true);
+      File('${tempDir.path}/specs/features/sample.feature').writeAsStringSync(
+        '''
 # spec-begin
 # schemaVersion: 1
 # id: FEAT-SAMPLE-001
@@ -86,54 +84,92 @@ Feature: Sample Feature
     Scenario: Sample Scenario
       When the user taps "sample.button"
 ''',
-        );
+      );
 
-        final discovery = WorkspaceDiscovery().discover(tempDir.path);
-        final generator = DartContractGenerator();
+      final discovery = WorkspaceDiscovery().discover(tempDir.path);
+      final generator = DartContractGenerator();
 
-        final result = generator.generate(
-          workspace: discovery,
-          outputDir: '${tempDir.path}/lib/src/generated',
-          exportPath: '${tempDir.path}/lib/sample_contracts.dart',
-        );
+      final result = generator.generate(
+        workspace: discovery,
+        outputDir: '${tempDir.path}/lib/src/generated',
+        exportPath: '${tempDir.path}/lib/sample_contracts.dart',
+      );
 
-        expect(result.errors, isEmpty);
-        expect(result.files.length, greaterThanOrEqualTo(2));
-        expect(
-          result.files.any(
-            (f) => f.path.contains('feat_sample_001_contracts.g.dart'),
-          ),
-          isTrue,
-        );
-        expect(
-          result.files.any(
-            (f) => f.path.contains('feat_sample_001_steps.g.dart'),
-          ),
-          isTrue,
-        );
-        final support = result.files.firstWhere(
-          (f) => f.path.contains('feat_sample_001_steps.g.dart'),
-        );
-        expect(
-          support.content,
-          contains(
-            "import 'package:zuke_runner_flutter/zuke_runner_flutter.dart';",
-          ),
-        );
-        expect(support.content, contains('theAppIsOpen'));
-        final contracts = result.files.firstWhere(
+      expect(result.errors, isEmpty);
+      expect(result.files.length, greaterThanOrEqualTo(2));
+      expect(
+        result.files.any(
           (f) => f.path.contains('feat_sample_001_contracts.g.dart'),
-        );
-        expect(
-          contracts.content,
-          contains('BindingInstanceCardinality.oneOrMore'),
-        );
-        expect(
-          contracts.content,
-          contains('tapButton(W world, Object instanceId)'),
-        );
-      },
-    );
+        ),
+        isTrue,
+      );
+      expect(
+        result.files.any(
+          (f) => f.path.contains('feat_sample_001_steps.g.dart'),
+        ),
+        isTrue,
+      );
+      final support = result.files.firstWhere(
+        (f) => f.path.contains('feat_sample_001_steps.g.dart'),
+      );
+      expect(
+        support.content,
+        contains(
+          "import 'package:zuke_runner_flutter/zuke_runner_flutter.dart';",
+        ),
+      );
+      expect(support.content, contains('theAppIsOpen'));
+      final barrel = result.files.firstWhere(
+        (f) => f.path.endsWith('/sample_contracts.dart'),
+      );
+      expect(barrel.content, startsWith('// GENERATED. DO NOT EDIT.'));
+      expect(barrel.content, isNot(contains('_steps.g.dart')));
+      expect(barrel.content, contains('generatedScenarioContracts'));
+
+      final windowsPaths = generator.generate(
+        workspace: discovery,
+        outputDir: r'lib\custom',
+        exportPath: r'lib\api\contracts.dart',
+      );
+      expect(windowsPaths.errors, isEmpty);
+      expect(
+        windowsPaths.files.last.content,
+        contains("'../custom/feat_sample_001_contracts.g.dart'"),
+      );
+      final packageImports = generator.generate(
+        workspace: discovery,
+        outputDir: r'packages\contracts\lib\custom',
+        exportPath: r'packages\contracts\lib\api\contracts.dart',
+        contractPackage: ContractPackage(
+          name: 'actual_contracts',
+          libPath: r'packages\contracts\lib',
+        ),
+      );
+      expect(packageImports.errors, isEmpty);
+      expect(
+        packageImports.files.last.content,
+        contains(
+          "import 'package:actual_contracts/custom/feat_sample_001_contracts.g.dart' as c0;",
+        ),
+      );
+      expect(
+        packageImports.files.last.content,
+        contains(
+          "export 'package:actual_contracts/custom/feat_sample_001_contracts.g.dart'",
+        ),
+      );
+      final contracts = result.files.firstWhere(
+        (f) => f.path.contains('feat_sample_001_contracts.g.dart'),
+      );
+      expect(
+        contracts.content,
+        contains('BindingInstanceCardinality.oneOrMore'),
+      );
+      expect(
+        contracts.content,
+        contains('tapButton(W world, Object instanceId)'),
+      );
+    });
 
     test('generates pure-Dart step support for a non-Flutter runner', () {
       writeSchema3Workspace(

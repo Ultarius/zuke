@@ -39,7 +39,7 @@ jobs:
           flutter-version: '3.44.8'
           channel: stable
           cache: true
-      - run: dart --suppress-analytics pub get
+      - run: flutter --suppress-analytics pub get
       - name: Prepare Flutter tool package
         run: dart --suppress-analytics run tool/prepare_flutter_toolchain.dart
       - name: Flutter launcher integration

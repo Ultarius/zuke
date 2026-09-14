@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:args/args.dart';
 import 'dart_extractor.dart';
 import 'ir.dart';
+import 'tooling/extraction_target.dart';
 
 class ExtractDartCommand {
   final ArgResults args;
@@ -21,7 +22,15 @@ class ExtractDartCommand {
     final packageRoot = Directory(
       '$root${Platform.pathSeparator}$packagePath',
     ).absolute.resolveSymbolicLinksSync();
-    final output = await DartExtractor().extract(packageRoot);
+    final placement = resolvePlacement(
+      packageRoot,
+      requestedTarget: args['target'] as String?,
+    );
+    final output = await DartExtractor().extract(
+      packageRoot,
+      roots: placement.package.roots,
+      target: placement.target.id,
+    );
     for (final error in output.errors) {
       stderr.writeln('ERROR: $error');
     }

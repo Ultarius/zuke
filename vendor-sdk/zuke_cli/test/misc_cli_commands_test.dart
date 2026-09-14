@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:test/test.dart';
 import 'helpers/eligible_workspace.dart';
 import 'cli_test_helper.dart';
+import 'package:zuke_cli/src/generated/release_contract.dart';
 
 void main() {
   group('Misc CLI Commands', () {
@@ -43,7 +44,7 @@ void main() {
       expect(release, isA<Map>());
       expect(
         (release as Map)['publicPackageVersions'],
-        containsPair('zuke_cli', '0.4.0'),
+        containsPair('zuke_cli', releasePublicPackageVersions['zuke_cli']),
       );
       expect(release['operatingSystems'], contains('linux'));
     });

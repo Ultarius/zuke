@@ -76,6 +76,10 @@ evidence:
   types:
     gherkin-ui: {mode: record}
 
+trust:
+  bundle: assurance-history/trust/ed25519.json
+  algorithm: ed25519
+
 lock:
   directory: assurance/locks
   profiles: [pullRequest, merge, release, nightly]

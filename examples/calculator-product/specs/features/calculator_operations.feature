@@ -253,7 +253,7 @@ Feature: Evaluate basic arithmetic operations
   @PBI-CALC-002 @RULE-CALC-VALIDATION
   Rule: Only supported finite numeric operands and operators are accepted
 
-    @SCN-CALC-BAD-OPERATOR @negative @validation @api @security @merge
+    @SCN-CALC-BAD-OPERATOR @negative @validation @api @security @pr @merge
     Scenario: Reject an operator outside the registered operator set
       Given an API client supplies first operand "2"
       And the API client supplies operator "exec"
@@ -264,7 +264,7 @@ Feature: Evaluate basic arithmetic operations
       And no calculation-completed event must be emitted
       And no executable input must be evaluated
 
-    @SCN-CALC-BAD-OPERAND @negative @validation @api @security @merge
+    @SCN-CALC-BAD-OPERAND @negative @validation @api @security @pr @merge
     Scenario Outline: Reject non-numeric operand input
       Given an API client supplies first operand "<input>"
       And the API client supplies operator "+"

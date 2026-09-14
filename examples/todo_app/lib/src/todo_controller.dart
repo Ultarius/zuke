@@ -13,15 +13,11 @@ class TodoItemModel {
   });
 }
 
-@ImplementsRequirement([
-  'RULE-TODO-ADD-ITEM',
-  'RULE-TODO-COMPLETE-ITEM',
-], target: 'flutter')
+@ImplementsRequirement(['RULE-TODO-ADD-ITEM', 'RULE-TODO-COMPLETE-ITEM'])
 @ProvidesControl(
   ['CTRL-TODO-VALIDATION'],
   kind: ControlProviderKind.applicationValidator,
   layer: EnforcementLayer.presentation,
-  target: 'flutter',
 )
 class TodoController extends ChangeNotifier {
   final List<TodoItemModel> _tasks = [];

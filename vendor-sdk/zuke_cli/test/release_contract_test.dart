@@ -17,6 +17,11 @@ void main() {
       matrix.operatingSystems.toSet(),
     );
     expect(releaseCompatibilityIds, matrix.compatibilityIds);
+    expect(releaseFlutterCertification, {
+      'minimum': matrix.flutterCertification.minimum,
+      'current': matrix.flutterCertification.current,
+      'channels': matrix.flutterCertification.channels,
+    });
     expect(
       releaseDartFrogCompatibilityId,
       matrix.compatibilityIds['dart-frog'],
@@ -32,6 +37,23 @@ void main() {
         .toSet();
     expect(matrix.publicationOrder.toSet(), publishable);
     expect(matrix.publicationOrder, hasLength(publishable.length));
+  });
+
+  test('rejects unsupported Flutter certification fields', () {
+    final root = Directory.systemTemp.createTempSync('zuke-release-matrix-');
+    addTearDown(() => root.deleteSync(recursive: true));
+    Directory('${root.path}/docs').createSync(recursive: true);
+    final source = File(
+      '${_findRoot(Directory.current).path}/docs/release-matrix.yaml',
+    ).readAsStringSync();
+    File('${root.path}/docs/release-matrix.yaml').writeAsStringSync(
+      source.replaceFirst(
+        'certification:\n  flutter:\n',
+        'certification:\n  unsupported: true\n  flutter:\n',
+      ),
+    );
+
+    expect(() => readReleaseMatrix(root), throwsFormatException);
   });
 }
 

@@ -11,4 +11,6 @@ export 'src/diagnostics.dart';
 export 'src/digest.dart';
 export 'src/evidence.dart';
 export 'src/identity.dart';
+export 'src/binding_identity.dart';
 export 'src/runner_execution_context.dart';
+export 'src/risk_acceptance.dart';

@@ -134,9 +134,11 @@ class CheckCommand {
         final stable = _inputsStable(initial, root);
         stages.add(stable);
         if (stable.status == 'passed') {
+          final validateCommand = ValidateCommand(_validateArgs(root, profile));
           final validated = await _stage(
             'validate',
-            () => ValidateCommand(_validateArgs(root, profile)).execute(),
+            validateCommand.execute,
+            diagnostics: () => validateCommand.diagnostics,
           );
           stages.add(validated);
           if (validated.status == 'passed') {
@@ -384,9 +386,36 @@ final class _StageResult {
     'diagnostics': diagnostics
         .map((diagnostic) => diagnostic.toJson())
         .toList(),
+    if (status == 'failed') 'failure': _safeStageFailure(stderr, stdout),
   };
 
   Map<String, Object?> safeJson() => toJson();
+}
+
+/// Makes a failed nested stage useful in JSON mode without copying arbitrary
+/// runner output into a machine-readable command result. In particular, a
+/// Flutter assertion can contain user-provided text, credentials, or request
+/// payloads. Keep only bounded diagnostic lines and redact sensitive fields.
+String _safeStageFailure(String stderr, String stdout) {
+  final source = stderr.trim().isNotEmpty ? stderr : stdout;
+  if (source.trim().isEmpty) return 'Stage exited with a non-zero status.';
+  final ansi = RegExp(r'\x1B\[[0-?]*[ -/]*[@-~]');
+  final sensitive = RegExp(
+    r'(password|secret|token|cookie|authorization|bearer|api[_-]?key|private[_-]?key)',
+    caseSensitive: false,
+  );
+  final lines = <String>[];
+  for (final rawLine in source.replaceAll(ansi, '').split(RegExp(r'\r?\n'))) {
+    final line = rawLine.trim();
+    if (line.isEmpty) continue;
+    lines.add(
+      sensitive.hasMatch(line) ? '[sensitive diagnostic omitted]' : line,
+    );
+    if (lines.length == 20) break;
+  }
+  final summary = lines.join('\n');
+  if (summary.length <= 4000) return summary;
+  return '${summary.substring(0, 3997)}...';
 }
 
 final class _BufferStdout implements Stdout {

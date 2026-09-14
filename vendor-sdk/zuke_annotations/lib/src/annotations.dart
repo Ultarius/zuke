@@ -5,9 +5,6 @@ class ImplementsRequirement {
   /// Requirement identifiers implemented by the declaration.
   final List<String> requirementIds;
 
-  /// Execution target for the implementation.
-  final String target;
-
   /// Variant name used when resolving the implementation.
   final String variant;
 
@@ -17,7 +14,6 @@ class ImplementsRequirement {
   /// Creates implementation metadata for [requirementIds].
   const ImplementsRequirement(
     this.requirementIds, {
-    this.target = 'backend',
     this.variant = 'default',
     this.slot = 'primary',
   });
@@ -28,9 +24,6 @@ class PresentsRequirement {
   /// Requirement identifiers presented by the declaration.
   final List<String> requirementIds;
 
-  /// Presentation target, normally `flutter`.
-  final String target;
-
   /// Variant name used when resolving the presentation.
   final String variant;
 
@@ -40,7 +33,6 @@ class PresentsRequirement {
   /// Creates presentation metadata for [requirementIds].
   const PresentsRequirement(
     this.requirementIds, {
-    this.target = 'flutter',
     this.variant = 'default',
     this.slot = 'primary',
   });
@@ -57,9 +49,6 @@ class ProvidesControl {
   /// Layer at which the provider is enforced.
   final EnforcementLayer? layer;
 
-  /// Execution target for the provider.
-  final String target;
-
   /// Variant name used when resolving the provider.
   final String variant;
 
@@ -71,7 +60,6 @@ class ProvidesControl {
     this.controlIds, {
     this.kind,
     this.layer,
-    this.target = 'backend',
     this.variant = 'default',
     this.slot = 'primary',
   });
@@ -85,14 +73,14 @@ class ZukeBinding {
   /// Binding variant selected by the application.
   final String variant;
 
-  /// Target platform represented by the binding.
-  final String target;
+  /// Binding slot occupied by the binding.
+  final String slot;
 
   /// Creates binding metadata for [bindingId].
   const ZukeBinding(
     this.bindingId, {
     this.variant = 'default',
-    this.target = 'flutter',
+    this.slot = 'primary',
   });
 }
 
@@ -113,11 +101,11 @@ class VerifiesRequirement {
   /// Evidence kind emitted by the verification.
   final String? evidenceType;
 
-  /// Target platform or runtime for the verification.
-  final String? target;
-
   /// Variant name used when resolving the verification.
   final String variant;
+
+  /// Binding slot occupied by the verification.
+  final String slot;
 
   /// Scenario identifiers covered by the verification.
   final List<String> scenarioIds;
@@ -129,8 +117,8 @@ class VerifiesRequirement {
   const VerifiesRequirement(
     this.requirementIds, {
     this.evidenceType,
-    this.target,
     this.variant = 'default',
+    this.slot = 'primary',
     this.scenarioIds = const [],
     this.controlIds = const [],
   });
