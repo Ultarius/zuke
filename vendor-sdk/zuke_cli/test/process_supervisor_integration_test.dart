@@ -55,6 +55,9 @@ void main() {
         await deleteTemporaryDirectory(directory);
       }
     },
+    // The intentional run is bounded at 15s internally; the explicit outer
+    // timeout keeps that coded failure authoritative on contended runners.
+    timeout: Timeout(const Duration(minutes: 1)),
     skip: enabled ? false : 'Set ZUKE_RUN_PROCESS_INTEGRATION=true in CI.',
   );
 }

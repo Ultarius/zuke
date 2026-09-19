@@ -24,6 +24,20 @@ Directory _workspaceRoot() {
   }
 }
 
+Iterable<File> _dartFiles(Directory directory) sync* {
+  if (!directory.existsSync()) return;
+  for (final entity in directory.listSync(recursive: true)) {
+    if (entity is! File || !entity.path.endsWith('.dart')) continue;
+    final normalized = entity.path.replaceAll(r'\', '/');
+    if (normalized.contains('/.dart_tool/') ||
+        normalized.contains('/build/') ||
+        normalized.contains('/coverage/')) {
+      continue;
+    }
+    yield entity;
+  }
+}
+
 void main() {
   group('Adapter Output & Conformance Fixtures', () {
     test('AdapterOutput serializes to conforming IR JSON structure', () {
@@ -223,6 +237,101 @@ void main() {
           reason: '${entry.key} must invoke ${entry.value}',
         );
       }
+    });
+  });
+
+  group('process integration gate', () {
+    test('workflows that run process-gated tests enable the gate', () {
+      final root = _workspaceRoot();
+      final workflows = Directory('${root.path}/.github/workflows');
+      expect(workflows.existsSync(), isTrue);
+      // Workflows that exercise the process-gated supervisor/launcher tests
+      // must set the gate; otherwise those tests skip silently and the job
+      // stays green.
+      final processSurface = RegExp(
+        r'run_dart_tests\.dart'
+        r'|coverage:check'
+        r'|flutter_toolchain_integration_test\.dart'
+        r'|process_supervisor_integration_test\.dart',
+      );
+      final gate = RegExp(
+        r'''^\s*ZUKE_RUN_PROCESS_INTEGRATION:\s*['"]?true['"]?\s*$''',
+        multiLine: true,
+      );
+      final checked = <String>[];
+      for (final workflow in workflows.listSync().whereType<File>()) {
+        if (!workflow.path.endsWith('.yml') &&
+            !workflow.path.endsWith('.yaml')) {
+          continue;
+        }
+        final content = workflow.readAsStringSync();
+        if (!processSurface.hasMatch(content)) continue;
+        final name = workflow.path.split(Platform.pathSeparator).last;
+        checked.add(name);
+        expect(
+          gate.hasMatch(content),
+          isTrue,
+          reason:
+              '$name runs process-gated tests but does not set '
+              'ZUKE_RUN_PROCESS_INTEGRATION=true; the tests would skip '
+              'silently.',
+        );
+      }
+      expect(
+        checked,
+        containsAll(<String>[
+          'calculator-product-assurance.yml',
+          'flutter-example-assurance.yml',
+        ]),
+        reason: 'Expected workflows must exercise the process-gated tests.',
+      );
+    });
+  });
+
+  group('subprocess test timeouts', () {
+    test('integration tests that launch supervised processes set timeouts', () {
+      final root = _workspaceRoot();
+      final perTestTimeout = RegExp(r'\btimeout\s*:');
+      final libraryTimeout = RegExp(r'@Timeout\s*\(');
+      final testDeclaration = RegExp(r'\btest(?:Widgets)?\(');
+      final checked = <String>[];
+      for (final file in _dartFiles(Directory('${root.path}/vendor-sdk'))) {
+        if (!file.path.endsWith('_integration_test.dart')) continue;
+        final source = file.readAsStringSync();
+        if (!source.contains('LocalProcessSupervisor')) continue;
+        final name = file.path.split(Platform.pathSeparator).last;
+        checked.add(name);
+        if (libraryTimeout.hasMatch(source)) continue;
+        // A test that launches a supervised process owns a bounded inner
+        // contract; without an explicit outer timeout a cold or contended run
+        // fails through Dart's 30s default instead of the coded diagnostic.
+        final declarations = testDeclaration.allMatches(source).toList();
+        for (var index = 0; index < declarations.length; index++) {
+          final start = declarations[index].start;
+          final end = index + 1 < declarations.length
+              ? declarations[index + 1].start
+              : source.length;
+          final segment = source.substring(start, end);
+          if (!segment.contains('LocalProcessSupervisor')) continue;
+          expect(
+            perTestTimeout.hasMatch(segment),
+            isTrue,
+            reason:
+                '$name launches a supervised process without an explicit '
+                'test timeout; a cold or contended run can then fail through '
+                "Dart's 30s default instead of the supervisor's coded "
+                'diagnostic.',
+          );
+        }
+      }
+      expect(
+        checked,
+        containsAll(<String>[
+          'flutter_toolchain_integration_test.dart',
+          'process_supervisor_integration_test.dart',
+        ]),
+        reason: 'Expected integration tests must be scanned.',
+      );
     });
   });
 
