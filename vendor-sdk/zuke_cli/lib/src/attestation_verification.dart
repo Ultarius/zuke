@@ -244,7 +244,7 @@ class AttestationVerification {
     }
   }
 
-  Map? _provider(
+  Map<Object?, Object?>? _provider(
     WorkspaceDiscoveryResult workspace,
     String controlId,
     String target,
@@ -253,7 +253,7 @@ class AttestationVerification {
     for (final policy in workspace.data.policies.values) {
       final providers = policy['providers'];
       if (providers is! List) continue;
-      for (final provider in providers.whereType<Map>()) {
+      for (final provider in providers.whereType<Map<Object?, Object?>>()) {
         if (provider['provides'] == controlId &&
             provider['assurance'] == 'attested' &&
             provider['target'] == target &&

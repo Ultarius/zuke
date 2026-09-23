@@ -13,7 +13,7 @@ void writeBytesAtomically(
 }) {
   destination.parent.createSync(recursive: true);
   final temporary = File(
-    '${destination.path}.tmp-${pid}-${DateTime.now().microsecondsSinceEpoch}',
+    '${destination.path}.tmp-$pid-${DateTime.now().microsecondsSinceEpoch}',
   );
 
   try {

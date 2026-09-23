@@ -210,4 +210,124 @@ void main() {
     final first = await digest();
     expect(await digest(), first);
   });
+
+  test('computeFilteredMany matches per-predicate computeFiltered', () {
+    writeFile('specs/registry/events.yaml', 'events: []\n');
+    writeFile('specs/features/example.feature', 'Feature: One\n');
+    writeFile('policies/project-policy.yaml', 'policy: strict\n');
+    writeFile('lib/source.dart', 'const other = 1;\n');
+
+    final includes = <String, bool Function(String)>{
+      'mapping': WorkspaceDigest.evidenceMappingInclude,
+      'specificationIndex': WorkspaceDigest.evidenceSpecificationInclude,
+      'unrelated': (path) => path.endsWith('missing.yaml'),
+    };
+
+    final many = WorkspaceDigest.computeFilteredMany(workspace.path, includes);
+    for (final entry in includes.entries) {
+      expect(
+        many[entry.key],
+        WorkspaceDigest.computeFiltered(workspace.path, entry.value),
+        reason: 'bucket ${entry.key}',
+      );
+    }
+    expect(
+      many['mapping'],
+      WorkspaceDigest.computeEvidenceIndexDigests(workspace.path)['mapping'],
+    );
+    expect(
+      many['specificationIndex'],
+      WorkspaceDigest.computeEvidenceIndexDigests(
+        workspace.path,
+      )['specificationIndex'],
+    );
+  });
+
+  test('computeFilteredMany returns empty digests for a missing root', () {
+    final missing = '${workspace.path}/does-not-exist';
+    final many = WorkspaceDigest.computeFilteredMany(missing, {
+      'mapping': WorkspaceDigest.evidenceMappingInclude,
+    });
+    expect(
+      many['mapping'],
+      WorkspaceDigest.computeFiltered(
+        missing,
+        WorkspaceDigest.evidenceMappingInclude,
+      ),
+    );
+  });
+
+  test('filtered digests prune ignored tool and platform directories', () {
+    writeFile('specs/features/example.feature', 'Feature: One\n');
+    final before = WorkspaceDigest.computeEvidenceIndexDigests(workspace.path);
+
+    writeFile('build/specs/features/stale.feature', 'Feature: Stale\n');
+    writeFile('.dart_tool/specs/registry/noise.yaml', 'noise: true\n');
+    writeFile('generated/policies/noise.yaml', 'noise: true\n');
+    writeFile('node_modules/specs/features/noise.feature', 'noise\n');
+    writeFile('windows/flutter/ephemeral/specs/noise.feature', 'noise\n');
+
+    expect(WorkspaceDigest.computeEvidenceIndexDigests(workspace.path), before);
+    expect(
+      WorkspaceDigest.computeFiltered(
+        workspace.path,
+        WorkspaceDigest.evidenceSpecificationInclude,
+      ),
+      WorkspaceDigest.computeFilteredMany(workspace.path, {
+        'specificationIndex': WorkspaceDigest.evidenceSpecificationInclude,
+      })['specificationIndex'],
+    );
+  });
+
+  test('evidence layouts never sit under pruned directory names', () {
+    const ignored = <String>{
+      '.dart_tool',
+      '.git',
+      '.gradle',
+      '.idea',
+      '.plugin_symlinks',
+      '.zuke',
+      '.symlinks',
+      '.cxx',
+      '.externalNativeBuild',
+      'Pods',
+      'assurance-history',
+      'build',
+      'coverage',
+      'dist',
+      'generated',
+      'node_modules',
+    };
+    const legitimateEvidencePaths = <String>[
+      'specs/registry/events.yaml',
+      'specs/features/example.feature',
+      'policies/project-policy.yaml',
+      'zuke.yaml',
+    ];
+    for (final path in legitimateEvidencePaths) {
+      expect(
+        WorkspaceDigest.evidenceMappingInclude(path) ||
+            WorkspaceDigest.evidenceSpecificationInclude(path),
+        isTrue,
+        reason: path,
+      );
+      final directorySegments = path.split('/')..removeLast();
+      expect(
+        directorySegments.where(ignored.contains),
+        isEmpty,
+        reason: '$path must not live under a pruned directory',
+      );
+    }
+    // Tool trees may contain decoy names; the pruned walk must not hash them.
+    expect(
+      WorkspaceDigest.evidenceMappingInclude('node_modules/zuke.yaml'),
+      isTrue,
+    );
+    expect(
+      WorkspaceDigest.evidenceSpecificationInclude(
+        'build/specs/features/example.feature',
+      ),
+      isFalse,
+    );
+  });
 }

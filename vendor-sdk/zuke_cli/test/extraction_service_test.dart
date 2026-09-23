@@ -232,7 +232,7 @@ Handler middleware(Handler handler) => handler;
           '${routes.path}/index.dart',
         ).writeAsStringSync('Object onRequest(Object request) => Object();');
         File('${tempDir.path}/pubspec.yaml').writeAsStringSync(
-          'name: dart_frog_fixture\\nenvironment:\\n  sdk: \">=3.10.0 <4.0.0\"\\n',
+          'name: dart_frog_fixture\\nenvironment:\\n  sdk: ">=3.10.0 <4.0.0"\\n',
         );
         final workspace = WorkspaceDiscoveryResult(
           config: ZukeConfig(

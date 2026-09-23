@@ -1,7 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 
-import '../../zuke_test_support/lib/src/temporary_directory.dart';
+import 'package:zuke_test_support/src/temporary_directory.dart';
 import 'package:analyzer/dart/analysis/analysis_context_collection.dart';
 import 'package:analyzer/dart/analysis/results.dart';
 import 'package:analyzer/dart/ast/ast.dart';
@@ -305,16 +305,19 @@ void _writePackageConfig(Directory root) {
   );
   final decoded = jsonDecode(workspaceConfig.readAsStringSync()) as Map;
   final packageConfigDirectory = workspaceConfig.parent.uri;
-  final packages = (decoded['packages'] as List).whereType<Map>().map((entry) {
-    final copy = Map<String, Object?>.from(entry);
-    final rootUri = Uri.parse(copy['rootUri'] as String);
-    copy['rootUri'] =
-        (rootUri.isAbsolute
-                ? rootUri
-                : packageConfigDirectory.resolveUri(rootUri))
-            .toString();
-    return copy;
-  }).toList();
+  final packages = (decoded['packages'] as List)
+      .whereType<Map<Object?, Object?>>()
+      .map((entry) {
+        final copy = Map<String, Object?>.from(entry);
+        final rootUri = Uri.parse(copy['rootUri'] as String);
+        copy['rootUri'] =
+            (rootUri.isAbsolute
+                    ? rootUri
+                    : packageConfigDirectory.resolveUri(rootUri))
+                .toString();
+        return copy;
+      })
+      .toList();
   final config = Directory('${root.path}/.dart_tool')..createSync();
   File(
     '${config.path}/package_config.json',

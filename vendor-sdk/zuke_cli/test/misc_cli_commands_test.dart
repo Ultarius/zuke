@@ -41,7 +41,7 @@ void main() {
       final release = details is Map && details.containsKey('release')
           ? details['release']
           : details;
-      expect(release, isA<Map>());
+      expect(release, isA<Map<Object?, Object?>>());
       expect(
         (release as Map)['publicPackageVersions'],
         containsPair('zuke_cli', releasePublicPackageVersions['zuke_cli']),

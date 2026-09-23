@@ -350,7 +350,7 @@ class DominanceValidator {
             if (requires is List) {
               result[id]!.addAll(
                 requires
-                    .whereType<Map>()
+                    .whereType<Map<Object?, Object?>>()
                     .map((ref) => ref['id'])
                     .whereType<String>(),
               );
@@ -386,7 +386,7 @@ class DominanceValidator {
           final definition = profiles is Map ? profiles[profile] : null;
           final requires = definition is Map ? definition['requires'] : null;
           if (requires is! List) continue;
-          for (final raw in requires.whereType<Map>()) {
+          for (final raw in requires.whereType<Map<Object?, Object?>>()) {
             if (raw['id']?.toString() == controlId) {
               final target = raw['target']?.toString();
               if (target != null && target.isNotEmpty) {
@@ -469,7 +469,7 @@ class DominanceValidator {
     for (final policy in workspace.data.policies.values) {
       final providers = policy['providers'];
       if (providers is! List) continue;
-      for (final provider in providers.whereType<Map>()) {
+      for (final provider in providers.whereType<Map<Object?, Object?>>()) {
         if (provider['provides'] != controlId ||
             provider['assurance'] != 'attested') {
           continue;

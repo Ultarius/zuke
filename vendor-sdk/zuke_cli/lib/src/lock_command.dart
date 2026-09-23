@@ -542,14 +542,14 @@ class LockCommand {
               .toList(),
       'controls': controlAssurance,
     };
-    return const JsonEncoder.withIndent('  ').convert(data) + '\n';
+    return '${const JsonEncoder.withIndent('  ').convert(data)}\n';
   }
 
   List<Map<String, Object?>> _attestations(
     WorkspaceDiscoveryResult workspace,
     List<ControlProofResult> proofs,
   ) {
-    final providers = <String, Map>{};
+    final providers = <String, Map<Object?, Object?>>{};
     for (final policy in workspace.data.policies.values) {
       for (final provider in (policy['providers'] as List? ?? const [])) {
         if (provider is Map && provider['id'] != null) {

@@ -74,8 +74,7 @@ class GenerateCommand {
       generatedManifestPath: _relativeToRoot(root, manifestPath),
     );
     final expectedIndexContent =
-        const JsonEncoder.withIndent('  ').convert(expectedIndex.toJson()) +
-        '\n';
+        '${const JsonEncoder.withIndent('  ').convert(expectedIndex.toJson())}\n';
     final manifestFile = File(manifestPath);
     final previousPaths = _previousManifestPaths(
       manifestFile,

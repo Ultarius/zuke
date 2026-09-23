@@ -139,8 +139,8 @@ class AttestationCommand {
             .join('; ');
         final configuredProviders = verifiedWorkspace.data.policies.values
             .expand(
-              (policy) =>
-                  (policy['providers'] as List? ?? const []).whereType<Map>(),
+              (policy) => (policy['providers'] as List? ?? const [])
+                  .whereType<Map<Object?, Object?>>(),
             )
             .map(
               (candidate) =>
@@ -181,11 +181,14 @@ class AttestationCommand {
     return parsed;
   }
 
-  Map? _provider(WorkspaceDiscoveryResult workspace, String id) {
+  Map<Object?, Object?>? _provider(
+    WorkspaceDiscoveryResult workspace,
+    String id,
+  ) {
     for (final policy in workspace.data.policies.values) {
       final providers = policy['providers'];
       if (providers is List) {
-        for (final provider in providers.whereType<Map>()) {
+        for (final provider in providers.whereType<Map<Object?, Object?>>()) {
           if (provider['id'] == id && provider['assurance'] == 'attested') {
             return provider;
           }
@@ -259,7 +262,7 @@ class AttestationCommand {
   void _writeAtomically(File target, String contents) {
     target.parent.createSync(recursive: true);
     final temporary = File(
-      '${target.path}.tmp-${pid}-${DateTime.now().microsecondsSinceEpoch}',
+      '${target.path}.tmp-$pid-${DateTime.now().microsecondsSinceEpoch}',
     );
     temporary.writeAsStringSync(contents);
     if (target.existsSync()) target.deleteSync();

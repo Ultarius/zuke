@@ -48,14 +48,16 @@ final class PolicyCommand {
           );
         }
         record = Map<Object?, Object?>.from(value);
-      } on Object catch (_) {
+      } on Object catch (error) {
         diagnostics.add(
           Diagnostic(
             code: 'ZK-POLICY-MALFORMED',
             stage: 'policy',
             severity: DiagnosticSeverity.error,
             owner: DiagnosticOwner.project,
-            message: 'Risk-acceptance record could not be parsed.',
+            message:
+                'Risk-acceptance record could not be parsed '
+                '(${error.runtimeType}).',
             remediation: 'Correct the YAML record and rerun policy check.',
             context: {'path': input.path},
           ),
@@ -151,14 +153,16 @@ final class PolicyCommand {
         Map<Object?, Object?>.from(value),
       );
       return document.toRequirements();
-    } on Object catch (_) {
+    } on Object catch (error) {
       diagnostics.add(
         Diagnostic(
           code: 'ZK-POLICY-CONFIG-MALFORMED',
           stage: 'policy',
           severity: DiagnosticSeverity.error,
           owner: DiagnosticOwner.project,
-          message: 'Consumer risk-acceptance policy could not be parsed.',
+          message:
+              'Consumer risk-acceptance policy could not be parsed '
+              '(${error.runtimeType}).',
           remediation: 'Correct the policy file and rerun policy check.',
           context: {'path': policy.path},
         ),

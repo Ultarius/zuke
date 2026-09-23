@@ -69,7 +69,7 @@ Feature: Example
       ..register(
         StepDefinition(
           pattern: RegExp(r'^the example application is ready$'),
-          action: (world, _, __) async => world.values['ready'] = true,
+          action: (world, _, _) async => world.values['ready'] = true,
         ),
       );
 

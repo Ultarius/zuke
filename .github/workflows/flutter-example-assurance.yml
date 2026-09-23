@@ -1,5 +1,8 @@
 name: flutter-example-assurance
 
+permissions:
+  contents: read
+
 on:
   workflow_call:
     inputs:
@@ -31,15 +34,11 @@ jobs:
       FLUTTER_SUPPRESS_ANALYTICS: 'true'
       ZUKE_RUN_PROCESS_INTEGRATION: 'true'
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - name: Check out repository for local action resolution
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - uses: ./.github/actions/setup-zuke
         with:
-          fetch-depth: 0
-      - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2
-        with:
-          flutter-version: '3.44.8'
-          channel: stable
-          cache: true
-      - run: flutter --suppress-analytics pub get
+          fetch-depth: '0'
       - name: Prepare Flutter tool package
         run: dart --suppress-analytics run tool/prepare_flutter_toolchain.dart
       - name: Flutter launcher integration
@@ -48,7 +47,7 @@ jobs:
         run: dart --suppress-analytics test vendor-sdk/zuke_cli/test/process_supervisor_integration_test.dart
       - run: dart --suppress-analytics format --output=none --set-exit-if-changed lib test
         working-directory: ${{ inputs.example-root }}
-      - run: flutter --suppress-analytics analyze --no-pub
+      - run: flutter --suppress-analytics analyze --no-pub --fatal-infos
         working-directory: ${{ inputs.example-root }}
       - run: flutter --suppress-analytics test --no-pub --coverage
         working-directory: ${{ inputs.example-root }}

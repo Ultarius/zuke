@@ -86,7 +86,7 @@ void main() {
       );
       stopwatch.stop();
 
-      expect(result.exitCode, 0, reason: result.stderr);
+      expect(result.exitCode, 0, reason: '${result.stderr}');
       expect(firstOutputAt, isNotNull);
       expect(firstOutputAt, lessThan(_firstOutputTimeout));
       expect(

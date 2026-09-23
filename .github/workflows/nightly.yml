@@ -4,6 +4,9 @@ on:
   schedule:
     - cron: '0 2 * * *'
 
+permissions:
+  contents: read
+
 jobs:
   shopping-cart-assurance:
     uses: ./.github/workflows/flutter-example-assurance.yml

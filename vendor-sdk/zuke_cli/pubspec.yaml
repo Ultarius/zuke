@@ -22,7 +22,6 @@ dev_dependencies:
   test: ^1.24.0
   cryptography: ^2.7.0
   zuke_http_runtime: ^0.1.1
-
 executables:
   zuke: zuke
 repository: https://github.com/Ultarius/zuke

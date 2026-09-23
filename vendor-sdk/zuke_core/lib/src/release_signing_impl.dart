@@ -109,7 +109,7 @@ class TrustKey {
 
   bool get active => status == 'active' && algorithm == 'Ed25519';
 
-  factory TrustKey.fromJson(Map value) {
+  factory TrustKey.fromJson(Map<Object?, Object?> value) {
     final encoded = value['publicKey'];
     if (encoded is! String) {
       throw const FormatException('Trust key publicKey missing');
@@ -144,14 +144,14 @@ class TrustBundle {
   final List<TrustKey> keys;
   const TrustBundle(this.keys);
 
-  factory TrustBundle.fromJson(Map value) {
+  factory TrustBundle.fromJson(Map<Object?, Object?> value) {
     if (value['kind'] != 'zuke.ed25519-trust') {
       throw const FormatException(
         'Invalid Ed25519 trust bundle format; regenerate it for the current Zuke release',
       );
     }
     final keys = (value['keys'] as List? ?? const [])
-        .whereType<Map>()
+        .whereType<Map<Object?, Object?>>()
         .map(TrustKey.fromJson)
         .toList();
     final identities = <String>{};

@@ -45,10 +45,10 @@ List<String> dartFrogHttpMethods(FunctionDeclaration handler) {
     }
     if (expression.operator.lexeme != '!=') return null;
     for (final pair in [
-      (expression.leftOperand, expression.rightOperand),
-      (expression.rightOperand, expression.leftOperand),
+      _OperandPair(expression.leftOperand, expression.rightOperand),
+      _OperandPair(expression.rightOperand, expression.leftOperand),
     ]) {
-      final method = pair.$1;
+      final method = pair.method;
       if (method is! PropertyAccess ||
           method.propertyName.name != 'method' ||
           !_dartFrog(method.propertyName.element)) {
@@ -62,7 +62,7 @@ List<String> dartFrogHttpMethods(FunctionDeclaration handler) {
           request.prefix.element != context) {
         continue;
       }
-      final member = _element(pair.$2);
+      final member = _element(pair.operand);
       final value = member is GetterElement ? member.variable : member;
       if (value is! FieldElement ||
           value.enclosingElement.name != 'HttpMethod' ||
@@ -112,3 +112,10 @@ bool _dartFrog(Element? element) =>
       'package:dart_frog/',
     ) ??
     false;
+
+final class _OperandPair {
+  const _OperandPair(this.method, this.operand);
+
+  final Expression method;
+  final Expression operand;
+}

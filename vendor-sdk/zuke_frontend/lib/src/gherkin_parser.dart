@@ -745,7 +745,7 @@ class GherkinParser {
     return List.unmodifiable(result);
   }
 
-  Map<String, Object?> _extensionsFromYaml(Map value) {
+  Map<String, Object?> _extensionsFromYaml(Map<Object?, Object?> value) {
     Object? convert(Object? input) {
       if (input is Map) {
         final keys = input.keys.map((key) => key.toString()).toList()..sort();
@@ -769,7 +769,7 @@ class GherkinParser {
 
   /// Recursively validate YAML map keys: allow known keys and x-* prefixed keys.
   void _validateMapKeys(
-    Map map,
+    Map<Object?, Object?> map,
     Set<String> allowed,
     String prefix,
     List<String> errors,
@@ -836,7 +836,11 @@ class GherkinParser {
     return blocks;
   }
 
-  void _validateSecrets(Map value, String prefix, List<String> errors) {
+  void _validateSecrets(
+    Map<Object?, Object?> value,
+    String prefix,
+    List<String> errors,
+  ) {
     final privateKey = RegExp(
       r'-----BEGIN (?:[A-Z0-9 ]+ )?PRIVATE KEY-----',
       caseSensitive: false,
@@ -974,7 +978,7 @@ class GherkinParser {
     if (value == null) return null;
     if (value is Iterable && value.any((item) => item is Map)) {
       return value
-          .whereType<Map>()
+          .whereType<Map<Object?, Object?>>()
           .map((item) => item['type'] ?? item['evidenceType'])
           .whereType<String>()
           .toList(growable: false);

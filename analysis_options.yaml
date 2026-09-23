@@ -1,6 +1,13 @@
+include: package:lints/recommended.yaml
+
 analyzer:
   exclude:
     - tool/fixtures/**
+    - test/temp_*/
+  language:
+    strict-casts: true
+    strict-inference: true
+    strict-raw-types: true
   plugins:
     - zuke_analyzer
 

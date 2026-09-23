@@ -40,6 +40,7 @@ Explore runnable example applications in the [**`examples/`**](examples/README.m
 ## Documentation & Guides
 
 - 📖 **[Integration & Implementation Guide](docs/integration-guide.md)** — Integration, release signing, verification, and CI/CD gate guidance.
+- 🚀 **[Release Runbook](docs/release-runbook.md)** — End-to-end SDK package and signed example release procedure for maintainers.
 - 📂 **[Examples Directory Index](examples/README.md)** — Complete guide to all example projects and learning paths.
 
 ---

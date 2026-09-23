@@ -278,7 +278,7 @@ class ZukeConfig {
         final packages = value['packages'];
         if (packages is List) {
           targetPackages[entry.key] = packages
-              .whereType<Map>()
+              .whereType<Map<Object?, Object?>>()
               .map((package) => Map<String, dynamic>.from(package))
               .toList();
         }
@@ -422,7 +422,11 @@ class ZukeConfig {
     );
   }
 
-  static void _validateConfigurationShapes(Map doc, Map policies, Map lock) {
+  static void _validateConfigurationShapes(
+    Map<Object?, Object?> doc,
+    Map<Object?, Object?> policies,
+    Map<Object?, Object?> lock,
+  ) {
     final tooling = doc['dartTooling'];
     if (tooling != null && tooling is! Map) {
       throw const FormatException('dartTooling must be a mapping');
@@ -517,7 +521,11 @@ class ZukeConfig {
     }
   }
 
-  static void _requireString(Map section, String key, String path) {
+  static void _requireString(
+    Map<Object?, Object?> section,
+    String key,
+    String path,
+  ) {
     if (!section.containsKey(key)) return;
     final value = section[key];
     if (value is! String || value.trim().isEmpty) {
@@ -525,14 +533,22 @@ class ZukeConfig {
     }
   }
 
-  static void _requireBool(Map section, String key, String path) {
+  static void _requireBool(
+    Map<Object?, Object?> section,
+    String key,
+    String path,
+  ) {
     if (!section.containsKey(key)) return;
     if (section[key] is! bool) {
       throw FormatException('$path.$key must be boolean');
     }
   }
 
-  static void _requireStringList(Map section, String key, String path) {
+  static void _requireStringList(
+    Map<Object?, Object?> section,
+    String key,
+    String path,
+  ) {
     if (!section.containsKey(key)) return;
     final value = section[key];
     if (value is! List || value.any((entry) => entry is! String)) {
@@ -541,7 +557,7 @@ class ZukeConfig {
   }
 
   static void _requireEnum(
-    Map section,
+    Map<Object?, Object?> section,
     String key,
     String path,
     Set<String> allowed,
@@ -554,10 +570,10 @@ class ZukeConfig {
   }
 
   static void _validateV3(
-    Map targets,
+    Map<Object?, Object?> targets,
     Map<String, dynamic> execution,
-    Map evidence,
-    Map lock,
+    Map<Object?, Object?> evidence,
+    Map<Object?, Object?> lock,
     Map<String, List<Map<String, dynamic>>> targetPackages,
     Map<String, String> targetFrameworks,
     List<String> lockProfiles,
@@ -932,7 +948,7 @@ class WorkspaceDiscovery {
     List<String> errors,
   ) {
     final runners = (config.executionConfig['runners'] as List? ?? const [])
-        .whereType<Map>()
+        .whereType<Map<Object?, Object?>>()
         .toList();
     for (final feature in features) {
       for (final rule in feature.rules) {

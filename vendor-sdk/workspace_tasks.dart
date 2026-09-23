@@ -208,7 +208,7 @@ Future<List<_WorkspacePackage>> _workspacePackages() async {
   }
   final decoded = jsonDecode(result.stdout as String) as Map<String, Object?>;
   final entries = decoded['packages'] as List<Object?>? ?? const [];
-  return entries.whereType<Map>().map((entry) {
+  return entries.whereType<Map<Object?, Object?>>().map((entry) {
     final path = entry['path']?.toString();
     if (path == null || path.isEmpty) {
       throw const FormatException('Workspace package entry is missing path.');
@@ -301,7 +301,7 @@ Future<_PackageResult> _runPackage(
           if (streamOutput) stdout.write('[${package.path}] $chunk');
           resetIdleTimer();
         },
-        onError: (Object _, StackTrace __) {
+        onError: (Object _, StackTrace _) {
           if (!stdoutDone.isCompleted) stdoutDone.complete();
         },
         onDone: () {
@@ -315,7 +315,7 @@ Future<_PackageResult> _runPackage(
           stderrBuffer.write(chunk);
           resetIdleTimer();
         },
-        onError: (Object _, StackTrace __) {
+        onError: (Object _, StackTrace _) {
           if (!stderrDone.isCompleted) stderrDone.complete();
         },
         onDone: () {
@@ -337,7 +337,7 @@ Future<_PackageResult> _runPackage(
     ]);
     if (timedOut) {
       stderrBuffer.writeln(
-        'ZUKE-PACKAGE-TIMEOUT: ${package.path} produced no output for '
+        'ZK-PACKAGE-TIMEOUT: ${package.path} produced no output for '
         '$_packageIdleTimeout.',
       );
     }

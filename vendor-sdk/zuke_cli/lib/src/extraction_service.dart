@@ -236,7 +236,7 @@ class ExtractionService {
       }
     }
     files.sort((a, b) => a.path.compareTo(b.path));
-    final bytes = <int>[]..addAll(utf8.encode('$adapter|$compatibilityId|'));
+    final bytes = <int>[...utf8.encode('$adapter|$compatibilityId|')];
     final normalizedRoot = Directory(
       root,
     ).absolute.path.replaceAll('\\', '/').replaceFirst(RegExp(r'/$'), '');
@@ -517,13 +517,13 @@ class ExtractionService {
             ? decoded
             : decoded is Map
             ? [decoded]
-            : const [];
+            : const <Object?>[];
         if (values.isEmpty) {
           errors.add(
             'Evidence file is not a record or record list: ${file.path}',
           );
         }
-        for (final value in values.whereType<Map>()) {
+        for (final value in values.whereType<Map<Object?, Object?>>()) {
           final record = Map<String, Object?>.from(value);
           final executionId = record['executionId'];
           if (executionId is! String || executionId.isEmpty) {
@@ -562,7 +562,7 @@ class ExtractionService {
       }
       final package = value['package'];
       final symbols = (value['symbols'] as List? ?? const [])
-          .whereType<Map>()
+          .whereType<Map<Object?, Object?>>()
           .map(_symbolFromJson)
           .toList();
       final completeness = value['completeness'] as Map? ?? const {};
@@ -613,7 +613,7 @@ class ExtractionService {
     }
   }
 
-  ExtractedSymbol _symbolFromJson(Map value) {
+  ExtractedSymbol _symbolFromJson(Map<Object?, Object?> value) {
     final source = value['source'] as Map? ?? const {};
     return ExtractedSymbol(
       kind: value['kind'] as String? ?? 'unknown',
@@ -647,38 +647,40 @@ class ExtractionService {
 
   IrGraph? _graphFromJson(Object? raw) {
     if (raw is! Map) return null;
-    final nodes = (raw['nodes'] as List? ?? const []).whereType<Map>().map((
-      node,
-    ) {
-      return IrNode(
-        id: node['id'] as String,
-        kind: NodeKind.values.firstWhere((k) => k.name == node['kind']),
-        target: node['target'] as String?,
-        role: node['role'] as String?,
-        variant: node['variant'] as String?,
-        slot: node['slot'] as String?,
-        properties: Map<String, Object?>.from(
-          node['properties'] as Map? ?? const {},
-        ),
-      );
-    }).toList();
-    final edges = (raw['edges'] as List? ?? const []).whereType<Map>().map((
-      edge,
-    ) {
-      return IrEdge(
-        sourceId: edge['source'] as String,
-        targetId: edge['target'] as String,
-        kind: EdgeKind.values.firstWhere((k) => k.name == edge['kind']),
-        properties: Map<String, Object?>.from(
-          edge['properties'] as Map? ?? const {},
-        ),
-        source: edge['location'] is Map
-            ? SourceSpan.fromJson(
-                Map<String, Object?>.from(edge['location'] as Map),
-              )
-            : null,
-      );
-    }).toList();
+    final nodes = (raw['nodes'] as List? ?? const [])
+        .whereType<Map<Object?, Object?>>()
+        .map((node) {
+          return IrNode(
+            id: node['id'] as String,
+            kind: NodeKind.values.firstWhere((k) => k.name == node['kind']),
+            target: node['target'] as String?,
+            role: node['role'] as String?,
+            variant: node['variant'] as String?,
+            slot: node['slot'] as String?,
+            properties: Map<String, Object?>.from(
+              node['properties'] as Map? ?? const {},
+            ),
+          );
+        })
+        .toList();
+    final edges = (raw['edges'] as List? ?? const [])
+        .whereType<Map<Object?, Object?>>()
+        .map((edge) {
+          return IrEdge(
+            sourceId: edge['source'] as String,
+            targetId: edge['target'] as String,
+            kind: EdgeKind.values.firstWhere((k) => k.name == edge['kind']),
+            properties: Map<String, Object?>.from(
+              edge['properties'] as Map? ?? const {},
+            ),
+            source: edge['location'] is Map
+                ? SourceSpan.fromJson(
+                    Map<String, Object?>.from(edge['location'] as Map),
+                  )
+                : null,
+          );
+        })
+        .toList();
     final c = raw['completeness'] as Map? ?? const {};
     CompletenessValue parse(String? value) =>
         CompletenessValue.values.firstWhere(
@@ -710,47 +712,31 @@ class ExtractionService {
     file.parent.createSync(recursive: true);
     final temporary = File('${file.path}.tmp');
     temporary.writeAsStringSync(
-      const JsonEncoder.withIndent('  ').convert({
-            'kind': 'zuke.cache',
-            'adapter': {
-              'id': output.adapter.id,
-              'version': output.adapter.version,
-              'compatibilityId': output.adapter.compatibilityId,
-            },
-            'package': {'name': output.packageName, 'root': output.packageRoot},
-            'completeness': output.completeness.toJson(),
-            'inputDigest': output.inputDigest,
-            'errors': output.errors,
-            if (output.graph != null) 'graph': output.graph!.toJson(),
-            'symbols': output.symbols
-                .map(
-                  (s) => {
-                    'kind': s.kind,
-                    'role': s.role,
-                    'symbolId': s.symbolId,
-                    if (s.requirementIds.isNotEmpty)
-                      'requirementIds': s.requirementIds,
-                    if (s.controlIds.isNotEmpty) 'controlIds': s.controlIds,
-                    if (s.bindingId != null) 'bindingId': s.bindingId,
-                    if (s.providerKind != null) 'providerKind': s.providerKind,
-                    if (s.layer != null) 'layer': s.layer,
-                    if (s.target != null) 'target': s.target,
-                    'variant': s.variant,
-                    'slot': s.slot,
-                    if (s.evidenceType != null) 'evidenceType': s.evidenceType,
-                    if (s.scenarioIds.isNotEmpty) 'scenarioIds': s.scenarioIds,
-                    'source': {
-                      'uri': s.source.uri,
-                      'offset': s.source.offset,
-                      'length': s.source.length,
-                      'line': s.source.line,
-                      'column': s.source.column,
-                    },
-                  },
-                )
-                .toList(),
-          }) +
-          '\n',
+      '${const JsonEncoder.withIndent('  ').convert({
+        'kind': 'zuke.cache',
+        'adapter': {'id': output.adapter.id, 'version': output.adapter.version, 'compatibilityId': output.adapter.compatibilityId},
+        'package': {'name': output.packageName, 'root': output.packageRoot},
+        'completeness': output.completeness.toJson(),
+        'inputDigest': output.inputDigest,
+        'errors': output.errors,
+        if (output.graph != null) 'graph': output.graph!.toJson(),
+        'symbols': output.symbols.map((s) => {
+          'kind': s.kind,
+          'role': s.role,
+          'symbolId': s.symbolId,
+          if (s.requirementIds.isNotEmpty) 'requirementIds': s.requirementIds,
+          if (s.controlIds.isNotEmpty) 'controlIds': s.controlIds,
+          if (s.bindingId != null) 'bindingId': s.bindingId,
+          if (s.providerKind != null) 'providerKind': s.providerKind,
+          if (s.layer != null) 'layer': s.layer,
+          if (s.target != null) 'target': s.target,
+          'variant': s.variant,
+          'slot': s.slot,
+          if (s.evidenceType != null) 'evidenceType': s.evidenceType,
+          if (s.scenarioIds.isNotEmpty) 'scenarioIds': s.scenarioIds,
+          'source': {'uri': s.source.uri, 'offset': s.source.offset, 'length': s.source.length, 'line': s.source.line, 'column': s.source.column},
+        }).toList(),
+      })}\n',
     );
     if (file.existsSync()) file.deleteSync();
     temporary.renameSync(file.path);

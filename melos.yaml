@@ -20,8 +20,8 @@ scripts:
   bootstrap: dart --disable-dart-dev --suppress-analytics pub get
   format:check: dart --disable-dart-dev --suppress-analytics run vendor-sdk/check_format.dart
   docs:check: dart --disable-dart-dev --suppress-analytics run vendor-sdk/check_docs.dart
-  analyze:dart: dart --disable-dart-dev --suppress-analytics run vendor-sdk/workspace_tasks.dart analyze
-  analyze:flutter: dart --disable-dart-dev --suppress-analytics run melos exec --scope=calculator_mobile --scope=shopping_cart --scope=todo_app --concurrency=3 -- flutter --suppress-analytics analyze --no-pub
+  analyze:dart: dart --disable-dart-dev --suppress-analytics run vendor-sdk/workspace_tasks.dart analyze --fatal-infos
+  analyze:flutter: dart --disable-dart-dev --suppress-analytics run melos exec --scope=calculator_mobile --scope=shopping_cart --scope=todo_app --concurrency=3 -- flutter --suppress-analytics analyze --no-pub --fatal-infos
   analyze:all: dart --disable-dart-dev --suppress-analytics run melos run analyze:dart && dart --disable-dart-dev --suppress-analytics run melos run analyze:flutter
   test:dart: dart --disable-dart-dev --suppress-analytics run vendor-sdk/run_dart_tests.dart
   test:flutter: flutter --suppress-analytics --version && dart --disable-dart-dev --suppress-analytics run melos exec --scope=calculator_mobile --scope=shopping_cart --scope=todo_app --concurrency=1 -- flutter --suppress-analytics test --no-pub

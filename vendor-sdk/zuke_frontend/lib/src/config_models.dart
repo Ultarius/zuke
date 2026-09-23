@@ -613,9 +613,9 @@ List<String> _requiredStrings(Map<Object?, Object?> value, String key) {
 }
 
 Object? _freeze(Object? value) => switch (value) {
-  Map value => Map.unmodifiable(
+  Map<Object?, Object?> value => Map<Object?, Object?>.unmodifiable(
     value.map((key, item) => MapEntry(key, _freeze(item))),
   ),
-  List value => List.unmodifiable(value.map(_freeze)),
+  List<Object?> value => List<Object?>.unmodifiable(value.map(_freeze)),
   _ => value,
 };

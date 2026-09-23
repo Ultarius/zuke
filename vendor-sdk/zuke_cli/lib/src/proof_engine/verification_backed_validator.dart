@@ -153,7 +153,7 @@ class VerificationBackedValidator {
             final definition = profiles is Map ? profiles[profile] : null;
             final requires = definition is Map ? definition['requires'] : null;
             if (requires is List) {
-              for (final raw in requires.whereType<Map>()) {
+              for (final raw in requires.whereType<Map<Object?, Object?>>()) {
                 final target = raw['target']?.toString();
                 if (target == null || target.isEmpty) continue;
                 final id = raw['id']?.toString();

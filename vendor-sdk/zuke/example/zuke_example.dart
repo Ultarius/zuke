@@ -35,7 +35,7 @@ Feature: Example
     ..register(
       StepDefinition(
         pattern: RegExp(r'^the example application is ready$'),
-        action: (_, __, ___) async => application.ready = true,
+        action: (_, _, _) async => application.ready = true,
       ),
     );
 

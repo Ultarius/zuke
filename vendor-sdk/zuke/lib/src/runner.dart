@@ -5,7 +5,6 @@ import 'dart:io';
 import 'package:crypto/crypto.dart';
 import 'package:zuke_frontend/zuke_frontend.dart';
 import 'package:zuke_core/zuke_core.dart';
-import 'package:zuke_core/src/atomic_file_writer.dart';
 import 'step_arguments.dart';
 
 abstract class ScenarioWorld {
@@ -385,6 +384,7 @@ class ScenarioResult implements ExecutionResult {
         error: error,
       );
 
+  @override
   Map<String, Object?> toJson() {
     final identity = _sourceIdentity(
       sourcePackage: sourcePackage,
@@ -574,6 +574,7 @@ class SuiteResult implements ExecutionResult {
         error: error,
       );
 
+  @override
   Map<String, Object?> toJson() {
     final identity = _sourceIdentity(
       sourcePackage: sourcePackage,
@@ -1056,7 +1057,7 @@ class ScenarioExecutor<W extends ScenarioWorld> {
         rule.metadata.id ??
         feature.metadata.id ??
         scenario.scenarioElement.title;
-    final scenarioIds = <ScenarioId>[if (candidateId != null) candidateId!];
+    final scenarioIds = <ScenarioId>[?candidateId];
     ScenarioResult result(
       ScenarioStatus status, {
       List<StepResult> steps = const [],
@@ -1086,10 +1087,10 @@ class ScenarioExecutor<W extends ScenarioWorld> {
       ...rule.backgroundSteps,
       ...scenario.steps,
     ].map((step) => _substitute(step, row)).toList();
-    final matches = <(GherkinStep, StepMatch<W>)>[];
+    final matches = <_ResolvedStep<W>>[];
     try {
       for (final step in allSteps) {
-        matches.add((step, registry.resolve(step)));
+        matches.add(_ResolvedStep(step, registry.resolve(step)));
       }
     } on UnresolvedStepException catch (e) {
       return result(ScenarioStatus.unresolved, error: e.toString());
@@ -1101,11 +1102,15 @@ class ScenarioExecutor<W extends ScenarioWorld> {
     final stepResults = <StepResult>[];
     for (final pair in matches) {
       try {
-        await pair.$2.definition.action(world, pair.$1, pair.$2.arguments);
+        await pair.match.definition.action(
+          world,
+          pair.step,
+          pair.match.arguments,
+        );
         stepResults.add(
           StepResult(
-            keyword: pair.$1.keyword,
-            text: pair.$1.text,
+            keyword: pair.step.keyword,
+            text: pair.step.text,
             status: StepStatus.passed,
           ),
         );
@@ -1113,8 +1118,8 @@ class ScenarioExecutor<W extends ScenarioWorld> {
         final diagnostic = '$e\n$stackTrace';
         stepResults.add(
           StepResult(
-            keyword: pair.$1.keyword,
-            text: pair.$1.text,
+            keyword: pair.step.keyword,
+            text: pair.step.text,
             status: StepStatus.failed,
             error: diagnostic,
           ),
@@ -1176,4 +1181,11 @@ class ScenarioExecutor<W extends ScenarioWorld> {
       table: step.table.map((r) => r.map(replace).toList()).toList(),
     );
   }
+}
+
+final class _ResolvedStep<W extends ScenarioWorld> {
+  const _ResolvedStep(this.step, this.match);
+
+  final GherkinStep step;
+  final StepMatch<W> match;
 }

@@ -428,7 +428,7 @@ class ZukeModel {
   };
 
   String renderJson() =>
-      const JsonEncoder.withIndent('  ').convert(toJson()) + '\n';
+      '${const JsonEncoder.withIndent('  ').convert(toJson())}\n';
 }
 
 String renderSpecModelJson(ZukeModel model) => model.renderJson();

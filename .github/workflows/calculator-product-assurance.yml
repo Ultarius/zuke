@@ -1,5 +1,8 @@
 name: calculator-product-assurance
 
+permissions:
+  contents: read
+
 on:
   workflow_call:
     inputs:
@@ -36,24 +39,20 @@ jobs:
       ZUKE_TEST_WORKERS: '8'
       ZUKE_TEST_PACKAGE_SLOTS: "${{ matrix.os == 'windows-latest' && '2' || '4' }}"
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
-      - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2
-        with:
-          flutter-version: '3.44.8'
-          channel: stable
-          cache: true
-      - run: flutter --suppress-analytics pub get
+      - name: Check out repository for local action resolution
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - uses: ./.github/actions/setup-zuke
       - name: Verify zuke_core with published analyzer resolution
         run: dart --suppress-analytics run tool/check_zuke_core_analyzer14.dart
       - name: Prepare Flutter tool package
         run: dart --suppress-analytics run tool/prepare_flutter_toolchain.dart
       - run: dart --suppress-analytics format --output=none --set-exit-if-changed vendor-sdk examples/calculator-product
       - run: dart --suppress-analytics run melos run docs:check
-      - run: dart --suppress-analytics run melos exec --no-flutter -- dart --suppress-analytics analyze
-      - run: flutter --suppress-analytics analyze examples/calculator-product/apps/calculator_mobile
+      - run: dart --suppress-analytics run melos exec --no-flutter -- dart --suppress-analytics analyze --fatal-infos
+      - run: flutter --suppress-analytics analyze examples/calculator-product/apps/calculator_mobile --fatal-infos
       - run: flutter --suppress-analytics test
         working-directory: examples/calculator-product/apps/calculator_mobile
-      - run: dart --suppress-analytics analyze
+      - run: dart --suppress-analytics analyze --fatal-infos
         working-directory: examples/calculator-product/apps/calculator_api
       - name: Missing-lock regression
         run: dart --suppress-analytics test vendor-sdk/zuke_cli/test/lock_missing_probe_test.dart

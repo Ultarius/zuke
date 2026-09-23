@@ -155,7 +155,7 @@ class ManifestCommand {
     final file = File('${dir.path}/$digest.json');
     if (!file.existsSync()) {
       file.writeAsStringSync(
-        const JsonEncoder.withIndent('  ').convert(record) + '\n',
+        '${const JsonEncoder.withIndent('  ').convert(record)}\n',
       );
     }
     return file.path;
@@ -344,11 +344,7 @@ class ManifestCommand {
       current = ((record as Map)['body'] as Map?)?['previousRecord'] as String?;
     }
     File(output).writeAsStringSync(
-      const JsonEncoder.withIndent('  ').convert({
-            'kind': 'zuke.behavioral-assurance-release-export',
-            'chain': chain,
-          }) +
-          '\n',
+      '${const JsonEncoder.withIndent('  ').convert({'kind': 'zuke.behavioral-assurance-release-export', 'chain': chain})}\n',
     );
   }
 

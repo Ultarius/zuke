@@ -5,20 +5,24 @@ on:
     tags:
       - 'v*'
 
+permissions:
+  contents: read
+
 jobs:
   shopping-cart-assurance:
     uses: ./.github/workflows/flutter-example-assurance.yml
     with:
       profile: release
-      changed-since: ${{ github.event.before }}
+      # Tag pushes report an all-zero event.before; empty selects the full suite.
+      changed-since: ''
       example-root: examples/shopping_cart
       package-name: shopping_cart
       require-history: false
   todo-app-assurance:
     uses: ./.github/workflows/flutter-example-assurance.yml
     with:
-      profile: merge
-      changed-since: ${{ github.event.before }}
+      profile: release
+      changed-since: ''
       example-root: examples/todo_app
       package-name: todo_app
       require-history: false
@@ -36,7 +40,9 @@ jobs:
       contents: read
       id-token: write
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - name: Check out repository for local action resolution
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - uses: ./.github/actions/setup-zuke
       - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
         with:
           name: zuke-calculator-product-assurance-ubuntu-latest
@@ -45,12 +51,6 @@ jobs:
         with:
           name: shopping-cart-assurance-ubuntu-latest
           path: .
-      - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2
-        with:
-          flutter-version: '3.44.8'
-          channel: stable
-          cache: true
-      - run: flutter --suppress-analytics pub get
       - name: Prepare Flutter tool package
         run: dart --suppress-analytics run tool/prepare_flutter_toolchain.dart
       - name: Obtain short-lived Azure signer token through GitHub OIDC

@@ -154,7 +154,7 @@ packages:
     source: hosted
     version: "1.15.1"
   crypto:
-    dependency: transitive
+    dependency: "direct dev"
     description:
       name: crypto
       sha256: c8ea0233063ba03258fbcf2ca4d6dadfefe14f02fab57702265467a19f27fadf
@@ -332,7 +332,7 @@ packages:
     source: hosted
     version: "3.0.2"
   lints:
-    dependency: transitive
+    dependency: "direct dev"
     description:
       name: lints
       sha256: "12f842a479589fea194fe5c5a3095abc7be0c1f2ddfa9a0e76aed1dbd26a87df"

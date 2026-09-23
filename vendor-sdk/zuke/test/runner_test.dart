@@ -708,7 +708,9 @@ Feature: Failures
     expect(files, hasLength(2));
     final results = files
         .map(
-          (file) => SuiteResult.fromJson(jsonDecode(file.readAsStringSync())),
+          (file) => SuiteResult.fromJson(
+            jsonDecode(file.readAsStringSync()) as Map<String, Object?>,
+          ),
         )
         .toList();
     expect(results.map((result) => result.evidenceType).toSet(), {
@@ -740,7 +742,7 @@ Feature: Failures
 
     expect(files, hasLength(1));
     final result = SuiteResult.fromJson(
-      jsonDecode(files.single.readAsStringSync()),
+      jsonDecode(files.single.readAsStringSync()) as Map<String, Object?>,
     );
     expect(result.controlIds, ['CTL-A', 'CTL-B']);
   });
@@ -787,10 +789,10 @@ Feature: Failures
         .single;
 
     final pullRequestResult = SuiteResult.fromJson(
-      jsonDecode(pullRequest.readAsStringSync()),
+      jsonDecode(pullRequest.readAsStringSync()) as Map<String, Object?>,
     );
     final mergeResult = SuiteResult.fromJson(
-      jsonDecode(merge.readAsStringSync()),
+      jsonDecode(merge.readAsStringSync()) as Map<String, Object?>,
     );
     expect(mergeResult.executionId, isNot(pullRequestResult.executionId));
   });

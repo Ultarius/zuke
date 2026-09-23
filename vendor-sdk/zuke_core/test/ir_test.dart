@@ -65,7 +65,7 @@ void main() {
       controlId: 'CTRL-1',
       status: ProofStatus.proven,
       semantics: CoverageSemantics.ingressDominance,
-      completeness: const {'routeRegistration': CompletenessValue.complete},
+      completeness: {'routeRegistration': CompletenessValue.complete},
     );
     expect(result.toJson()['status'], 'proven');
     expect(result.toJson()['semantics'], 'ingress-dominance');

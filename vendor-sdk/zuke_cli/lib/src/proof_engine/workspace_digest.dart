@@ -133,7 +133,7 @@ final class WorkspaceDigest {
       final relative = path
           .substring(normalizedRoot.length)
           .replaceFirst(RegExp(r'^/+'), '');
-      return (path: relative, content: entry.value);
+      return _InputEntry(relative, entry.value);
     }).toList()..sort((left, right) => left.path.compareTo(right.path));
     if (entries.isEmpty) {
       throw StateError(
@@ -154,36 +154,117 @@ final class WorkspaceDigest {
     return output.value.toString();
   }
 
+  static const _emptyDigest =
+      'sha256:0000000000000000000000000000000000000000000000000000000000000000';
+
   /// Synchronously computes a digest over files in [rootPath] matching [include].
+  ///
+  /// Skips the same ignored tool/platform directories as [compute] so filtered
+  /// evidence digests do not walk `.dart_tool`, `build`, and similar trees.
   static String computeFiltered(
     String rootPath,
     bool Function(String path) include,
   ) {
     final rootDirectory = Directory(rootPath);
     if (!rootDirectory.existsSync()) {
-      return 'sha256:0000000000000000000000000000000000000000000000000000000000000000';
+      return _emptyDigest;
     }
-    final files =
-        rootDirectory
-            .listSync(recursive: true, followLinks: false)
-            .whereType<File>()
-            .map((file) {
-              final relative = file.path
-                  .substring(rootDirectory.path.length)
-                  .replaceAll('\\', '/')
-                  .replaceFirst(RegExp(r'^/+'), '');
-              return (file: file, relative: relative);
-            })
-            .where((entry) => include(entry.relative))
-            .toList()
-          ..sort((left, right) => left.relative.compareTo(right.relative));
+    final files = <_DigestFile>[];
+    _walkFiltered(rootDirectory, '', (file, relative) {
+      if (include(relative)) {
+        files.add(_DigestFile(file, relative));
+      }
+    });
+    return _hashRelativeFiles(files);
+  }
+
+  /// Computes several filtered digests over one recursive listing of [rootPath].
+  ///
+  /// Each entry in [includes] is an independent predicate; a file may land in
+  /// more than one bucket. Per-bucket results match calling [computeFiltered]
+  /// once per predicate (same path set, sort order, and hash framing).
+  /// Ignored tool/platform directories are pruned as in [computeFiltered].
+  static Map<String, String> computeFilteredMany(
+    String rootPath,
+    Map<String, bool Function(String path)> includes,
+  ) {
+    final rootDirectory = Directory(rootPath);
+    if (!rootDirectory.existsSync()) {
+      return {for (final name in includes.keys) name: _emptyDigest};
+    }
+    final buckets = {for (final name in includes.keys) name: <_DigestFile>[]};
+    _walkFiltered(rootDirectory, '', (file, relative) {
+      for (final entry in includes.entries) {
+        if (entry.value(relative)) {
+          buckets[entry.key]!.add(_DigestFile(file, relative));
+        }
+      }
+    });
+    return {
+      for (final entry in includes.entries)
+        entry.key: _hashRelativeFiles(buckets[entry.key]!),
+    };
+  }
+
+  /// Paths hashed into the evidence `mapping` digest.
+  static bool evidenceMappingInclude(String path) =>
+      path.startsWith('specs/registry/') ||
+      path.startsWith('policies/') ||
+      path.endsWith('zuke.yaml');
+
+  /// Paths hashed into the evidence `specificationIndex` digest.
+  static bool evidenceSpecificationInclude(String path) =>
+      path.startsWith('specs/');
+
+  /// One-listing digests written on evidence records and rechecked on validate.
+  static Map<String, String> computeEvidenceIndexDigests(String rootPath) =>
+      computeFilteredMany(rootPath, {
+        'mapping': evidenceMappingInclude,
+        'specificationIndex': evidenceSpecificationInclude,
+      });
+
+  static void _walkFiltered(
+    Directory directory,
+    String relativeDirectory,
+    void Function(File file, String relative) onFile,
+  ) {
+    for (final entity in directory.listSync(followLinks: false)) {
+      final name = _basename(entity.path);
+      final relative = relativeDirectory.isEmpty
+          ? name
+          : '$relativeDirectory/$name';
+      if (entity is Directory) {
+        if (_shouldPruneDirectory(name, relative)) continue;
+        _walkFiltered(entity, relative, onFile);
+        continue;
+      }
+      if (entity is File) {
+        onFile(entity, relative);
+      }
+    }
+  }
+
+  static bool _shouldPruneDirectory(String name, String relativePath) {
+    if (_ignoredDirectoryNames.contains(name)) return true;
+    final segments = relativePath.split('/');
+    return name == 'ephemeral' &&
+        segments.length >= 2 &&
+        segments[segments.length - 2] == 'flutter';
+  }
+
+  static String _hashRelativeFiles(List<_DigestFile> files) {
+    final sorted = [...files]
+      ..sort((left, right) => left.relativePath.compareTo(right.relativePath));
     final bytes = <int>[];
-    for (final entry in files) {
+    for (final entry in sorted) {
       bytes
-        ..addAll(utf8.encode(entry.relative))
+        ..addAll(utf8.encode(entry.relativePath))
         ..add(0)
         ..addAll(
-          canonicalDigestBytes(entry.relative, entry.file.readAsBytesSync()),
+          canonicalDigestBytes(
+            entry.relativePath,
+            entry.file.readAsBytesSync(),
+          ),
         )
         ..add(0);
     }
@@ -212,13 +293,8 @@ final class WorkspaceDigest {
     }
   }
 
-  bool _ignoreDirectory(String name, String relativePath) {
-    if (_ignoredDirectoryNames.contains(name)) return true;
-    final segments = relativePath.split('/');
-    return name == 'ephemeral' &&
-        segments.length >= 2 &&
-        segments[segments.length - 2] == 'flutter';
-  }
+  bool _ignoreDirectory(String name, String relativePath) =>
+      _shouldPruneDirectory(name, relativePath);
 
   bool _ignoreFile(String name, String relativePath) =>
       _excludedFiles.contains(relativePath) ||
@@ -248,6 +324,13 @@ final class _DigestFile {
 
   final File file;
   final String relativePath;
+}
+
+final class _InputEntry {
+  const _InputEntry(this.path, this.content);
+
+  final String path;
+  final String content;
 }
 
 final class _DigestSink implements Sink<Digest> {

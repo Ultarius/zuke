@@ -582,7 +582,7 @@ class _ResolvedVisitor extends RecursiveAstVisitor<void> {
     if (isMatchingName &&
         uri != 'package:zuke_http_runtime/zuke_http_runtime.dart') {
       errors.add(
-        '${file}:${lineInfo.getLocation(node.offset).lineNumber}: '
+        '$file:${lineInfo.getLocation(node.offset).lineNumber}: '
         'unresolved registration for $name',
       );
     }
@@ -599,7 +599,7 @@ class _ResolvedVisitor extends RecursiveAstVisitor<void> {
       if (expression == null) return const [];
       if (expression is! ListLiteral) {
         errors.add(
-          '${file}:${lineInfo.getLocation(expression.offset).lineNumber}: '
+          '$file:${lineInfo.getLocation(expression.offset).lineNumber}: '
           '$fieldName must be a list literal',
         );
         return const [];
@@ -610,7 +610,7 @@ class _ResolvedVisitor extends RecursiveAstVisitor<void> {
           results.add(element);
         } else {
           errors.add(
-            '${file}:${lineInfo.getLocation(element.offset).lineNumber}: '
+            '$file:${lineInfo.getLocation(element.offset).lineNumber}: '
             'mutation or dynamic element in registration list $fieldName is not supported',
           );
         }
@@ -673,7 +673,7 @@ class _ResolvedVisitor extends RecursiveAstVisitor<void> {
           properties: {
             'sourceUri': 'package:$packageName/${_relativeLibPath(file)}',
             'sourceLine': lineInfo.getLocation(node.offset).lineNumber,
-            if (flow != null) 'flow': flow,
+            'flow': ?flow,
             ...properties,
           },
         ),
@@ -697,7 +697,7 @@ class _ResolvedVisitor extends RecursiveAstVisitor<void> {
           routeArgs.addAll(_namedArguments(route.argumentList.arguments));
         } else {
           errors.add(
-            '${file}:${lineInfo.getLocation(route.offset).lineNumber}: dynamic ZukeRouteRegistration',
+            '$file:${lineInfo.getLocation(route.offset).lineNumber}: dynamic ZukeRouteRegistration',
           );
           continue;
         }
@@ -705,7 +705,7 @@ class _ResolvedVisitor extends RecursiveAstVisitor<void> {
         final path = stringValue(routeArgs['path']);
         if (endpoint == null || path == null) {
           errors.add(
-            '${file}:${lineInfo.getLocation(route.offset).lineNumber}: dynamic ZukeRouteRegistration',
+            '$file:${lineInfo.getLocation(route.offset).lineNumber}: dynamic ZukeRouteRegistration',
           );
           continue;
         }
@@ -766,7 +766,7 @@ class _ResolvedVisitor extends RecursiveAstVisitor<void> {
           );
         } else {
           errors.add(
-            '${file}:${lineInfo.getLocation(failure.offset).lineNumber}: dynamic ZukeFailurePipelineRegistration',
+            '$file:${lineInfo.getLocation(failure.offset).lineNumber}: dynamic ZukeFailurePipelineRegistration',
           );
         }
       }
@@ -785,7 +785,7 @@ class _ResolvedVisitor extends RecursiveAstVisitor<void> {
           );
         } else {
           errors.add(
-            '${file}:${lineInfo.getLocation(logging.offset).lineNumber}: dynamic ZukeLoggingPipelineRegistration',
+            '$file:${lineInfo.getLocation(logging.offset).lineNumber}: dynamic ZukeLoggingPipelineRegistration',
           );
         }
       }
@@ -989,7 +989,7 @@ class _ResolvedVisitor extends RecursiveAstVisitor<void> {
       if (name == null || name.isEmpty) {
         final location = lineInfo.getLocation(node.offset);
         errors.add(
-          '${file}:${location.lineNumber}: unresolved $targetKind declaration name',
+          '$file:${location.lineNumber}: unresolved $targetKind declaration name',
         );
         continue;
       }

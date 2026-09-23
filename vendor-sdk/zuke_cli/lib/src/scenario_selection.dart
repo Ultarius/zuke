@@ -121,9 +121,9 @@ class ScenarioSelection {
 
   void writeAtomic(File output) {
     output.parent.createSync(recursive: true);
-    final temporary = File('${output.path}.tmp-${pid}');
+    final temporary = File('${output.path}.tmp-$pid');
     temporary.writeAsStringSync(
-      const JsonEncoder.withIndent('  ').convert(toJson()) + '\n',
+      '${const JsonEncoder.withIndent('  ').convert(toJson())}\n',
       flush: true,
     );
     temporary.renameSync(output.path);

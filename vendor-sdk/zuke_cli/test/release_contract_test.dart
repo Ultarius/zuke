@@ -3,7 +3,7 @@ import 'dart:io';
 import 'package:test/test.dart';
 import 'package:zuke_cli/src/generated/release_contract.dart';
 
-import '../../../tool/release_matrix.dart';
+import 'support/release_matrix.dart';
 
 void main() {
   test('generated release contract matches the authoritative matrix', () {

@@ -198,7 +198,7 @@ final class AssuranceObligationCatalog {
           final definition = profiles is Map ? profiles[profile] : null;
           final requires = definition is Map ? definition['requires'] : null;
           if (requires is! List) continue;
-          for (final raw in requires.whereType<Map>()) {
+          for (final raw in requires.whereType<Map<Object?, Object?>>()) {
             final controlId = raw['id']?.toString();
             if (controlId == null || controlId.isEmpty) continue;
             final target = raw['target']?.toString();

@@ -2,7 +2,7 @@ import 'dart:convert';
 
 import 'package:test/test.dart';
 
-import '../../check_format.dart';
+import 'support/check_format.dart';
 
 void main() {
   test('reads formatter JSON without stripping source-looking status text', () {

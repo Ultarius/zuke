@@ -487,7 +487,7 @@ class DartContractGenerator {
           final scenarios = scenarioContracts[rule.metadata.id!] ?? const [];
           if (scenarios.isEmpty) continue;
           buffer.writeln(
-            '    ${_dartStringLiteral(rule.metadata.id!)}: List.unmodifiable(<${featureScenarioType}>[',
+            '    ${_dartStringLiteral(rule.metadata.id!)}: List.unmodifiable(<$featureScenarioType>[',
           );
           for (final scenario in scenarios) {
             buffer.writeln(
@@ -833,7 +833,7 @@ ZukeScenarioContract zukeScenarioContract(String id) =>
         final definition = profiles is Map ? profiles[profile] : null;
         final requires = definition is Map ? definition['requires'] : null;
         if (requires is! List) continue;
-        for (final control in requires.whereType<Map>()) {
+        for (final control in requires.whereType<Map<Object?, Object?>>()) {
           if (control['kind']?.toString() == 'control' &&
               control['id']?.toString().isNotEmpty == true) {
             result.add(control['id']!.toString());

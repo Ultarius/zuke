@@ -91,7 +91,7 @@ void main() {
       expect(completeness.containsKey('middlewareOrder'), isTrue);
 
       expect(json.containsKey('nodes'), isTrue);
-      expect(json['nodes'], isA<List>());
+      expect(json['nodes'], isA<List<Object?>>());
     });
 
     test('incompatible adapter claims fail with stable diagnostic', () {
@@ -347,7 +347,8 @@ void main() {
       final defaults = registry['defaults'] as Map;
       expect(defaults['owner'], 'unknown');
       expect((defaults['remediation'] as String).trim(), isNotEmpty);
-      final entries = (registry['diagnostics'] as List).cast<Map>();
+      final entries = (registry['diagnostics'] as List)
+          .cast<Map<Object?, Object?>>();
       final codes = <String>{};
       final codePattern = RegExp(r'^(?:ZUKE|ZK)-[A-Z0-9]+(?:-[A-Z0-9]+)*$');
       for (final entry in entries) {
@@ -385,7 +386,8 @@ void main() {
       final catalog = jsonDecode(catalogFile.readAsStringSync()) as Map;
       expect(catalog['schemaVersion'], 'zuke.conformance-catalog.v1');
       final ids = <String>{};
-      for (final value in (catalog['cases'] as List).cast<Map>()) {
+      for (final value
+          in (catalog['cases'] as List).cast<Map<Object?, Object?>>()) {
         final id = value['id'] as String;
         expect(ids.add(id), isTrue, reason: 'Duplicate catalog ID $id');
         expect(value['blocksRelease'], isTrue);
@@ -412,7 +414,7 @@ void main() {
       expect(lock['kind'], 'zuke.lock');
       final controls = lock['controls'] as Map;
       final assurances = controls.values
-          .whereType<Map>()
+          .whereType<Map<Object?, Object?>>()
           .map((value) => value['assurance'])
           .whereType<String>()
           .toSet();
@@ -432,7 +434,7 @@ void main() {
                 entry.key.toString().contains('|CTRL-CALC-RATE-LIMIT|'),
           )
           .map((entry) => entry.value)
-          .whereType<Map>()
+          .whereType<Map<Object?, Object?>>()
           .toList();
       expect(rateLimitControls, isNotEmpty);
       expect(
@@ -450,7 +452,7 @@ void main() {
             ),
           )
           .map((entry) => entry.value)
-          .whereType<Map>()
+          .whereType<Map<Object?, Object?>>()
           .single;
       expect(provenErrorRedaction['assurance'], 'proven');
       expect(
@@ -475,7 +477,7 @@ void main() {
               as Map;
       expect(trust['kind'], 'zuke.ed25519-trust');
       final identities = <String>{};
-      for (final key in (trust['keys'] as List).cast<Map>()) {
+      for (final key in (trust['keys'] as List).cast<Map<Object?, Object?>>()) {
         expect(key['algorithm'], 'Ed25519');
         expect(base64Decode(key['publicKey'] as String), hasLength(32));
         expect(key['fingerprint'], matches(RegExp(r'^sha256:[a-f0-9]{64}$')));
@@ -537,8 +539,8 @@ void main() {
       expect(trace['kind'], 'zuke.adapter-fragment');
       expect(trace['package'], {'name': 'fixture', 'root': 'fixture'});
       expect((trace['inputs'] as Map)['digest'], 'sha256:0123456789abcdef');
-      expect(trace['completeness'], isA<Map>());
-      expect(trace['symbols'], isA<List>());
+      expect(trace['completeness'], isA<Map<Object?, Object?>>());
+      expect(trace['symbols'], isA<List<Object?>>());
     });
   });
 }

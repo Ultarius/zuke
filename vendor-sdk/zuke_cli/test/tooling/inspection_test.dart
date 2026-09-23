@@ -5,7 +5,7 @@ import 'package:crypto/crypto.dart';
 import 'package:test/test.dart';
 import 'package:zuke_cli/tooling.dart';
 
-import '../../../zuke_test_support/lib/src/temporary_directory.dart';
+import '../support/temporary_directory.dart';
 
 void main() {
   test('unresolved elements are never treated as matching', () {
