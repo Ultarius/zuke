@@ -1,5 +1,14 @@
 import 'package:zuke_cli/src/ir.dart';
 
+export 'package:zuke_cli/src/ir.dart'
+    show
+        ExtractedSourceLocation,
+        ExtractedSymbol,
+        ExtractedSymbolKind,
+        IrAdapterOutput,
+        IrDiagnostic,
+        IrDiagnosticSeverity;
+
 class DartExtractionResult {
   final List<CanonicalFragment> fragments;
   final List<String> errors;

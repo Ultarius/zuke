@@ -65,7 +65,7 @@ class CanonicalFragment {
     'symbols': symbols
         .map(
           (s) => {
-            'kind': s.kind,
+            'kind': s.kind.name,
             'role': s.role,
             'symbolId': s.symbolId,
             if (s.requirementIds.isNotEmpty) 'requirementIds': s.requirementIds,

@@ -1,0 +1,83 @@
+{
+  "kind": "zuke.analyzer-index",
+  "inputDigest": "sha256:6bf4846689ecaad6e8ec26e47086c9aa6b5af936ccf8ac149caa564e5bde5462",
+  "generatedManifestDigest": "sha256:d7caab6e39ba5c601c03f75b54cf1dd5e6905080833659ba8d321235943936e4",
+  "generatedManifestPath": "lib/src/.zuke-generated.json",
+  "inputs": [
+    {
+      "path": "policies/project-policy.yaml",
+      "digest": "sha256:685f6c0e20a2723f159c879c7813d141af1bc2897aacea053544821376b023b9"
+    },
+    {
+      "path": "policies/security-profiles.yaml",
+      "digest": "sha256:e766292dff563abbc767072c7aad4e3347c39fba819fd14f92e80eaf118ce7ad"
+    },
+    {
+      "path": "specs/controls/library-controls.yaml",
+      "digest": "sha256:52781fbd62b940457d1e0d7f74bc85653a43499404c374c55f0baf9f9da492b8"
+    },
+    {
+      "path": "specs/epics/EPIC-LIBRARY-001.yaml",
+      "digest": "sha256:3c69f94ebe4163be292f33ef3f5c580b645298d5d4482c1a361cbbaa1b219e0f"
+    },
+    {
+      "path": "specs/features/library_catalog.feature",
+      "digest": "sha256:65dcdf84a1b8f676754e601d88e4cb1d0962eca2ca9560d8808a0b700e0f16f7"
+    },
+    {
+      "path": "specs/registry/pbis.yaml",
+      "digest": "sha256:446203f3095bdcc5273c3538391c5cb3ecde9bda43263a34eb556fb9c804f0fa"
+    },
+    {
+      "path": "specs/registry/retired-ids.yaml",
+      "digest": "sha256:12236cee08854945126b2490d0670c0909d0900c5a335480302aa35f5915b264"
+    },
+    {
+      "path": "test/checkout_controller_test.dart",
+      "digest": "sha256:5bcce0caafd6b121494843aa934e7afe6079708c98e9307696362aad05d6c1a8"
+    },
+    {
+      "path": "zuke.yaml",
+      "digest": "sha256:8bfd3db7f50549b65df93800dae4b5b72fdf8273ffe29d83c618f44940ebe316"
+    }
+  ],
+  "inputPatterns": [
+    "policies/project-policy.yaml",
+    "policies/security-profiles.yaml",
+    "specs/controls/**/*.yaml",
+    "specs/epics/**/*.yaml",
+    "specs/features/**/*.feature",
+    "specs/registry/**/*.yaml"
+  ],
+  "patternInputs": [
+    "policies/project-policy.yaml",
+    "policies/security-profiles.yaml",
+    "specs/controls/library-controls.yaml",
+    "specs/epics/EPIC-LIBRARY-001.yaml",
+    "specs/features/library_catalog.feature",
+    "specs/registry/pbis.yaml",
+    "specs/registry/retired-ids.yaml"
+  ],
+  "requirementIds": [
+    "FEAT-LIBRARY-001",
+    "RULE-LIBRARY-BOOK-RETURN",
+    "RULE-LIBRARY-BRANCH-PEER",
+    "RULE-LIBRARY-CHECKOUT"
+  ],
+  "controlIds": [
+    "CTRL-LIBRARY-ISBN-VALIDATION"
+  ],
+  "bindingIds": [
+    "library.checkoutButton",
+    "library.errorMessage",
+    "library.isbnInput",
+    "library.loanCountDisplay",
+    "library.loanList",
+    "library.statusMessage"
+  ],
+  "verifiedRequirementIds": [
+    "RULE-LIBRARY-BOOK-RETURN",
+    "RULE-LIBRARY-BRANCH-PEER",
+    "RULE-LIBRARY-CHECKOUT"
+  ]
+}

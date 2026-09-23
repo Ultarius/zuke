@@ -36,3 +36,11 @@ bool pathEqualsOrWithin(String parent, String child) {
   return p.equals(resolvedParent, resolvedChild) ||
       p.isWithin(resolvedParent, resolvedChild);
 }
+
+/// Documentation fixtures under `test/guide_snippets/` intentionally restate
+/// production annotations for the integration guide. They are not
+/// implementation sources and must not contribute binding identities.
+bool isGuideSnippetFixture(String path) {
+  final normalized = path.replaceAll('\\', '/');
+  return normalized.contains('/guide_snippets/');
+}

@@ -71,6 +71,7 @@ class NoAnnotation {}
         requirementIds: const ['RULE-TEST-001'],
         controlIds: const [],
         bindingIds: const [],
+        verifiedRequirementIds: const ['RULE-TEST-001'],
       );
       final indexFile = File('${tempDir.path}/.zuke/analyzer-index.json')
         ..createSync(recursive: true);
@@ -167,26 +168,31 @@ class Service {
 
       analyzer_plugin.plugin.register(registry);
 
-      expect(registry.rules, hasLength(3));
+      expect(registry.rules, hasLength(4));
       expect(
         registry.rules.map((rule) => rule.name),
         containsAll([
           'zuke_annotation',
           'zuke_index_stale',
           'zuke_unknown_index_id',
+          'zuke_missing_test',
         ]),
       );
       expect(
-        analyzer_plugin.ZukeAnnotationRule().diagnosticCode.name,
+        analyzer_plugin.ZukeAnnotationRule().diagnosticCode.lowerCaseName,
         'zuke_annotation',
       );
       expect(
-        analyzer_plugin.ZukeIndexStaleRule().diagnosticCode.name,
+        analyzer_plugin.ZukeIndexStaleRule().diagnosticCode.lowerCaseName,
         'zuke_index_stale',
       );
       expect(
-        analyzer_plugin.ZukeUnknownIndexIdRule().diagnosticCode.name,
+        analyzer_plugin.ZukeUnknownIndexIdRule().diagnosticCode.lowerCaseName,
         'zuke_unknown_index_id',
+      );
+      expect(
+        analyzer_plugin.ZukeMissingTestRule().diagnosticCode.lowerCaseName,
+        'zuke_missing_test',
       );
     });
 
@@ -262,6 +268,36 @@ class Methods {
         final unknownIds = <Object>[];
         _walk(unit, ZukeUnknownIdVisitor(index, unknownIds.add));
         expect(unknownIds, hasLength(5));
+
+        const verifiedIndex = ZukeIndex(
+          inputDigest: 'input',
+          generatedManifestDigest: 'manifest',
+          generatedManifestPath: 'manifest.json',
+          inputs: [],
+          requirementIds: {'RULE-KNOWN'},
+          controlIds: {'CTRL-KNOWN'},
+          bindingIds: {'binding.known'},
+          verifiedRequirementIds: {'RULE-KNOWN'},
+        );
+        final missingWhenVerified = <Object>[];
+        _walk(
+          unit,
+          ZukeMissingTestVisitor(verifiedIndex, missingWhenVerified.add),
+        );
+        expect(missingWhenVerified, isEmpty);
+
+        const unverifiedIndex = ZukeIndex(
+          inputDigest: 'input',
+          generatedManifestDigest: 'manifest',
+          generatedManifestPath: 'manifest.json',
+          inputs: [],
+          requirementIds: {'RULE-KNOWN'},
+          controlIds: {'CTRL-KNOWN'},
+          bindingIds: {'binding.known'},
+        );
+        final missingTests = <Object>[];
+        _walk(unit, ZukeMissingTestVisitor(unverifiedIndex, missingTests.add));
+        expect(missingTests, hasLength(3));
       },
     );
 

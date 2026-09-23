@@ -474,8 +474,13 @@ void main() {
     final accessibleStep = steps.firstWhere(
       (s) => s.pattern.pattern.contains('accessible name'),
     );
+    final missingAccessibleMatch = GherkinStep(
+      keyword: 'Then',
+      text: 'element "missing" has accessible name "Name"',
+      source: const SourceLocation(file: 'test.feature', line: 3),
+    );
     await expectLater(
-      () => accessibleStep.action(world, focusMatch, {
+      () => accessibleStep.action(world, missingAccessibleMatch, {
         '1': 'missing',
         '2': 'Name',
       }),
@@ -487,8 +492,13 @@ void main() {
         ),
       ),
     );
+    final accessibleMismatchMatch = GherkinStep(
+      keyword: 'Then',
+      text: 'element "action" has accessible name "Nonexistent Name"',
+      source: const SourceLocation(file: 'test.feature', line: 4),
+    );
     await expectLater(
-      () => accessibleStep.action(world, focusMatch, {
+      () => accessibleStep.action(world, accessibleMismatchMatch, {
         '1': 'action',
         '2': 'Nonexistent Name',
       }),

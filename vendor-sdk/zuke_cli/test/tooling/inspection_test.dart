@@ -105,6 +105,7 @@ void main() {
       requirementIds: const ['RULE-1', ''],
       controlIds: const ['CTRL-1', ''],
       bindingIds: const ['binding-1', ''],
+      verifiedRequirementIds: const ['RULE-1', ''],
     );
     final indexFile = File('${root.path}/index.json')
       ..writeAsStringSync(jsonEncode(created.toJson()));
@@ -113,6 +114,7 @@ void main() {
     expect(decoded.requirementIds, {'RULE-1'});
     expect(decoded.controlIds, {'CTRL-1'});
     expect(decoded.bindingIds, {'binding-1'});
+    expect(decoded.verifiedRequirementIds, {'RULE-1'});
     expect(decoded.inputs.single.path, 'zuke.yaml');
     expect(decoded.isCurrent(root: root.path), isTrue);
 

@@ -7,6 +7,7 @@ import 'package:zuke_frontend/zuke_frontend.dart';
 
 import 'generator.dart';
 import 'configuration_preflight.dart';
+import 'verified_requirement_scan.dart';
 
 class GenerateCommand {
   final ArgResults args;
@@ -248,7 +249,11 @@ class GenerateCommand {
     required String generatedManifestContent,
     required String generatedManifestPath,
   }) {
-    final inputs = <String>{...workspace.inputContents.keys};
+    final verification = scanVerifiedRequirements(root, workspace);
+    final inputs = <String>{
+      ...workspace.inputContents.keys,
+      ...verification.sourcePaths,
+    };
     final requirements = <String>{};
     final bindings = <String>{};
     for (final feature in workspace.data.features) {
@@ -265,6 +270,7 @@ class GenerateCommand {
       requirementIds: requirements,
       controlIds: workspace.data.controls.keys,
       bindingIds: bindings,
+      verifiedRequirementIds: verification.requirementIds,
       inputPatterns: workspace.inputPatterns,
       patternInputPaths: workspace.patternInputPaths,
       inputContents: workspace.inputContents,

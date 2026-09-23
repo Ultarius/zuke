@@ -239,7 +239,7 @@ List<ExtractedSymbol> _providers(
 }) => List.generate(
   count,
   (index) => ExtractedSymbol(
-    kind: 'binding',
+    kind: ExtractedSymbolKind.binding,
     role: target,
     symbolId: 'test.dart#Provider$index',
     bindingId: 'list.item',

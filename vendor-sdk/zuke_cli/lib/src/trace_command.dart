@@ -3,7 +3,6 @@ import 'dart:io';
 import 'package:args/args.dart';
 import 'package:zuke_frontend/zuke_frontend.dart';
 import 'configuration_preflight.dart';
-import 'ir.dart' show ProofStatus;
 import 'ir.dart';
 
 import 'extraction_service.dart';
@@ -48,7 +47,7 @@ class TraceCommand {
     );
     final selected = matching.single;
     final symbols = extraction.outputs.expand((output) => output.symbols);
-    List<String> mappings(String kind) => symbols
+    List<String> mappings(ExtractedSymbolKind kind) => symbols
         .where(
           (symbol) =>
               symbol.kind == kind &&
@@ -67,9 +66,9 @@ class TraceCommand {
           requirementId: requirementId,
           definedBy:
               '${selected.feature.featureElement.source.file}:${selected.rule.ruleElement.source.line}',
-          implementations: mappings('requirementBoundary'),
-          presentations: mappings('presentationBoundary'),
-          verifications: mappings('verificationBoundary'),
+          implementations: mappings(ExtractedSymbolKind.requirementBoundary),
+          presentations: mappings(ExtractedSymbolKind.presentationBoundary),
+          verifications: mappings(ExtractedSymbolKind.verificationBoundary),
           requiredControls: controls,
           report: report,
         ),

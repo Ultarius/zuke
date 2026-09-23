@@ -66,7 +66,7 @@ void main() {
       ],
       symbols: [
         ExtractedSymbol(
-          kind: 'controlProvider',
+          kind: ExtractedSymbolKind.controlProvider,
           role: 'forbidden-role',
           symbolId: 'package:fixture/mapping.dart#provider',
           requirementIds: ['RULE-UNKNOWN'],

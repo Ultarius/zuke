@@ -23,6 +23,7 @@ workspace:
   - examples/calculator-product/packages/calculator_domain
   - examples/shopping_cart
   - examples/todo_app
+  - examples/library_catalog
 dev_dependencies:
   melos: ^6.3.0
   zuke_cli: ^0.5.0

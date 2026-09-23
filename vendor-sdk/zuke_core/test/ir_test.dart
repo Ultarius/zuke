@@ -222,7 +222,7 @@ void main() {
       column: 4,
     );
     const symbol = ExtractedSymbol(
-      kind: 'binding',
+      kind: ExtractedSymbolKind.binding,
       role: 'flutter',
       symbolId: 'service.dart#binding',
       requirementIds: ['RULE-B', 'RULE-A'],

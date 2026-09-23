@@ -1,0 +1,17 @@
+{
+  "files": [
+    {
+      "path": "lib/src/generated/feat_library_001_contracts.g.dart",
+      "contentHash": "51fab387b2de7431a38b87659783daa126f3b32b517d46ec70e5d54fb700eadd"
+    },
+    {
+      "path": "test/support/generated/feat_library_001_steps.g.dart",
+      "contentHash": "d5f5bd718d8473c896e9de0880f06d026df57672ad2b0be5c4ed8268ec4bdc43"
+    },
+    {
+      "path": "lib/zuke_contracts.dart",
+      "contentHash": "aef93589f07477b8c481f412c69ae1c0723b1284aa3645c9de95839a079ac835"
+    }
+  ],
+  "hash": "71e005ffcf3eff79d97d466e6241d70666628ce14dbc6a96d5ca4e423366038c"
+}

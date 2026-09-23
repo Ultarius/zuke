@@ -1,6 +1,6 @@
 {
   "kind": "zuke.analyzer-index",
-  "inputDigest": "sha256:ac9be231783ef00086015772d7dbb2bf941f198b2761743e1b11380a63fff126",
+  "inputDigest": "sha256:17cfbcafe3e843d1903a8ed6100c568609d6a2818377e158757b8a5a631ea1cc",
   "generatedManifestDigest": "sha256:0d35e5961f9422d3df46451d7cc361bd69907c051c20da98c4a98a59243b2712",
   "generatedManifestPath": "lib/src/.zuke-generated.json",
   "inputs": [
@@ -31,6 +31,10 @@
     {
       "path": "specs/registry/retired-ids.yaml",
       "digest": "sha256:12236cee08854945126b2490d0670c0909d0900c5a335480302aa35f5915b264"
+    },
+    {
+      "path": "test/todo_controller_test.dart",
+      "digest": "sha256:61a4acc86c94aa0b219bfea9816ab795a2db5f4263790208db530ef63a80c5e3"
     },
     {
       "path": "zuke.yaml",
@@ -73,5 +77,9 @@
     "todo.taskItemCheckbox",
     "todo.taskItemText",
     "todo.taskList"
+  ],
+  "verifiedRequirementIds": [
+    "RULE-TODO-ADD-ITEM",
+    "RULE-TODO-COMPLETE-ITEM"
   ]
 }

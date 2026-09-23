@@ -60,12 +60,32 @@ class StepDefinition<W extends ScenarioWorld> {
   final String target;
   final StepAction<W> action;
 
+  /// Prefer [StepDefinition.cucumber] and compose definitions through
+  /// [StepRegistry] (or `buildStepRegistry`) instead of raw RegExp steps.
+  @Deprecated(
+    'Use StepDefinition.cucumber with a CucumberExpression and register via '
+    'StepRegistry/buildStepRegistry instead of the raw RegExp constructor.',
+  )
   const StepDefinition({
+    required RegExp pattern,
+    required StepAction<W> action,
+    int priority = 100,
+    StepTier tier = StepTier.project,
+    String target = 'generic',
+  }) : this._(
+         pattern: pattern,
+         action: action,
+         priority: priority,
+         tier: tier,
+         target: target,
+       );
+
+  const StepDefinition._({
     required this.pattern,
     required this.action,
-    this.priority = 100,
-    this.tier = StepTier.project,
-    this.target = 'generic',
+    required this.priority,
+    required this.tier,
+    required this.target,
   });
 
   factory StepDefinition.cucumber({
@@ -74,7 +94,7 @@ class StepDefinition<W extends ScenarioWorld> {
     int priority = 100,
     StepTier tier = StepTier.project,
     String target = 'generic',
-  }) => StepDefinition(
+  }) => StepDefinition._(
     pattern: expression.pattern,
     priority: priority,
     tier: tier,

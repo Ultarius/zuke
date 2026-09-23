@@ -1,6 +1,6 @@
 import 'package:analyzer/dart/ast/ast.dart';
 import 'package:analyzer/dart/ast/visitor.dart';
-import 'package:zuke_cli/tooling.dart';
+import 'package:zuke_cli/editor.dart';
 
 typedef AnnotationReporter = void Function(Annotation annotation);
 
@@ -104,5 +104,32 @@ class ZukeUnknownIdVisitor extends SimpleAstVisitor<void> {
             (id) => !index.requirementIds.contains(id),
           );
     if (unknown) report(node);
+  }
+}
+
+/// Flags implemented or presented requirements that have no workspace
+/// `@VerifiesRequirement` in the current generated index.
+class ZukeMissingTestVisitor extends SimpleAstVisitor<void> {
+  final ZukeIndex index;
+  final AnnotationReporter report;
+
+  ZukeMissingTestVisitor(this.index, this.report);
+
+  @override
+  void visitAnnotation(Annotation node) {
+    final annotationName = zukeAnnotationName(node.elementAnnotation?.element);
+    if (annotationName != 'ImplementsRequirement' &&
+        annotationName != 'PresentsRequirement') {
+      return;
+    }
+    final value = node.elementAnnotation?.computeConstantValue();
+    if (value == null || !value.hasKnownValue) return;
+    final ids = constantStrings(value, 'requirementIds') ?? const <String>[];
+    final missing = ids.where(
+      (id) =>
+          index.requirementIds.contains(id) &&
+          !index.verifiedRequirementIds.contains(id),
+    );
+    if (missing.isNotEmpty) report(node);
   }
 }

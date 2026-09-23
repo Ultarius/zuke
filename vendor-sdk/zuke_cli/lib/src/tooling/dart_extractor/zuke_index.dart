@@ -43,6 +43,10 @@ class ZukeIndex {
   final Set<String> controlIds;
   final Set<String> bindingIds;
 
+  /// Requirement IDs that already carry a workspace `@VerifiesRequirement`.
+  /// Stale after test edits until `zuke generate` refreshes the index.
+  final Set<String> verifiedRequirementIds;
+
   const ZukeIndex({
     required this.inputDigest,
     required this.generatedManifestDigest,
@@ -53,6 +57,7 @@ class ZukeIndex {
     required this.requirementIds,
     required this.controlIds,
     required this.bindingIds,
+    this.verifiedRequirementIds = const {},
   });
 
   factory ZukeIndex.create({
@@ -63,6 +68,7 @@ class ZukeIndex {
     required Iterable<String> requirementIds,
     required Iterable<String> controlIds,
     required Iterable<String> bindingIds,
+    Iterable<String> verifiedRequirementIds = const [],
     Iterable<String> inputPatterns = const [],
     Iterable<String> patternInputPaths = const [],
     Map<String, String>? inputContents,
@@ -117,12 +123,15 @@ class ZukeIndex {
       ..removeWhere((id) => id.isEmpty);
     final bindings = Set<String>.from(bindingIds)
       ..removeWhere((id) => id.isEmpty);
+    final verified = Set<String>.from(verifiedRequirementIds)
+      ..removeWhere((id) => id.isEmpty);
     return ZukeIndex(
       inputDigest: _inputDigest(
         inputs,
         requirements,
         controls,
         bindings,
+        verified,
         normalizedPatterns,
         normalizedPatternInputs,
       ),
@@ -134,6 +143,7 @@ class ZukeIndex {
       requirementIds: Set.unmodifiable(requirements),
       controlIds: Set.unmodifiable(controls),
       bindingIds: Set.unmodifiable(bindings),
+      verifiedRequirementIds: Set.unmodifiable(verified),
     );
   }
 
@@ -158,6 +168,11 @@ class ZukeIndex {
         throw FormatException('Analyzer index $field must be a list of IDs');
       }
       return Set.unmodifiable(value.cast<String>());
+    }
+
+    Set<String> optionalIds(String field) {
+      if (!json.containsKey(field)) return const {};
+      return ids(field);
     }
 
     final inputs = json['inputs'];
@@ -196,6 +211,7 @@ class ZukeIndex {
       requirementIds: ids('requirementIds'),
       controlIds: ids('controlIds'),
       bindingIds: ids('bindingIds'),
+      verifiedRequirementIds: optionalIds('verifiedRequirementIds'),
     );
   }
 
@@ -214,6 +230,7 @@ class ZukeIndex {
     'requirementIds': requirementIds.toList()..sort(),
     'controlIds': controlIds.toList()..sort(),
     'bindingIds': bindingIds.toList()..sort(),
+    'verifiedRequirementIds': verifiedRequirementIds.toList()..sort(),
   };
 
   bool isCurrent({required String root}) => freshnessIssues(root: root).isEmpty;
@@ -303,6 +320,7 @@ class ZukeIndex {
               requirementIds,
               controlIds,
               bindingIds,
+              verifiedRequirementIds,
               inputPatterns,
               patternInputs,
             ) !=
@@ -380,6 +398,7 @@ class ZukeIndex {
     Set<String> requirements,
     Set<String> controls,
     Set<String> bindings,
+    Set<String> verifiedRequirements,
     List<String> patterns,
     Set<String> matchedInputs,
   ) => _sha256(
@@ -396,6 +415,7 @@ class ZukeIndex {
         'requirementIds': requirements.toList()..sort(),
         'controlIds': controls.toList()..sort(),
         'bindingIds': bindings.toList()..sort(),
+        'verifiedRequirementIds': verifiedRequirements.toList()..sort(),
       }),
     ),
   );

@@ -18,7 +18,7 @@ class VerificationBackedValidator {
     final providers = <_Provider>[];
     for (final output in outputs) {
       for (final symbol in output.symbols) {
-        if (symbol.kind == 'controlProvider') {
+        if (symbol.kind == ExtractedSymbolKind.controlProvider) {
           providers.add(_Provider(symbol, output.completeness));
         }
       }

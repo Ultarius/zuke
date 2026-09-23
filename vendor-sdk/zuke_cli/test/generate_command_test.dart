@@ -486,6 +486,27 @@ String finderFor(FeatTest001FlutterBinding binding) => switch (binding) {
         expect(index.existsSync(), isTrue);
       },
     );
+
+    test('indexes verified requirement IDs from package sources', () async {
+      final testDir = Directory('${root.path}/test')
+        ..createSync(recursive: true);
+      File('${testDir.path}/fixture_test.dart').writeAsStringSync('''
+import 'package:zuke_annotations/zuke_annotations.dart';
+
+@VerifiesRequirement(['RULE-TEST-001'])
+void coversFixture() {}
+''');
+      expect(await _run(root), 0);
+      final decoded =
+          jsonDecode(
+                File(
+                  '${root.path}/.zuke/analyzer-index.json',
+                ).readAsStringSync(),
+              )
+              as Map<String, Object?>;
+      expect(decoded['verifiedRequirementIds'], ['RULE-TEST-001']);
+      expect(await _run(root, check: true), 0);
+    });
   });
 }
 

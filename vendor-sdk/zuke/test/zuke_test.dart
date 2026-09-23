@@ -65,13 +65,15 @@ Feature: Example
         .single;
     final rule = feature.rules.single;
     final scenario = rule.scenarios.single;
-    final registry = StepRegistry<MapScenarioWorld>()
-      ..register(
-        StepDefinition(
-          pattern: RegExp(r'^the example application is ready$'),
-          action: (world, _, _) async => world.values['ready'] = true,
+    final registry = buildStepRegistry<MapScenarioWorld>([
+      StepDefinition.cucumber(
+        expression: CucumberExpression(
+          'the example application is ready',
+          StepParameterTypeRegistry.standard(),
         ),
-      );
+        action: (world, _, _) async => world.values['ready'] = true,
+      ),
+    ]);
 
     final result = await ScenarioExecutor<MapScenarioWorld>(
       registry: registry,

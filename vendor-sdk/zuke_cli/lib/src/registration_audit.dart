@@ -928,9 +928,9 @@ final class _GeneratedScenarioCollector {
   void collect(CompilationUnit node) {
     for (final declaration in node.declarations) {
       if (declaration is! EnumDeclaration) continue;
-      final enumName = declaration.name.lexeme;
+      final enumName = declaration.namePart.typeName.lexeme;
       if (!enumName.endsWith('Scenario')) continue;
-      for (final constant in declaration.constants) {
+      for (final constant in declaration.body.constants) {
         final visitor = _ScenarioIdVisitor();
         constant.arguments?.accept(visitor);
         if (visitor.ids.length == 1) {
@@ -955,7 +955,7 @@ final class _GeneratedScenarioAliasCollector extends RecursiveAstVisitor<void> {
   @override
   void visitClassDeclaration(ClassDeclaration node) {
     final previous = _className;
-    _className = node.name.lexeme;
+    _className = node.namePart.typeName.lexeme;
     super.visitClassDeclaration(node);
     _className = previous;
   }

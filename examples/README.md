@@ -8,9 +8,10 @@ Welcome! This directory contains example projects illustrating BDD (Behavior-Dri
 
 | Step | Example Project | Complexity | Key Learning Objectives |
 | :--- | :--- | :--- | :--- |
-| **1** | [**`todo_app`**](todo_app) | 🟢 **Beginner** | Basic Flutter BDD workflow, widget bindings (`@ZukeBinding`), dynamic list items, scenario execution, generated contracts. |
-| **2** | [**`shopping_cart`**](shopping_cart) | 🟡 **Intermediate** | Complete state management (CartController), promo codes, accessibility constraints, evidence locking, and full CI gate profile validation. |
-| **3** | [**`calculator-product`**](calculator-product) | 🔴 **Advanced** | Multi-package architecture (`apps/`, `packages/`), backend API contract testing + test-local Flutter UI drivers, security controls (`@ProvidesControl`), and release signing. |
+| **1** | [**`library_catalog`**](library_catalog) | 🟢 **Beginner** | Specs-first pure Dart flow: write `specs/`, run `zuke generate`, implement against typed contracts while the analyzer plugin catches bad IDs/stale indexes, execute Gherkin end-to-end with a non-Flutter `StepRegistry` + `ScenarioExecutor`, and demo a peer-to-peer branch connection over loopback TCP. |
+| **2** | [**`todo_app`**](todo_app) | 🟢 **Beginner** | Basic Flutter BDD workflow, widget bindings (`@ZukeBinding`), dynamic list items, scenario execution, generated contracts. |
+| **3** | [**`shopping_cart`**](shopping_cart) | 🟡 **Intermediate** | Complete state management (CartController), promo codes, accessibility constraints, evidence locking, and full CI gate profile validation. |
+| **4** | [**`calculator-product`**](calculator-product) | 🔴 **Advanced** | Multi-package architecture (`apps/`, `packages/`), backend API contract testing + test-local Flutter UI drivers, security controls (`@ProvidesControl`), and release signing. |
 
 ---
 
@@ -25,13 +26,18 @@ To run any example project locally:
 
 2. **Navigate to the example directory**:
    ```bash
-   cd examples/todo_app
+   cd examples/library_catalog
+   # or cd examples/todo_app
    # or cd examples/shopping_cart
    # or cd examples/calculator-product
    ```
 
 3. **Generate Zuke contracts and run tests**:
    ```bash
+   # Pure Dart examples:
+   dart run zuke_cli:zuke generate
+   dart test
+   # Flutter examples:
    flutter pub get
    dart run zuke_cli:zuke generate
    flutter test --no-pub

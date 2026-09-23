@@ -17,13 +17,13 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - os: ubuntu-latest
+          - os: ubuntu-26.04
             platform: linux
             host: dart
           - os: windows-latest
             platform: windows
             host: dart
-          - os: ubuntu-latest
+          - os: ubuntu-26.04
             platform: linux
             host: flutter
           - os: windows-latest
@@ -52,7 +52,7 @@ jobs:
     name: Build hosted compatibility manifest
     if: always()
     needs: hosted-consumer-certification
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     steps:
       - name: Check out repository for local action resolution
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1

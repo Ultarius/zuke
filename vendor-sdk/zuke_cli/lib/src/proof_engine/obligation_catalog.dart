@@ -102,7 +102,7 @@ final class AssuranceObligationCatalog {
     final bindings = <String, ImplementationCoverageObligation>{};
     for (final output in outputs) {
       for (final symbol in output.symbols.where(
-        (symbol) => symbol.kind == 'requirementBoundary',
+        (symbol) => symbol.kind == ir.ExtractedSymbolKind.requirementBoundary,
       )) {
         final target = symbol.target;
         if (target == null || target.isEmpty) {

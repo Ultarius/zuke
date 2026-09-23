@@ -34,7 +34,7 @@ jobs:
       demonstrate_rate_limit: true
   release-sign:
     needs: [calculator-product-assurance, shopping-cart-assurance, todo-app-assurance]
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     environment: release-signing
     permissions:
       contents: read
@@ -45,11 +45,11 @@ jobs:
       - uses: ./.github/actions/setup-zuke
       - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
         with:
-          name: zuke-calculator-product-assurance-ubuntu-latest
+          name: zuke-calculator-product-assurance-ubuntu-26.04
           path: .
       - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
         with:
-          name: shopping-cart-assurance-ubuntu-latest
+          name: shopping-cart-assurance-ubuntu-26.04
           path: .
       - name: Prepare Flutter tool package
         run: dart --suppress-analytics run tool/prepare_flutter_toolchain.dart

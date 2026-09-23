@@ -147,7 +147,9 @@ void provideControl() {}
         expect(first.errors, isEmpty);
         final current = first.outputs.single;
         expect(
-          current.symbols.where((symbol) => symbol.kind == 'controlProvider'),
+          current.symbols.where(
+            (symbol) => symbol.kind == ExtractedSymbolKind.controlProvider,
+          ),
           hasLength(1),
         );
 
@@ -158,7 +160,7 @@ void provideControl() {}
         expect(second.errors, isEmpty);
         final cached = second.outputs.single;
         final providers = cached.symbols.where(
-          (symbol) => symbol.kind == 'controlProvider',
+          (symbol) => symbol.kind == ExtractedSymbolKind.controlProvider,
         );
         expect(providers, hasLength(1));
         expect(providers.single.symbolId, endsWith('#provideControl'));

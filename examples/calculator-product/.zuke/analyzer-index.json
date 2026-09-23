@@ -1,9 +1,21 @@
 {
   "kind": "zuke.analyzer-index",
-  "inputDigest": "sha256:f7cdd34bb037166c721df1909c4e546b04760cbf7207acfcdaf4a88dfb58c72e",
+  "inputDigest": "sha256:fdc7dc33762659d5ad9e2f638712cab8dd0afa1e4301495f10e91a3ceaf1b66c",
   "generatedManifestDigest": "sha256:9fb0b0c12ba708add80917825b8a7d3d8fd5d427e0243a99537ca3507474b75d",
   "generatedManifestPath": "packages/calculator_contracts/.zuke-generated.json",
   "inputs": [
+    {
+      "path": "apps/calculator_api/test/calculator_api_test.dart",
+      "digest": "sha256:c93b77fbb13eb74a0b9c96e1724aca2c39a42b765bdbd59df0d963ed4b89df12"
+    },
+    {
+      "path": "apps/calculator_mobile/test/calculator_domain_test.dart",
+      "digest": "sha256:9ddd5077fdfaa9e1d82efb05f19137ef0eec2b940b1e59ee6a4e32b7536b9219"
+    },
+    {
+      "path": "apps/calculator_mobile/test/calculator_widget_test.dart",
+      "digest": "sha256:08e2384c13fbb0cb2b5466e6c2dde9b03296139184376e512e8f83fc96a55af3"
+    },
     {
       "path": "policies/project-policy.yaml",
       "digest": "sha256:a8e52907df6bb2424514f16bcde9512348f2e2900bfa8f23dd2985c9fbf01ccf"
@@ -109,5 +121,18 @@
     "calculator.firstOperand",
     "calculator.operatorSelector",
     "calculator.secondOperand"
+  ],
+  "verifiedRequirementIds": [
+    "RULE-CALC-ACCESSIBILITY",
+    "RULE-CALC-ADDITION",
+    "RULE-CALC-BODY-SIZE",
+    "RULE-CALC-DIVISION",
+    "RULE-CALC-ERROR-REDACTION",
+    "RULE-CALC-MULTIPLICATION",
+    "RULE-CALC-RATE-LIMIT",
+    "RULE-CALC-SUBTRACTION",
+    "RULE-CALC-UI-FAILURE",
+    "RULE-CALC-UI-VALIDATION",
+    "RULE-CALC-VALIDATION"
   ]
 }

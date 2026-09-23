@@ -15,6 +15,7 @@ import 'package:zuke_core/zuke_core.dart';
 import 'package:zuke_cli/src/ir.dart';
 import '../inspection.dart';
 import '../../generated/release_contract.dart';
+import '../../path_safety.dart';
 import '../analyzer_sdk.dart';
 
 Map<String, Expression> _namedArguments(Iterable<dynamic> arguments) {
@@ -144,6 +145,7 @@ class DartExtractor implements DartSourceExtractor {
             )
             .whereType<File>()
             .where((f) => f.path.endsWith('.dart'))
+            .where((f) => !isGuideSnippetFixture(f.path))
             .map((f) => f.absolute.resolveSymbolicLinksSync())
             .toSet()
             .toList()
@@ -210,7 +212,7 @@ class DartExtractor implements DartSourceExtractor {
       final implementation = symbols
           .where(
             (symbol) =>
-                symbol.kind == 'requirementBoundary' &&
+                symbol.kind == ExtractedSymbolKind.requirementBoundary &&
                 symbol.symbolId.endsWith('#$typeName'),
           )
           .toList();
@@ -244,7 +246,7 @@ class DartExtractor implements DartSourceExtractor {
       final provider = symbols
           .where(
             (symbol) =>
-                symbol.kind == 'controlProvider' &&
+                symbol.kind == ExtractedSymbolKind.controlProvider &&
                 symbol.symbolId.endsWith('#$typeName'),
           )
           .toList();
@@ -350,7 +352,7 @@ class DartExtractor implements DartSourceExtractor {
         }
         symbols.add(
           ExtractedSymbol(
-            kind: 'controlProvider',
+            kind: ExtractedSymbolKind.controlProvider,
             role: 'provider',
             symbolId: '$sourceUri#${node.id}',
             controlIds: [control],
@@ -409,7 +411,7 @@ class DartExtractor implements DartSourceExtractor {
     Map<String, IrNode> graphNodes,
   ) {
     for (final symbol in symbols) {
-      if (symbol.kind == 'requirementBoundary') {
+      if (symbol.kind == ExtractedSymbolKind.requirementBoundary) {
         _materializeAnnotationNode(
           graphNodes,
           symbol,
@@ -422,7 +424,7 @@ class DartExtractor implements DartSourceExtractor {
             'sourceLine': symbol.source.line,
           },
         );
-      } else if (symbol.kind == 'controlProvider') {
+      } else if (symbol.kind == ExtractedSymbolKind.controlProvider) {
         _materializeAnnotationNode(
           graphNodes,
           symbol,
@@ -516,7 +518,8 @@ class DartExtractor implements DartSourceExtractor {
           directory
               .listSync(recursive: true, followLinks: false)
               .whereType<File>()
-              .where((f) => f.path.endsWith('.dart')),
+              .where((f) => f.path.endsWith('.dart'))
+              .where((f) => !isGuideSnippetFixture(f.path)),
         );
       }
     }
@@ -1021,7 +1024,7 @@ class _ResolvedVisitor extends RecursiveAstVisitor<void> {
           _addIds(
             value,
             'requirementIds',
-            'requirementBoundary',
+            ExtractedSymbolKind.requirementBoundary,
             'domain',
             name,
             source,
@@ -1034,7 +1037,7 @@ class _ResolvedVisitor extends RecursiveAstVisitor<void> {
           _addIds(
             value,
             'requirementIds',
-            'presentationBoundary',
+            ExtractedSymbolKind.presentationBoundary,
             'flutter',
             name,
             source,
@@ -1047,7 +1050,7 @@ class _ResolvedVisitor extends RecursiveAstVisitor<void> {
           _addIds(
             value,
             'requirementIds',
-            'verificationBoundary',
+            ExtractedSymbolKind.verificationBoundary,
             'test',
             name,
             source,
@@ -1080,7 +1083,7 @@ class _ResolvedVisitor extends RecursiveAstVisitor<void> {
   void _addIds(
     DartObject value,
     String field,
-    String kind,
+    ExtractedSymbolKind kind,
     String role,
     String name,
     ExtractedSourceLocation source, {
@@ -1144,7 +1147,7 @@ class _ResolvedVisitor extends RecursiveAstVisitor<void> {
     }
     symbols.add(
       ExtractedSymbol(
-        kind: 'controlProvider',
+        kind: ExtractedSymbolKind.controlProvider,
         role: 'provider',
         symbolId: '${source.uri}#$name',
         controlIds: ids,
@@ -1181,7 +1184,7 @@ class _ResolvedVisitor extends RecursiveAstVisitor<void> {
     }
     symbols.add(
       ExtractedSymbol(
-        kind: 'binding',
+        kind: ExtractedSymbolKind.binding,
         role: 'flutter',
         symbolId: '${source.uri}#$name',
         bindingId: bindingId,

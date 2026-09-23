@@ -18,6 +18,7 @@ dev_dependencies:
     sdk: flutter
   flutter_lints: ^6.0.0
   zuke: ^0.4.0
+  zuke_analyzer: ^0.1.0
   zuke_cli: ^0.5.0
   zuke_runner_flutter: ^0.4.0
 

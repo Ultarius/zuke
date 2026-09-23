@@ -94,7 +94,7 @@ class MyController implements ZukeController {
         target: 'backend',
       );
       final requirementIds = output.symbols
-          .where((s) => s.kind == 'requirementBoundary')
+          .where((s) => s.kind == ExtractedSymbolKind.requirementBoundary)
           .expand((s) => s.requirementIds)
           .toSet();
       expect(requirementIds, contains('RULE-CALC-ADDITION'));

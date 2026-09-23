@@ -1,0 +1,171 @@
+{
+  "kind": "zuke.lock",
+  "profile": "merge",
+  "selectedScenarioIds": [
+    "SCN-LIBRARY-CHECKOUT-BAD-ISBN",
+    "SCN-LIBRARY-CHECKOUT-EMPTY",
+    "SCN-LIBRARY-CHECKOUT-LIMIT",
+    "SCN-LIBRARY-CHECKOUT-VALID",
+    "SCN-LIBRARY-PEER-CONNECT",
+    "SCN-LIBRARY-PEER-SYNC",
+    "SCN-LIBRARY-RETURN"
+  ],
+  "selectionDigest": "sha256:0743722c52abeb78b16a7e8284b0e0af0a3c3549ff802c5912a0f1053f068602",
+  "engineVersion": "0.1.0",
+  "workspace": "library_catalog",
+  "policy": {
+    "preset": "secure-product-v1",
+    "policyHash": "sha256:7fec3aef6085902aeba311c100b685de352ef46fd71ebe9d114441943461c251",
+    "evidenceRequirementsHash": "sha256:780307a31d462debf4e26025fd7bf46ece4e99b16f6bb6ab0fdc0ada82f43b73"
+  },
+  "policyHash": "sha256:7fec3aef6085902aeba311c100b685de352ef46fd71ebe9d114441943461c251",
+  "evidenceRequirementsHash": "sha256:780307a31d462debf4e26025fd7bf46ece4e99b16f6bb6ab0fdc0ada82f43b73",
+  "specificationDigestScope": "discovery-inputs-v1",
+  "specificationDigest": "sha256:3624c9e69e33f3c0fe6aea482c6ae8b0ef6f6761eb57758abbe717b93c40194c",
+  "generatedManifestDigest": "sha256:a0da2286810c3685c88809f591a3d4cc4a528525d0f86971d3bc705cf861791d",
+  "features": {
+    "FEAT-LIBRARY-001": {
+      "sourceHash": "sha256:65dcdf84a1b8f676754e601d88e4cb1d0962eca2ca9560d8808a0b700e0f16f7"
+    }
+  },
+  "fragments": [
+    {
+      "adapter": "zuke.dart",
+      "version": "1.0.0",
+      "compatibilityId": "dart-source-package-v1",
+      "package": "library-catalog",
+      "digest": "sha256:305cd10219301df3518c4fe454e8e7c3dc46325ea12c1bba358f8e8482fc5f77",
+      "completeness": {
+        "annotationTargets": "complete",
+        "generatedParts": "complete",
+        "routeRegistration": "notApplicable",
+        "middlewareOrder": "notApplicable",
+        "failureFlow": "notApplicable",
+        "logFlow": "notApplicable",
+        "dynamicRegistration": "notApplicable",
+        "externalVisibility": "notApplicable"
+      }
+    }
+  ],
+  "topologyOutputs": [],
+  "requirements": [
+    "RULE-LIBRARY-CHECKOUT",
+    "RULE-LIBRARY-BOOK-RETURN",
+    "RULE-LIBRARY-BRANCH-PEER"
+  ],
+  "attestations": [],
+  "implementationCoverage": [
+    {
+      "binding": {
+        "subjectKind": "requirement",
+        "subjectId": "RULE-LIBRARY-BOOK-RETURN",
+        "target": "catalog",
+        "role": "implementation",
+        "variant": "default",
+        "slot": "primary"
+      },
+      "mode": "annotationGoverned",
+      "status": "verified",
+      "evidenceDigests": [
+        "sha256:305cd10219301df3518c4fe454e8e7c3dc46325ea12c1bba358f8e8482fc5f77",
+        "sha256:8060948aa53872ebefb8462edfaf9004fcd7599fd930d251d798be2aaeb393a1",
+        "sha256:823f2ae6777a5bcf787e1a00fe1490f98475ffbd559531e0975eaa5c1bda6f64",
+        "sha256:a0da2286810c3685c88809f591a3d4cc4a528525d0f86971d3bc705cf861791d",
+        "sha256:d22c11d78b10444c11db898610333cdb3578affefea6b83f336f3195080042bc"
+      ],
+      "diagnostics": []
+    },
+    {
+      "binding": {
+        "subjectKind": "requirement",
+        "subjectId": "RULE-LIBRARY-CHECKOUT",
+        "target": "catalog",
+        "role": "implementation",
+        "variant": "default",
+        "slot": "primary"
+      },
+      "mode": "annotationGoverned",
+      "status": "verified",
+      "evidenceDigests": [
+        "sha256:21abd02e0737f3668b5ac6bd67c2794fb17d484032a18a17c7258aad574a8c44",
+        "sha256:305cd10219301df3518c4fe454e8e7c3dc46325ea12c1bba358f8e8482fc5f77",
+        "sha256:3fefb35d05f23d8595bcffdc0cba9d56ffa2063d68429e4ce660c88976691231",
+        "sha256:6d6485e3dfcae56c736bbf85b2a7f3058d56ab8671e8e3024a9d27b7d9ef9c36",
+        "sha256:8060948aa53872ebefb8462edfaf9004fcd7599fd930d251d798be2aaeb393a1",
+        "sha256:86783ff7425a964252ef227d5cf81befb69cc5b4fa0cf48b2eb2ebead882a8d5",
+        "sha256:a0da2286810c3685c88809f591a3d4cc4a528525d0f86971d3bc705cf861791d",
+        "sha256:d22c11d78b10444c11db898610333cdb3578affefea6b83f336f3195080042bc"
+      ],
+      "diagnostics": []
+    }
+  ],
+  "controls": {
+    "RULE-LIBRARY-CHECKOUT|CTRL-LIBRARY-ISBN-VALIDATION|catalog|default|primary": {
+      "assurance": "verified",
+      "semantics": "verification-backed",
+      "providerIds": [
+        "package:library_catalog/src/checkout_controller.dart#CheckoutController"
+      ],
+      "evidenceDigests": [
+        "sha256:21abd02e0737f3668b5ac6bd67c2794fb17d484032a18a17c7258aad574a8c44",
+        "sha256:305cd10219301df3518c4fe454e8e7c3dc46325ea12c1bba358f8e8482fc5f77",
+        "sha256:3fefb35d05f23d8595bcffdc0cba9d56ffa2063d68429e4ce660c88976691231",
+        "sha256:6d6485e3dfcae56c736bbf85b2a7f3058d56ab8671e8e3024a9d27b7d9ef9c36",
+        "sha256:8060948aa53872ebefb8462edfaf9004fcd7599fd930d251d798be2aaeb393a1",
+        "sha256:86783ff7425a964252ef227d5cf81befb69cc5b4fa0cf48b2eb2ebead882a8d5",
+        "sha256:a0da2286810c3685c88809f591a3d4cc4a528525d0f86971d3bc705cf861791d",
+        "sha256:d22c11d78b10444c11db898610333cdb3578affefea6b83f336f3195080042bc"
+      ],
+      "coverage": "verified",
+      "graphHash": null,
+      "completeness": {
+        "annotationTargets": "complete",
+        "generatedParts": "complete"
+      },
+      "bypassPaths": []
+    },
+    "RULE-LIBRARY-BOOK-RETURN|CTRL-LIBRARY-ISBN-VALIDATION|catalog|default|primary": {
+      "assurance": "verified",
+      "semantics": "verification-backed",
+      "providerIds": [
+        "package:library_catalog/src/checkout_controller.dart#CheckoutController"
+      ],
+      "evidenceDigests": [
+        "sha256:305cd10219301df3518c4fe454e8e7c3dc46325ea12c1bba358f8e8482fc5f77",
+        "sha256:8060948aa53872ebefb8462edfaf9004fcd7599fd930d251d798be2aaeb393a1",
+        "sha256:823f2ae6777a5bcf787e1a00fe1490f98475ffbd559531e0975eaa5c1bda6f64",
+        "sha256:a0da2286810c3685c88809f591a3d4cc4a528525d0f86971d3bc705cf861791d",
+        "sha256:d22c11d78b10444c11db898610333cdb3578affefea6b83f336f3195080042bc"
+      ],
+      "coverage": "verified",
+      "graphHash": null,
+      "completeness": {
+        "annotationTargets": "complete",
+        "generatedParts": "complete"
+      },
+      "bypassPaths": []
+    },
+    "RULE-LIBRARY-BRANCH-PEER|CTRL-LIBRARY-ISBN-VALIDATION|catalog|default|primary": {
+      "assurance": "verified",
+      "semantics": "verification-backed",
+      "providerIds": [
+        "package:library_catalog/src/checkout_controller.dart#CheckoutController"
+      ],
+      "evidenceDigests": [
+        "sha256:305cd10219301df3518c4fe454e8e7c3dc46325ea12c1bba358f8e8482fc5f77",
+        "sha256:8060948aa53872ebefb8462edfaf9004fcd7599fd930d251d798be2aaeb393a1",
+        "sha256:a0da2286810c3685c88809f591a3d4cc4a528525d0f86971d3bc705cf861791d",
+        "sha256:d22c11d78b10444c11db898610333cdb3578affefea6b83f336f3195080042bc",
+        "sha256:ea44e7ae4296cb52f5f771f5fef3c6f659c06a063a39258504b120530b25d683",
+        "sha256:eb811bc3ba07a95299933395765aa6db00cb5cb1412ce5199b24032b9b34e929"
+      ],
+      "coverage": "verified",
+      "graphHash": null,
+      "completeness": {
+        "annotationTargets": "complete",
+        "generatedParts": "complete"
+      },
+      "bypassPaths": []
+    }
+  }
+}

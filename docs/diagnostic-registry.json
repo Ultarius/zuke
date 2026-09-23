@@ -121,6 +121,7 @@
     {"code": "ZUKE-INDEX-DUPLICATE-BINDING", "severity": "error", "summary": "A generated index contains a duplicate binding."},
     {"code": "ZUKE-INDEX-STALE", "severity": "error", "summary": "The generated analyzer index is stale."},
     {"code": "ZUKE-INDEX-UNKNOWN-ID", "severity": "error", "summary": "The generated analyzer index does not contain an annotation identifier."},
+    {"code": "ZUKE-MISSING-TEST", "severity": "warning", "summary": "An implemented or presented requirement has no @VerifiesRequirement in the analyzer index.", "owner": "project", "remediation": "Add a test annotated with @VerifiesRequirement for the requirement, then run zuke generate."},
     {"code": "ZUKE-MAP-DUPLICATE-BINDING", "severity": "error", "summary": "A specification map contains a duplicate binding."},
     {"code": "ZUKE-MAP-MISSING-BINDING", "severity": "error", "summary": "A specification map is missing a binding."},
     {"code": "ZUKE-MAP-UNKNOWN-BINDING", "severity": "error", "summary": "A specification map references an unknown binding."},

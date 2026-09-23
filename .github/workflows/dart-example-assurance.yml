@@ -1,0 +1,69 @@
+name: dart-example-assurance
+
+permissions:
+  contents: read
+
+on:
+  workflow_call:
+    inputs:
+      profile:
+        description: Zuke assurance profile to execute.
+        required: true
+        type: string
+      changed-since:
+        description: Git ref for zuke affected; empty selects the full suite.
+        required: true
+        type: string
+      example-root:
+        description: Path to the pure-Dart example workspace.
+        required: true
+        type: string
+      package-name:
+        description: Dart package name used for coverage artifacts.
+        required: true
+        type: string
+
+jobs:
+  verify:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-26.04, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    env:
+      FLUTTER_SUPPRESS_ANALYTICS: 'true'
+      ZUKE_RUN_PROCESS_INTEGRATION: 'true'
+    steps:
+      - name: Check out repository for local action resolution
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - uses: ./.github/actions/setup-zuke
+        with:
+          fetch-depth: '0'
+      - name: Process-tree integration test
+        run: dart --suppress-analytics test vendor-sdk/zuke_cli/test/process_supervisor_integration_test.dart
+      - run: dart --suppress-analytics format --output=none --set-exit-if-changed lib test
+        working-directory: ${{ inputs.example-root }}
+      - run: dart --suppress-analytics analyze --fatal-infos
+        working-directory: ${{ inputs.example-root }}
+      - run: dart --suppress-analytics test --coverage=coverage
+        working-directory: ${{ inputs.example-root }}
+      - run: dart --suppress-analytics run vendor-sdk/check_coverage.dart --package ${{ inputs.package-name }} --format=json --output ${{ inputs.example-root }}/generated/coverage/summary.json
+      - run: dart --suppress-analytics run zuke_cli:zuke doctor --root ${{ inputs.example-root }}
+      - run: dart --suppress-analytics run zuke_cli:zuke check --root ${{ inputs.example-root }} --profile ${{ inputs.profile }} --jobs 1 --format json
+      - if: ${{ inputs.changed-since != '' }}
+        run: dart --suppress-analytics run zuke_cli:zuke affected --root ${{ inputs.example-root }} --changed-since ${{ inputs.changed-since }}
+      - name: Verify assurance history policy
+        run: dart --suppress-analytics run zuke_cli:zuke manifest verify --root ${{ inputs.example-root }}
+      - run: git diff --exit-code -- ${{ inputs.example-root }}
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        if: always()
+        with:
+          name: ${{ inputs.package-name }}-assurance-${{ matrix.os }}
+          path: |
+            ${{ inputs.example-root }}/generated/
+            ${{ inputs.example-root }}/assurance/locks/${{ inputs.profile }}.lock.json
+            ${{ inputs.example-root }}/assurance-history/
+            ${{ inputs.example-root }}/generated/coverage/
+      - name: Clean Zuke test temporary directories
+        if: always()
+        run: dart --suppress-analytics run zuke_cli:zuke clean --root .

@@ -27,7 +27,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
+        os: [ubuntu-26.04, macos-latest, windows-latest]
     runs-on: ${{ matrix.os }}
     env:
       FLUTTER_SUPPRESS_ANALYTICS: 'true'
@@ -48,7 +48,10 @@ jobs:
         run: dart --suppress-analytics run tool/prepare_flutter_toolchain.dart
       - run: dart --suppress-analytics format --output=none --set-exit-if-changed vendor-sdk examples/calculator-product
       - run: dart --suppress-analytics run melos run docs:check
-      - run: dart --suppress-analytics run melos exec --no-flutter -- dart --suppress-analytics analyze --fatal-infos
+      # Serialize analyze: concurrent dart analyze processes race when
+      # building the shared analyzer-plugin AOT snapshot under
+      # ~/.dartServer/.plugin_manager (truncated plugin.aot, exit 4).
+      - run: dart --suppress-analytics run melos exec --no-flutter --concurrency=1 -- dart --suppress-analytics analyze --fatal-infos
       - run: flutter --suppress-analytics analyze examples/calculator-product/apps/calculator_mobile --fatal-infos
       - run: flutter --suppress-analytics test
         working-directory: examples/calculator-product/apps/calculator_mobile

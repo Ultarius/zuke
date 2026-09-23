@@ -69,16 +69,20 @@ Future<void> main(List<String> arguments) async {
     return;
   }
   final workers = task == 'test' ? budget.workersFor(packageSlots) : 1;
+  // Parallel dart analyze processes race on the shared analyzer-plugin AOT
+  // snapshot under ~/.dartServer/.plugin_manager (truncated plugin.aot).
+  // Analyze one package at a time so the plugin is built once, then reused.
+  final jobs = task == 'analyze' ? 1 : packageSlots;
   // CI needs live package progress so a long analyzer/test phase is
   // distinguishable from a stalled child. Local runs keep the compact report.
   final streamOutput = Platform.environment['CI']?.toLowerCase() == 'true';
   stdout.writeln(
     'Dart $task worker budget: ${budget.budget} '
-    '(packages=$packageSlots, workers/package=$workers).',
+    '(packages=$jobs, workers/package=$workers).',
   );
   final results = await _runBounded(
     selected,
-    jobs: packageSlots,
+    jobs: jobs,
     run: (package) =>
         _runPackage(package, task: task, workers: workers, extra: extra),
   );

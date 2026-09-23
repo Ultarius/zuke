@@ -94,8 +94,19 @@ class ExtractedSourceLocation {
   };
 }
 
+/// Kinds of symbols emitted by package extractors.
+///
+/// Enum names match the adapter JSON wire strings (`requirementBoundary`, …).
+enum ExtractedSymbolKind {
+  requirementBoundary,
+  presentationBoundary,
+  verificationBoundary,
+  controlProvider,
+  binding,
+}
+
 class ExtractedSymbol {
-  final String kind;
+  final ExtractedSymbolKind kind;
   final String role;
   final String symbolId;
   final List<String> requirementIds;
@@ -128,7 +139,7 @@ class ExtractedSymbol {
   });
 
   Map<String, Object?> toJson() => {
-    'kind': kind,
+    'kind': kind.name,
     'role': role,
     'symbolId': symbolId,
     if (requirementIds.isNotEmpty)

@@ -14,7 +14,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest]
+        os: [ubuntu-26.04, windows-latest]
     steps:
       - name: Check out repository for local action resolution
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
@@ -25,7 +25,7 @@ jobs:
 
   dependency-firewall:
     name: test-host dependency firewall
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     steps:
       - name: Check out repository for local action resolution
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
@@ -55,3 +55,10 @@ jobs:
       profile: pullRequest
       prepare_lock: true
       demonstrate_rate_limit: true
+  library-catalog-assurance:
+    uses: ./.github/workflows/dart-example-assurance.yml
+    with:
+      profile: pullRequest
+      changed-since: ${{ github.event.pull_request.base.sha }}
+      example-root: examples/library_catalog
+      package-name: library_catalog

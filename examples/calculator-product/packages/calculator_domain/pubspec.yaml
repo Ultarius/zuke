@@ -10,3 +10,4 @@ dependencies:
   zuke_annotations: ^0.4.0
 dev_dependencies:
   test: ^1.31.1
+  zuke_analyzer: ^0.1.0

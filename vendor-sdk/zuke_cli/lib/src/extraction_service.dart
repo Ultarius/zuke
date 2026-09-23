@@ -8,6 +8,7 @@ import 'package:zuke_core/zuke_core.dart';
 import 'package:zuke_frontend/zuke_frontend.dart';
 import 'dart_frog_adapter.dart';
 import 'ir.dart';
+import 'path_safety.dart';
 
 class WorkspaceExtraction {
   final List<IrAdapterOutput> outputs;
@@ -27,7 +28,7 @@ class ExtractionService {
   // The public adapter compatibility ID describes the extracted contract. It
   // must not change for an internal cache-shape correction, so keep a separate
   // cache revision to invalidate fragments produced by older implementations.
-  static const _cacheRevision = '3';
+  static const _cacheRevision = '4';
 
   CompletenessValue _completeness(Object? value) => switch (value) {
     'complete' => CompletenessValue.complete,
@@ -232,7 +233,12 @@ class ExtractionService {
     for (final relative in roots) {
       final dir = Directory(_join(root, relative));
       if (dir.existsSync()) {
-        files.addAll(dir.listSync(recursive: true).whereType<File>());
+        files.addAll(
+          dir
+              .listSync(recursive: true)
+              .whereType<File>()
+              .where((file) => !isGuideSnippetFixture(file.path)),
+        );
       }
     }
     files.sort((a, b) => a.path.compareTo(b.path));
@@ -290,7 +296,9 @@ class ExtractionService {
       );
     }
     final requirementSymbols = symbols
-        .where((symbol) => symbol.kind == 'requirementBoundary')
+        .where(
+          (symbol) => symbol.kind == ExtractedSymbolKind.requirementBoundary,
+        )
         .toList(growable: false);
     final routeNodes = output.nodes
         .where((node) => node.kind == 'route' || node.kind == 'websocket-route')
@@ -616,7 +624,9 @@ class ExtractionService {
   ExtractedSymbol _symbolFromJson(Map<Object?, Object?> value) {
     final source = value['source'] as Map? ?? const {};
     return ExtractedSymbol(
-      kind: value['kind'] as String? ?? 'unknown',
+      kind:
+          ExtractedSymbolKind.values.asNameMap()[value['kind'] as String?] ??
+          (throw FormatException('unknown symbol kind: ${value['kind']}')),
       role: value['role'] as String? ?? 'unknown',
       symbolId: value['symbolId'] as String? ?? 'unknown',
       requirementIds: (value['requirementIds'] as List? ?? const [])
@@ -721,7 +731,7 @@ class ExtractionService {
         'errors': output.errors,
         if (output.graph != null) 'graph': output.graph!.toJson(),
         'symbols': output.symbols.map((s) => {
-          'kind': s.kind,
+          'kind': s.kind.name,
           'role': s.role,
           'symbolId': s.symbolId,
           if (s.requirementIds.isNotEmpty) 'requirementIds': s.requirementIds,

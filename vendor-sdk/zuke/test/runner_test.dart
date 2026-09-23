@@ -133,23 +133,26 @@ Feature: Contracts
   });
 
   test('resolves the earliest matching step tier before priority', () {
-    final registry = StepRegistry<World>()
-      ..register(
-        StepDefinition<World>(
-          pattern: RegExp(r'^an action$'),
-          priority: 999,
-          tier: StepTier.vendor,
-          action: (_, _, _) {},
+    final registry = buildStepRegistry<World>([
+      StepDefinition.cucumber(
+        expression: CucumberExpression(
+          'an action',
+          StepParameterTypeRegistry.standard(),
         ),
-      )
-      ..register(
-        StepDefinition<World>(
-          pattern: RegExp(r'^an action$'),
-          priority: 1,
-          tier: StepTier.project,
-          action: (_, _, _) {},
+        priority: 999,
+        tier: StepTier.vendor,
+        action: (_, _, _) {},
+      ),
+      StepDefinition.cucumber(
+        expression: CucumberExpression(
+          'an action',
+          StepParameterTypeRegistry.standard(),
         ),
-      );
+        priority: 1,
+        tier: StepTier.project,
+        action: (_, _, _) {},
+      ),
+    ]);
     const step = GherkinStep(
       keyword: 'Given',
       text: 'an action',
@@ -160,21 +163,24 @@ Feature: Contracts
   });
 
   test('retains ambiguity failures within the selected tier', () {
-    final registry = StepRegistry<World>()
-      ..register(
-        StepDefinition<World>(
-          pattern: RegExp(r'^ambiguous$'),
-          tier: StepTier.vendor,
-          action: (_, _, _) {},
+    final registry = buildStepRegistry<World>([
+      StepDefinition.cucumber(
+        expression: CucumberExpression(
+          'ambiguous',
+          StepParameterTypeRegistry.standard(),
         ),
-      )
-      ..register(
-        StepDefinition<World>(
-          pattern: RegExp(r'^ambiguous$'),
-          tier: StepTier.vendor,
-          action: (_, _, _) {},
+        tier: StepTier.vendor,
+        action: (_, _, _) {},
+      ),
+      StepDefinition.cucumber(
+        expression: CucumberExpression(
+          'ambiguous',
+          StepParameterTypeRegistry.standard(),
         ),
-      );
+        tier: StepTier.vendor,
+        action: (_, _, _) {},
+      ),
+    ]);
     const step = GherkinStep(
       keyword: 'Given',
       text: 'ambiguous',
@@ -212,17 +218,23 @@ Feature: Run
     final registry = StepRegistry<World>();
     final seen = <String>[];
     registry.register(
-      StepDefinition<World>(
-        pattern: RegExp(r'^value (.+)$'),
+      StepDefinition.cucumber(
+        expression: CucumberExpression(
+          'value {word}',
+          StepParameterTypeRegistry.standard(),
+        ),
         priority: 300,
-        action: (world, step, args) => seen.add(args['1']!),
+        action: (world, step, values) => seen.add(values[0]! as String),
       ),
     );
     registry.register(
-      StepDefinition<World>(
-        pattern: RegExp(r'^the sum is (.+)$'),
+      StepDefinition.cucumber(
+        expression: CucumberExpression(
+          'the sum is {word}',
+          StepParameterTypeRegistry.standard(),
+        ),
         priority: 300,
-        action: (world, step, args) => seen.add(args['1']!),
+        action: (world, step, values) => seen.add(values[0]! as String),
       ),
     );
     final executor = ScenarioExecutor<World>(
@@ -326,23 +338,26 @@ Feature: Outline execution
         .features
         .single;
     final seen = <String>[];
-    final registry = StepRegistry<World>()
-      ..register(
-        StepDefinition<World>(
-          pattern: RegExp(r'^setup$'),
-          action: (_, _, _) => seen.add('setup'),
+    final registry = buildStepRegistry<World>([
+      StepDefinition.cucumber(
+        expression: CucumberExpression(
+          'setup',
+          StepParameterTypeRegistry.standard(),
         ),
-      )
-      ..register(
-        StepDefinition<World>(
-          pattern: RegExp(r'^value (.+)$'),
-          action: (_, _, arguments) {
-            if (arguments['1'] == 'bad') {
-              throw StateError('intentional row failure');
-            }
-          },
+        action: (_, _, _) => seen.add('setup'),
+      ),
+      StepDefinition.cucumber(
+        expression: CucumberExpression(
+          'value {word}',
+          StepParameterTypeRegistry.standard(),
         ),
-      );
+        action: (_, _, values) {
+          if (values[0] == 'bad') {
+            throw StateError('intentional row failure');
+          }
+        },
+      ),
+    ]);
 
     final results = await ScenarioExecutor<World>(
       registry: registry,
@@ -379,13 +394,15 @@ Feature: Duplicate outline rows
 ''', 'duplicate-outline.feature')
         .features
         .single;
-    final registry = StepRegistry<World>()
-      ..register(
-        StepDefinition<World>(
-          pattern: RegExp(r'^value (.+)$'),
-          action: (_, _, _) {},
+    final registry = buildStepRegistry<World>([
+      StepDefinition.cucumber(
+        expression: CucumberExpression(
+          'value {word}',
+          StepParameterTypeRegistry.standard(),
         ),
-      );
+        action: (_, _, _) {},
+      ),
+    ]);
 
     final results = await ScenarioExecutor<World>(
       registry: registry,
@@ -486,27 +503,32 @@ Feature: Failures
         .features
         .single;
     final scenario = feature.rules.single.scenarios.single;
-    final ambiguous = StepRegistry<World>()
-      ..register(
-        StepDefinition<World>(
-          pattern: RegExp('failing action'),
-          action: (_, _, _) {},
+    final ambiguous = buildStepRegistry<World>([
+      StepDefinition.cucumber(
+        expression: CucumberExpression(
+          'a failing action',
+          StepParameterTypeRegistry.standard(),
         ),
-      )
-      ..register(
-        StepDefinition<World>(
-          pattern: RegExp('failing action'),
-          action: (_, _, _) {},
+        action: (_, _, _) {},
+      ),
+      StepDefinition.cucumber(
+        expression: CucumberExpression(
+          'a failing action',
+          StepParameterTypeRegistry.standard(),
         ),
-      );
-    final failed = StepRegistry<World>()
-      ..register(
-        StepDefinition<World>(
-          pattern: RegExp(r'^a (.+) action$'),
-          action: (_, _, arguments) =>
-              throw StateError(arguments['1'] ?? 'missing'),
+        action: (_, _, _) {},
+      ),
+    ]);
+    final failed = buildStepRegistry<World>([
+      StepDefinition.cucumber(
+        expression: CucumberExpression(
+          'a {word} action',
+          StepParameterTypeRegistry.standard(),
         ),
-      );
+        action: (_, _, values) =>
+            throw StateError(values[0] as String? ?? 'missing'),
+      ),
+    ]);
 
     final ambiguousResult = await ScenarioExecutor<World>(
       registry: ambiguous,
