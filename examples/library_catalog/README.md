@@ -1,4 +1,4 @@
-# library_catalog
+# Library Catalog Example 🟢 (Beginner · Pure Dart)
 
 Specs-first pure Dart example that shows why the Zuke analyzer plugin is useful.
 
@@ -116,6 +116,37 @@ Suppression (only when intentional):
 // ignore: zuke/zuke_annotation
 ```
 
+## Checkout desk TUI
+
+`bin/library_desk.dart` is a pure stdin/stdout terminal UI over the same
+`CheckoutController` the tests exercise (no Flutter, no extra packages):
+
+```bash
+# From repo root
+dart run examples/library_catalog/bin/library_desk.dart
+# or from this package
+dart run bin/library_desk.dart
+```
+
+Commands: `help`, `catalog`, `checkout <isbn>`, `return <isbn>`, `loans`,
+`status`, `reset`, `quit`.
+
+Peer simulation is one command (then inspect and tear down):
+
+```text
+peer            # north <-> south listen, connect, seed, share, status
+peer loans      # view local + received peer loans (ISBN + title)
+peer loans north
+peer status
+peer close      # close peer branches
+```
+
+Advanced step-by-step: `peer listen <id>`, `peer connect <from> <to>`,
+`peer seed <id> <isbn>`, `peer share <from> <to>`, `peer status`.
+
+In VS Code, launch **Library Catalog (Checkout Desk TUI)** — it opens in an
+external terminal window (`"console": "externalTerminal"`).
+
 ## Commands
 
 ```bash
@@ -124,6 +155,7 @@ dart run zuke_cli:zuke generate --root examples/library_catalog
 dart run zuke_cli:zuke generate --root examples/library_catalog --check
 dart test examples/library_catalog
 dart analyze --fatal-infos examples/library_catalog
+dart run examples/library_catalog/bin/library_desk.dart
 ```
 
 Or via Melos scripts: `zuke:library:generate`, `zuke:library:validate`,

@@ -30,6 +30,28 @@
       "cwd": "${workspaceFolder}/examples/calculator-product/apps/calculator_api"
     },
     {
+      "name": "Library Catalog (Checkout Desk TUI)",
+      "request": "launch",
+      "type": "dart",
+      "program": "bin/library_desk.dart",
+      "cwd": "${workspaceFolder}/examples/library_catalog",
+      "console": "externalTerminal"
+    },
+    {
+      "name": "Library Catalog (Pure-Dart Tests)",
+      "request": "launch",
+      "type": "dart",
+      "program": "test/library_gherkin_test.dart",
+      "cwd": "${workspaceFolder}/examples/library_catalog"
+    },
+    {
+      "name": "Library Catalog (Controller Tests)",
+      "request": "launch",
+      "type": "dart",
+      "program": "test/checkout_controller_test.dart",
+      "cwd": "${workspaceFolder}/examples/library_catalog"
+    },
+    {
       "name": "Zuke: Refresh Profile Locks",
       "request": "launch",
       "type": "dart",
@@ -70,7 +92,8 @@
         ".",
         "examples/todo_app",
         "examples/shopping_cart",
-        "examples/calculator-product"
+        "examples/calculator-product",
+        "examples/library_catalog"
       ],
       "default": "."
     }

@@ -6,12 +6,17 @@ Welcome! This directory contains example projects illustrating BDD (Behavior-Dri
 
 ## Recommended Learning Path
 
-| Step | Example Project | Complexity | Key Learning Objectives |
+| Step | Example Project | Level | Focus |
 | :--- | :--- | :--- | :--- |
-| **1** | [**`library_catalog`**](library_catalog) | 🟢 **Beginner** | Specs-first pure Dart flow: write `specs/`, run `zuke generate`, implement against typed contracts while the analyzer plugin catches bad IDs/stale indexes, execute Gherkin end-to-end with a non-Flutter `StepRegistry` + `ScenarioExecutor`, and demo a peer-to-peer branch connection over loopback TCP. |
-| **2** | [**`todo_app`**](todo_app) | 🟢 **Beginner** | Basic Flutter BDD workflow, widget bindings (`@ZukeBinding`), dynamic list items, scenario execution, generated contracts. |
-| **3** | [**`shopping_cart`**](shopping_cart) | 🟡 **Intermediate** | Complete state management (CartController), promo codes, accessibility constraints, evidence locking, and full CI gate profile validation. |
-| **4** | [**`calculator-product`**](calculator-product) | 🔴 **Advanced** | Multi-package architecture (`apps/`, `packages/`), backend API contract testing + test-local Flutter UI drivers, security controls (`@ProvidesControl`), and release signing. |
+| **1** | [**`library_catalog`**](library_catalog) | 🟢 **Beginner · Pure Dart** | Specs-first flow: write `specs/`, `zuke generate`, implement against typed contracts, catch bad IDs/stale indexes with the analyzer plugin. Runs Gherkin on a non-Flutter `StepRegistry` + `ScenarioExecutor`, plus a loopback TCP peer demo and CLI desk TUI. Smallest Zuke surface (1 control, 3 rules). |
+| **2** | [**`todo_app`**](todo_app) | 🟢 **Beginner · Flutter** | Canonical Flutter starter: `@ZukeBinding` widget keys, `ChangeNotifier` controller, `ZukeFlutterHarness` batteries-included Gherkin, generated contracts. Signing/build-hooks intentionally off. |
+| **3** | [**`shopping_cart`**](shopping_cart) | 🟡 **Intermediate · Flutter** | Heavier single-package app: promo-code state machine, `Semantics` accessibility rule, 3 security profiles/controls, scenario-filter + guide-snippet tests, larger profile locks. |
+| **4** | [**`calculator-product`**](calculator-product) | 🔴 **Advanced · Multi-package** | Workspace of 4 packages and 2 targets (HTTP API + Flutter UI): rate-limit/body-limit/redaction controls, dual extractors, 9 evidence types, performance/nightly tags, dedicated assurance CI. |
+
+**How to read the levels:** difficulty is scoped to learning the Zuke
+spec → generate → verify → gate loop. All four examples ship the same
+4-profile locks and CI gate path; later steps add product surface
+(controls, packages, harnesses), not a different workflow.
 
 ---
 
@@ -64,5 +69,5 @@ All examples follow standard Zuke BDD principles:
 
 ## Next Steps
 
-- Start with the [**Todo App Example**](todo_app/README.md).
+- Start with step 1: the [**Library Catalog Example**](library_catalog/README.md) (pure Dart), then the [**Todo App**](todo_app/README.md) for Flutter.
 - Read the comprehensive [**Integration & Implementation Guide**](../docs/integration-guide.md) for full architecture details.

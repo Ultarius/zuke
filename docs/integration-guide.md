@@ -69,10 +69,12 @@ current framework-owned diagnostics. Neither command treats historical
 failures as current release state. The existing gate auxiliary JSON flags
 remain current snapshots.
 
-`examples/todo_app` is the recommended beginner Flutter integration.
-`examples/shopping_cart` expands that setup with additional UI coverage, and
-`examples/calculator-product` is the advanced mixed Flutter, Dart HTTP,
-security-attestation, and release-history reference. The existing specialized
+`examples/library_catalog` is the recommended pure-Dart beginner start (specs
+first, analyzer plugin, manual Gherkin harness). `examples/todo_app` is the
+recommended beginner Flutter integration. `examples/shopping_cart` expands that
+setup with additional UI coverage, and `examples/calculator-product` is the
+advanced mixed Flutter, Dart HTTP, security-attestation, and release-history
+reference. The existing specialized
 SDK packages are coordinated by the current release matrix in
 `docs/release-matrix.yaml`; analyzer-dependent extraction is isolated from the
 analyzer-free IR and adapter contracts.
