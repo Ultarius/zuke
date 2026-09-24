@@ -5,6 +5,7 @@ import 'package:yaml/yaml.dart';
 import 'package:yaml_edit/yaml_edit.dart';
 
 import 'init_preset.dart';
+import 'path_safety.dart';
 import 'vscode_preset.dart';
 
 int runInit(ArgResults cmd) {
@@ -102,13 +103,7 @@ int _adoptBuildHook(
         .resolve('${relativePackagePath.replaceAll('\\', '/')}/')
         .toFilePath(),
   ).absolute;
-  final normalizedRoot = root.path.replaceAll('\\', '/');
-  final normalizedPackage = package.path.replaceAll('\\', '/');
-  final packageIsWorkspaceRoot =
-      normalizedPackage == normalizedRoot ||
-      normalizedPackage == '$normalizedRoot/';
-  if (!packageIsWorkspaceRoot &&
-      !normalizedPackage.startsWith('$normalizedRoot/')) {
+  if (!pathEqualsOrWithin(root.path, package.path)) {
     stderr.writeln('Package path escapes the workspace.');
     return 2;
   }

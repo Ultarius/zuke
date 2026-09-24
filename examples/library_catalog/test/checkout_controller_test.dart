@@ -4,6 +4,8 @@ import 'package:library_catalog/library_catalog.dart';
 import 'package:test/test.dart';
 import 'package:zuke/zuke.dart';
 
+import 'support/library_fixtures.dart';
+
 @VerifiesRequirement(
   [
     FeatLibrary001RequirementIds.checkout,
@@ -19,8 +21,6 @@ void main() {
       !shouldRunScenario(scenario.id.value, selectedScenarios);
 
   const isbnValidation = ControlId('CTRL-LIBRARY-ISBN-VALIDATION');
-
-  CheckoutController openDesk() => CheckoutController();
 
   group('generated contracts', () {
     test('exposes stable requirement and scenario identities', () {
@@ -60,8 +60,8 @@ void main() {
 
   zukeTest(
     () {
-      final desk = openDesk();
-      expect(desk.checkout('9780134685991'), isTrue);
+      final desk = openCheckoutDesk();
+      expect(desk.checkout(validIsbn), isTrue);
       expect(desk.activeLoanCount, 1);
       expect(desk.loanCountDisplay, '1 loan');
       expect(desk.loanList, 'Effective Dart');
@@ -76,9 +76,9 @@ void main() {
 
   zukeTest(
     () {
-      final desk = openDesk();
-      expect(desk.checkout('not-an-isbn'), isFalse);
-      expect(desk.errorMessage, 'ISBN must be 10 or 13 digits');
+      final desk = openCheckoutDesk();
+      expect(desk.checkout(malformedIsbn), isFalse);
+      expect(desk.errorMessage, isbnValidationError);
       expect(desk.loanCountDisplay, '0 loans');
       expect(desk.loans, isEmpty);
     },
@@ -91,9 +91,9 @@ void main() {
 
   zukeTest(
     () {
-      final desk = openDesk();
+      final desk = openCheckoutDesk();
       expect(desk.checkout(''), isFalse);
-      expect(desk.errorMessage, 'ISBN must be 10 or 13 digits');
+      expect(desk.errorMessage, isbnValidationError);
       expect(desk.loans, isEmpty);
     },
     scenario: CheckoutScenarios.checkoutEmpty,
@@ -105,19 +105,16 @@ void main() {
 
   zukeTest(
     () {
-      final desk = openDesk();
-      expect(desk.checkout('9780134685991'), isTrue);
-      expect(desk.checkout('9780596517748'), isTrue);
-      expect(desk.checkout('9780201616224'), isTrue);
+      final desk = openCheckoutDesk();
+      for (final isbn in loanLimitSeedIsbns) {
+        expect(desk.checkout(isbn), isTrue);
+      }
       expect(desk.activeLoanCount, CheckoutController.maxActiveLoans);
 
-      expect(desk.checkout('9780143127550'), isFalse);
-      expect(desk.errorMessage, 'Active loan limit reached');
+      expect(desk.checkout(validIsbn), isFalse);
+      expect(desk.errorMessage, loanLimitError);
       expect(desk.activeLoanCount, CheckoutController.maxActiveLoans);
-      expect(
-        desk.loans.map((loan) => loan.isbn),
-        isNot(contains('9780143127550')),
-      );
+      expect(desk.loans.map((loan) => loan.isbn), isNot(contains(validIsbn)));
     },
     scenario: CheckoutScenarios.checkoutLimit,
     evidenceTypes: const ['domain-unit'],
@@ -128,66 +125,61 @@ void main() {
 
   zukeTest(
     () {
-      final desk = openDesk();
-      expect(desk.checkout('9780134685991'), isTrue);
-      expect(desk.returnLoan('9780134685991'), isTrue);
+      final desk = openCheckoutDesk();
+      expect(desk.checkout(validIsbn), isTrue);
+      expect(desk.returnLoan(validIsbn), isTrue);
       expect(desk.activeLoanCount, 0);
       expect(desk.loanCountDisplay, '0 loans');
-      expect(desk.statusMessage, 'Loan returned');
+      expect(desk.statusMessage, loanReturnedStatus);
       expect(desk.errorMessage, isEmpty);
 
-      expect(desk.returnLoan('9780134685991'), isFalse);
+      expect(desk.returnLoan(validIsbn), isFalse);
       expect(desk.errorMessage, 'No active loan for ISBN');
     },
     scenario: BookReturnScenarios.return_,
     evidenceTypes: const ['domain-unit'],
-    provedControls: const {isbnValidation},
     provedImplementationSlots: const ['primary'],
     skip: skipScenario(BookReturnScenarios.return_),
   );
 
   zukeTest(
     () async {
-      final north = BranchPeerServer('north');
-      final south = BranchPeerServer('south');
-      try {
-        await north.listen();
-        await south.listen();
-        await north.connectTo(south);
+      await withPeerBranches((north, south) async {
         expect(north.isConnected, isTrue);
         expect(south.isConnected, isTrue);
-      } finally {
-        await north.close();
-        await south.close();
-      }
+      });
     },
     scenario: BranchPeerScenarios.peerConnect,
     evidenceTypes: const ['domain-unit'],
-    provedControls: const {isbnValidation},
     provedImplementationSlots: const ['primary'],
     skip: skipScenario(BranchPeerScenarios.peerConnect),
   );
 
   zukeTest(
     () async {
-      final north = BranchPeerServer('north');
-      final south = BranchPeerServer('south');
-      try {
-        await north.listen();
-        await south.listen();
-        await north.connectTo(south);
-        north.seedLocalLoan('9780134685991');
+      await withPeerBranches((north, south) async {
+        north.seedLocalLoan(validIsbn);
         await north.shareLoansWith(south);
-        expect(south.peerLoans, contains('9780134685991'));
-      } finally {
-        await north.close();
-        await south.close();
-      }
+        expect(south.peerLoans, contains(validIsbn));
+      });
     },
     scenario: BranchPeerScenarios.peerSync,
     evidenceTypes: const ['domain-unit'],
-    provedControls: const {isbnValidation},
     provedImplementationSlots: const ['primary'],
     skip: skipScenario(BranchPeerScenarios.peerSync),
   );
+
+  test('peer loan share can be repeated over the same connection', () async {
+    await withPeerBranches((north, south) async {
+      north.seedLocalLoan(validIsbn);
+      await north.shareLoansWith(south);
+      expect(south.peerLoans, contains(validIsbn));
+      north.seedLocalLoan(loanLimitSeedIsbns.first);
+      await north.shareLoansWith(south);
+      expect(
+        south.peerLoans,
+        containsAll([validIsbn, loanLimitSeedIsbns.first]),
+      );
+    });
+  });
 }

@@ -719,37 +719,36 @@ class ExtractionService {
   ) {
     if (output.errors.isNotEmpty) return;
     final file = File(_cachePath(root, adapter, key));
-    file.parent.createSync(recursive: true);
-    final temporary = File('${file.path}.tmp');
-    temporary.writeAsStringSync(
-      '${const JsonEncoder.withIndent('  ').convert({
-        'kind': 'zuke.cache',
-        'adapter': {'id': output.adapter.id, 'version': output.adapter.version, 'compatibilityId': output.adapter.compatibilityId},
-        'package': {'name': output.packageName, 'root': output.packageRoot},
-        'completeness': output.completeness.toJson(),
-        'inputDigest': output.inputDigest,
-        'errors': output.errors,
-        if (output.graph != null) 'graph': output.graph!.toJson(),
-        'symbols': output.symbols.map((s) => {
-          'kind': s.kind.name,
-          'role': s.role,
-          'symbolId': s.symbolId,
-          if (s.requirementIds.isNotEmpty) 'requirementIds': s.requirementIds,
-          if (s.controlIds.isNotEmpty) 'controlIds': s.controlIds,
-          if (s.bindingId != null) 'bindingId': s.bindingId,
-          if (s.providerKind != null) 'providerKind': s.providerKind,
-          if (s.layer != null) 'layer': s.layer,
-          if (s.target != null) 'target': s.target,
-          'variant': s.variant,
-          'slot': s.slot,
-          if (s.evidenceType != null) 'evidenceType': s.evidenceType,
-          if (s.scenarioIds.isNotEmpty) 'scenarioIds': s.scenarioIds,
-          'source': {'uri': s.source.uri, 'offset': s.source.offset, 'length': s.source.length, 'line': s.source.line, 'column': s.source.column},
-        }).toList(),
-      })}\n',
+    writeBytesReplacing(
+      file,
+      utf8.encode(
+        '${const JsonEncoder.withIndent('  ').convert({
+          'kind': 'zuke.cache',
+          'adapter': {'id': output.adapter.id, 'version': output.adapter.version, 'compatibilityId': output.adapter.compatibilityId},
+          'package': {'name': output.packageName, 'root': output.packageRoot},
+          'completeness': output.completeness.toJson(),
+          'inputDigest': output.inputDigest,
+          'errors': output.errors,
+          if (output.graph != null) 'graph': output.graph!.toJson(),
+          'symbols': output.symbols.map((s) => {
+            'kind': s.kind.name,
+            'role': s.role,
+            'symbolId': s.symbolId,
+            if (s.requirementIds.isNotEmpty) 'requirementIds': s.requirementIds,
+            if (s.controlIds.isNotEmpty) 'controlIds': s.controlIds,
+            if (s.bindingId != null) 'bindingId': s.bindingId,
+            if (s.providerKind != null) 'providerKind': s.providerKind,
+            if (s.layer != null) 'layer': s.layer,
+            if (s.target != null) 'target': s.target,
+            'variant': s.variant,
+            'slot': s.slot,
+            if (s.evidenceType != null) 'evidenceType': s.evidenceType,
+            if (s.scenarioIds.isNotEmpty) 'scenarioIds': s.scenarioIds,
+            'source': {'uri': s.source.uri, 'offset': s.source.offset, 'length': s.source.length, 'line': s.source.line, 'column': s.source.column},
+          }).toList(),
+        })}\n',
+      ),
     );
-    if (file.existsSync()) file.deleteSync();
-    temporary.renameSync(file.path);
   }
 }
 

@@ -2,6 +2,7 @@ import 'package:library_catalog/library_catalog.dart';
 import 'package:zuke/zuke.dart';
 
 import 'generated/feat_library_001_steps.g.dart';
+import 'library_fixtures.dart';
 import 'library_world.dart';
 
 StepRegistry<LibraryWorld> buildLibraryRegistry() => buildStepRegistry([
@@ -37,11 +38,7 @@ StepRegistry<LibraryWorld> buildLibraryRegistry() => buildStepRegistry([
       world.controller.checkout(world.pendingIsbn);
     },
     theLibrarianHas3ActiveLoans: (world) async {
-      for (final isbn in const [
-        '9780596517748',
-        '9780201616224',
-        '9780143127550',
-      ]) {
+      for (final isbn in loanLimitSeedIsbns) {
         if (!world.controller.checkout(isbn)) {
           throw StateError(
             'Seeding active loan for ISBN $isbn failed: '
@@ -49,10 +46,10 @@ StepRegistry<LibraryWorld> buildLibraryRegistry() => buildStepRegistry([
           );
         }
       }
-      if (world.controller.activeLoanCount != 3) {
+      if (world.controller.activeLoanCount != loanLimitSeedIsbns.length) {
         throw StateError(
-          'Expected 3 active loans after seeding, found '
-          '${world.controller.activeLoanCount}.',
+          'Expected ${loanLimitSeedIsbns.length} active loans after seeding, '
+          'found ${world.controller.activeLoanCount}.',
         );
       }
     },

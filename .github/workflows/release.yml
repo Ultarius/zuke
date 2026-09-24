@@ -32,8 +32,20 @@ jobs:
       profile: release
       prepare_lock: true
       demonstrate_rate_limit: true
+  library-catalog-assurance:
+    uses: ./.github/workflows/dart-example-assurance.yml
+    with:
+      profile: release
+      # Tag pushes report an all-zero event.before; empty selects the full suite.
+      changed-since: ''
+      example-root: examples/library_catalog
+      package-name: library_catalog
   release-sign:
-    needs: [calculator-product-assurance, shopping-cart-assurance, todo-app-assurance]
+    needs:
+      - calculator-product-assurance
+      - shopping-cart-assurance
+      - todo-app-assurance
+      - library-catalog-assurance
     runs-on: ubuntu-26.04
     environment: release-signing
     permissions:

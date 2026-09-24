@@ -260,12 +260,6 @@ class AttestationCommand {
   }
 
   void _writeAtomically(File target, String contents) {
-    target.parent.createSync(recursive: true);
-    final temporary = File(
-      '${target.path}.tmp-$pid-${DateTime.now().microsecondsSinceEpoch}',
-    );
-    temporary.writeAsStringSync(contents);
-    if (target.existsSync()) target.deleteSync();
-    temporary.renameSync(target.path);
+    writeBytesReplacing(target, utf8.encode(contents));
   }
 }

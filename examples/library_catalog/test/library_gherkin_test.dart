@@ -4,6 +4,7 @@ import 'package:library_catalog/library_catalog.dart';
 import 'package:test/test.dart';
 import 'package:zuke/zuke.dart';
 
+import 'support/library_fixtures.dart';
 import 'support/library_gherkin_steps.dart';
 import 'support/library_world.dart';
 
@@ -14,11 +15,6 @@ void main() {
   Future<void> runContract(ZukeScenarioContract contract) async {
     if (!shouldRunScenario(contract.id.value, selectedScenarios)) return;
     final resolved = resolveScenarioContract(feature, contract);
-    const identity = ExecutionSourceIdentity(
-      sourcePackage: 'library-catalog',
-      sourceAdapter: 'dart-source',
-      sourceCompatibilityId: 'dart-source-package-v1',
-    );
     final executor = ScenarioExecutor<LibraryWorld>(
       registry: buildLibraryRegistry(),
       evidenceType: 'domain-unit',
@@ -29,7 +25,7 @@ void main() {
       runnerId: 'library-catalog-unit-tests',
       runnerCompatibilityId: 'library-catalog-dart-runner-v1',
       digests: const {'runner': 'zuke-runner-v1'},
-      sourceIdentity: identity,
+      sourceIdentity: librarySourceIdentity,
     );
     LibraryWorld? world;
     try {

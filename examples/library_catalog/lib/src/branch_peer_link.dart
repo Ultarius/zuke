@@ -2,8 +2,11 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:zuke_annotations/zuke_annotations.dart';
+
 /// One library branch endpoint that accepts peer connections from sibling
 /// branches and exchanges loan-register snapshots over a plain TCP socket.
+@ImplementsRequirement(['RULE-LIBRARY-BRANCH-PEER'])
 final class BranchPeerServer {
   final String branchId;
   final List<String> localLoans = [];
@@ -12,7 +15,7 @@ final class BranchPeerServer {
   Socket? _outbound;
   final _listening = Completer<void>();
   final _connected = Completer<void>();
-  final _loanReceived = Completer<void>();
+  final _loanWaiters = <Completer<void>>[];
 
   BranchPeerServer(this.branchId);
 
@@ -23,11 +26,7 @@ final class BranchPeerServer {
   Future<void> listen() async {
     _server = await ServerSocket.bind(InternetAddress.loopbackIPv4, 0);
     _server!.listen((socket) {
-      socket.listen(
-        (data) => _onMessage(utf8.decode(data)),
-        onDone: () {},
-        onError: (_) {},
-      );
+      _listenForMessages(socket);
       if (!_connected.isCompleted) _connected.complete();
     });
     if (!_listening.isCompleted) _listening.complete();
@@ -42,11 +41,7 @@ final class BranchPeerServer {
     }
     final socket = await Socket.connect(InternetAddress.loopbackIPv4, port);
     _outbound = socket;
-    socket.listen(
-      (data) => _onMessage(utf8.decode(data)),
-      onDone: () {},
-      onError: (_) {},
-    );
+    _listenForMessages(socket);
     socket.write('HELLO $branchId\n');
     await socket.flush();
     if (!_connected.isCompleted) _connected.complete();
@@ -58,28 +53,40 @@ final class BranchPeerServer {
     if (socket == null || !isConnected) {
       throw StateError('Branch $branchId has no active peer connection.');
     }
-    socket.write('LOANS ${jsonEncode(localLoans)}\n');
-    await socket.flush();
-    await peer._loanReceived.future.timeout(
-      const Duration(seconds: 2),
-      onTimeout: () {},
-    );
+    final waiter = Completer<void>();
+    peer._loanWaiters.add(waiter);
+    try {
+      socket.write('LOANS ${jsonEncode(localLoans)}\n');
+      await socket.flush();
+      await waiter.future.timeout(const Duration(seconds: 2), onTimeout: () {});
+    } finally {
+      peer._loanWaiters.remove(waiter);
+    }
   }
 
   void seedLocalLoan(String isbn) {
     if (!localLoans.contains(isbn)) localLoans.add(isbn);
   }
 
-  void _onMessage(String message) {
-    for (final line in const LineSplitter().convert(message)) {
-      if (line.startsWith('LOANS ')) {
-        final decoded = jsonDecode(line.substring(6)) as List<dynamic>;
-        peerLoans
-          ..clear()
-          ..addAll(decoded.cast<String>());
-        if (!_loanReceived.isCompleted) _loanReceived.complete();
+  void _onLine(String line) {
+    if (line.startsWith('LOANS ')) {
+      final decoded = jsonDecode(line.substring(6)) as List<dynamic>;
+      peerLoans
+        ..clear()
+        ..addAll(decoded.cast<String>());
+      if (_loanWaiters.isNotEmpty) {
+        final waiter = _loanWaiters.removeAt(0);
+        if (!waiter.isCompleted) waiter.complete();
       }
     }
+  }
+
+  void _listenForMessages(Socket socket) {
+    socket
+        .cast<List<int>>()
+        .transform(utf8.decoder)
+        .transform(const LineSplitter())
+        .listen(_onLine, onDone: () {}, onError: (_) {});
   }
 
   Future<void> close() async {

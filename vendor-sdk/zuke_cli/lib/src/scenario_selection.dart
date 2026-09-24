@@ -1,7 +1,8 @@
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:zuke_core/zuke_core.dart' show canonicalJson;
+import 'package:zuke_core/zuke_core.dart'
+    show canonicalJson, writeBytesReplacing;
 import 'package:crypto/crypto.dart';
 import 'package:zuke_frontend/zuke_frontend.dart';
 
@@ -120,13 +121,10 @@ class ScenarioSelection {
   };
 
   void writeAtomic(File output) {
-    output.parent.createSync(recursive: true);
-    final temporary = File('${output.path}.tmp-$pid');
-    temporary.writeAsStringSync(
-      '${const JsonEncoder.withIndent('  ').convert(toJson())}\n',
-      flush: true,
+    writeBytesReplacing(
+      output,
+      utf8.encode('${const JsonEncoder.withIndent('  ').convert(toJson())}\n'),
     );
-    temporary.renameSync(output.path);
   }
 
   static String _digest(

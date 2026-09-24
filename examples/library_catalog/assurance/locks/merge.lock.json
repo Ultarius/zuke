@@ -21,11 +21,11 @@
   "policyHash": "sha256:7fec3aef6085902aeba311c100b685de352ef46fd71ebe9d114441943461c251",
   "evidenceRequirementsHash": "sha256:780307a31d462debf4e26025fd7bf46ece4e99b16f6bb6ab0fdc0ada82f43b73",
   "specificationDigestScope": "discovery-inputs-v1",
-  "specificationDigest": "sha256:3624c9e69e33f3c0fe6aea482c6ae8b0ef6f6761eb57758abbe717b93c40194c",
-  "generatedManifestDigest": "sha256:a0da2286810c3685c88809f591a3d4cc4a528525d0f86971d3bc705cf861791d",
+  "specificationDigest": "sha256:037a34db3a290f4a4246a264de6c6fa45397788b5ff1cf33e5c00da5b5b8d147",
+  "generatedManifestDigest": "sha256:68956c692947fa4c47354322a305806a6d57f182539c5ceba441327ce57a1aa2",
   "features": {
     "FEAT-LIBRARY-001": {
-      "sourceHash": "sha256:65dcdf84a1b8f676754e601d88e4cb1d0962eca2ca9560d8808a0b700e0f16f7"
+      "sourceHash": "sha256:edbd81cad92f948c73480e61d5e4d18d8ba907d98fd170d6e024d1bedada4dd3"
     }
   },
   "fragments": [
@@ -34,7 +34,7 @@
       "version": "1.0.0",
       "compatibilityId": "dart-source-package-v1",
       "package": "library-catalog",
-      "digest": "sha256:305cd10219301df3518c4fe454e8e7c3dc46325ea12c1bba358f8e8482fc5f77",
+      "digest": "sha256:8bd22d2b2c57d9228cad746192c8dcbcd875c269dd1aae3c752404876f24e505",
       "completeness": {
         "annotationTargets": "complete",
         "generatedParts": "complete",
@@ -67,10 +67,31 @@
       "mode": "annotationGoverned",
       "status": "verified",
       "evidenceDigests": [
-        "sha256:305cd10219301df3518c4fe454e8e7c3dc46325ea12c1bba358f8e8482fc5f77",
-        "sha256:8060948aa53872ebefb8462edfaf9004fcd7599fd930d251d798be2aaeb393a1",
-        "sha256:823f2ae6777a5bcf787e1a00fe1490f98475ffbd559531e0975eaa5c1bda6f64",
-        "sha256:a0da2286810c3685c88809f591a3d4cc4a528525d0f86971d3bc705cf861791d",
+        "sha256:1f619ac090b0325962db0ecea7b89653d4f13aed971bc18bf5fd642207f81b7e",
+        "sha256:61a5f455c0822639dc7966762ef89e25c1e8f1ab04ad36258f2ef05dda857edb",
+        "sha256:68956c692947fa4c47354322a305806a6d57f182539c5ceba441327ce57a1aa2",
+        "sha256:8bd22d2b2c57d9228cad746192c8dcbcd875c269dd1aae3c752404876f24e505",
+        "sha256:d22c11d78b10444c11db898610333cdb3578affefea6b83f336f3195080042bc"
+      ],
+      "diagnostics": []
+    },
+    {
+      "binding": {
+        "subjectKind": "requirement",
+        "subjectId": "RULE-LIBRARY-BRANCH-PEER",
+        "target": "catalog",
+        "role": "implementation",
+        "variant": "default",
+        "slot": "primary"
+      },
+      "mode": "annotationGoverned",
+      "status": "verified",
+      "evidenceDigests": [
+        "sha256:1f619ac090b0325962db0ecea7b89653d4f13aed971bc18bf5fd642207f81b7e",
+        "sha256:68956c692947fa4c47354322a305806a6d57f182539c5ceba441327ce57a1aa2",
+        "sha256:76885a872d366e93a6c8192e6d281197c5bc6483464acaa95c56d567c875c943",
+        "sha256:872d50b9c46c4e45267f27d508fd28246af68c1fdb2afcd12c745129eb5654f8",
+        "sha256:8bd22d2b2c57d9228cad746192c8dcbcd875c269dd1aae3c752404876f24e505",
         "sha256:d22c11d78b10444c11db898610333cdb3578affefea6b83f336f3195080042bc"
       ],
       "diagnostics": []
@@ -87,13 +108,13 @@
       "mode": "annotationGoverned",
       "status": "verified",
       "evidenceDigests": [
+        "sha256:1f619ac090b0325962db0ecea7b89653d4f13aed971bc18bf5fd642207f81b7e",
         "sha256:21abd02e0737f3668b5ac6bd67c2794fb17d484032a18a17c7258aad574a8c44",
-        "sha256:305cd10219301df3518c4fe454e8e7c3dc46325ea12c1bba358f8e8482fc5f77",
         "sha256:3fefb35d05f23d8595bcffdc0cba9d56ffa2063d68429e4ce660c88976691231",
+        "sha256:68956c692947fa4c47354322a305806a6d57f182539c5ceba441327ce57a1aa2",
         "sha256:6d6485e3dfcae56c736bbf85b2a7f3058d56ab8671e8e3024a9d27b7d9ef9c36",
-        "sha256:8060948aa53872ebefb8462edfaf9004fcd7599fd930d251d798be2aaeb393a1",
         "sha256:86783ff7425a964252ef227d5cf81befb69cc5b4fa0cf48b2eb2ebead882a8d5",
-        "sha256:a0da2286810c3685c88809f591a3d4cc4a528525d0f86971d3bc705cf861791d",
+        "sha256:8bd22d2b2c57d9228cad746192c8dcbcd875c269dd1aae3c752404876f24e505",
         "sha256:d22c11d78b10444c11db898610333cdb3578affefea6b83f336f3195080042bc"
       ],
       "diagnostics": []
@@ -107,57 +128,14 @@
         "package:library_catalog/src/checkout_controller.dart#CheckoutController"
       ],
       "evidenceDigests": [
+        "sha256:1f619ac090b0325962db0ecea7b89653d4f13aed971bc18bf5fd642207f81b7e",
         "sha256:21abd02e0737f3668b5ac6bd67c2794fb17d484032a18a17c7258aad574a8c44",
-        "sha256:305cd10219301df3518c4fe454e8e7c3dc46325ea12c1bba358f8e8482fc5f77",
         "sha256:3fefb35d05f23d8595bcffdc0cba9d56ffa2063d68429e4ce660c88976691231",
+        "sha256:68956c692947fa4c47354322a305806a6d57f182539c5ceba441327ce57a1aa2",
         "sha256:6d6485e3dfcae56c736bbf85b2a7f3058d56ab8671e8e3024a9d27b7d9ef9c36",
-        "sha256:8060948aa53872ebefb8462edfaf9004fcd7599fd930d251d798be2aaeb393a1",
         "sha256:86783ff7425a964252ef227d5cf81befb69cc5b4fa0cf48b2eb2ebead882a8d5",
-        "sha256:a0da2286810c3685c88809f591a3d4cc4a528525d0f86971d3bc705cf861791d",
+        "sha256:8bd22d2b2c57d9228cad746192c8dcbcd875c269dd1aae3c752404876f24e505",
         "sha256:d22c11d78b10444c11db898610333cdb3578affefea6b83f336f3195080042bc"
-      ],
-      "coverage": "verified",
-      "graphHash": null,
-      "completeness": {
-        "annotationTargets": "complete",
-        "generatedParts": "complete"
-      },
-      "bypassPaths": []
-    },
-    "RULE-LIBRARY-BOOK-RETURN|CTRL-LIBRARY-ISBN-VALIDATION|catalog|default|primary": {
-      "assurance": "verified",
-      "semantics": "verification-backed",
-      "providerIds": [
-        "package:library_catalog/src/checkout_controller.dart#CheckoutController"
-      ],
-      "evidenceDigests": [
-        "sha256:305cd10219301df3518c4fe454e8e7c3dc46325ea12c1bba358f8e8482fc5f77",
-        "sha256:8060948aa53872ebefb8462edfaf9004fcd7599fd930d251d798be2aaeb393a1",
-        "sha256:823f2ae6777a5bcf787e1a00fe1490f98475ffbd559531e0975eaa5c1bda6f64",
-        "sha256:a0da2286810c3685c88809f591a3d4cc4a528525d0f86971d3bc705cf861791d",
-        "sha256:d22c11d78b10444c11db898610333cdb3578affefea6b83f336f3195080042bc"
-      ],
-      "coverage": "verified",
-      "graphHash": null,
-      "completeness": {
-        "annotationTargets": "complete",
-        "generatedParts": "complete"
-      },
-      "bypassPaths": []
-    },
-    "RULE-LIBRARY-BRANCH-PEER|CTRL-LIBRARY-ISBN-VALIDATION|catalog|default|primary": {
-      "assurance": "verified",
-      "semantics": "verification-backed",
-      "providerIds": [
-        "package:library_catalog/src/checkout_controller.dart#CheckoutController"
-      ],
-      "evidenceDigests": [
-        "sha256:305cd10219301df3518c4fe454e8e7c3dc46325ea12c1bba358f8e8482fc5f77",
-        "sha256:8060948aa53872ebefb8462edfaf9004fcd7599fd930d251d798be2aaeb393a1",
-        "sha256:a0da2286810c3685c88809f591a3d4cc4a528525d0f86971d3bc705cf861791d",
-        "sha256:d22c11d78b10444c11db898610333cdb3578affefea6b83f336f3195080042bc",
-        "sha256:ea44e7ae4296cb52f5f771f5fef3c6f659c06a063a39258504b120530b25d683",
-        "sha256:eb811bc3ba07a95299933395765aa6db00cb5cb1412ce5199b24032b9b34e929"
       ],
       "coverage": "verified",
       "graphHash": null,

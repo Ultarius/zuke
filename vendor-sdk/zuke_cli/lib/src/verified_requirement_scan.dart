@@ -25,6 +25,8 @@ VerifiedRequirementScan scanVerifiedRequirements(
   final requirementIds = <String>{};
   final sourcePaths = <String>{};
   final constValues = <String, String>{};
+  final constListValues = <String, List<String>>{};
+  final constListDeclarations = <String, ListLiteral>{};
   final annotationFiles = <File>[];
   final contractOutputs = <String>{
     if (workspace.config.contractOutput?.isNotEmpty ?? false)
@@ -48,7 +50,7 @@ VerifiedRequirementScan scanVerifiedRequirements(
             .listSync(recursive: true, followLinks: false)
             .whereType<File>()
             .where((file) => file.path.endsWith('.dart'))) {
-      _collectStaticConstStrings(file, constValues);
+      _collectStaticConst(file, constValues, constListDeclarations);
     }
   }
   for (final target in workspace.config.workspaceTargets.values) {
@@ -77,13 +79,17 @@ VerifiedRequirementScan scanVerifiedRequirements(
               !file.path.endsWith('.freezed.dart')) {
             annotationFiles.add(file);
           }
-          _collectStaticConstStrings(file, constValues);
+          _collectStaticConst(file, constValues, constListDeclarations);
         }
       }
     }
   }
+  for (final entry in constListDeclarations.entries) {
+    final ids = _constIdsInList(entry.value, constValues);
+    if (ids.isNotEmpty) constListValues[entry.key] = ids;
+  }
   for (final file in annotationFiles) {
-    final ids = _verifiedIdsIn(file, constValues);
+    final ids = _verifiedIdsIn(file, constValues, constListValues);
     if (ids.isEmpty) continue;
     requirementIds.addAll(ids);
     sourcePaths.add(file.absolute.path);
@@ -94,16 +100,21 @@ VerifiedRequirementScan scanVerifiedRequirements(
   );
 }
 
-void _collectStaticConstStrings(File file, Map<String, String> values) {
+void _collectStaticConst(
+  File file,
+  Map<String, String> values,
+  Map<String, ListLiteral> listDeclarations,
+) {
   final content = file.readAsStringSync();
-  if (!content.contains('static const')) return;
+  if (!content.contains('const')) return;
   try {
     final parsed = parseString(
       content: content,
       path: file.path,
       throwIfDiagnostics: false,
     );
-    parsed.unit.accept(_StaticConstCollector(values));
+    final collector = _StaticConstCollector(values, listDeclarations);
+    parsed.unit.accept(collector);
   } on FormatException {
     return;
   } on FileSystemException {
@@ -112,9 +123,10 @@ void _collectStaticConstStrings(File file, Map<String, String> values) {
 }
 
 class _StaticConstCollector extends RecursiveAstVisitor<void> {
-  _StaticConstCollector(this.values);
+  _StaticConstCollector(this.values, this.listDeclarations);
 
   final Map<String, String> values;
+  final Map<String, ListLiteral> listDeclarations;
   String? _className;
 
   @override
@@ -134,22 +146,68 @@ class _StaticConstCollector extends RecursiveAstVisitor<void> {
   }
 
   @override
+  void visitTopLevelVariableDeclaration(TopLevelVariableDeclaration node) {
+    if (!node.variables.isConst) return;
+    _collectVariables(node.variables.variables);
+  }
+
+  @override
   void visitFieldDeclaration(FieldDeclaration node) {
     if (!node.isStatic || !node.fields.isConst) return;
-    for (final variable in node.fields.variables) {
+    _collectVariables(node.fields.variables);
+  }
+
+  void _collectVariables(NodeList<VariableDeclaration> variables) {
+    for (final variable in variables) {
       final initializer = variable.initializer;
-      if (initializer is! StringLiteral) continue;
-      final value = initializer.stringValue;
-      if (value == null || value.isEmpty) continue;
       final name = variable.name.lexeme;
-      values[name] = value;
-      final className = _className;
-      if (className != null) values['$className.$name'] = value;
+      if (initializer is StringLiteral) {
+        final value = initializer.stringValue;
+        if (value == null || value.isEmpty) continue;
+        values[name] = value;
+        final className = _className;
+        if (className != null) values['$className.$name'] = value;
+        continue;
+      }
+      if (initializer is ListLiteral) {
+        listDeclarations[name] = initializer;
+        final className = _className;
+        if (className != null) {
+          listDeclarations['$className.$name'] = initializer;
+        }
+      }
     }
   }
 }
 
-Set<String> _verifiedIdsIn(File file, Map<String, String> constValues) {
+String? _constIdOf(Expression element, Map<String, String> constValues) {
+  if (element is StringLiteral) return element.stringValue;
+  if (element is PrefixedIdentifier) {
+    final key = '${element.prefix.name}.${element.identifier.name}';
+    return constValues[key] ?? constValues[element.identifier.name];
+  }
+  if (element is SimpleIdentifier) return constValues[element.name];
+  return null;
+}
+
+List<String> _constIdsInList(
+  ListLiteral list,
+  Map<String, String> constValues,
+) {
+  final ids = <String>[];
+  for (final element in list.elements) {
+    if (element is! Expression) continue;
+    final value = _constIdOf(element, constValues);
+    if (value != null && value.isNotEmpty) ids.add(value);
+  }
+  return ids;
+}
+
+Set<String> _verifiedIdsIn(
+  File file,
+  Map<String, String> constValues,
+  Map<String, List<String>> constListValues,
+) {
   final content = file.readAsStringSync();
   if (!content.contains('VerifiesRequirement')) return const {};
   try {
@@ -158,7 +216,10 @@ Set<String> _verifiedIdsIn(File file, Map<String, String> constValues) {
       path: file.path,
       throwIfDiagnostics: false,
     );
-    final collector = _VerifiesRequirementCollector(constValues);
+    final collector = _VerifiesRequirementCollector(
+      constValues,
+      constListValues,
+    );
     parsed.unit.accept(collector);
     return collector.requirementIds;
   } on FormatException {
@@ -169,9 +230,10 @@ Set<String> _verifiedIdsIn(File file, Map<String, String> constValues) {
 }
 
 class _VerifiesRequirementCollector extends RecursiveAstVisitor<void> {
-  _VerifiesRequirementCollector(this.constValues);
+  _VerifiesRequirementCollector(this.constValues, this.constListValues);
 
   final Map<String, String> constValues;
+  final Map<String, List<String>> constListValues;
   final Set<String> requirementIds = {};
 
   @override
@@ -181,21 +243,24 @@ class _VerifiesRequirementCollector extends RecursiveAstVisitor<void> {
     final arguments = node.arguments?.arguments;
     if (arguments == null || arguments.isEmpty) return;
     final first = arguments.first;
-    if (first is! ListLiteral) return;
-    for (final element in first.elements) {
-      if (element is! Expression) continue;
-      final value = _idOf(element);
-      if (value != null && value.isNotEmpty) requirementIds.add(value);
+    final list = _requirementList(first);
+    if (list == null) return;
+    for (final value in list) {
+      if (value.isNotEmpty) requirementIds.add(value);
     }
   }
 
-  String? _idOf(Expression element) {
-    if (element is StringLiteral) return element.stringValue;
-    if (element is PrefixedIdentifier) {
-      final key = '${element.prefix.name}.${element.identifier.name}';
-      return constValues[key] ?? constValues[element.identifier.name];
+  List<String>? _requirementList(Expression first) {
+    if (first is ListLiteral) {
+      return _constIdsInList(first, constValues);
     }
-    if (element is SimpleIdentifier) return constValues[element.name];
-    return null;
+    String? key;
+    if (first is PrefixedIdentifier) {
+      key = '${first.prefix.name}.${first.identifier.name}';
+    } else if (first is SimpleIdentifier) {
+      key = first.name;
+    }
+    if (key == null) return null;
+    return constListValues[key] ?? constListValues[key.split('.').last];
   }
 }

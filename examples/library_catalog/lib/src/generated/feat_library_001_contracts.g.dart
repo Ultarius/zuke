@@ -206,19 +206,19 @@ enum FeatLibrary001Scenario implements ZukeScenarioContract {
     ScenarioId('SCN-LIBRARY-RETURN'),
     RuleId('RULE-LIBRARY-BOOK-RETURN'),
     'Return a checked-out book',
-    <ControlId>{ControlId('CTRL-LIBRARY-ISBN-VALIDATION')},
+    <ControlId>{},
   ),
   peerConnect(
     ScenarioId('SCN-LIBRARY-PEER-CONNECT'),
     RuleId('RULE-LIBRARY-BRANCH-PEER'),
     'Two branches establish a peer connection',
-    <ControlId>{ControlId('CTRL-LIBRARY-ISBN-VALIDATION')},
+    <ControlId>{},
   ),
   peerSync(
     ScenarioId('SCN-LIBRARY-PEER-SYNC'),
     RuleId('RULE-LIBRARY-BRANCH-PEER'),
     'Share active loans across a peer connection',
-    <ControlId>{ControlId('CTRL-LIBRARY-ISBN-VALIDATION')},
+    <ControlId>{},
   );
 
   const FeatLibrary001Scenario(

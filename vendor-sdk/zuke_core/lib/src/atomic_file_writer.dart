@@ -11,20 +11,7 @@ void writeBytesAtomically(
   List<int> bytes, {
   required String conflictCode,
 }) {
-  destination.parent.createSync(recursive: true);
-  final temporary = File(
-    '${destination.path}.tmp-$pid-${DateTime.now().microsecondsSinceEpoch}',
-  );
-
-  try {
-    final handle = temporary.openSync(mode: FileMode.write);
-    try {
-      handle.writeFromSync(bytes);
-      handle.flushSync();
-    } finally {
-      handle.closeSync();
-    }
-
+  _withTemporaryBytes(destination, bytes, (temporary) {
     if (destination.existsSync()) {
       final existing = destination.readAsBytesSync();
       if (_sameBytes(existing, bytes)) return;
@@ -42,6 +29,49 @@ void writeBytesAtomically(
         throw _writeConflict(conflictCode);
       }
     }
+  });
+}
+
+/// Writes an exact byte sequence, replacing any existing destination.
+///
+/// This is the overwrite-semantics counterpart to [writeBytesAtomically].
+/// Caches, mutable policy documents, and selection manifests always intend the
+/// latest writer to win, so differing bytes replace the destination instead of
+/// throwing a conflict.
+void writeBytesReplacing(File destination, List<int> bytes) {
+  _withTemporaryBytes(destination, bytes, (temporary) {
+    try {
+      temporary.renameSync(destination.path);
+    } on FileSystemException {
+      // Some platforms reject rename-over-existing. Preserve replacement
+      // semantics there, while platforms that support it keep the rename
+      // atomic.
+      if (!destination.existsSync()) rethrow;
+      destination.deleteSync();
+      temporary.renameSync(destination.path);
+    }
+  });
+}
+
+void _withTemporaryBytes(
+  File destination,
+  List<int> bytes,
+  void Function(File temporary) action,
+) {
+  destination.parent.createSync(recursive: true);
+  final temporary = File(
+    '${destination.path}.tmp-$pid-${DateTime.now().microsecondsSinceEpoch}',
+  );
+
+  try {
+    final handle = temporary.openSync(mode: FileMode.write);
+    try {
+      handle.writeFromSync(bytes);
+      handle.flushSync();
+    } finally {
+      handle.closeSync();
+    }
+    action(temporary);
   } finally {
     if (temporary.existsSync()) temporary.deleteSync();
   }

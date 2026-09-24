@@ -1,7 +1,7 @@
 {
   "kind": "zuke.analyzer-index",
-  "inputDigest": "sha256:6bf4846689ecaad6e8ec26e47086c9aa6b5af936ccf8ac149caa564e5bde5462",
-  "generatedManifestDigest": "sha256:d7caab6e39ba5c601c03f75b54cf1dd5e6905080833659ba8d321235943936e4",
+  "inputDigest": "sha256:018061bb428c2ad5a2b7314922f33c3239e8a5db97621e808347224fff3f8f16",
+  "generatedManifestDigest": "sha256:4cb68564368d433553dbf54f562fbc23e783f3130113ae9c45ca90047dd55fbe",
   "generatedManifestPath": "lib/src/.zuke-generated.json",
   "inputs": [
     {
@@ -22,7 +22,7 @@
     },
     {
       "path": "specs/features/library_catalog.feature",
-      "digest": "sha256:65dcdf84a1b8f676754e601d88e4cb1d0962eca2ca9560d8808a0b700e0f16f7"
+      "digest": "sha256:edbd81cad92f948c73480e61d5e4d18d8ba907d98fd170d6e024d1bedada4dd3"
     },
     {
       "path": "specs/registry/pbis.yaml",
@@ -34,7 +34,7 @@
     },
     {
       "path": "test/checkout_controller_test.dart",
-      "digest": "sha256:5bcce0caafd6b121494843aa934e7afe6079708c98e9307696362aad05d6c1a8"
+      "digest": "sha256:df7d44baffd91eb7941e72c151856bf913a8a6446649d3c9625aa398e89dc0ee"
     },
     {
       "path": "zuke.yaml",

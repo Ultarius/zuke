@@ -90,7 +90,6 @@ Feature: Library book checkout desk
   # rule-spec-begin
   # id: RULE-LIBRARY-BOOK-RETURN
   # requiredEvidence: [{type: domain-unit, target: catalog, sourcePackage: library-catalog, sourceAdapter: dart-source, variant: default}]
-  # securityProfile: library-validation-profile
   # rule-spec-end
   @PBI-LIBRARY-001 @RULE-LIBRARY-BOOK-RETURN
   Rule: Returning a book removes the loan and updates the count
@@ -105,7 +104,6 @@ Feature: Library book checkout desk
   # rule-spec-begin
   # id: RULE-LIBRARY-BRANCH-PEER
   # requiredEvidence: [{type: domain-unit, target: catalog, sourcePackage: library-catalog, sourceAdapter: dart-source, variant: default}]
-  # securityProfile: library-validation-profile
   # rule-spec-end
   @PBI-LIBRARY-001 @RULE-LIBRARY-BRANCH-PEER
   Rule: Branches connect peer-to-peer to share loan state
