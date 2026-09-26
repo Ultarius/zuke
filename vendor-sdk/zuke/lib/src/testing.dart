@@ -2,7 +2,6 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:crypto/crypto.dart';
 import 'package:test/test.dart' as test_api;
 import 'package:zuke/runner.dart';
 import 'package:zuke_annotations/zuke_annotations.dart';
@@ -140,7 +139,7 @@ void zukeTest(
         evidenceTypes: sortedTypes,
         target: context.target,
         runnerCompatibilityId: context.runnerCompatibilityId,
-        digestInput: sha256.convert(utf8.encode(digestInput)).toString(),
+        digestInput: sha256DigestHex(utf8.encode(digestInput)),
         controlIds: provedControls.map((control) => control.value),
         implementationSlots: implementationSlots,
         profile: context.profile,

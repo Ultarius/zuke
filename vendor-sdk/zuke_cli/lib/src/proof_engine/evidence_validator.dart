@@ -1,5 +1,3 @@
-import 'dart:convert';
-import 'package:crypto/crypto.dart';
 import 'package:zuke_frontend/zuke_frontend.dart';
 import '../ir.dart' as ir;
 import '../ir.dart';
@@ -30,31 +28,18 @@ class EvidenceValidator {
     final errors = <ValidationMessage>[];
 
     // Compute expected digests once per validation pass
-    final generator = DartContractGenerator();
-    final generated = generator.generate(
-      workspace: workspace,
+    final contractDigest = structuralContractDigest(
+      workspace,
       outputDir: workspace.config.contractOutput ?? 'lib/src/generated',
       exportPath: workspace.config.contractExport,
     );
-    final contractDigest =
-        'sha256:${sha256.convert(utf8.encode(generated.manifest.toJson())).toString()}';
 
     final rootPath = workspace.config.root;
-    final specificationDigest = rootPath != null
-        ? WorkspaceDigest.computeFiltered(
-            rootPath,
-            (path) => path.startsWith('specs/'),
-          )
+    final evidenceDigests = rootPath != null
+        ? WorkspaceDigest.computeEvidenceIndexDigests(rootPath)
         : null;
-    final mappingDigest = rootPath != null
-        ? WorkspaceDigest.computeFiltered(
-            rootPath,
-            (path) =>
-                path.startsWith('specs/registry/') ||
-                path.startsWith('policies/') ||
-                path.endsWith('zuke.yaml'),
-          )
-        : null;
+    final specificationDigest = evidenceDigests?['specificationIndex'];
+    final mappingDigest = evidenceDigests?['mapping'];
     final sourceCatalog = SourceOutputCatalog.build(workspace, outputs);
 
     // B2: Build valid mappings to check for unmapped records
@@ -779,7 +764,8 @@ class EvidenceValidator {
     ParsedRule rule,
     String evidenceType,
   ) => [
-    for (final slot in rule.metadata.evidenceRequirements ?? const [])
+    for (final slot
+        in rule.metadata.evidenceRequirements ?? const <Map<String, String>>[])
       if (slot['type'] == evidenceType || slot['evidenceType'] == evidenceType)
         slot,
   ];

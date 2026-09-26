@@ -338,7 +338,7 @@ String _removeGeneratedLaunch(String source) {
   return source;
 }
 
-bool _isGeneratedRefreshTask(Map task) {
+bool _isGeneratedRefreshTask(Map<Object?, Object?> task) {
   if (task['type'] != 'process' || task['command'] != 'dart') return false;
   final args = task['args'];
   if (args is! List) return false;
@@ -350,7 +350,7 @@ bool _isGeneratedRefreshTask(Map task) {
       args.contains('--refresh');
 }
 
-bool _isGeneratedRefreshLaunch(Map entry) {
+bool _isGeneratedRefreshLaunch(Map<Object?, Object?> entry) {
   final command = entry['command'];
   if (entry['type'] != 'node-terminal' || command is! String) return false;
   return RegExp(

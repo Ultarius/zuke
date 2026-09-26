@@ -1,6 +1,3 @@
-import 'dart:convert';
-
-import 'package:crypto/crypto.dart';
 import 'package:zuke_core/zuke_core.dart';
 
 /// Hash-linked evidence publication primitive owned by the CLI boundary.
@@ -10,9 +7,8 @@ final class EvidenceLedgerEntry {
 
   EvidenceLedgerEntry(this.record) : digest = _digest(record);
 
-  static Sha256Digest _digest(EvidenceRecord record) => Sha256Digest.parse(
-    'sha256:${sha256.convert(utf8.encode(canonicalJson(record.toJson())))}',
-  );
+  static Sha256Digest _digest(EvidenceRecord record) =>
+      Sha256Digest.parse(sha256Text(canonicalJson(record.toJson())));
 
   Map<String, Object?> toJson() => {
     'kind': 'zuke.ledger-entry',

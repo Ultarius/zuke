@@ -54,7 +54,7 @@ final class WorkspaceRegistrationAudit {
     final allFiles = <String, File>{};
     final diagnosticKeys = <String>{};
     if (runners is List) {
-      for (final runner in runners.whereType<Map>()) {
+      for (final runner in runners.whereType<Map<Object?, Object?>>()) {
         final target = runner['target']?.toString();
         final sourcePackage = runner['sourcePackage']?.toString();
         final workingDirectory = runner['workingDirectory']?.toString();

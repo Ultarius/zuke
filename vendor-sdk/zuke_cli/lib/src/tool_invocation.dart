@@ -108,6 +108,9 @@ ToolInvocation prepareToolInvocation(
 /// Whether [executable] names Flutter's supported command-line launcher.
 bool isFlutterTool(String executable) => _toolName(executable) == 'flutter';
 
+/// Whether [executable] names the Dart SDK launcher.
+bool isDartTool(String executable) => _toolName(executable) == 'dart';
+
 /// Resolves a Windows Flutter runner to a direct snapshot invocation.
 ///
 /// Bypasses `flutter.bat` and invokes `flutter_tools.snapshot` through the
@@ -323,6 +326,10 @@ final class FlutterToolchainResolver {
     return null;
   }
 
+  /// Validates and resolves a configured tool root to an absolute directory.
+  ///
+  /// Filesystem resolution, not string normalization: see
+  /// `path_safety.normalizeRelativePath` for workspace-relative paths.
   String _normalizeRoot(String value, {required String source}) {
     final trimmed = value.trim();
     final directory = Directory(trimmed).absolute;

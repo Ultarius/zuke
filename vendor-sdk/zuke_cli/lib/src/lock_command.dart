@@ -1,14 +1,15 @@
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:crypto/crypto.dart';
 import 'package:args/args.dart';
 import 'package:zuke_core/zuke_core.dart';
 import 'package:zuke_frontend/zuke_frontend.dart';
 
 import 'extraction_service.dart';
 import 'attestation_verification.dart';
+import 'cli_parser.dart';
 import 'scenario_selection.dart';
+import 'diagnostic_text.dart';
 import 'generator.dart';
 import 'proof_engine.dart';
 import 'ir.dart';
@@ -149,11 +150,30 @@ class LockCommand {
       for (final error in extraction.errors) {
         stderr.writeln('  ERROR: $error');
       }
-      for (final error in validation.errors) {
-        stderr.writeln('  ERROR: [${error.code}] ${error.message}');
+      final rendered = renderValidationMessages(
+        validation.errors,
+        label: 'ERROR',
+        bindingNames: bindingNamesOf(workspace),
+      );
+      for (final line in rendered.lines) {
+        stderr.writeln(line);
       }
-      for (final reason in report.ineligibilityReasons) {
+      // The report restates many validation errors as eligibility reasons.
+      // Only the reasons the grouped output did not already cover are shown,
+      // each once, so a stale lock stays a handful of lines.
+      for (final reason in unprintedReasons(
+        validation.errors,
+        report.ineligibilityReasons,
+        alreadyReported: extraction.errors,
+      )) {
         stderr.writeln('  ERROR: $reason');
+      }
+      if (!rendered.hasHints) {
+        stderr.writeln(
+          '  HINT: the workspace is not eligible for locking. Run '
+          '`zuke lock --refresh` to regenerate contracts, execute managed '
+          'tests, validate, and refresh locks.',
+        );
       }
       return 1;
     }
@@ -174,8 +194,7 @@ class LockCommand {
         ? output
         : resolveProfileLockPath(root.path, profileName);
     final file = File(path);
-    final quiet =
-        args.options.contains('quiet') && (args['quiet'] as bool? ?? false);
+    final quiet = boolFlag(args, 'quiet');
     if (check) {
       final current = file.existsSync() ? file.readAsStringSync() : null;
       if (current != null) {
@@ -215,12 +234,8 @@ class LockCommand {
           'ZK-LOCK-STALE: Specification lock is stale or missing: $path',
         );
         if (current != null) {
-          stderr.writeln(
-            '  expected sha256:${sha256.convert(utf8.encode(lockContent))}',
-          );
-          stderr.writeln(
-            '  actual   sha256:${sha256.convert(utf8.encode(current))}',
-          );
+          stderr.writeln('  expected ${sha256Text(lockContent)}');
+          stderr.writeln('  actual   ${sha256Text(current)}');
         }
         return 1;
       }
@@ -391,12 +406,6 @@ class LockCommand {
     final workspaceName = root.uri.pathSegments
         .where((segment) => segment.isNotEmpty)
         .last;
-    final generator = DartContractGenerator();
-    final generated = generator.generate(
-      workspace: workspace,
-      outputDir: workspace.config.contractOutput ?? 'lib/src/generated',
-      exportPath: workspace.config.contractExport,
-    );
     final fragments =
         extraction.outputs
             .map(
@@ -417,8 +426,15 @@ class LockCommand {
       final featId = feat.metadata.id ?? feat.featureElement.title;
       final file = File(feat.metadata.source.file);
       if (file.existsSync()) {
-        featureHashes[featId] =
-            'sha256:${sha256.convert(canonicalDigestBytes(file.path, file.readAsBytesSync()))}';
+        // Structural, like every other specification digest: a reworded
+        // scenario must not require a lock refresh when its steps are
+        // unchanged.
+        featureHashes[featId] = sha256Hex(
+          WorkspaceDigest.structuralDigestBytes(
+            file.path,
+            file.readAsBytesSync(),
+          ),
+        );
       }
     }
 
@@ -498,9 +514,10 @@ class LockCommand {
       };
     }
 
-    final policyHash = 'sha256:${sha256.convert(utf8.encode(policyJson))}';
-    final evidenceRequirementsHash =
-        'sha256:${sha256.convert(utf8.encode(canonicalJson(evidenceRequirements)))}';
+    final policyHash = sha256Text(policyJson);
+    final evidenceRequirementsHash = sha256Text(
+      canonicalJson(evidenceRequirements),
+    );
 
     final data = <String, dynamic>{
       'kind': 'zuke.lock',
@@ -516,10 +533,13 @@ class LockCommand {
       },
       'policyHash': policyHash,
       'evidenceRequirementsHash': evidenceRequirementsHash,
-      'specificationDigestScope': 'discovery-inputs-v1',
+      'specificationDigestScope': 'discovery-inputs-structural-v1',
       'specificationDigest': 'sha256:$specificationDigest',
-      'generatedManifestDigest':
-          'sha256:${sha256.convert(utf8.encode(generated.manifest.toJson()))}',
+      'generatedManifestDigest': structuralContractDigest(
+        workspace,
+        outputDir: workspace.config.contractOutput ?? 'lib/src/generated',
+        exportPath: workspace.config.contractExport,
+      ),
       'features': {
         for (final entry in featureHashes.entries)
           entry.key: {'sourceHash': entry.value},
@@ -542,14 +562,14 @@ class LockCommand {
               .toList(),
       'controls': controlAssurance,
     };
-    return const JsonEncoder.withIndent('  ').convert(data) + '\n';
+    return '${const JsonEncoder.withIndent('  ').convert(data)}\n';
   }
 
   List<Map<String, Object?>> _attestations(
     WorkspaceDiscoveryResult workspace,
     List<ControlProofResult> proofs,
   ) {
-    final providers = <String, Map>{};
+    final providers = <String, Map<Object?, Object?>>{};
     for (final policy in workspace.data.policies.values) {
       for (final provider in (policy['providers'] as List? ?? const [])) {
         if (provider is Map && provider['id'] != null) {

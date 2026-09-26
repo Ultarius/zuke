@@ -363,7 +363,7 @@ class ReferenceResolver {
             final definition = profiles is Map ? profiles[profile] : null;
             final requires = definition is Map ? definition['requires'] : null;
             if (requires is! List) continue;
-            for (final raw in requires.whereType<Map>()) {
+            for (final raw in requires.whereType<Map<Object?, Object?>>()) {
               final controlId = raw['id']?.toString();
               if (controlId != null && controlId.isNotEmpty) {
                 addEdge(ruleNode, nodeIdFor(controlId));
@@ -434,7 +434,7 @@ class ReferenceResolver {
     for (final policy in workspace.data.policies.values) {
       final providers = policy['providers'];
       if (providers is! List) continue;
-      for (final provider in providers.whereType<Map>()) {
+      for (final provider in providers.whereType<Map<Object?, Object?>>()) {
         final id = provider['id']?.toString() ?? '<unnamed-provider>';
         final assurance = provider['assurance']?.toString();
         if (assurance != 'proven' && assurance != 'attested') {

@@ -1,0 +1,149 @@
+{
+  "kind": "zuke.lock",
+  "profile": "merge",
+  "selectedScenarioIds": [
+    "SCN-LIBRARY-CHECKOUT-BAD-ISBN",
+    "SCN-LIBRARY-CHECKOUT-EMPTY",
+    "SCN-LIBRARY-CHECKOUT-LIMIT",
+    "SCN-LIBRARY-CHECKOUT-VALID",
+    "SCN-LIBRARY-PEER-CONNECT",
+    "SCN-LIBRARY-PEER-SYNC",
+    "SCN-LIBRARY-RETURN"
+  ],
+  "selectionDigest": "sha256:0743722c52abeb78b16a7e8284b0e0af0a3c3549ff802c5912a0f1053f068602",
+  "engineVersion": "0.1.0",
+  "workspace": "library_catalog",
+  "policy": {
+    "preset": "secure-product-v1",
+    "policyHash": "sha256:7fec3aef6085902aeba311c100b685de352ef46fd71ebe9d114441943461c251",
+    "evidenceRequirementsHash": "sha256:780307a31d462debf4e26025fd7bf46ece4e99b16f6bb6ab0fdc0ada82f43b73"
+  },
+  "policyHash": "sha256:7fec3aef6085902aeba311c100b685de352ef46fd71ebe9d114441943461c251",
+  "evidenceRequirementsHash": "sha256:780307a31d462debf4e26025fd7bf46ece4e99b16f6bb6ab0fdc0ada82f43b73",
+  "specificationDigestScope": "discovery-inputs-structural-v1",
+  "specificationDigest": "sha256:2e04340c9f962955fca007be184862f77817a182654a90155368e69c4bb93ee3",
+  "generatedManifestDigest": "sha256:78e3ddb95155bc3bd76bd6314e981c913a1b01c2d38f96b603f08ecc3c674288",
+  "features": {
+    "FEAT-LIBRARY-001": {
+      "sourceHash": "sha256:6b927a1f276a0162aa189450d0d0045f8e8c75c9936b8b4d8f3f9831435e8eb9"
+    }
+  },
+  "fragments": [
+    {
+      "adapter": "zuke.dart",
+      "version": "1.0.0",
+      "compatibilityId": "dart-source-package-v1",
+      "package": "library-catalog",
+      "digest": "sha256:053c7d915b7baf22505697498aaea90ee28a7497e660d144aca5ddcbda6f0f2c",
+      "completeness": {
+        "annotationTargets": "complete",
+        "generatedParts": "complete",
+        "routeRegistration": "notApplicable",
+        "middlewareOrder": "notApplicable",
+        "failureFlow": "notApplicable",
+        "logFlow": "notApplicable",
+        "dynamicRegistration": "notApplicable",
+        "externalVisibility": "notApplicable"
+      }
+    }
+  ],
+  "topologyOutputs": [],
+  "requirements": [
+    "RULE-LIBRARY-CHECKOUT",
+    "RULE-LIBRARY-BOOK-RETURN",
+    "RULE-LIBRARY-BRANCH-PEER"
+  ],
+  "attestations": [],
+  "implementationCoverage": [
+    {
+      "binding": {
+        "subjectKind": "requirement",
+        "subjectId": "RULE-LIBRARY-BOOK-RETURN",
+        "target": "catalog",
+        "role": "implementation",
+        "variant": "default",
+        "slot": "primary"
+      },
+      "mode": "annotationGoverned",
+      "status": "verified",
+      "evidenceDigests": [
+        "sha256:053c7d915b7baf22505697498aaea90ee28a7497e660d144aca5ddcbda6f0f2c",
+        "sha256:61a5f455c0822639dc7966762ef89e25c1e8f1ab04ad36258f2ef05dda857edb",
+        "sha256:78e3ddb95155bc3bd76bd6314e981c913a1b01c2d38f96b603f08ecc3c674288",
+        "sha256:97c0f40ef81dda3e24a0a196b2629ba70426cae807d67207823a8026e268cef0",
+        "sha256:d22c11d78b10444c11db898610333cdb3578affefea6b83f336f3195080042bc"
+      ],
+      "diagnostics": []
+    },
+    {
+      "binding": {
+        "subjectKind": "requirement",
+        "subjectId": "RULE-LIBRARY-BRANCH-PEER",
+        "target": "catalog",
+        "role": "implementation",
+        "variant": "default",
+        "slot": "primary"
+      },
+      "mode": "annotationGoverned",
+      "status": "verified",
+      "evidenceDigests": [
+        "sha256:053c7d915b7baf22505697498aaea90ee28a7497e660d144aca5ddcbda6f0f2c",
+        "sha256:76885a872d366e93a6c8192e6d281197c5bc6483464acaa95c56d567c875c943",
+        "sha256:78e3ddb95155bc3bd76bd6314e981c913a1b01c2d38f96b603f08ecc3c674288",
+        "sha256:872d50b9c46c4e45267f27d508fd28246af68c1fdb2afcd12c745129eb5654f8",
+        "sha256:97c0f40ef81dda3e24a0a196b2629ba70426cae807d67207823a8026e268cef0",
+        "sha256:d22c11d78b10444c11db898610333cdb3578affefea6b83f336f3195080042bc"
+      ],
+      "diagnostics": []
+    },
+    {
+      "binding": {
+        "subjectKind": "requirement",
+        "subjectId": "RULE-LIBRARY-CHECKOUT",
+        "target": "catalog",
+        "role": "implementation",
+        "variant": "default",
+        "slot": "primary"
+      },
+      "mode": "annotationGoverned",
+      "status": "verified",
+      "evidenceDigests": [
+        "sha256:053c7d915b7baf22505697498aaea90ee28a7497e660d144aca5ddcbda6f0f2c",
+        "sha256:21abd02e0737f3668b5ac6bd67c2794fb17d484032a18a17c7258aad574a8c44",
+        "sha256:3fefb35d05f23d8595bcffdc0cba9d56ffa2063d68429e4ce660c88976691231",
+        "sha256:6d6485e3dfcae56c736bbf85b2a7f3058d56ab8671e8e3024a9d27b7d9ef9c36",
+        "sha256:78e3ddb95155bc3bd76bd6314e981c913a1b01c2d38f96b603f08ecc3c674288",
+        "sha256:86783ff7425a964252ef227d5cf81befb69cc5b4fa0cf48b2eb2ebead882a8d5",
+        "sha256:97c0f40ef81dda3e24a0a196b2629ba70426cae807d67207823a8026e268cef0",
+        "sha256:d22c11d78b10444c11db898610333cdb3578affefea6b83f336f3195080042bc"
+      ],
+      "diagnostics": []
+    }
+  ],
+  "controls": {
+    "RULE-LIBRARY-CHECKOUT|CTRL-LIBRARY-ISBN-VALIDATION|catalog|default|primary": {
+      "assurance": "verified",
+      "semantics": "verification-backed",
+      "providerIds": [
+        "package:library_catalog/src/checkout_controller.dart#CheckoutController"
+      ],
+      "evidenceDigests": [
+        "sha256:053c7d915b7baf22505697498aaea90ee28a7497e660d144aca5ddcbda6f0f2c",
+        "sha256:21abd02e0737f3668b5ac6bd67c2794fb17d484032a18a17c7258aad574a8c44",
+        "sha256:3fefb35d05f23d8595bcffdc0cba9d56ffa2063d68429e4ce660c88976691231",
+        "sha256:6d6485e3dfcae56c736bbf85b2a7f3058d56ab8671e8e3024a9d27b7d9ef9c36",
+        "sha256:78e3ddb95155bc3bd76bd6314e981c913a1b01c2d38f96b603f08ecc3c674288",
+        "sha256:86783ff7425a964252ef227d5cf81befb69cc5b4fa0cf48b2eb2ebead882a8d5",
+        "sha256:97c0f40ef81dda3e24a0a196b2629ba70426cae807d67207823a8026e268cef0",
+        "sha256:d22c11d78b10444c11db898610333cdb3578affefea6b83f336f3195080042bc"
+      ],
+      "coverage": "verified",
+      "graphHash": null,
+      "completeness": {
+        "annotationTargets": "complete",
+        "generatedParts": "complete"
+      },
+      "bypassPaths": []
+    }
+  }
+}

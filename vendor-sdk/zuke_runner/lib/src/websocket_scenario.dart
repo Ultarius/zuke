@@ -109,7 +109,7 @@ final class WebSocketScenarioTimeout extends WebSocketScenarioException {
 }
 
 final class WebSocketScenarioClosed extends WebSocketScenarioException {
-  const WebSocketScenarioClosed(String message) : super(message);
+  const WebSocketScenarioClosed(super.message);
 }
 
 final class WebSocketScenarioDriver {

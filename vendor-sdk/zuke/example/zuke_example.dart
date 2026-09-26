@@ -31,13 +31,15 @@ Feature: Example
       .features
       .single;
   final application = ExampleApplication();
-  final registry = StepRegistry<MapScenarioWorld>()
-    ..register(
-      StepDefinition(
-        pattern: RegExp(r'^the example application is ready$'),
-        action: (_, __, ___) async => application.ready = true,
+  final registry = buildStepRegistry<MapScenarioWorld>([
+    StepDefinition.cucumber(
+      expression: CucumberExpression(
+        'the example application is ready',
+        StepParameterTypeRegistry.standard(),
       ),
-    );
+      action: (_, _, _) async => application.ready = true,
+    ),
+  ]);
 
   final result =
       await ScenarioExecutor<MapScenarioWorld>(

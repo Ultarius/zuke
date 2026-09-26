@@ -7,6 +7,11 @@ import 'package:zuke_runner_flutter/zuke_runner_flutter.dart';
 import 'support/shopping_cart_flutter_driver.dart';
 import 'support/generated/feat_cart_001_steps.g.dart';
 
+@VerifiesRequirement(
+  [FeatCart001RequirementIds.accessibility],
+  evidenceType: 'flutter-widget',
+  variant: 'default',
+)
 void main() {
   final feature = ZukeFeatureLoader.load('shopping_cart.feature');
 

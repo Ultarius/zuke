@@ -69,16 +69,20 @@ Future<void> main(List<String> arguments) async {
     return;
   }
   final workers = task == 'test' ? budget.workersFor(packageSlots) : 1;
+  // Parallel dart analyze processes race on the shared analyzer-plugin AOT
+  // snapshot under ~/.dartServer/.plugin_manager (truncated plugin.aot).
+  // Analyze one package at a time so the plugin is built once, then reused.
+  final jobs = task == 'analyze' ? 1 : packageSlots;
   // CI needs live package progress so a long analyzer/test phase is
   // distinguishable from a stalled child. Local runs keep the compact report.
   final streamOutput = Platform.environment['CI']?.toLowerCase() == 'true';
   stdout.writeln(
     'Dart $task worker budget: ${budget.budget} '
-    '(packages=$packageSlots, workers/package=$workers).',
+    '(packages=$jobs, workers/package=$workers).',
   );
   final results = await _runBounded(
     selected,
-    jobs: packageSlots,
+    jobs: jobs,
     run: (package) =>
         _runPackage(package, task: task, workers: workers, extra: extra),
   );
@@ -208,7 +212,7 @@ Future<List<_WorkspacePackage>> _workspacePackages() async {
   }
   final decoded = jsonDecode(result.stdout as String) as Map<String, Object?>;
   final entries = decoded['packages'] as List<Object?>? ?? const [];
-  return entries.whereType<Map>().map((entry) {
+  return entries.whereType<Map<Object?, Object?>>().map((entry) {
     final path = entry['path']?.toString();
     if (path == null || path.isEmpty) {
       throw const FormatException('Workspace package entry is missing path.');
@@ -301,7 +305,7 @@ Future<_PackageResult> _runPackage(
           if (streamOutput) stdout.write('[${package.path}] $chunk');
           resetIdleTimer();
         },
-        onError: (Object _, StackTrace __) {
+        onError: (Object _, StackTrace _) {
           if (!stdoutDone.isCompleted) stdoutDone.complete();
         },
         onDone: () {
@@ -315,7 +319,7 @@ Future<_PackageResult> _runPackage(
           stderrBuffer.write(chunk);
           resetIdleTimer();
         },
-        onError: (Object _, StackTrace __) {
+        onError: (Object _, StackTrace _) {
           if (!stderrDone.isCompleted) stderrDone.complete();
         },
         onDone: () {
@@ -337,7 +341,7 @@ Future<_PackageResult> _runPackage(
     ]);
     if (timedOut) {
       stderrBuffer.writeln(
-        'ZUKE-PACKAGE-TIMEOUT: ${package.path} produced no output for '
+        'ZK-PACKAGE-TIMEOUT: ${package.path} produced no output for '
         '$_packageIdleTimeout.',
       );
     }

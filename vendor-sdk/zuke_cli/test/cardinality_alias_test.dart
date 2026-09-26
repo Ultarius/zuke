@@ -5,13 +5,13 @@ import 'package:test/test.dart';
 
 void main() {
   group('CardinalityValidator boundaries', () {
-    for (final fixture in <({String cardinality, int providers, String? code})>[
-      (cardinality: 'exactlyOne', providers: 0, code: 'ZUKE-CARD-001'),
-      (cardinality: 'exactlyOne', providers: 2, code: 'ZUKE-CARD-002'),
-      (cardinality: 'oneOrMore', providers: 0, code: 'ZUKE-CARD-003'),
-      (cardinality: 'zeroOrOne', providers: 2, code: 'ZUKE-CARD-004'),
-      (cardinality: 'many', providers: 3, code: null),
-      (cardinality: 'zeroOrMore', providers: 0, code: null),
+    for (final fixture in [
+      const _CardinalityFixture('exactlyOne', 0, 'ZUKE-CARD-001'),
+      const _CardinalityFixture('exactlyOne', 2, 'ZUKE-CARD-002'),
+      const _CardinalityFixture('oneOrMore', 0, 'ZUKE-CARD-003'),
+      const _CardinalityFixture('zeroOrOne', 2, 'ZUKE-CARD-004'),
+      const _CardinalityFixture('many', 3, null),
+      const _CardinalityFixture('zeroOrMore', 0, null),
     ]) {
       test('${fixture.cardinality} with ${fixture.providers} provider(s)', () {
         final result = CardinalityValidator().validate(
@@ -239,7 +239,7 @@ List<ExtractedSymbol> _providers(
 }) => List.generate(
   count,
   (index) => ExtractedSymbol(
-    kind: 'binding',
+    kind: ExtractedSymbolKind.binding,
     role: target,
     symbolId: 'test.dart#Provider$index',
     bindingId: 'list.item',
@@ -260,3 +260,11 @@ Set<String> _codes(ValidationResult result) => {
   ...result.warnings.map((message) => message.code),
   ...result.infos.map((message) => message.code),
 };
+
+final class _CardinalityFixture {
+  const _CardinalityFixture(this.cardinality, this.providers, this.code);
+
+  final String cardinality;
+  final int providers;
+  final String? code;
+}

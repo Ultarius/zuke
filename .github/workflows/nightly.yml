@@ -4,6 +4,9 @@ on:
   schedule:
     - cron: '0 2 * * *'
 
+permissions:
+  contents: read
+
 jobs:
   shopping-cart-assurance:
     uses: ./.github/workflows/flutter-example-assurance.yml
@@ -25,3 +28,10 @@ jobs:
     uses: ./.github/workflows/calculator-product-assurance.yml
     with:
       profile: nightly
+  library-catalog-assurance:
+    uses: ./.github/workflows/dart-example-assurance.yml
+    with:
+      profile: nightly
+      changed-since: HEAD~1
+      example-root: examples/library_catalog
+      package-name: library_catalog

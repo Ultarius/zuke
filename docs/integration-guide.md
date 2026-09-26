@@ -69,10 +69,12 @@ current framework-owned diagnostics. Neither command treats historical
 failures as current release state. The existing gate auxiliary JSON flags
 remain current snapshots.
 
-`examples/todo_app` is the recommended beginner Flutter integration.
-`examples/shopping_cart` expands that setup with additional UI coverage, and
-`examples/calculator-product` is the advanced mixed Flutter, Dart HTTP,
-security-attestation, and release-history reference. The existing specialized
+`examples/library_catalog` is the recommended pure-Dart beginner start (specs
+first, analyzer plugin, manual Gherkin harness). `examples/todo_app` is the
+recommended beginner Flutter integration. `examples/shopping_cart` expands that
+setup with additional UI coverage, and `examples/calculator-product` is the
+advanced mixed Flutter, Dart HTTP, security-attestation, and release-history
+reference. The existing specialized
 SDK packages are coordinated by the current release matrix in
 `docs/release-matrix.yaml`; analyzer-dependent extraction is isolated from the
 analyzer-free IR and adapter contracts.
@@ -427,6 +429,8 @@ Zuke validation requires an interconnected graph of Epics, PBIs, Controls, Featu
 ### A. Feature File (`specs/features/shopping_cart.feature`)
 Every `.feature` file **must** begin with a `# spec-begin` header declaring its metadata and binding dependencies. Every `Rule` must have a `# rule-spec-begin` header.
 
+A binding may declare a `label`: a human-readable name that becomes an accepted alias for the binding id. Generated contracts expose it as `ZukeBindingDescriptor.label` and resolve it in `fromId`, so a step may name either `"shopping.promoInput"` (the id) or `"promo code field"` (the label). Ids remain canonical; labels are optional and exist to keep step text readable. A label must be unique within a feature and must not collide with another binding id.
+
 ```gherkin
 # spec-begin
 # schemaVersion: 1
@@ -441,14 +445,17 @@ Every `.feature` file **must** begin with a `# spec-begin` header declaring its 
 # bindings:
 #   required:
 #     - id: shopping.promoInput
+#       label: promo code field
 #       target: flutter
 #       cardinality: exactlyOne
 #       interaction: input
 #     - id: shopping.applyPromoButton
+#       label: apply promo button
 #       target: flutter
 #       cardinality: exactlyOne
 #       interaction: action
 #     - id: shopping.discountStatusDisplay
+#       label: discount status message
 #       target: flutter
 #       cardinality: zeroOrOne
 #       interaction: output
@@ -677,7 +684,11 @@ Generation is transactional. It refuses to delete a stale file unless it has
 the generated-file marker, confines output to `contractOutput`, formats Dart
 before hashing it, and creates the sealed binding hierarchy, typed contract
 interfaces (`FeatCart001FlutterBindings`, `FeatCart001FlutterDriver`), and
-`.zuke/analyzer-index.json`.
+`.zuke/analyzer-index.json`. The index also records which requirements already
+have a `@VerifiesRequirement` (and the source files that declare them), so the
+analyzer plugin can report `ZUKE-MISSING-TEST` when an implemented requirement
+has no test annotation. After adding or editing a verification annotation, run
+`zuke generate` so the index stays current.
 
 To generate a public barrel and a scenario lookup together, configure the
 existing export option on the target that owns the contracts:
@@ -993,7 +1004,7 @@ on:
 
 jobs:
   zuke:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     defaults:
       run:
         working-directory: examples/shopping_cart
@@ -1016,20 +1027,43 @@ selection and evidence environment variables.
 ## 9. Analyzer feedback and optional build hook
 
 ### Analyzer Plugin
-Enable fast developer feedback in `analysis_options.yaml`:
+Enable fast developer feedback in the workspace root `analysis_options.yaml`.
+Plugin lints are **disabled until enabled under `plugins.<name>.diagnostics`**,
+and severity (error/warning vs info) is set on each rule in code. Plugins can
+only be configured at the analysis-options **root** (not nested package files):
 
 ```yaml
-analyzer:
-  plugins:
-    - zuke_analyzer
+# analysis_options.yaml (workspace root)
+plugins:
+  zuke_analyzer:
+    path: vendor-sdk/zuke_analyzer # or ^0.1.0 from pub.dev
+    diagnostics:
+      zuke_annotation: true # error
+      zuke_index_stale: true # error
+      zuke_unknown_index_id: true # error
+      zuke_missing_test: true # warning
 ```
+
+Packages that ship their own `analysis_options.yaml` (for example Flutter
+apps that `include: package:flutter_lints/flutter.yaml`) form a nested analysis
+context. That context does **not** inherit the workspace `plugins:` block—put
+`plugins:` only at the root and `include` a root options file from the nested
+package (see `analysis_options.flutter.yaml` in this repo), or declare the same
+`plugins:` block once in a shared root-level options file that packages include.
+Do not put `plugins:` under `analyzer:`, and do not put it directly in a nested
+package options file (`plugins_in_inner_options`).
 
 And add `zuke_analyzer` to `dev_dependencies`:
 
 ```yaml
 dev_dependencies:
-  zuke_analyzer: {path: ../../vendor-sdk/dart_analyzer_plugin}
+  zuke_analyzer: ^0.1.0
 ```
+
+After `pub get`, restart the analysis server (VS Code: **Dart: Restart Analysis
+Server**). Diagnostics appear in the **Problems** panel and as editor
+squiggles—same as built-in analyzer diagnostics. Suppress one with
+`// ignore: zuke/zuke_annotation` (plugin name / rule name).
 
 ### Dart Build Hook
 To enroll a package into diagnostic build hooks:

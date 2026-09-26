@@ -1,11 +1,29 @@
+include: package:lints/recommended.yaml
+
 analyzer:
   exclude:
     - tool/fixtures/**
-  plugins:
-    - zuke_analyzer
+    - test/temp_*/
+  language:
+    strict-casts: true
+    strict-inference: true
+    strict-raw-types: true
+
+# Top-level plugins (workspace root only). Lints stay off until enabled under
+# diagnostics; severity is set on each LintCode in zuke_analyzer.
+plugins:
+  zuke_analyzer:
+    path: vendor-sdk/zuke_analyzer
+    diagnostics:
+      zuke_annotation: true
+      zuke_index_stale: true
+      zuke_unknown_index_id: true
+      zuke_missing_test: true
 
 linter:
   rules:
     avoid_print: false
     curly_braces_in_flow_control_structures: true
     dangling_library_doc_comments: true
+    deprecated_member_use_from_same_package: true
+    provide_deprecation_message: true

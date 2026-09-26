@@ -1,7 +1,7 @@
 {
   "kind": "zuke.analyzer-index",
-  "inputDigest": "sha256:5266707271777b04b81736d4cbc7341f7849e52f3dd804664481df08b1dbf46b",
-  "generatedManifestDigest": "sha256:2f239e4d481e650d93d3180b876ddddc3e4d61e429f4f0d4c7b32c5e9f5df0f2",
+  "inputDigest": "sha256:b0dba7b1083c7c948f1daee36287e820ed7dc5a1202ff1ea2ec5ab96e6924826",
+  "generatedManifestDigest": "sha256:ef26c0cf81111c3a96a2e0dcfe1a5e23f62c4e72d115eec37d3b674a5a741f17",
   "generatedManifestPath": "lib/src/.zuke-generated.json",
   "inputs": [
     {
@@ -22,7 +22,7 @@
     },
     {
       "path": "specs/features/shopping_cart.feature",
-      "digest": "sha256:5152364c71a28130c262668a71f9fefdb76ca08c92d0965c04cadb074038a5d1"
+      "digest": "sha256:96590231af509eb1a43c869a47bc8b225b8816670c9e6606058fa111e78af082"
     },
     {
       "path": "specs/registry/pbis.yaml",
@@ -33,8 +33,16 @@
       "digest": "sha256:12236cee08854945126b2490d0670c0909d0900c5a335480302aa35f5915b264"
     },
     {
+      "path": "test/cart_controller_test.dart",
+      "digest": "sha256:197489b2506dc85cdc01e722eaf9fb82f04c9154ad0aac882976c585b2158244"
+    },
+    {
+      "path": "test/shopping_cart_widget_test.dart",
+      "digest": "sha256:eb2deb3a817d35a417f82bc1779ace753f1daf0247a0a031a97190e985f4e07f"
+    },
+    {
       "path": "zuke.yaml",
-      "digest": "sha256:f9976a5bf0c4477454fcd4057cdf86cd3252168a9de070ea712a01c28fb41cfa"
+      "digest": "sha256:3c9f33a44dec378df0cbb147cbac112cb87a98702392241344853159f7ca643c"
     }
   ],
   "inputPatterns": [
@@ -79,5 +87,12 @@
     "shopping.statusMessageDisplay",
     "shopping.subtotalDisplay",
     "shopping.totalDisplay"
+  ],
+  "verifiedRequirementIds": [
+    "RULE-CART-ACCESSIBILITY",
+    "RULE-CART-EMPTY-CHECKOUT",
+    "RULE-CART-ITEM-MANAGEMENT",
+    "RULE-CART-PROMO-DISCOUNT",
+    "RULE-CART-SUCCESSFUL-CHECKOUT"
   ]
 }

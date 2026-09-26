@@ -44,6 +44,24 @@ class ZukeAnalyzer {
     }
 
     for (final symbol in output.symbols) {
+      final isImplementation =
+          symbol.kind == ExtractedSymbolKind.requirementBoundary ||
+          symbol.kind == ExtractedSymbolKind.presentationBoundary;
+      if (isImplementation) {
+        for (final requirementId in symbol.requirementIds) {
+          if (index.requirementIds.contains(requirementId) &&
+              !index.verifiedRequirementIds.contains(requirementId)) {
+            diagnostics.add(
+              ZukeDiagnostic(
+                code: 'ZUKE-MISSING-TEST',
+                message:
+                    'Requirement "$requirementId" on ${symbol.symbolId} has no '
+                    '@VerifiesRequirement; add a test and run zuke generate.',
+              ),
+            );
+          }
+        }
+      }
       for (final requirementId in symbol.requirementIds) {
         if (!index.requirementIds.contains(requirementId)) {
           diagnostics.add(

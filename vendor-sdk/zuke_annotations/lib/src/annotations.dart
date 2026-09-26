@@ -89,6 +89,13 @@ abstract interface class ZukeBindingDescriptor {
   /// Stable generated binding identifier.
   String get id;
 
+  /// Human-readable name declared by the feature metadata, when present.
+  ///
+  /// Labels are accepted anywhere a binding identifier is accepted, so a
+  /// consumer may resolve `fromId('task input field')`; the getter exposes the
+  /// label for diagnostics and reports.
+  String? get label;
+
   /// Runtime multiplicity of the binding.
   BindingInstanceCardinality get instanceCardinality;
 }

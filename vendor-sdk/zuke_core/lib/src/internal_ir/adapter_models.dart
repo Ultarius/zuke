@@ -9,6 +9,11 @@ class IrDiagnostic {
   final String message;
   final IrDiagnosticSeverity severity;
 
+  /// Concrete next step for this code, rendered alongside the message in
+  /// text mode. Validators own it so a failure never leaves the operator to
+  /// infer the remedy from the finding itself.
+  final String? remediation;
+
   /// SourceSpan is canonical; Object? keeps frontend diagnostics source
   /// compatible during the migration and is normalized by toJson.
   final Object? source;
@@ -17,6 +22,7 @@ class IrDiagnostic {
     required this.code,
     required this.message,
     required this.severity,
+    this.remediation,
     this.source,
   });
 
@@ -24,6 +30,7 @@ class IrDiagnostic {
     'code': code,
     'message': message,
     'severity': severity.name,
+    if (remediation != null) 'remediation': remediation,
     if (source != null)
       'source': source is SourceSpan
           ? (source as SourceSpan).toJson()
@@ -94,8 +101,19 @@ class ExtractedSourceLocation {
   };
 }
 
+/// Kinds of symbols emitted by package extractors.
+///
+/// Enum names match the adapter JSON wire strings (`requirementBoundary`, …).
+enum ExtractedSymbolKind {
+  requirementBoundary,
+  presentationBoundary,
+  verificationBoundary,
+  controlProvider,
+  binding,
+}
+
 class ExtractedSymbol {
-  final String kind;
+  final ExtractedSymbolKind kind;
   final String role;
   final String symbolId;
   final List<String> requirementIds;
@@ -128,7 +146,7 @@ class ExtractedSymbol {
   });
 
   Map<String, Object?> toJson() => {
-    'kind': kind,
+    'kind': kind.name,
     'role': role,
     'symbolId': symbolId,
     if (requirementIds.isNotEmpty)

@@ -385,15 +385,19 @@ final class DartFrogAdapter implements FrameworkAdapter {
               enclosing.name != 'RequestContext') {
             return;
           }
-          final arguments = invocation.typeArguments?.arguments ?? const [];
-          if (arguments.length != 1) {
+          final typeArguments = invocation.typeArguments;
+          if (typeArguments == null || typeArguments.arguments.length != 1) {
             unresolvedImplementationLink = true;
             return;
           }
-          final type = arguments.single;
+          final type = typeArguments.arguments.single;
+          if (type is! NamedType) {
+            unresolvedImplementationLink = true;
+            return;
+          }
           final element = type.element;
           final name = element?.name ?? type.name.lexeme;
-          if (element == null || name == null || name.isEmpty) {
+          if (element == null || name.isEmpty) {
             unresolvedImplementationLink = true;
             return;
           }
@@ -644,7 +648,7 @@ final class DartFrogAdapter implements FrameworkAdapter {
       final root = path.normalize(File(packageRoot).absolute.path);
       final rootWithSeparator = '$root${path.separator}';
       if (filePath != root && !filePath.startsWith(rootWithSeparator)) return;
-      if (!visited.add('${filePath}|${executable.name}')) return;
+      if (!visited.add('$filePath|${executable.name}')) return;
 
       final resolved = await _resolveUnit(filePath, collection);
       if (resolved == null) return;

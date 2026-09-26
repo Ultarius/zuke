@@ -1,0 +1,13 @@
+include: package:flutter_lints/flutter.yaml
+
+# Flutter package variant of the workspace root options: same plugin block so
+# nested analysis contexts still load zuke_analyzer (plugins cannot be declared
+# in package-local analysis_options files).
+plugins:
+  zuke_analyzer:
+    path: vendor-sdk/zuke_analyzer
+    diagnostics:
+      zuke_annotation: true
+      zuke_index_stale: true
+      zuke_unknown_index_id: true
+      zuke_missing_test: true

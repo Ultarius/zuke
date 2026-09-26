@@ -5,198 +5,1269 @@
     "remediation": "Use the diagnostic code and command context to determine the owning repository."
   },
   "diagnostics": [
-    {"code": "ZK-DART-FROG-001", "severity": "error", "summary": "Dart Frog route configuration could not be built.", "owner": "zuke", "remediation": "Fix the Dart Frog topology or mark the affected dimension indeterminate."},
-    {"code": "ZK-DART-FROG-002", "severity": "error", "summary": "Dart Frog route registrations conflict.", "owner": "zuke", "remediation": "Resolve the conflicting route files before relying on topology evidence."},
-    {"code": "ZK-DART-FROG-003", "severity": "error", "summary": "A Dart Frog route handler could not be resolved.", "owner": "zuke", "remediation": "Restore the generated route handler or report an incomplete graph."},
-    {"code": "ZK-DART-FROG-004", "severity": "error", "summary": "A Dart Frog route is outside the generated topology.", "owner": "zuke", "remediation": "Remove the rogue route or make its registration statically resolvable."},
-    {"code": "ZK-DART-FROG-005", "severity": "error", "summary": "A Dart Frog middleware file could not be resolved.", "owner": "zuke", "remediation": "Resolve the middleware path from the configured package root."},
-    {"code": "ZK-DART-FROG-006", "severity": "error", "summary": "A Dart Frog middleware chain contains an unresolved use call.", "owner": "zuke", "remediation": "Use statically resolvable middleware calls or keep middleware completeness indeterminate."},
-    {"code": "ZK-DART-FROG-007", "severity": "warning", "summary": "A Dart Frog middleware return expression is unresolved.", "owner": "zuke", "remediation": "Resolve the middleware return expression or keep middleware completeness indeterminate."},
-    {"code": "ZK-DART-FROG-008", "severity": "warning", "summary": "A Dart Frog middleware chain has no statically resolved use calls.", "owner": "zuke", "remediation": "Use a statically inspectable middleware chain or report the dimension as indeterminate."},
-    {"code": "ZK-DART-FROG-009", "severity": "warning", "summary": "A Dart Frog middleware use argument is dynamic or unsupported.", "owner": "zuke", "remediation": "Replace the dynamic expression with a supported static middleware form or keep completeness indeterminate."},
-    {"code": "ZK-DART-FROG-PATH-001", "severity": "error", "summary": "A Dart Frog route path has an unsupported or unsafe shape.", "owner": "zuke", "remediation": "Use a normalized generator path confined to the configured routes directory."},
-    {"code": "ZK-DART-FROG-WS-001", "severity": "warning", "summary": "A Dart Frog route transport could not be resolved.", "owner": "zuke", "remediation": "Resolve the transport element or keep WebSocket classification indeterminate."},
-    {"code": "ZK-DART-FROG-WS-002", "severity": "warning", "summary": "A webSocketHandler symbol did not resolve to Dart Frog.", "owner": "zuke", "remediation": "Confirm the invoked element is Dart Frog or retain an indeterminate transport classification."},
-    {"code": "ZK-DART-FROG-IMPL-001", "severity": "warning", "summary": "A Dart Frog RequestContext.read implementation link could not be resolved.", "owner": "zuke", "remediation": "Use a statically resolvable RequestContext.read<T>() call or retain implementation coverage as indeterminate."},
-    {"code": "ZK-DART-SOURCE-001", "severity": "error", "summary": "A Dart source package could not be resolved.", "owner": "environment", "remediation": "Check the configured package root and workspace dependency state."},
-    {"code": "ZK-DART-FROG-ANALYZER-001", "severity": "error", "summary": "The Dart analyzer could not be initialized for Dart Frog extraction.", "owner": "zuke", "remediation": "Use a supported analyzer SDK and rerun topology extraction."},
-    {"code": "ZK-ARTIFACT-UNSAFE", "severity": "error", "summary": "The safe artifact directory contains an unexpected entry.", "owner": "zuke", "remediation": "Remove raw logs, source, tokens, headers, and payloads from the safe bundle and rerun the gate."},
-    {"code": "ZK-DOCTOR-001", "severity": "error", "summary": "The workspace doctor found an invalid project setup.", "owner": "project", "remediation": "Resolve the structured doctor diagnostic before running assurance."},
-    {"code": "ZK-CONFIG-INVALID", "severity": "error", "summary": "The workspace configuration is malformed or invalid.", "owner": "project", "remediation": "Correct the current schema-3 zuke.yaml and rerun doctor."},
-    {"code": "ZK-CONFIG-LEGACY-FORMAT", "severity": "error", "summary": "The workspace configuration uses a legacy schema.", "owner": "project", "remediation": "Follow docs/migration.md, upgrade the Zuke packages, and regenerate current artifacts."},
-    {"code": "ZK-CONFIG-UNKNOWN-KEY", "severity": "warning", "summary": "The workspace configuration contains an unrecognized key that is ignored.", "owner": "project", "remediation": "Remove the unrecognized key or pin a CLI that documents it."},
-    {"code": "ZK-DOCTOR-002", "severity": "error", "summary": "A required workspace identity is missing.", "owner": "project", "remediation": "Declare the target, package, runner, and evidence identities explicitly."},
-    {"code": "ZK-EVIDENCE-AMBIGUOUS-SOURCE", "severity": "error", "summary": "Evidence matched multiple source identities.", "owner": "zuke", "remediation": "Declare an exact target, package, adapter, and variant slot."},
-    {"code": "ZK-EVIDENCE-MISSING-SOURCE", "severity": "error", "summary": "Evidence has no matching source identity.", "owner": "zuke", "remediation": "Regenerate the record from the configured runner."},
-    {"code": "ZK-EVIDENCE-SLOT-IDENTITY-MISSING", "severity": "error", "summary": "An evidence slot is missing exact target or source identity.", "owner": "project", "remediation": "Declare target, source package, source adapter, and compatibility identity in the current workspace and runner configuration."},
-    {"code": "ZK-EVIDENCE-WRITE-CONFLICT", "severity": "error", "summary": "Concurrent evidence writers produced different bytes for one destination.", "owner": "zuke", "remediation": "Use one managed runner result per execution identity and remove stale concurrent writers before rerunning."},
-    {"code": "ZK-COMMAND-RESULT-WRITE-CONFLICT", "severity": "error", "summary": "Concurrent command-result writers produced different bytes for one destination.", "owner": "zuke", "remediation": "Use one command-result destination per invocation and remove stale concurrent writers before rerunning."},
-    {"code": "ZK-PROOF-OWNER-CONFLICT", "severity": "error", "summary": "More than one proof validator produced a result for the same control obligation.", "owner": "zuke", "remediation": "Declare one proof semantics for the obligation and remove competing validator ownership."},
-    {"code": "ZK-BINDING-SLOT-INVALID", "severity": "error", "summary": "A binding slot is not a stable kebab-case token.", "owner": "project", "remediation": "Use a lowercase stable slot such as primary, create, or join."},
-    {"code": "ZK-BINDING-IDENTITY-MISSING", "severity": "error", "summary": "A source binding is missing a required semantic identity field.", "owner": "project", "remediation": "Regenerate extraction and ensure target, role, variant, and slot are explicit."},
-    {"code": "ZK-BINDING-IDENTITY-DUPLICATE", "severity": "error", "summary": "Two source bindings claim the same semantic identity.", "owner": "project", "remediation": "Assign distinct slots or remove the duplicate binding."},
-    {"code": "ZK-TARGET-UNASSIGNED", "severity": "error", "summary": "A package has no configured workspace target placement.", "owner": "project", "remediation": "Add the package to exactly one active target or pass a valid target for a multi-target package."},
-    {"code": "ZK-TARGET-UNKNOWN", "severity": "error", "summary": "The requested workspace target is not configured.", "owner": "project", "remediation": "Use a target ID declared in the current schema-3 workspace."},
-    {"code": "ZK-TARGET-NOT-MEMBER", "severity": "error", "summary": "The package is not a member of the requested target.", "owner": "project", "remediation": "Correct package membership or select the target that owns the package."},
-    {"code": "ZK-TARGET-AMBIGUOUS", "severity": "error", "summary": "A package belongs to multiple targets without an active selection.", "owner": "project", "remediation": "Run extraction with the explicit active target."},
-    {"code": "ZK-IMPL-SLOT-CLAIM-REQUIRED", "severity": "error", "summary": "A managed test must explicitly claim implementation slots for a multi-slot requirement.", "owner": "project", "remediation": "Pass provedImplementationSlots with the slots exercised by the test."},
-    {"code": "ZK-IMPL-SLOT-CLAIM-UNKNOWN", "severity": "error", "summary": "A managed test claimed an implementation slot that was not extracted.", "owner": "project", "remediation": "Use the generated implementation slot identity for the selected requirement."},
-    {"code": "ZK-IMPL-COVERAGE-MISSING", "severity": "error", "summary": "An implementation binding has no matching extracted node.", "owner": "project", "remediation": "Regenerate extraction and ensure the binding is placed in the active target."},
-    {"code": "ZK-IMPL-UNREACHABLE", "severity": "error", "summary": "An implementation binding is not reachable from governed topology.", "owner": "project", "remediation": "Connect the implementation to an allowed target entry point; passing tests cannot replace topology reachability."},
-    {"code": "ZK-IMPL-EVIDENCE-MISSING", "severity": "error", "summary": "An annotation-governed implementation slot has no current passing managed evidence.", "owner": "project", "remediation": "Run a managed test that claims the exact implementation slot."},
-    {"code": "ZK-SOURCE-UNKNOWN-PACKAGE", "severity": "error", "summary": "A source identity names an unknown configured package.", "owner": "project", "remediation": "Use a package ID declared under the selected target."},
-    {"code": "ZK-SOURCE-MISSING-PACKAGE", "severity": "error", "summary": "A configured source package root is missing.", "owner": "project", "remediation": "Restore the package at its configured path or correct the current workspace configuration."},
-    {"code": "ZK-SOURCE-NO-MATCH", "severity": "error", "summary": "No extracted source output matches the exact source identity.", "owner": "zuke", "remediation": "Regenerate extraction and ensure target, package, adapter, and compatibility IDs match exactly."},
-    {"code": "ZK-SOURCE-COMPATIBILITY-MISMATCH", "severity": "error", "summary": "An extracted source output has a different compatibility identity.", "owner": "zuke", "remediation": "Use the compatibility ID generated from the release matrix and rerun extraction."},
-    {"code": "ZK-SOURCE-AMBIGUOUS", "severity": "error", "summary": "Multiple extracted source outputs match one source identity.", "owner": "zuke", "remediation": "Resolve duplicate adapter outputs and publish only one exact source identity."},
-    {"code": "ZK-SOURCE-OUT-OF-ROOT", "severity": "error", "summary": "An extracted source output escaped its configured package root.", "owner": "zuke", "remediation": "Reject the output and correct package-root or adapter path resolution."},
-    {"code": "ZK-LOCK-LEGACY-FORMAT", "severity": "error", "summary": "A legacy or malformed lock artifact was rejected.", "owner": "zuke", "remediation": "Remove the legacy lock and regenerate assurance/locks/<profile>.lock.json with the current Zuke CLI."},
-    {"code": "ZK-LOCK-STALE", "severity": "error", "summary": "The current profile lock is missing or does not match the workspace inputs.", "owner": "project", "remediation": "Generate the profile lock in a reviewed change, then verify it with zuke lock --profile <name> --check."},
-    {"code": "ZK-HISTORY-LEGACY-FORMAT", "severity": "error", "summary": "A legacy assurance-history layout was rejected.", "owner": "zuke", "remediation": "Remove legacy history entries and regenerate current assurance history with the current Zuke CLI."},
-    {"code": "ZK-RESULT-MISSING", "severity": "error", "summary": "Zuke did not emit a structured command result.", "owner": "unknown", "remediation": "Treat the run as blocked and attach only sanitized command context."},
-    {"code": "ZK-VALIDATE-EXTRACTION", "severity": "error", "summary": "Validation could not complete because source extraction failed.", "owner": "zuke", "remediation": "Inspect the extraction diagnostic, correct the source package or adapter configuration, and rerun validation."},
-    {"code": "ZK-VALIDATE-INELIGIBLE", "severity": "error", "summary": "Validation produced a report that is not eligible for the selected profile.", "owner": "project", "remediation": "Resolve the reported proof, evidence, identity, or completeness failure and rerun validation."},
-    {"code": "ZK-TEST-001", "severity": "error", "summary": "A configured test runner did not produce an acceptable result.", "owner": "project", "remediation": "Run the direct suite and inspect its structured result artifact."},
-    {"code": "ZK-TEST-002", "severity": "error", "summary": "A command result has contradictory status, exit, or eligibility fields.", "owner": "unknown", "remediation": "Reject the result and regenerate a complete current command summary."},
-    {"code": "ZK-TEST-003", "severity": "error", "summary": "A diagnostic payload is malformed.", "owner": "unknown", "remediation": "Reject the command result and regenerate a valid current diagnostic document."},
-    {"code": "ZK-TEST-SDK-PIN", "severity": "error", "summary": "A consumer test constraint is incompatible with the active Flutter SDK pin.", "owner": "project", "remediation": "Widen the consumer test constraint to admit the Flutter SDK pin or use a compatible Flutter SDK; Zuke does not install dependency overrides."},
-    {"code": "ZK-TEST-HOST-UNRESOLVED", "severity": "warning", "summary": "The resolved Flutter/test_api tuple is unavailable, so test-host compatibility is undetermined.", "owner": "project", "remediation": "Run the appropriate Pub resolution command and rerun zuke doctor test-host."},
-    {"code": "ZK-COVERAGE-FAILED", "severity": "error", "summary": "The configured coverage policy failed.", "owner": "project", "remediation": "Fix the reported coverage input, baseline, exclusions, or threshold violation."},
-    {"code": "ZUKE-ANNOTATION-001", "severity": "error", "summary": "A specification annotation is invalid."},
-    {"code": "ZUKE-ATTEST-EXPIRING", "severity": "warning", "summary": "An external attestation is approaching expiry."},
-    {"code": "ZUKE-BATCH-UNSAFE-ARGUMENT", "severity": "error", "summary": "A batch command argument is unsafe."},
-    {"code": "ZUKE-CARD-001", "severity": "error", "summary": "A required cardinality declaration is missing."},
-    {"code": "ZUKE-CARD-002", "severity": "error", "summary": "A cardinality declaration has the wrong provider count."},
-    {"code": "ZUKE-CARD-003", "severity": "error", "summary": "A cardinality declaration is duplicated."},
-    {"code": "ZUKE-CARD-004", "severity": "error", "summary": "A cardinality binding is not recognized."},
-    {"code": "ZUKE-CARD-005", "severity": "error", "summary": "A cardinality rule is incomplete."},
-    {"code": "ZUKE-CARD-006", "severity": "error", "summary": "A cardinality provider is incompatible."},
-    {"code": "ZUKE-CARD-007", "severity": "error", "summary": "A cardinality target is unknown."},
-    {"code": "ZUKE-CARD-008", "severity": "error", "summary": "A cardinality variant is unknown."},
-    {"code": "ZUKE-CARD-009", "severity": "error", "summary": "A cardinality slot is invalid."},
-    {"code": "ZUKE-CARD-010", "severity": "error", "summary": "A cardinality declaration is inconsistent."},
-    {"code": "ZUKE-CARD-OK", "severity": "info", "summary": "Cardinality validation completed successfully."},
-    {"code": "ZUKE-COV-002", "severity": "error", "summary": "Coverage is below the configured threshold."},
-    {"code": "ZUKE-COV-003", "severity": "error", "summary": "Coverage evidence is incomplete."},
-    {"code": "ZUKE-DISCOVERY-001", "severity": "error", "summary": "Specification workspace discovery failed."},
-    {"code": "ZUKE-DOCTOR-001", "severity": "error", "summary": "Project setup diagnostics found an invalid configuration."},
-    {"code": "ZUKE-EVID-001", "severity": "error", "summary": "Required evidence is missing."},
-    {"code": "ZUKE-EVID-002", "severity": "error", "summary": "Evidence does not match the required specification."},
-    {"code": "ZUKE-EVID-003", "severity": "error", "summary": "Evidence is not eligible for the selected profile."},
-    {"code": "ZUKE-EVIDENCE-005", "severity": "error", "summary": "Evidence is not mapped to a governed requirement."},
-    {"code": "ZUKE-EVIDENCE-006", "severity": "error", "summary": "Security evidence was skipped."},
-    {"code": "ZUKE-EVIDENCE-EXECUTION", "severity": "error", "summary": "Evidence execution did not complete successfully."},
-    {"code": "ZUKE-EVIDENCE-STALE", "severity": "error", "summary": "Evidence is stale."},
-    {"code": "ZUKE-EXTRACT-001", "severity": "error", "summary": "Dart annotation extraction failed."},
-    {"code": "ZUKE-EXTRACT-FAILED", "severity": "error", "summary": "Dart extraction returned a failure."},
-    {"code": "ZUKE-EXTRACT-INCOMPLETE", "severity": "error", "summary": "Dart extraction completed with incomplete results."},
-    {"code": "ZUKE-EXTRACT-TIMEOUT", "severity": "error", "summary": "Dart annotation extraction timed out."},
-    {"code": "ZUKE-FLUTTER-CACHE-INCOMPLETE", "severity": "error", "summary": "The Flutter SDK cache is incomplete."},
-    {"code": "ZUKE-FLUTTER-CACHE-UNWRITABLE", "severity": "error", "summary": "The Flutter SDK cache is not writable."},
-    {"code": "ZUKE-FLUTTER-NOT-FOUND", "severity": "error", "summary": "A Flutter executable was not found."},
-    {"code": "ZUKE-FLUTTER-RUNNER-MODE-INVALID", "severity": "error", "summary": "The Flutter runner mode is invalid."},
-    {"code": "ZUKE-FLUTTER-TOOL-ARGS-UNSUPPORTED", "severity": "error", "summary": "The Flutter tool does not support the requested arguments."},
-    {"code": "ZUKE-HOOK-CONFIG-001", "severity": "error", "summary": "The build hook configuration is invalid."},
-    {"code": "ZUKE-ID-001", "severity": "error", "summary": "A governed identifier is missing."},
-    {"code": "ZUKE-ID-002", "severity": "error", "summary": "A governed identifier has an invalid format."},
-    {"code": "ZUKE-ID-003", "severity": "error", "summary": "A governed identifier is duplicated."},
-    {"code": "ZUKE-ID-004", "severity": "error", "summary": "A governed identifier is unknown."},
-    {"code": "ZUKE-ID-005", "severity": "error", "summary": "A governed identifier is retired."},
-    {"code": "ZUKE-ID-006", "severity": "error", "summary": "A governed identifier has an invalid ownership relation."},
-    {"code": "ZUKE-ID-007", "severity": "error", "summary": "A governed identifier has an invalid lifecycle state."},
-    {"code": "ZUKE-ID-008", "severity": "error", "summary": "A governed identifier has an invalid scope."},
-    {"code": "ZUKE-ID-009", "severity": "error", "summary": "A governed identifier has an invalid alias."},
-    {"code": "ZUKE-ID-010", "severity": "error", "summary": "A governed identifier registry is invalid."},
-    {"code": "ZUKE-INDEX-DUPLICATE-BINDING", "severity": "error", "summary": "A generated index contains a duplicate binding."},
-    {"code": "ZUKE-INDEX-STALE", "severity": "error", "summary": "The generated analyzer index is stale."},
-    {"code": "ZUKE-INDEX-UNKNOWN-ID", "severity": "error", "summary": "The generated analyzer index does not contain an annotation identifier."},
-    {"code": "ZUKE-MAP-DUPLICATE-BINDING", "severity": "error", "summary": "A specification map contains a duplicate binding."},
-    {"code": "ZUKE-MAP-MISSING-BINDING", "severity": "error", "summary": "A specification map is missing a binding."},
-    {"code": "ZUKE-MAP-UNKNOWN-BINDING", "severity": "error", "summary": "A specification map references an unknown binding."},
-    {"code": "ZUKE-MAP-UNKNOWN-CONTROL", "severity": "error", "summary": "A specification map references an unknown control."},
-    {"code": "ZUKE-MAP-UNKNOWN-REQUIREMENT", "severity": "error", "summary": "A specification map references an unknown requirement."},
-    {"code": "ZUKE-POLICY-DUPLICATE-CONTROL", "severity": "error", "summary": "A policy defines a control more than once."},
-    {"code": "ZUKE-PROCESS-LAUNCH-FAILED", "severity": "error", "summary": "A configured process could not be launched."},
-    {"code": "ZUKE-PROCESS-NO-OUTPUT", "severity": "error", "summary": "A configured process produced no output."},
-    {"code": "ZUKE-PROCESS-START-TIMEOUT", "severity": "error", "summary": "A configured process did not start in time."},
-    {"code": "ZUKE-PROCESS-TERMINATION-FAILED", "severity": "error", "summary": "A configured process could not be terminated."},
-    {"code": "ZUKE-PACKAGE-TIMEOUT", "severity": "error", "summary": "A workspace package produced no output within the idle timeout.", "owner": "environment", "remediation": "Inspect the package output and environment, then rerun the package task; active output is allowed to continue beyond the idle window."},
-    {"code": "ZUKE-PROVIDER-001", "severity": "error", "summary": "A required provider is missing."},
-    {"code": "ZUKE-PROVIDER-002", "severity": "error", "summary": "A provider is incompatible with its declaration."},
-    {"code": "ZUKE-PROVIDER-003", "severity": "error", "summary": "A provider is not visible to the governed graph."},
-    {"code": "ZUKE-REF-001", "severity": "error", "summary": "A specification reference is missing."},
-    {"code": "ZUKE-REF-002", "severity": "error", "summary": "A specification reference is unknown."},
-    {"code": "ZUKE-REF-003", "severity": "error", "summary": "A specification reference has the wrong type."},
-    {"code": "ZUKE-REF-004", "severity": "error", "summary": "A specification reference is duplicated."},
-    {"code": "ZUKE-REF-005", "severity": "error", "summary": "A specification reference is malformed."},
-    {"code": "ZUKE-REF-006", "severity": "error", "summary": "A specification reference is out of scope."},
-    {"code": "ZUKE-REF-007", "severity": "error", "summary": "A specification reference has an invalid back-reference."},
-    {"code": "ZUKE-REF-008", "severity": "error", "summary": "A specification reference has an invalid owner."},
-    {"code": "ZUKE-REF-009", "severity": "error", "summary": "A specification reference has an invalid target."},
-    {"code": "ZUKE-REF-010", "severity": "error", "summary": "A specification reference has an invalid profile."},
-    {"code": "ZUKE-REF-011", "severity": "error", "summary": "A specification reference has an invalid lifecycle."},
-    {"code": "ZUKE-REF-012", "severity": "error", "summary": "A specification reference is inconsistent."},
-    {"code": "ZUKE-REF-CYCLE", "severity": "error", "summary": "Specification references contain a cycle."},
-    {"code": "ZUKE-SCENARIO-UNEXPECTED", "severity": "error", "summary": "A scenario produced an unexpected result."},
-    {"code": "ZUKE-SCENARIO-UNTESTED", "severity": "error", "summary": "A governed scenario was not tested."},
-    {"code": "ZUKE-SCHEMA-001", "severity": "error", "summary": "A specification document does not match its schema."},
-    {"code": "ZUKE-SCHEMA-002", "severity": "error", "summary": "A specification schema version is unsupported."},
-    {"code": "ZUKE-TEST-TIMEOUT", "severity": "error", "summary": "A configured test timed out."},
-    {"code": "ZUKE-TRUST-001", "severity": "error", "summary": "A trusted evidence record failed verification."},
-    {"code": "ZK-ALIGNMENT-MALFORMED-MANIFEST", "severity": "error", "summary": "The dependency alignment manifest is malformed."},
-    {"code": "ZK-ALIGNMENT-CONSTRAINT", "severity": "error", "summary": "A dependency does not satisfy the supported alignment constraint."},
-    {"code": "ZK-ALIGNMENT-UNRESOLVED", "severity": "error", "summary": "The dependency alignment could not be resolved."},
-    {"code": "ZK-ALIGNMENT-RESOLUTION", "severity": "error", "summary": "Resolved dependency metadata does not match the supported alignment."},
-    {"code": "ZK-ALIGNMENT-ANALYZER-OVERRIDE", "severity": "warning", "summary": "An Analyzer override affects dependency alignment."},
-    {"code": "ZK-ALIGNMENT-PATH-OVERRIDE", "severity": "warning", "summary": "A path dependency override affects dependency alignment."},
-    {"code": "ZK-CONTRACT-OPENAPI-MISSING", "severity": "error", "summary": "A configured route is missing from the OpenAPI document."},
-    {"code": "ZK-CONTRACT-OPENAPI-EXTRA", "severity": "error", "summary": "The OpenAPI document contains an operation absent from route topology."},
-    {"code": "ZK-CONTRACT-OPENAPI-METHOD-UNKNOWN", "severity": "error", "summary": "A route's HTTP methods could not be extracted; contract verification is incomplete."},
-    {"code": "ZK-EXECUTION-DUPLICATE-CASE", "severity": "error", "summary": "Managed execution produced duplicate evidence for one case."},
-    {"code": "ZK-EXECUTION-DUPLICATE-REGISTRATION", "severity": "error", "summary": "A selected registration case was declared more than once."},
-    {"code": "ZK-EXECUTION-FAILED-CASE", "severity": "error", "summary": "Managed execution failed a selected case."},
-    {"code": "ZK-EXECUTION-MISSING-CASE", "severity": "error", "summary": "A selected registration produced no managed execution result."},
-    {"code": "ZK-EXECUTION-SKIPPED-CASE", "severity": "error", "summary": "Managed execution skipped a selected case."},
-    {"code": "ZK-EXECUTION-UNEXPECTED-CASE", "severity": "error", "summary": "Managed execution produced an unregistered selected case."},
-    {"code": "ZK-GATE-ARTIFACT-AUDIT-FAILED", "severity": "error", "summary": "The gate artifact audit failed."},
-    {"code": "ZK-GATE-ARTIFACT-AUDIT-REQUIRES-DIRECTORY", "severity": "error", "summary": "Artifact auditing requires an explicit upload directory."},
-    {"code": "ZK-POLICY-APPROVAL-COUNT", "severity": "error", "summary": "The risk-acceptance approval count is invalid."},
-    {"code": "ZK-POLICY-APPROVAL-NOT-AUTHENTICATED", "severity": "error", "summary": "Risk-acceptance approval evidence is not independently authenticated."},
-    {"code": "ZK-POLICY-APPROVER-FORMAT", "severity": "error", "summary": "A risk-acceptance approver has an invalid format."},
-    {"code": "ZK-POLICY-APPROVER-ID", "severity": "error", "summary": "A risk-acceptance approver is missing a stable identity."},
-    {"code": "ZK-POLICY-APPROVER-ROLE", "severity": "error", "summary": "A risk-acceptance approver has an invalid role."},
-    {"code": "ZK-POLICY-APPROVERS", "severity": "error", "summary": "Risk-acceptance approvers are invalid or incomplete."},
-    {"code": "ZK-POLICY-COMMIT-MISMATCH", "severity": "error", "summary": "Risk acceptance does not bind to the current commit."},
-    {"code": "ZK-POLICY-COMPENSATING-RUN", "severity": "error", "summary": "A required compensating run is missing or invalid."},
-    {"code": "ZK-POLICY-CONFIG-MALFORMED", "severity": "error", "summary": "The risk-acceptance policy configuration is malformed."},
-    {"code": "ZK-POLICY-CONFIG-MISSING", "severity": "error", "summary": "The risk-acceptance policy configuration is missing."},
-    {"code": "ZK-POLICY-DATE", "severity": "error", "summary": "A risk-acceptance date is invalid or missing."},
-    {"code": "ZK-POLICY-DATE-ORDER", "severity": "error", "summary": "Risk-acceptance dates are in an invalid order."},
-    {"code": "ZK-POLICY-DUPLICATE-APPROVER", "severity": "error", "summary": "A risk-acceptance approver is listed more than once."},
-    {"code": "ZK-POLICY-EXPIRED", "severity": "error", "summary": "The risk acceptance has expired."},
-    {"code": "ZK-POLICY-FIELD", "severity": "error", "summary": "A required risk-acceptance field is invalid."},
-    {"code": "ZK-POLICY-KIND", "severity": "error", "summary": "The risk-acceptance record kind is invalid."},
-    {"code": "ZK-POLICY-MALFORMED", "severity": "error", "summary": "The risk-acceptance record is malformed."},
-    {"code": "ZK-POLICY-MISSING", "severity": "error", "summary": "The required risk-acceptance record is missing."},
-    {"code": "ZK-POLICY-RELEASE-MISMATCH", "severity": "error", "summary": "Risk acceptance does not bind to the current release."},
-    {"code": "ZK-POLICY-ROLE-MISSING", "severity": "error", "summary": "A required risk-acceptance role is missing."},
-    {"code": "ZK-REGISTRATION-AUDIT", "severity": "error", "summary": "The direct Zuke registration audit failed."},
-    {"code": "ZK-REGISTRATION-CASE-DUPLICATE", "severity": "error", "summary": "A registration declares caseId more than once."},
-    {"code": "ZK-REGISTRATION-CASE-DYNAMIC", "severity": "error", "summary": "A registration caseId is not statically resolvable."},
-    {"code": "ZK-REGISTRATION-CONTROLS-BLANKET", "severity": "error", "summary": "A registration claims controls without explicit assertion support."},
-    {"code": "ZK-REGISTRATION-CONTROLS-DUPLICATE", "severity": "error", "summary": "A registration declares provedControls more than once."},
-    {"code": "ZK-REGISTRATION-DUPLICATE-IDENTITY", "severity": "error", "summary": "Two registrations claim the same stable identity."},
-    {"code": "ZK-REGISTRATION-DYNAMIC", "severity": "error", "summary": "A registration scenario is not statically resolvable."},
-    {"code": "ZK-REGISTRATION-EXECUTION", "severity": "error", "summary": "Registration execution reconciliation failed."},
-    {"code": "ZK-REGISTRATION-EXPECTED-MISSING", "severity": "error", "summary": "A configured scenario has no direct test registration."},
-    {"code": "ZK-REGISTRATION-PACKAGE-MISSING", "severity": "error", "summary": "A runner source package is not configured for its target."},
-    {"code": "ZK-REGISTRATION-ROOT-MISSING", "severity": "error", "summary": "A registration source root does not exist."},
-    {"code": "ZK-REGISTRATION-SCENARIO-MISSING", "severity": "error", "summary": "A direct registration is missing its scenario argument."},
-    {"code": "ZK-REGISTRATION-SCENARIOS-MISSING", "severity": "error", "summary": "A Flutter harness is missing a statically resolvable scenario collection."},
-    {"code": "ZK-REGISTRATION-SYNTAX", "severity": "error", "summary": "A registration source file could not be parsed."},
-    {"code": "ZK-REGISTRATION-WORKSPACE-INVALID", "severity": "error", "summary": "Registration audit could not discover valid workspace specifications.", "owner": "project", "remediation": "Fix the reported specification or discovery error before auditing registrations."},
-    {"code": "ZK-REGISTRATION-SCENARIO-IDENTITY", "severity": "error", "summary": "A configured scenario does not have exactly one scenario identity tag.", "owner": "project", "remediation": "Give each scenario exactly one SCN- tag."},
-    {"code": "ZK-REGISTRATION-UNKNOWN-SCENARIO", "severity": "error", "summary": "A registration references an unknown configured scenario."},
-    {"code": "ZK-REGISTRATION-UNREACHABLE", "severity": "error", "summary": "A registration is inside an unreachable helper."}
+    {
+      "code": "ZK-DART-FROG-001",
+      "severity": "error",
+      "summary": "Dart Frog route configuration could not be built.",
+      "owner": "zuke",
+      "remediation": "Fix the Dart Frog topology or mark the affected dimension indeterminate."
+    },
+    {
+      "code": "ZK-DART-FROG-002",
+      "severity": "error",
+      "summary": "Dart Frog route registrations conflict.",
+      "owner": "zuke",
+      "remediation": "Resolve the conflicting route files before relying on topology evidence."
+    },
+    {
+      "code": "ZK-DART-FROG-003",
+      "severity": "error",
+      "summary": "A Dart Frog route handler could not be resolved.",
+      "owner": "zuke",
+      "remediation": "Restore the generated route handler or report an incomplete graph."
+    },
+    {
+      "code": "ZK-DART-FROG-004",
+      "severity": "error",
+      "summary": "A Dart Frog route is outside the generated topology.",
+      "owner": "zuke",
+      "remediation": "Remove the rogue route or make its registration statically resolvable."
+    },
+    {
+      "code": "ZK-DART-FROG-005",
+      "severity": "error",
+      "summary": "A Dart Frog middleware file could not be resolved.",
+      "owner": "zuke",
+      "remediation": "Resolve the middleware path from the configured package root."
+    },
+    {
+      "code": "ZK-DART-FROG-006",
+      "severity": "error",
+      "summary": "A Dart Frog middleware chain contains an unresolved use call.",
+      "owner": "zuke",
+      "remediation": "Use statically resolvable middleware calls or keep middleware completeness indeterminate."
+    },
+    {
+      "code": "ZK-DART-FROG-007",
+      "severity": "warning",
+      "summary": "A Dart Frog middleware return expression is unresolved.",
+      "owner": "zuke",
+      "remediation": "Resolve the middleware return expression or keep middleware completeness indeterminate."
+    },
+    {
+      "code": "ZK-DART-FROG-008",
+      "severity": "warning",
+      "summary": "A Dart Frog middleware chain has no statically resolved use calls.",
+      "owner": "zuke",
+      "remediation": "Use a statically inspectable middleware chain or report the dimension as indeterminate."
+    },
+    {
+      "code": "ZK-DART-FROG-009",
+      "severity": "warning",
+      "summary": "A Dart Frog middleware use argument is dynamic or unsupported.",
+      "owner": "zuke",
+      "remediation": "Replace the dynamic expression with a supported static middleware form or keep completeness indeterminate."
+    },
+    {
+      "code": "ZK-DART-FROG-PATH-001",
+      "severity": "error",
+      "summary": "A Dart Frog route path has an unsupported or unsafe shape.",
+      "owner": "zuke",
+      "remediation": "Use a normalized generator path confined to the configured routes directory."
+    },
+    {
+      "code": "ZK-DART-FROG-WS-001",
+      "severity": "warning",
+      "summary": "A Dart Frog route transport could not be resolved.",
+      "owner": "zuke",
+      "remediation": "Resolve the transport element or keep WebSocket classification indeterminate."
+    },
+    {
+      "code": "ZK-DART-FROG-WS-002",
+      "severity": "warning",
+      "summary": "A webSocketHandler symbol did not resolve to Dart Frog.",
+      "owner": "zuke",
+      "remediation": "Confirm the invoked element is Dart Frog or retain an indeterminate transport classification."
+    },
+    {
+      "code": "ZK-DART-FROG-IMPL-001",
+      "severity": "warning",
+      "summary": "A Dart Frog RequestContext.read implementation link could not be resolved.",
+      "owner": "zuke",
+      "remediation": "Use a statically resolvable RequestContext.read<T>() call or retain implementation coverage as indeterminate."
+    },
+    {
+      "code": "ZK-DART-SOURCE-001",
+      "severity": "error",
+      "summary": "A Dart source package could not be resolved.",
+      "owner": "environment",
+      "remediation": "Check the configured package root and workspace dependency state."
+    },
+    {
+      "code": "ZK-DART-FROG-ANALYZER-001",
+      "severity": "error",
+      "summary": "The Dart analyzer could not be initialized for Dart Frog extraction.",
+      "owner": "zuke",
+      "remediation": "Use a supported analyzer SDK and rerun topology extraction."
+    },
+    {
+      "code": "ZK-ARTIFACT-UNSAFE",
+      "severity": "error",
+      "summary": "The safe artifact directory contains an unexpected entry.",
+      "owner": "zuke",
+      "remediation": "Remove raw logs, source, tokens, headers, and payloads from the safe bundle and rerun the gate."
+    },
+    {
+      "code": "ZK-ARTIFACT-MISSING-INPUT",
+      "severity": "error",
+      "summary": "The artifact audit input directory does not exist.",
+      "owner": "project",
+      "remediation": "Produce the upload bundle before auditing, then rerun artifacts audit."
+    },
+    {
+      "code": "ZK-ARTIFACT-UNSAFE-PATH",
+      "severity": "error",
+      "summary": "An artifact path is a symlink or resolves outside the upload root.",
+      "owner": "project",
+      "remediation": "Remove symbolic links and path escapes from the bundle and rerun the audit."
+    },
+    {
+      "code": "ZK-ARTIFACT-INVALID-INPUT",
+      "severity": "error",
+      "summary": "The artifact audit input is not a directory.",
+      "owner": "project",
+      "remediation": "Pass a directory of upload files to artifacts audit."
+    },
+    {
+      "code": "ZK-ARTIFACT-UNEXPECTED-SOURCE",
+      "severity": "error",
+      "summary": "A source file is present in the assurance artifact bundle.",
+      "owner": "project",
+      "remediation": "Remove source files from the safe upload bundle and rerun the audit."
+    },
+    {
+      "code": "ZK-ARTIFACT-EMPTY-INPUT",
+      "severity": "error",
+      "summary": "The artifact bundle contains no readable files.",
+      "owner": "project",
+      "remediation": "Upload a non-empty evidence bundle before auditing."
+    },
+    {
+      "code": "ZK-ARTIFACT-UNREADABLE-INPUT",
+      "severity": "error",
+      "summary": "A file in the artifact bundle could not be read.",
+      "owner": "project",
+      "remediation": "Replace unreadable bundle files and rerun the audit."
+    },
+    {
+      "code": "ZK-ARTIFACT-UNSTABLE-INPUT",
+      "severity": "error",
+      "summary": "Artifact inputs changed while the gate was running.",
+      "owner": "project",
+      "remediation": "Freeze inputs for the duration of the gate and rerun."
+    },
+    {
+      "code": "ZK-ARTIFACT-BEARER-TOKEN",
+      "severity": "error",
+      "summary": "Bearer token material was detected in the artifact bundle.",
+      "owner": "project",
+      "remediation": "Remove credentials from the bundle and rerun the audit."
+    },
+    {
+      "code": "ZK-ARTIFACT-JWT-LIKE-VALUE",
+      "severity": "error",
+      "summary": "A JWT-shaped value was detected in the artifact bundle.",
+      "owner": "project",
+      "remediation": "Remove token material from the bundle and rerun the audit."
+    },
+    {
+      "code": "ZK-ARTIFACT-SECRET-FIELD",
+      "severity": "error",
+      "summary": "A secret-shaped field was detected in the artifact bundle.",
+      "owner": "project",
+      "remediation": "Remove secrets from the bundle and rerun the audit."
+    },
+    {
+      "code": "ZK-ARTIFACT-RAW-PAYLOAD-FIELD",
+      "severity": "error",
+      "summary": "A raw request or response payload field was detected in the artifact bundle.",
+      "owner": "project",
+      "remediation": "Remove raw payloads from the bundle and rerun the audit."
+    },
+    {
+      "code": "ZK-DOCTOR-001",
+      "severity": "error",
+      "summary": "The workspace doctor found an invalid project setup.",
+      "owner": "project",
+      "remediation": "Resolve the structured doctor diagnostic before running assurance."
+    },
+    {
+      "code": "ZK-CONFIG-INVALID",
+      "severity": "error",
+      "summary": "The workspace configuration is malformed or invalid.",
+      "owner": "project",
+      "remediation": "Correct the current schema-3 zuke.yaml and rerun doctor."
+    },
+    {
+      "code": "ZK-CONFIG-LEGACY-FORMAT",
+      "severity": "error",
+      "summary": "The workspace configuration uses a legacy schema.",
+      "owner": "project",
+      "remediation": "Follow docs/migration.md, upgrade the Zuke packages, and regenerate current artifacts."
+    },
+    {
+      "code": "ZK-CONFIG-UNKNOWN-KEY",
+      "severity": "warning",
+      "summary": "The workspace configuration contains an unrecognized key that is ignored.",
+      "owner": "project",
+      "remediation": "Remove the unrecognized key or pin a CLI that documents it."
+    },
+    {
+      "code": "ZK-DOCTOR-002",
+      "severity": "error",
+      "summary": "A required workspace identity is missing.",
+      "owner": "project",
+      "remediation": "Declare the target, package, runner, and evidence identities explicitly."
+    },
+    {
+      "code": "ZK-EVIDENCE-AMBIGUOUS-SOURCE",
+      "severity": "error",
+      "summary": "Evidence matched multiple source identities.",
+      "owner": "zuke",
+      "remediation": "Declare an exact target, package, adapter, and variant slot."
+    },
+    {
+      "code": "ZK-EVIDENCE-MISSING-SOURCE",
+      "severity": "error",
+      "summary": "Evidence has no matching source identity.",
+      "owner": "zuke",
+      "remediation": "Regenerate the record from the configured runner."
+    },
+    {
+      "code": "ZK-EVIDENCE-SLOT-IDENTITY-MISSING",
+      "severity": "error",
+      "summary": "An evidence slot is missing exact target or source identity.",
+      "owner": "project",
+      "remediation": "Declare target, source package, source adapter, and compatibility identity in the current workspace and runner configuration."
+    },
+    {
+      "code": "ZK-EVIDENCE-WRITE-CONFLICT",
+      "severity": "error",
+      "summary": "Concurrent evidence writers produced different bytes for one destination.",
+      "owner": "zuke",
+      "remediation": "Use one managed runner result per execution identity and remove stale concurrent writers before rerunning."
+    },
+    {
+      "code": "ZK-COMMAND-RESULT-WRITE-CONFLICT",
+      "severity": "error",
+      "summary": "Concurrent command-result writers produced different bytes for one destination.",
+      "owner": "zuke",
+      "remediation": "Use one command-result destination per invocation and remove stale concurrent writers before rerunning."
+    },
+    {
+      "code": "ZK-PROOF-OWNER-CONFLICT",
+      "severity": "error",
+      "summary": "More than one proof validator produced a result for the same control obligation.",
+      "owner": "zuke",
+      "remediation": "Declare one proof semantics for the obligation and remove competing validator ownership."
+    },
+    {
+      "code": "ZK-BINDING-SLOT-INVALID",
+      "severity": "error",
+      "summary": "A binding slot is not a stable kebab-case token.",
+      "owner": "project",
+      "remediation": "Use a lowercase stable slot such as primary, create, or join."
+    },
+    {
+      "code": "ZK-BINDING-IDENTITY-MISSING",
+      "severity": "error",
+      "summary": "A source binding is missing a required semantic identity field.",
+      "owner": "project",
+      "remediation": "Regenerate extraction and ensure target, role, variant, and slot are explicit."
+    },
+    {
+      "code": "ZK-BINDING-IDENTITY-DUPLICATE",
+      "severity": "error",
+      "summary": "Two source bindings claim the same semantic identity.",
+      "owner": "project",
+      "remediation": "Assign distinct slots or remove the duplicate binding."
+    },
+    {
+      "code": "ZK-TARGET-UNASSIGNED",
+      "severity": "error",
+      "summary": "A package has no configured workspace target placement.",
+      "owner": "project",
+      "remediation": "Add the package to exactly one active target or pass a valid target for a multi-target package."
+    },
+    {
+      "code": "ZK-TARGET-UNKNOWN",
+      "severity": "error",
+      "summary": "The requested workspace target is not configured.",
+      "owner": "project",
+      "remediation": "Use a target ID declared in the current schema-3 workspace."
+    },
+    {
+      "code": "ZK-TARGET-NOT-MEMBER",
+      "severity": "error",
+      "summary": "The package is not a member of the requested target.",
+      "owner": "project",
+      "remediation": "Correct package membership or select the target that owns the package."
+    },
+    {
+      "code": "ZK-TARGET-AMBIGUOUS",
+      "severity": "error",
+      "summary": "A package belongs to multiple targets without an active selection.",
+      "owner": "project",
+      "remediation": "Run extraction with the explicit active target."
+    },
+    {
+      "code": "ZK-IMPL-SLOT-CLAIM-REQUIRED",
+      "severity": "error",
+      "summary": "A managed test must explicitly claim implementation slots for a multi-slot requirement.",
+      "owner": "project",
+      "remediation": "Pass provedImplementationSlots with the slots exercised by the test."
+    },
+    {
+      "code": "ZK-IMPL-SLOT-CLAIM-UNKNOWN",
+      "severity": "error",
+      "summary": "A managed test claimed an implementation slot that was not extracted.",
+      "owner": "project",
+      "remediation": "Use the generated implementation slot identity for the selected requirement."
+    },
+    {
+      "code": "ZK-IMPL-COVERAGE-MISSING",
+      "severity": "error",
+      "summary": "An implementation binding has no matching extracted node.",
+      "owner": "project",
+      "remediation": "Regenerate extraction and ensure the binding is placed in the active target."
+    },
+    {
+      "code": "ZK-IMPL-UNREACHABLE",
+      "severity": "error",
+      "summary": "An implementation binding is not reachable from governed topology.",
+      "owner": "project",
+      "remediation": "Connect the implementation to an allowed target entry point; passing tests cannot replace topology reachability."
+    },
+    {
+      "code": "ZK-IMPL-EVIDENCE-MISSING",
+      "severity": "error",
+      "summary": "An annotation-governed implementation slot has no current passing managed evidence.",
+      "owner": "project",
+      "remediation": "Run a managed test that claims the exact implementation slot."
+    },
+    {
+      "code": "ZK-SOURCE-UNKNOWN-PACKAGE",
+      "severity": "error",
+      "summary": "A source identity names an unknown configured package.",
+      "owner": "project",
+      "remediation": "Use a package ID declared under the selected target."
+    },
+    {
+      "code": "ZK-SOURCE-MISSING-PACKAGE",
+      "severity": "error",
+      "summary": "A configured source package root is missing.",
+      "owner": "project",
+      "remediation": "Restore the package at its configured path or correct the current workspace configuration."
+    },
+    {
+      "code": "ZK-SOURCE-NO-MATCH",
+      "severity": "error",
+      "summary": "No extracted source output matches the exact source identity.",
+      "owner": "zuke",
+      "remediation": "Regenerate extraction and ensure target, package, adapter, and compatibility IDs match exactly."
+    },
+    {
+      "code": "ZK-SOURCE-COMPATIBILITY-MISMATCH",
+      "severity": "error",
+      "summary": "An extracted source output has a different compatibility identity.",
+      "owner": "zuke",
+      "remediation": "Use the compatibility ID generated from the release matrix and rerun extraction."
+    },
+    {
+      "code": "ZK-SOURCE-AMBIGUOUS",
+      "severity": "error",
+      "summary": "Multiple extracted source outputs match one source identity.",
+      "owner": "zuke",
+      "remediation": "Resolve duplicate adapter outputs and publish only one exact source identity."
+    },
+    {
+      "code": "ZK-SOURCE-OUT-OF-ROOT",
+      "severity": "error",
+      "summary": "An extracted source output escaped its configured package root.",
+      "owner": "zuke",
+      "remediation": "Reject the output and correct package-root or adapter path resolution."
+    },
+    {
+      "code": "ZK-LOCK-LEGACY-FORMAT",
+      "severity": "error",
+      "summary": "A legacy or malformed lock artifact was rejected.",
+      "owner": "zuke",
+      "remediation": "Remove the legacy lock and regenerate assurance/locks/<profile>.lock.json with the current Zuke CLI."
+    },
+    {
+      "code": "ZK-LOCK-STALE",
+      "severity": "error",
+      "summary": "The current profile lock is missing or does not match the workspace inputs.",
+      "owner": "project",
+      "remediation": "Generate the profile lock in a reviewed change, then verify it with zuke lock --profile <name> --check."
+    },
+    {
+      "code": "ZK-HISTORY-LEGACY-FORMAT",
+      "severity": "error",
+      "summary": "A legacy assurance-history layout was rejected.",
+      "owner": "zuke",
+      "remediation": "Remove legacy history entries and regenerate current assurance history with the current Zuke CLI."
+    },
+    {
+      "code": "ZK-RESULT-MISSING",
+      "severity": "error",
+      "summary": "Zuke did not emit a structured command result.",
+      "owner": "unknown",
+      "remediation": "Treat the run as blocked and attach only sanitized command context."
+    },
+    {
+      "code": "ZK-VALIDATE-EXTRACTION",
+      "severity": "error",
+      "summary": "Validation could not complete because source extraction failed.",
+      "owner": "zuke",
+      "remediation": "Inspect the extraction diagnostic, correct the source package or adapter configuration, and rerun validation."
+    },
+    {
+      "code": "ZK-VALIDATE-INELIGIBLE",
+      "severity": "error",
+      "summary": "Validation produced a report that is not eligible for the selected profile.",
+      "owner": "project",
+      "remediation": "Resolve the reported proof, evidence, identity, or completeness failure and rerun validation."
+    },
+    {
+      "code": "ZK-TEST-001",
+      "severity": "error",
+      "summary": "A configured test runner did not produce an acceptable result.",
+      "owner": "project",
+      "remediation": "Run the direct suite and inspect its structured result artifact."
+    },
+    {
+      "code": "ZK-TEST-002",
+      "severity": "error",
+      "summary": "A command result has contradictory status, exit, or eligibility fields.",
+      "owner": "unknown",
+      "remediation": "Reject the result and regenerate a complete current command summary."
+    },
+    {
+      "code": "ZK-TEST-003",
+      "severity": "error",
+      "summary": "A diagnostic payload is malformed.",
+      "owner": "unknown",
+      "remediation": "Reject the command result and regenerate a valid current diagnostic document."
+    },
+    {
+      "code": "ZK-TEST-SDK-PIN",
+      "severity": "error",
+      "summary": "A consumer test constraint is incompatible with the active Flutter SDK pin.",
+      "owner": "project",
+      "remediation": "Widen the consumer test constraint to admit the Flutter SDK pin or use a compatible Flutter SDK; Zuke does not install dependency overrides."
+    },
+    {
+      "code": "ZK-TEST-HOST-UNRESOLVED",
+      "severity": "warning",
+      "summary": "The resolved Flutter/test_api tuple is unavailable, so test-host compatibility is undetermined.",
+      "owner": "project",
+      "remediation": "Run the appropriate Pub resolution command and rerun zuke doctor test-host."
+    },
+    {
+      "code": "ZK-COVERAGE-FAILED",
+      "severity": "error",
+      "summary": "The configured coverage policy failed.",
+      "owner": "project",
+      "remediation": "Fix the reported coverage input, baseline, exclusions, or threshold violation."
+    },
+    {
+      "code": "ZUKE-ANNOTATION-001",
+      "severity": "error",
+      "summary": "A specification annotation is invalid."
+    },
+    {
+      "code": "ZUKE-ATTEST-EXPIRING",
+      "severity": "warning",
+      "summary": "An external attestation is approaching expiry."
+    },
+    {
+      "code": "ZUKE-BATCH-UNSAFE-ARGUMENT",
+      "severity": "error",
+      "summary": "A batch command argument is unsafe."
+    },
+    {
+      "code": "ZUKE-CARD-001",
+      "severity": "error",
+      "summary": "A required cardinality declaration is missing."
+    },
+    {
+      "code": "ZUKE-CARD-002",
+      "severity": "error",
+      "summary": "A cardinality declaration has the wrong provider count."
+    },
+    {
+      "code": "ZUKE-CARD-003",
+      "severity": "error",
+      "summary": "A cardinality declaration is duplicated."
+    },
+    {
+      "code": "ZUKE-CARD-004",
+      "severity": "error",
+      "summary": "A cardinality binding is not recognized."
+    },
+    {
+      "code": "ZUKE-CARD-005",
+      "severity": "error",
+      "summary": "A cardinality rule is incomplete."
+    },
+    {
+      "code": "ZUKE-CARD-006",
+      "severity": "error",
+      "summary": "A cardinality provider is incompatible."
+    },
+    {
+      "code": "ZUKE-CARD-007",
+      "severity": "error",
+      "summary": "A cardinality target is unknown."
+    },
+    {
+      "code": "ZUKE-CARD-008",
+      "severity": "error",
+      "summary": "A cardinality variant is unknown."
+    },
+    {
+      "code": "ZUKE-CARD-009",
+      "severity": "error",
+      "summary": "A cardinality slot is invalid."
+    },
+    {
+      "code": "ZUKE-CARD-010",
+      "severity": "error",
+      "summary": "A cardinality declaration is inconsistent."
+    },
+    {
+      "code": "ZUKE-CARD-OK",
+      "severity": "info",
+      "summary": "Cardinality validation completed successfully."
+    },
+    {
+      "code": "ZK-COVERAGE-BELOW-THRESHOLD",
+      "severity": "error",
+      "summary": "Coverage is below the configured threshold.",
+      "owner": "project",
+      "remediation": "Add tests or raise coverage for the reported sources, or review and adjust the configured threshold.",
+      "aliases": [
+        "ZUKE-COV-002"
+      ]
+    },
+    {
+      "code": "ZK-COVERAGE-EVIDENCE-INCOMPLETE",
+      "severity": "error",
+      "summary": "Coverage evidence is incomplete.",
+      "owner": "project",
+      "remediation": "Regenerate coverage evidence for every audited source, then rerun the coverage check.",
+      "aliases": [
+        "ZUKE-COV-003"
+      ]
+    },
+    {
+      "code": "ZUKE-DISCOVERY-001",
+      "severity": "error",
+      "summary": "Specification workspace discovery failed."
+    },
+    {
+      "code": "ZUKE-DOCTOR-001",
+      "severity": "error",
+      "summary": "Project setup diagnostics found an invalid configuration."
+    },
+    {
+      "code": "ZUKE-EVID-001",
+      "severity": "error",
+      "summary": "Required evidence is missing."
+    },
+    {
+      "code": "ZUKE-EVID-002",
+      "severity": "error",
+      "summary": "Evidence does not match the required specification."
+    },
+    {
+      "code": "ZUKE-EVID-003",
+      "severity": "error",
+      "summary": "Evidence is not eligible for the selected profile."
+    },
+    {
+      "code": "ZUKE-EVIDENCE-005",
+      "severity": "error",
+      "summary": "Evidence is not mapped to a governed requirement."
+    },
+    {
+      "code": "ZUKE-EVIDENCE-006",
+      "severity": "error",
+      "summary": "Security evidence was skipped."
+    },
+    {
+      "code": "ZUKE-EVIDENCE-EXECUTION",
+      "severity": "error",
+      "summary": "Evidence execution did not complete successfully."
+    },
+    {
+      "code": "ZUKE-EVIDENCE-STALE",
+      "severity": "error",
+      "summary": "Evidence is stale."
+    },
+    {
+      "code": "ZUKE-EXTRACT-001",
+      "severity": "error",
+      "summary": "Dart annotation extraction failed."
+    },
+    {
+      "code": "ZUKE-EXTRACT-FAILED",
+      "severity": "error",
+      "summary": "Dart extraction returned a failure."
+    },
+    {
+      "code": "ZUKE-EXTRACT-INCOMPLETE",
+      "severity": "error",
+      "summary": "Dart extraction completed with incomplete results."
+    },
+    {
+      "code": "ZUKE-EXTRACT-TIMEOUT",
+      "severity": "error",
+      "summary": "Dart annotation extraction timed out."
+    },
+    {
+      "code": "ZUKE-FLUTTER-CACHE-INCOMPLETE",
+      "severity": "error",
+      "summary": "The Flutter SDK cache is incomplete."
+    },
+    {
+      "code": "ZUKE-FLUTTER-CACHE-UNWRITABLE",
+      "severity": "error",
+      "summary": "The Flutter SDK cache is not writable."
+    },
+    {
+      "code": "ZUKE-FLUTTER-NOT-FOUND",
+      "severity": "error",
+      "summary": "A Flutter executable was not found."
+    },
+    {
+      "code": "ZUKE-FLUTTER-RUNNER-MODE-INVALID",
+      "severity": "error",
+      "summary": "The Flutter runner mode is invalid."
+    },
+    {
+      "code": "ZUKE-FLUTTER-TOOL-ARGS-UNSUPPORTED",
+      "severity": "error",
+      "summary": "The Flutter tool does not support the requested arguments."
+    },
+    {
+      "code": "ZUKE-HOOK-CONFIG-001",
+      "severity": "error",
+      "summary": "The build hook configuration is invalid."
+    },
+    {
+      "code": "ZUKE-ID-001",
+      "severity": "error",
+      "summary": "A governed identifier is missing."
+    },
+    {
+      "code": "ZUKE-ID-002",
+      "severity": "error",
+      "summary": "A governed identifier has an invalid format."
+    },
+    {
+      "code": "ZUKE-ID-003",
+      "severity": "error",
+      "summary": "A governed identifier is duplicated."
+    },
+    {
+      "code": "ZUKE-ID-004",
+      "severity": "error",
+      "summary": "A governed identifier is unknown."
+    },
+    {
+      "code": "ZUKE-ID-005",
+      "severity": "error",
+      "summary": "A governed identifier is retired."
+    },
+    {
+      "code": "ZUKE-ID-006",
+      "severity": "error",
+      "summary": "A governed identifier has an invalid ownership relation."
+    },
+    {
+      "code": "ZUKE-ID-007",
+      "severity": "error",
+      "summary": "A governed identifier has an invalid lifecycle state."
+    },
+    {
+      "code": "ZUKE-ID-008",
+      "severity": "error",
+      "summary": "A governed identifier has an invalid scope."
+    },
+    {
+      "code": "ZUKE-ID-009",
+      "severity": "error",
+      "summary": "A governed identifier has an invalid alias."
+    },
+    {
+      "code": "ZUKE-ID-010",
+      "severity": "error",
+      "summary": "A governed identifier registry is invalid."
+    },
+    {
+      "code": "ZUKE-INDEX-DUPLICATE-BINDING",
+      "severity": "error",
+      "summary": "A generated index contains a duplicate binding."
+    },
+    {
+      "code": "ZUKE-INDEX-STALE",
+      "severity": "error",
+      "summary": "The generated analyzer index is stale."
+    },
+    {
+      "code": "ZUKE-INDEX-UNKNOWN-ID",
+      "severity": "error",
+      "summary": "The generated analyzer index does not contain an annotation identifier."
+    },
+    {
+      "code": "ZUKE-MISSING-TEST",
+      "severity": "warning",
+      "summary": "An implemented or presented requirement has no @VerifiesRequirement in the analyzer index.",
+      "owner": "project",
+      "remediation": "Add a test annotated with @VerifiesRequirement for the requirement, then run zuke generate."
+    },
+    {
+      "code": "ZUKE-MAP-DUPLICATE-BINDING",
+      "severity": "error",
+      "summary": "A specification map contains a duplicate binding."
+    },
+    {
+      "code": "ZUKE-MAP-MISSING-BINDING",
+      "severity": "error",
+      "summary": "A specification map is missing a binding."
+    },
+    {
+      "code": "ZUKE-MAP-UNKNOWN-BINDING",
+      "severity": "error",
+      "summary": "A specification map references an unknown binding."
+    },
+    {
+      "code": "ZUKE-MAP-UNKNOWN-CONTROL",
+      "severity": "error",
+      "summary": "A specification map references an unknown control."
+    },
+    {
+      "code": "ZUKE-MAP-UNKNOWN-REQUIREMENT",
+      "severity": "error",
+      "summary": "A specification map references an unknown requirement."
+    },
+    {
+      "code": "ZUKE-POLICY-DUPLICATE-CONTROL",
+      "severity": "error",
+      "summary": "A policy defines a control more than once."
+    },
+    {
+      "code": "ZUKE-PROCESS-LAUNCH-FAILED",
+      "severity": "error",
+      "summary": "A configured process could not be launched."
+    },
+    {
+      "code": "ZUKE-PROCESS-NO-OUTPUT",
+      "severity": "error",
+      "summary": "A configured process produced no output."
+    },
+    {
+      "code": "ZUKE-PROCESS-START-TIMEOUT",
+      "severity": "error",
+      "summary": "A configured process did not start in time."
+    },
+    {
+      "code": "ZUKE-PROCESS-TERMINATION-FAILED",
+      "severity": "error",
+      "summary": "A configured process could not be terminated."
+    },
+    {
+      "code": "ZK-PACKAGE-TIMEOUT",
+      "severity": "error",
+      "summary": "A workspace package produced no output within the idle timeout.",
+      "owner": "environment",
+      "remediation": "Inspect the package output and environment, then rerun the package task; active output is allowed to continue beyond the idle window.",
+      "aliases": [
+        "ZUKE-PACKAGE-TIMEOUT"
+      ]
+    },
+    {
+      "code": "ZUKE-PROFILE-UNTESTED",
+      "severity": "error",
+      "summary": "A profile has no executed evidence to validate."
+    },
+    {
+      "code": "ZUKE-PROVIDER-001",
+      "severity": "error",
+      "summary": "A required provider is missing."
+    },
+    {
+      "code": "ZUKE-PROVIDER-002",
+      "severity": "error",
+      "summary": "A provider is incompatible with its declaration."
+    },
+    {
+      "code": "ZUKE-PROVIDER-003",
+      "severity": "error",
+      "summary": "A provider is not visible to the governed graph."
+    },
+    {
+      "code": "ZUKE-REF-001",
+      "severity": "error",
+      "summary": "A specification reference is missing."
+    },
+    {
+      "code": "ZUKE-REF-002",
+      "severity": "error",
+      "summary": "A specification reference is unknown."
+    },
+    {
+      "code": "ZUKE-REF-003",
+      "severity": "error",
+      "summary": "A specification reference has the wrong type."
+    },
+    {
+      "code": "ZUKE-REF-004",
+      "severity": "error",
+      "summary": "A specification reference is duplicated."
+    },
+    {
+      "code": "ZUKE-REF-005",
+      "severity": "error",
+      "summary": "A specification reference is malformed."
+    },
+    {
+      "code": "ZUKE-REF-006",
+      "severity": "error",
+      "summary": "A specification reference is out of scope."
+    },
+    {
+      "code": "ZUKE-REF-007",
+      "severity": "error",
+      "summary": "A specification reference has an invalid back-reference."
+    },
+    {
+      "code": "ZUKE-REF-008",
+      "severity": "error",
+      "summary": "A specification reference has an invalid owner."
+    },
+    {
+      "code": "ZUKE-REF-009",
+      "severity": "error",
+      "summary": "A specification reference has an invalid target."
+    },
+    {
+      "code": "ZUKE-REF-010",
+      "severity": "error",
+      "summary": "A specification reference has an invalid profile."
+    },
+    {
+      "code": "ZUKE-REF-011",
+      "severity": "error",
+      "summary": "A specification reference has an invalid lifecycle."
+    },
+    {
+      "code": "ZUKE-REF-012",
+      "severity": "error",
+      "summary": "A specification reference is inconsistent."
+    },
+    {
+      "code": "ZUKE-REF-CYCLE",
+      "severity": "error",
+      "summary": "Specification references contain a cycle."
+    },
+    {
+      "code": "ZUKE-SCENARIO-UNEXPECTED",
+      "severity": "error",
+      "summary": "A scenario produced an unexpected result."
+    },
+    {
+      "code": "ZUKE-SCENARIO-UNTESTED",
+      "severity": "error",
+      "summary": "A governed scenario was not tested."
+    },
+    {
+      "code": "ZUKE-SCHEMA-001",
+      "severity": "error",
+      "summary": "A specification document does not match its schema."
+    },
+    {
+      "code": "ZUKE-SCHEMA-002",
+      "severity": "error",
+      "summary": "A specification schema version is unsupported."
+    },
+    {
+      "code": "ZUKE-TEST-TIMEOUT",
+      "severity": "error",
+      "summary": "A configured test timed out."
+    },
+    {
+      "code": "ZUKE-TRUST-001",
+      "severity": "error",
+      "summary": "A trusted evidence record failed verification."
+    },
+    {
+      "code": "ZK-ALIGNMENT-MALFORMED-MANIFEST",
+      "severity": "error",
+      "summary": "The dependency alignment manifest is malformed."
+    },
+    {
+      "code": "ZK-ALIGNMENT-CONSTRAINT",
+      "severity": "error",
+      "summary": "A dependency does not satisfy the supported alignment constraint."
+    },
+    {
+      "code": "ZK-ALIGNMENT-UNRESOLVED",
+      "severity": "error",
+      "summary": "The dependency alignment could not be resolved."
+    },
+    {
+      "code": "ZK-ALIGNMENT-RESOLUTION",
+      "severity": "error",
+      "summary": "Resolved dependency metadata does not match the supported alignment."
+    },
+    {
+      "code": "ZK-ALIGNMENT-ANALYZER-OVERRIDE",
+      "severity": "warning",
+      "summary": "An Analyzer override affects dependency alignment."
+    },
+    {
+      "code": "ZK-ALIGNMENT-PATH-OVERRIDE",
+      "severity": "warning",
+      "summary": "A path dependency override affects dependency alignment."
+    },
+    {
+      "code": "ZK-CONTRACT-OPENAPI-MISSING",
+      "severity": "error",
+      "summary": "A configured route is missing from the OpenAPI document."
+    },
+    {
+      "code": "ZK-CONTRACT-OPENAPI-EXTRA",
+      "severity": "error",
+      "summary": "The OpenAPI document contains an operation absent from route topology."
+    },
+    {
+      "code": "ZK-CONTRACT-OPENAPI-METHOD-UNKNOWN",
+      "severity": "error",
+      "summary": "A route's HTTP methods could not be extracted; contract verification is incomplete."
+    },
+    {
+      "code": "ZK-EXECUTION-DUPLICATE-CASE",
+      "severity": "error",
+      "summary": "Managed execution produced duplicate evidence for one case."
+    },
+    {
+      "code": "ZK-EXECUTION-DUPLICATE-REGISTRATION",
+      "severity": "error",
+      "summary": "A selected registration case was declared more than once."
+    },
+    {
+      "code": "ZK-EXECUTION-FAILED-CASE",
+      "severity": "error",
+      "summary": "Managed execution failed a selected case."
+    },
+    {
+      "code": "ZK-EXECUTION-MISSING-CASE",
+      "severity": "error",
+      "summary": "A selected registration produced no managed execution result."
+    },
+    {
+      "code": "ZK-EXECUTION-SKIPPED-CASE",
+      "severity": "error",
+      "summary": "Managed execution skipped a selected case."
+    },
+    {
+      "code": "ZK-EXECUTION-UNEXPECTED-CASE",
+      "severity": "error",
+      "summary": "Managed execution produced an unregistered selected case."
+    },
+    {
+      "code": "ZK-GATE-ARTIFACT-AUDIT-FAILED",
+      "severity": "error",
+      "summary": "The gate artifact audit failed."
+    },
+    {
+      "code": "ZK-GATE-ARTIFACT-AUDIT-REQUIRES-DIRECTORY",
+      "severity": "error",
+      "summary": "Artifact auditing requires an explicit upload directory."
+    },
+    {
+      "code": "ZK-GATE-ALL-PROFILES-FAILED",
+      "severity": "error",
+      "summary": "The all-profiles stage failed.",
+      "owner": "unknown",
+      "remediation": "Inspect the stage result and resolve the reported failure."
+    },
+    {
+      "code": "ZK-GATE-DOCTOR-FAILED",
+      "severity": "error",
+      "summary": "The doctor stage failed.",
+      "owner": "unknown",
+      "remediation": "Inspect the stage result and resolve the reported failure."
+    },
+    {
+      "code": "ZK-GATE-GENERATE-FAILED",
+      "severity": "error",
+      "summary": "The generate stage failed.",
+      "owner": "unknown",
+      "remediation": "Inspect the stage result and resolve the reported failure."
+    },
+    {
+      "code": "ZK-GATE-GENERATE-CHECK-FAILED",
+      "severity": "error",
+      "summary": "The generate-check stage failed.",
+      "owner": "unknown",
+      "remediation": "Inspect the stage result and resolve the reported failure."
+    },
+    {
+      "code": "ZK-GATE-INPUT-STABILITY-FAILED",
+      "severity": "error",
+      "summary": "The input-stability stage failed.",
+      "owner": "unknown",
+      "remediation": "Inspect the stage result and resolve the reported failure."
+    },
+    {
+      "code": "ZK-GATE-INPUTSTABILITY-FAILED",
+      "severity": "error",
+      "summary": "The inputStability stage failed.",
+      "owner": "unknown",
+      "remediation": "Inspect the stage result and resolve the reported failure."
+    },
+    {
+      "code": "ZK-GATE-LOCK-FAILED",
+      "severity": "error",
+      "summary": "The lock stage failed.",
+      "owner": "unknown",
+      "remediation": "Inspect the stage result and resolve the reported failure."
+    },
+    {
+      "code": "ZK-GATE-REPORT-FAILED",
+      "severity": "error",
+      "summary": "The report stage failed.",
+      "owner": "unknown",
+      "remediation": "Inspect the stage result and resolve the reported failure."
+    },
+    {
+      "code": "ZK-GATE-TEST-FAILED",
+      "severity": "error",
+      "summary": "The test stage failed.",
+      "owner": "unknown",
+      "remediation": "Inspect the stage result and resolve the reported failure."
+    },
+    {
+      "code": "ZK-GATE-TRUST-FAILED",
+      "severity": "error",
+      "summary": "The trust stage failed.",
+      "owner": "unknown",
+      "remediation": "Inspect the stage result and resolve the reported failure."
+    },
+    {
+      "code": "ZK-GATE-VALIDATE-FAILED",
+      "severity": "error",
+      "summary": "The validate stage failed.",
+      "owner": "unknown",
+      "remediation": "Inspect the stage result and resolve the reported failure."
+    },
+    {
+      "code": "ZK-POLICY-APPROVAL-COUNT",
+      "severity": "error",
+      "summary": "The risk-acceptance approval count is invalid."
+    },
+    {
+      "code": "ZK-POLICY-APPROVAL-NOT-AUTHENTICATED",
+      "severity": "error",
+      "summary": "Risk-acceptance approval evidence is not independently authenticated."
+    },
+    {
+      "code": "ZK-POLICY-APPROVER-FORMAT",
+      "severity": "error",
+      "summary": "A risk-acceptance approver has an invalid format."
+    },
+    {
+      "code": "ZK-POLICY-APPROVER-ID",
+      "severity": "error",
+      "summary": "A risk-acceptance approver is missing a stable identity."
+    },
+    {
+      "code": "ZK-POLICY-APPROVER-ROLE",
+      "severity": "error",
+      "summary": "A risk-acceptance approver has an invalid role."
+    },
+    {
+      "code": "ZK-POLICY-APPROVERS",
+      "severity": "error",
+      "summary": "Risk-acceptance approvers are invalid or incomplete."
+    },
+    {
+      "code": "ZK-POLICY-COMMIT-MISMATCH",
+      "severity": "error",
+      "summary": "Risk acceptance does not bind to the current commit."
+    },
+    {
+      "code": "ZK-POLICY-COMPENSATING-RUN",
+      "severity": "error",
+      "summary": "A required compensating run is missing or invalid."
+    },
+    {
+      "code": "ZK-POLICY-CONFIG-MALFORMED",
+      "severity": "error",
+      "summary": "The risk-acceptance policy configuration is malformed."
+    },
+    {
+      "code": "ZK-POLICY-CONFIG-MISSING",
+      "severity": "error",
+      "summary": "The risk-acceptance policy configuration is missing."
+    },
+    {
+      "code": "ZK-POLICY-DATE",
+      "severity": "error",
+      "summary": "A risk-acceptance date is invalid or missing."
+    },
+    {
+      "code": "ZK-POLICY-DATE-ORDER",
+      "severity": "error",
+      "summary": "Risk-acceptance dates are in an invalid order."
+    },
+    {
+      "code": "ZK-POLICY-DUPLICATE-APPROVER",
+      "severity": "error",
+      "summary": "A risk-acceptance approver is listed more than once."
+    },
+    {
+      "code": "ZK-POLICY-EXPIRED",
+      "severity": "error",
+      "summary": "The risk acceptance has expired."
+    },
+    {
+      "code": "ZK-POLICY-FIELD",
+      "severity": "error",
+      "summary": "A required risk-acceptance field is invalid."
+    },
+    {
+      "code": "ZK-POLICY-KIND",
+      "severity": "error",
+      "summary": "The risk-acceptance record kind is invalid."
+    },
+    {
+      "code": "ZK-POLICY-MALFORMED",
+      "severity": "error",
+      "summary": "The risk-acceptance record is malformed."
+    },
+    {
+      "code": "ZK-POLICY-MISSING",
+      "severity": "error",
+      "summary": "The required risk-acceptance record is missing."
+    },
+    {
+      "code": "ZK-POLICY-RELEASE-MISMATCH",
+      "severity": "error",
+      "summary": "Risk acceptance does not bind to the current release."
+    },
+    {
+      "code": "ZK-POLICY-ROLE-MISSING",
+      "severity": "error",
+      "summary": "A required risk-acceptance role is missing."
+    },
+    {
+      "code": "ZK-REGISTRATION-AUDIT",
+      "severity": "error",
+      "summary": "The direct Zuke registration audit failed."
+    },
+    {
+      "code": "ZK-REGISTRATION-CASE-DUPLICATE",
+      "severity": "error",
+      "summary": "A registration declares caseId more than once."
+    },
+    {
+      "code": "ZK-REGISTRATION-CASE-DYNAMIC",
+      "severity": "error",
+      "summary": "A registration caseId is not statically resolvable."
+    },
+    {
+      "code": "ZK-REGISTRATION-CONTROLS-BLANKET",
+      "severity": "error",
+      "summary": "A registration claims controls without explicit assertion support."
+    },
+    {
+      "code": "ZK-REGISTRATION-CONTROLS-DUPLICATE",
+      "severity": "error",
+      "summary": "A registration declares provedControls more than once."
+    },
+    {
+      "code": "ZK-REGISTRATION-DUPLICATE-IDENTITY",
+      "severity": "error",
+      "summary": "Two registrations claim the same stable identity."
+    },
+    {
+      "code": "ZK-REGISTRATION-DYNAMIC",
+      "severity": "error",
+      "summary": "A registration scenario is not statically resolvable."
+    },
+    {
+      "code": "ZK-REGISTRATION-EXECUTION",
+      "severity": "error",
+      "summary": "Registration execution reconciliation failed."
+    },
+    {
+      "code": "ZK-REGISTRATION-EXPECTED-MISSING",
+      "severity": "error",
+      "summary": "A configured scenario has no direct test registration."
+    },
+    {
+      "code": "ZK-REGISTRATION-PACKAGE-MISSING",
+      "severity": "error",
+      "summary": "A runner source package is not configured for its target."
+    },
+    {
+      "code": "ZK-REGISTRATION-ROOT-MISSING",
+      "severity": "error",
+      "summary": "A registration source root does not exist."
+    },
+    {
+      "code": "ZK-REGISTRATION-SCENARIO-MISSING",
+      "severity": "error",
+      "summary": "A direct registration is missing its scenario argument."
+    },
+    {
+      "code": "ZK-REGISTRATION-SCENARIOS-MISSING",
+      "severity": "error",
+      "summary": "A Flutter harness is missing a statically resolvable scenario collection."
+    },
+    {
+      "code": "ZK-REGISTRATION-SYNTAX",
+      "severity": "error",
+      "summary": "A registration source file could not be parsed."
+    },
+    {
+      "code": "ZK-REGISTRATION-WORKSPACE-INVALID",
+      "severity": "error",
+      "summary": "Registration audit could not discover valid workspace specifications.",
+      "owner": "project",
+      "remediation": "Fix the reported specification or discovery error before auditing registrations."
+    },
+    {
+      "code": "ZK-REGISTRATION-SCENARIO-IDENTITY",
+      "severity": "error",
+      "summary": "A configured scenario does not have exactly one scenario identity tag.",
+      "owner": "project",
+      "remediation": "Give each scenario exactly one SCN- tag."
+    },
+    {
+      "code": "ZK-REGISTRATION-UNKNOWN-SCENARIO",
+      "severity": "error",
+      "summary": "A registration references an unknown configured scenario."
+    },
+    {
+      "code": "ZK-REGISTRATION-UNREACHABLE",
+      "severity": "error",
+      "summary": "A registration is inside an unreachable helper."
+    }
   ]
 }

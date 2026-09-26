@@ -7,6 +7,7 @@ import 'package:zuke_core/zuke_core.dart';
 import 'package:zuke_frontend/zuke_frontend.dart';
 
 import 'generate_command.dart';
+import 'cli_parser.dart';
 import 'lock_command.dart';
 import 'report_command.dart';
 import 'validate_command.dart';
@@ -36,6 +37,7 @@ class CheckCommand {
     final profile = args['profile'] as String? ?? 'pullRequest';
     final json = (args['format'] as String? ?? 'text') == 'json';
     final summaryFile = args['summary-file'] as String?;
+    final coverage = boolFlag(args, 'coverage');
     final results = await _runBounded(
       roots,
       jobs: jobs < roots.length ? jobs : roots.length,
@@ -43,6 +45,7 @@ class CheckCommand {
         root,
         profile: profile,
         runnerMode: args['runner-mode'] as String?,
+        coverage: coverage,
       ),
     );
     results.sort(
@@ -107,6 +110,7 @@ class CheckCommand {
     String root, {
     required String profile,
     String? runnerMode,
+    bool coverage = false,
   }) async {
     final stages = <_StageResult>[];
     WorkspaceDiscoveryResult initial;
@@ -121,20 +125,32 @@ class CheckCommand {
 
     final generated = await _stage(
       'generate',
-      () => GenerateCommand(_generateArgs(root)).execute(),
+      () => GenerateCommand(
+        buildGenerateArgs(root: root, check: true, quiet: true),
+      ).execute(),
     );
     stages.add(generated);
     if (generated.status == 'passed') {
       final tested = await _stage(
         'test',
-        () => testRunner(_testArgs(root, profile, runnerMode: runnerMode)),
+        () => testRunner(
+          buildTestArgs(
+            root: root,
+            profile: profile,
+            runnerMode: runnerMode,
+            coverage: coverage,
+            quiet: true,
+          ),
+        ),
       );
       stages.add(tested);
       if (tested.status == 'passed') {
         final stable = _inputsStable(initial, root);
         stages.add(stable);
         if (stable.status == 'passed') {
-          final validateCommand = ValidateCommand(_validateArgs(root, profile));
+          final validateCommand = ValidateCommand(
+            buildValidateArgs(root: root, profile: profile, quiet: true),
+          );
           final validated = await _stage(
             'validate',
             validateCommand.execute,
@@ -161,8 +177,10 @@ class CheckCommand {
     return _WorkspaceResult(root, stages);
   }
 
-  Future<_StageResult> _report(String root) =>
-      _stage('report', () => ReportCommand(_reportArgs(root)).execute());
+  Future<_StageResult> _report(String root) => _stage(
+    'report',
+    () => ReportCommand(buildReportArgs(root: root, quiet: true)).execute(),
+  );
 
   _StageResult _inputsStable(WorkspaceDiscoveryResult initial, String root) {
     try {
@@ -189,6 +207,10 @@ bool _sameInputs(Map<String, String> left, Map<String, String> right) {
   return true;
 }
 
+/// Resolves an absolute, symlink-free root for stage execution.
+///
+/// Filesystem resolution, not string normalization: see
+/// `path_safety.normalizeRelativePath` for workspace-relative paths.
 String _normalizeRoot(String root) {
   final directory = Directory(root).absolute;
   try {
@@ -206,69 +228,17 @@ int _jobs(String raw) {
   return parsed;
 }
 
-ArgResults _generateArgs(String root) =>
-    (ArgParser()
-          ..addOption('root')
-          ..addFlag('check')
-          ..addOption('output')
-          ..addFlag('quiet'))
-        .parse(['--root', root, '--check', '--quiet']);
-
-ArgResults _testArgs(String root, String profile, {String? runnerMode}) =>
-    (ArgParser()
-          ..addOption('root')
-          ..addOption('profile')
-          ..addOption('format')
-          ..addOption('runner-mode')
-          ..addFlag('quiet'))
-        .parse([
-          '--root',
-          root,
-          '--profile',
-          profile,
-          '--format',
-          'text',
-          '--quiet',
-          if (runnerMode != null) ...['--runner-mode', runnerMode],
-        ]);
-
-ArgResults _validateArgs(String root, String profile) =>
-    (ArgParser()
-          ..addOption('root')
-          ..addOption('profile')
-          ..addOption('format')
-          ..addFlag('quiet'))
-        .parse([
-          '--root',
-          root,
-          '--profile',
-          profile,
-          '--format',
-          'text',
-          '--quiet',
-        ]);
-
-ArgResults _lockArgs(String root, String profile, {required bool check}) =>
-    (ArgParser()
-          ..addOption('root')
-          ..addOption('profile')
-          ..addFlag('check')
-          ..addFlag('quiet'))
-        .parse([
-          '--root',
-          root,
-          '--profile',
-          profile,
-          if (check) '--check',
-          '--quiet',
-        ]);
-
-ArgResults _reportArgs(String root) =>
-    (ArgParser()
-          ..addOption('root')
-          ..addOption('output')
-          ..addFlag('quiet'))
-        .parse(['--root', root, '--quiet']);
+/// A configured runner intentionally replaces profile evidence. Lock output
+Future<_StageResult> _checkLock(String root, String profile) async {
+  final command = LockCommand(
+    buildLockArgs(root: root, profile: profile, check: true, quiet: true),
+  );
+  return _stage(
+    'lock',
+    command.execute,
+    diagnostics: () => command.diagnostics,
+  );
+}
 
 Future<_StageResult> _stage(
   String name,
@@ -295,16 +265,6 @@ Future<_StageResult> _stage(
     stdoutBuffer.toString(),
     stderrBuffer.toString(),
     diagnostics: diagnostics?.call() ?? const [],
-  );
-}
-
-/// A configured runner intentionally replaces profile evidence. Lock output
-Future<_StageResult> _checkLock(String root, String profile) async {
-  final command = LockCommand(_lockArgs(root, profile, check: true));
-  return _stage(
-    'lock',
-    command.execute,
-    diagnostics: () => command.diagnostics,
   );
 }
 

@@ -280,46 +280,31 @@ void main() {
     });
 
     test('fails closed for malformed configured runner declarations', () async {
-      final cases = <({String runner, int exitCode})>[
-        (
-          runner: '''
+      final cases = [
+        const _MalformedRunnerCase('''
     - id: skipped
       profiles: [release]
       executable: dart
-''',
-          exitCode: 2,
-        ),
-        (
-          runner: '''
+''', 2),
+        const _MalformedRunnerCase('''
     - kind: test
       executable: dart
-''',
-          exitCode: 2,
-        ),
-        (
-          runner: '''
+''', 2),
+        const _MalformedRunnerCase('''
     - id: invalid-kind
       kind: shell
       executable: dart
-''',
-          exitCode: 2,
-        ),
-        (
-          runner: '''
+''', 2),
+        const _MalformedRunnerCase('''
     - id: missing-executable
       kind: test
-''',
-          exitCode: 2,
-        ),
-        (
-          runner: '''
+''', 2),
+        const _MalformedRunnerCase('''
     - id: invalid-args
       kind: test
       executable: dart
       args: command string
-''',
-          exitCode: 2,
-        ),
+''', 2),
       ];
 
       for (final testCase in cases) {
@@ -794,3 +779,10 @@ ScenarioResult _scenario({
   runnerCompatibilityId: 'artifact-runner-v1',
   scenarioIds: const [ScenarioId('SCN-SUPERVISOR-001')],
 );
+
+final class _MalformedRunnerCase {
+  const _MalformedRunnerCase(this.runner, this.exitCode);
+
+  final String runner;
+  final int exitCode;
+}

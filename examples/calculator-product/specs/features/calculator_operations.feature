@@ -81,7 +81,7 @@ Feature: Evaluate basic arithmetic operations
       Given the first operand is "2"
       And the selected operator is "+"
       And the second operand is "3"
-      When the user requests the calculation
+      When the API client requests a calculation
       Then the API response status must be 200
       And the API result must be "5"
       And event "calculator.calculation.completed" must be emitted once
@@ -100,7 +100,7 @@ Feature: Evaluate basic arithmetic operations
       Given the first operand is "<first>"
       And the selected operator is "+"
       And the second operand is "<second>"
-      When the user requests the calculation
+      When the API client requests a calculation
       Then the API response status must be 200
       And the API result must be "<result>"
       And no calculation error must be displayed

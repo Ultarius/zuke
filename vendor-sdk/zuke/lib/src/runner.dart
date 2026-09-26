@@ -2,10 +2,8 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:crypto/crypto.dart';
 import 'package:zuke_frontend/zuke_frontend.dart';
 import 'package:zuke_core/zuke_core.dart';
-import 'package:zuke_core/src/atomic_file_writer.dart';
 import 'step_arguments.dart';
 
 abstract class ScenarioWorld {
@@ -61,12 +59,32 @@ class StepDefinition<W extends ScenarioWorld> {
   final String target;
   final StepAction<W> action;
 
+  /// Prefer [StepDefinition.cucumber] and compose definitions through
+  /// [StepRegistry] (or `buildStepRegistry`) instead of raw RegExp steps.
+  @Deprecated(
+    'Use StepDefinition.cucumber with a CucumberExpression and register via '
+    'StepRegistry/buildStepRegistry instead of the raw RegExp constructor.',
+  )
   const StepDefinition({
+    required RegExp pattern,
+    required StepAction<W> action,
+    int priority = 100,
+    StepTier tier = StepTier.project,
+    String target = 'generic',
+  }) : this._(
+         pattern: pattern,
+         action: action,
+         priority: priority,
+         tier: tier,
+         target: target,
+       );
+
+  const StepDefinition._({
     required this.pattern,
     required this.action,
-    this.priority = 100,
-    this.tier = StepTier.project,
-    this.target = 'generic',
+    required this.priority,
+    required this.tier,
+    required this.target,
   });
 
   factory StepDefinition.cucumber({
@@ -75,7 +93,7 @@ class StepDefinition<W extends ScenarioWorld> {
     int priority = 100,
     StepTier tier = StepTier.project,
     String target = 'generic',
-  }) => StepDefinition(
+  }) => StepDefinition._(
     pattern: expression.pattern,
     priority: priority,
     tier: tier,
@@ -221,7 +239,7 @@ class EvidenceWriter {
     final root = Directory(directory)..createSync(recursive: true);
     final encoded =
         '${const JsonEncoder.withIndent('  ').convert(record.toJson())}\n';
-    final digest = sha256.convert(utf8.encode(encoded)).toString();
+    final digest = sha256DigestHex(utf8.encode(encoded));
     final semantic = File('${root.path}${Platform.pathSeparator}$digest.json');
     _writeEncodedAtomically(semantic, encoded);
     // Observation envelopes are written by the CLI run coordinator so this
@@ -385,6 +403,7 @@ class ScenarioResult implements ExecutionResult {
         error: error,
       );
 
+  @override
   Map<String, Object?> toJson() {
     final identity = _sourceIdentity(
       sourcePackage: sourcePackage,
@@ -574,6 +593,7 @@ class SuiteResult implements ExecutionResult {
         error: error,
       );
 
+  @override
   Map<String, Object?> toJson() {
     final identity = _sourceIdentity(
       sourcePackage: sourcePackage,
@@ -791,7 +811,7 @@ final class SuiteEvidenceEmitter {
         'Evidence source identity disagrees with managed context',
       );
     }
-    final digest = 'sha256:${sha256.convert(utf8.encode(digestInput))}';
+    final digest = sha256Text(digestInput);
     final sortedControlIds = [...controlIds.toSet()]..sort();
     final sortedImplementationSlots = [...implementationSlots.toSet()]..sort();
     final identity = effectiveIdentity;
@@ -853,7 +873,7 @@ final class SuiteEvidenceEmitter {
       'runnerCompatibilityId': runnerCompatibilityId,
       'caseId': caseId,
     });
-    return 'exec-${sha256.convert(utf8.encode(identity))}';
+    return 'exec-${sha256DigestHex(utf8.encode(identity))}';
   }
 }
 
@@ -1056,7 +1076,7 @@ class ScenarioExecutor<W extends ScenarioWorld> {
         rule.metadata.id ??
         feature.metadata.id ??
         scenario.scenarioElement.title;
-    final scenarioIds = <ScenarioId>[if (candidateId != null) candidateId!];
+    final scenarioIds = <ScenarioId>[?candidateId];
     ScenarioResult result(
       ScenarioStatus status, {
       List<StepResult> steps = const [],
@@ -1086,10 +1106,10 @@ class ScenarioExecutor<W extends ScenarioWorld> {
       ...rule.backgroundSteps,
       ...scenario.steps,
     ].map((step) => _substitute(step, row)).toList();
-    final matches = <(GherkinStep, StepMatch<W>)>[];
+    final matches = <_ResolvedStep<W>>[];
     try {
       for (final step in allSteps) {
-        matches.add((step, registry.resolve(step)));
+        matches.add(_ResolvedStep(step, registry.resolve(step)));
       }
     } on UnresolvedStepException catch (e) {
       return result(ScenarioStatus.unresolved, error: e.toString());
@@ -1101,11 +1121,15 @@ class ScenarioExecutor<W extends ScenarioWorld> {
     final stepResults = <StepResult>[];
     for (final pair in matches) {
       try {
-        await pair.$2.definition.action(world, pair.$1, pair.$2.arguments);
+        await pair.match.definition.action(
+          world,
+          pair.step,
+          pair.match.arguments,
+        );
         stepResults.add(
           StepResult(
-            keyword: pair.$1.keyword,
-            text: pair.$1.text,
+            keyword: pair.step.keyword,
+            text: pair.step.text,
             status: StepStatus.passed,
           ),
         );
@@ -1113,8 +1137,8 @@ class ScenarioExecutor<W extends ScenarioWorld> {
         final diagnostic = '$e\n$stackTrace';
         stepResults.add(
           StepResult(
-            keyword: pair.$1.keyword,
-            text: pair.$1.text,
+            keyword: pair.step.keyword,
+            text: pair.step.text,
             status: StepStatus.failed,
             error: diagnostic,
           ),
@@ -1159,7 +1183,7 @@ class ScenarioExecutor<W extends ScenarioWorld> {
         '${examplesTitle ?? ''}\x00$examplesIndex\x00$rowIndex\x00'
         '$rowIdentity\x00$profile\x00$target\x00$variant\x00'
         '$digestIdentity';
-    return sha256.convert(utf8.encode(input)).toString();
+    return sha256DigestHex(utf8.encode(input));
   }
 
   GherkinStep _substitute(GherkinStep step, Map<String, String> row) {
@@ -1176,4 +1200,11 @@ class ScenarioExecutor<W extends ScenarioWorld> {
       table: step.table.map((r) => r.map(replace).toList()).toList(),
     );
   }
+}
+
+final class _ResolvedStep<W extends ScenarioWorld> {
+  const _ResolvedStep(this.step, this.match);
+
+  final GherkinStep step;
+  final StepMatch<W> match;
 }

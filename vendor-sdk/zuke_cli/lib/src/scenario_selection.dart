@@ -1,8 +1,8 @@
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:zuke_core/zuke_core.dart' show canonicalJson;
-import 'package:crypto/crypto.dart';
+import 'package:zuke_core/zuke_core.dart'
+    show canonicalJson, sha256Text, writeBytesReplacing;
 import 'package:zuke_frontend/zuke_frontend.dart';
 
 /// Resolves the configured profile's tag expression against parsed scenarios.
@@ -120,13 +120,10 @@ class ScenarioSelection {
   };
 
   void writeAtomic(File output) {
-    output.parent.createSync(recursive: true);
-    final temporary = File('${output.path}.tmp-${pid}');
-    temporary.writeAsStringSync(
-      const JsonEncoder.withIndent('  ').convert(toJson()) + '\n',
-      flush: true,
+    writeBytesReplacing(
+      output,
+      utf8.encode('${const JsonEncoder.withIndent('  ').convert(toJson())}\n'),
     );
-    temporary.renameSync(output.path);
   }
 
   static String _digest(
@@ -140,7 +137,7 @@ class ScenarioSelection {
       'tagExpression': expression,
       'scenarioIds': [...scenarioIds]..sort(),
     };
-    return 'sha256:${sha256.convert(utf8.encode(canonicalJson(body)))}';
+    return sha256Text(canonicalJson(body));
   }
 }
 
