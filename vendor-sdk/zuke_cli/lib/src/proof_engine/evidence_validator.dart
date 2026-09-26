@@ -1,5 +1,3 @@
-import 'dart:convert';
-import 'package:crypto/crypto.dart';
 import 'package:zuke_frontend/zuke_frontend.dart';
 import '../ir.dart' as ir;
 import '../ir.dart';
@@ -30,14 +28,11 @@ class EvidenceValidator {
     final errors = <ValidationMessage>[];
 
     // Compute expected digests once per validation pass
-    final generator = DartContractGenerator();
-    final generated = generator.generate(
-      workspace: workspace,
+    final contractDigest = structuralContractDigest(
+      workspace,
       outputDir: workspace.config.contractOutput ?? 'lib/src/generated',
       exportPath: workspace.config.contractExport,
     );
-    final contractDigest =
-        'sha256:${sha256.convert(utf8.encode(generated.manifest.toJson())).toString()}';
 
     final rootPath = workspace.config.root;
     final evidenceDigests = rootPath != null
@@ -235,10 +230,9 @@ class EvidenceValidator {
             ),
           );
         } else {
-          final sourceDigest = output.inputDigest.startsWith('sha256:')
-              ? output.inputDigest
-              : 'sha256:${output.inputDigest}';
-          if (record.digests['source'] != sourceDigest) {
+          final sourceDigest = output.publishedSourceDigest;
+          if (sourceDigest == null ||
+              record.digests['source'] != sourceDigest) {
             errors.add(
               ValidationMessage(
                 code: 'ZUKE-EVIDENCE-STALE',
@@ -425,10 +419,8 @@ class EvidenceValidator {
       if (output == null) {
         return true;
       } else {
-        final sourceDigest = output.inputDigest.startsWith('sha256:')
-            ? output.inputDigest
-            : 'sha256:${output.inputDigest}';
-        if (record.digests['source'] != sourceDigest) {
+        final sourceDigest = output.publishedSourceDigest;
+        if (sourceDigest == null || record.digests['source'] != sourceDigest) {
           return true;
         }
       }

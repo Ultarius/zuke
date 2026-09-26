@@ -429,6 +429,8 @@ Zuke validation requires an interconnected graph of Epics, PBIs, Controls, Featu
 ### A. Feature File (`specs/features/shopping_cart.feature`)
 Every `.feature` file **must** begin with a `# spec-begin` header declaring its metadata and binding dependencies. Every `Rule` must have a `# rule-spec-begin` header.
 
+A binding may declare a `label`: a human-readable name that becomes an accepted alias for the binding id. Generated contracts expose it as `ZukeBindingDescriptor.label` and resolve it in `fromId`, so a step may name either `"shopping.promoInput"` (the id) or `"promo code field"` (the label). Ids remain canonical; labels are optional and exist to keep step text readable. A label must be unique within a feature and must not collide with another binding id.
+
 ```gherkin
 # spec-begin
 # schemaVersion: 1
@@ -443,14 +445,17 @@ Every `.feature` file **must** begin with a `# spec-begin` header declaring its 
 # bindings:
 #   required:
 #     - id: shopping.promoInput
+#       label: promo code field
 #       target: flutter
 #       cardinality: exactlyOne
 #       interaction: input
 #     - id: shopping.applyPromoButton
+#       label: apply promo button
 #       target: flutter
 #       cardinality: exactlyOne
 #       interaction: action
 #     - id: shopping.discountStatusDisplay
+#       label: discount status message
 #       target: flutter
 #       cardinality: zeroOrOne
 #       interaction: output

@@ -2,7 +2,6 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:crypto/crypto.dart';
 import 'package:zuke_frontend/zuke_frontend.dart';
 import 'package:zuke_core/zuke_core.dart';
 import 'step_arguments.dart';
@@ -240,7 +239,7 @@ class EvidenceWriter {
     final root = Directory(directory)..createSync(recursive: true);
     final encoded =
         '${const JsonEncoder.withIndent('  ').convert(record.toJson())}\n';
-    final digest = sha256.convert(utf8.encode(encoded)).toString();
+    final digest = sha256DigestHex(utf8.encode(encoded));
     final semantic = File('${root.path}${Platform.pathSeparator}$digest.json');
     _writeEncodedAtomically(semantic, encoded);
     // Observation envelopes are written by the CLI run coordinator so this
@@ -812,7 +811,7 @@ final class SuiteEvidenceEmitter {
         'Evidence source identity disagrees with managed context',
       );
     }
-    final digest = 'sha256:${sha256.convert(utf8.encode(digestInput))}';
+    final digest = sha256Text(digestInput);
     final sortedControlIds = [...controlIds.toSet()]..sort();
     final sortedImplementationSlots = [...implementationSlots.toSet()]..sort();
     final identity = effectiveIdentity;
@@ -874,7 +873,7 @@ final class SuiteEvidenceEmitter {
       'runnerCompatibilityId': runnerCompatibilityId,
       'caseId': caseId,
     });
-    return 'exec-${sha256.convert(utf8.encode(identity))}';
+    return 'exec-${sha256DigestHex(utf8.encode(identity))}';
   }
 }
 
@@ -1184,7 +1183,7 @@ class ScenarioExecutor<W extends ScenarioWorld> {
         '${examplesTitle ?? ''}\x00$examplesIndex\x00$rowIndex\x00'
         '$rowIdentity\x00$profile\x00$target\x00$variant\x00'
         '$digestIdentity';
-    return sha256.convert(utf8.encode(input)).toString();
+    return sha256DigestHex(utf8.encode(input));
   }
 
   GherkinStep _substitute(GherkinStep step, Map<String, String> row) {

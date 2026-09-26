@@ -8,6 +8,10 @@ sealed class FeatTodo001FlutterBinding implements ZukeBindingDescriptor {
   @override
   final String id;
 
+  /// Human-readable name from the feature metadata, when declared.
+  @override
+  String? get label => null;
+
   T keyIn<T extends Object>(FeatTodo001FlutterBindings<T> bindings);
 
   static const taskInput = FeatTodo001TaskInputBinding();
@@ -31,6 +35,15 @@ sealed class FeatTodo001FlutterBinding implements ZukeBindingDescriptor {
         'todo.errorMessage' => errorMessage,
         'todo.taskList' => taskList,
         'todo.taskItemText' => taskItemText,
+        'task input field' => taskInput,
+        'add task button' => addTaskButton,
+        'task completion checkbox' => taskItemCheckbox,
+        'clear completed button' => clearCompletedButton,
+        'active task count' => taskCountDisplay,
+        'empty list message' => emptyStateMessage,
+        'error message' => errorMessage,
+        'task list' => taskList,
+        'task text' => taskItemText,
         _ => throw ArgumentError.value(
           bindingId,
           'bindingId',
@@ -49,6 +62,9 @@ final class FeatTodo001TaskInputBinding extends FeatTodo001FlutterBinding {
   @override
   BindingInstanceCardinality get instanceCardinality =>
       BindingInstanceCardinality.exactlyOne;
+
+  @override
+  String? get label => 'task input field';
 }
 
 final class FeatTodo001AddTaskButtonBinding extends FeatTodo001FlutterBinding {
@@ -61,6 +77,9 @@ final class FeatTodo001AddTaskButtonBinding extends FeatTodo001FlutterBinding {
   @override
   BindingInstanceCardinality get instanceCardinality =>
       BindingInstanceCardinality.exactlyOne;
+
+  @override
+  String? get label => 'add task button';
 }
 
 final class FeatTodo001TaskItemCheckboxBinding
@@ -74,6 +93,9 @@ final class FeatTodo001TaskItemCheckboxBinding
   @override
   BindingInstanceCardinality get instanceCardinality =>
       BindingInstanceCardinality.many;
+
+  @override
+  String? get label => 'task completion checkbox';
 }
 
 final class FeatTodo001ClearCompletedButtonBinding
@@ -88,6 +110,9 @@ final class FeatTodo001ClearCompletedButtonBinding
   @override
   BindingInstanceCardinality get instanceCardinality =>
       BindingInstanceCardinality.exactlyOne;
+
+  @override
+  String? get label => 'clear completed button';
 }
 
 final class FeatTodo001TaskCountDisplayBinding
@@ -101,6 +126,9 @@ final class FeatTodo001TaskCountDisplayBinding
   @override
   BindingInstanceCardinality get instanceCardinality =>
       BindingInstanceCardinality.exactlyOne;
+
+  @override
+  String? get label => 'active task count';
 }
 
 final class FeatTodo001EmptyStateMessageBinding
@@ -114,6 +142,9 @@ final class FeatTodo001EmptyStateMessageBinding
   @override
   BindingInstanceCardinality get instanceCardinality =>
       BindingInstanceCardinality.zeroOrOne;
+
+  @override
+  String? get label => 'empty list message';
 }
 
 final class FeatTodo001ErrorMessageBinding extends FeatTodo001FlutterBinding {
@@ -126,6 +157,9 @@ final class FeatTodo001ErrorMessageBinding extends FeatTodo001FlutterBinding {
   @override
   BindingInstanceCardinality get instanceCardinality =>
       BindingInstanceCardinality.zeroOrOne;
+
+  @override
+  String? get label => 'error message';
 }
 
 final class FeatTodo001TaskListBinding extends FeatTodo001FlutterBinding {
@@ -138,6 +172,9 @@ final class FeatTodo001TaskListBinding extends FeatTodo001FlutterBinding {
   @override
   BindingInstanceCardinality get instanceCardinality =>
       BindingInstanceCardinality.exactlyOne;
+
+  @override
+  String? get label => 'task list';
 }
 
 final class FeatTodo001TaskItemTextBinding extends FeatTodo001FlutterBinding {
@@ -150,6 +187,9 @@ final class FeatTodo001TaskItemTextBinding extends FeatTodo001FlutterBinding {
   @override
   BindingInstanceCardinality get instanceCardinality =>
       BindingInstanceCardinality.many;
+
+  @override
+  String? get label => 'task text';
 }
 
 abstract interface class FeatTodo001FlutterBindings<T extends Object> {
@@ -265,7 +305,7 @@ enum FeatTodo001Scenario implements ZukeScenarioContract {
   multiTasks(
     ScenarioId('SCN-TODO-MULTI-TASKS'),
     RuleId('RULE-TODO-ADD-ITEM'),
-    'Track counts across multiple tasks',
+    'The active count reflects every task that is added',
     <ControlId>{ControlId('CTRL-TODO-VALIDATION')},
   ),
   completeItem(
@@ -274,16 +314,28 @@ enum FeatTodo001Scenario implements ZukeScenarioContract {
     'Mark a task as complete',
     <ControlId>{ControlId('CTRL-TODO-VALIDATION')},
   ),
+  completeCount(
+    ScenarioId('SCN-TODO-COMPLETE-COUNT'),
+    RuleId('RULE-TODO-COMPLETE-ITEM'),
+    'Completing one task lowers the active count by one',
+    <ControlId>{ControlId('CTRL-TODO-VALIDATION')},
+  ),
   toggleBack(
     ScenarioId('SCN-TODO-TOGGLE-BACK'),
     RuleId('RULE-TODO-COMPLETE-ITEM'),
-    'Reopen a completed task',
+    'Reopening a completed task restores the active count',
     <ControlId>{ControlId('CTRL-TODO-VALIDATION')},
   ),
   clearCompleted(
     ScenarioId('SCN-TODO-CLEAR-COMPLETED'),
     RuleId('RULE-TODO-COMPLETE-ITEM'),
-    'Clear all completed tasks',
+    'Clearing completed tasks removes them from the list',
+    <ControlId>{ControlId('CTRL-TODO-VALIDATION')},
+  ),
+  clearKeepsIncomplete(
+    ScenarioId('SCN-TODO-CLEAR-KEEPS-INCOMPLETE'),
+    RuleId('RULE-TODO-COMPLETE-ITEM'),
+    'Clearing completed tasks keeps the uncompleted tasks',
     <ControlId>{ControlId('CTRL-TODO-VALIDATION')},
   );
 
@@ -312,8 +364,11 @@ abstract final class FeatTodo001Scenarios {
     ScenarioId('SCN-TODO-ADD-WHITESPACE'): FeatTodo001Scenario.addWhitespace,
     ScenarioId('SCN-TODO-MULTI-TASKS'): FeatTodo001Scenario.multiTasks,
     ScenarioId('SCN-TODO-COMPLETE-ITEM'): FeatTodo001Scenario.completeItem,
+    ScenarioId('SCN-TODO-COMPLETE-COUNT'): FeatTodo001Scenario.completeCount,
     ScenarioId('SCN-TODO-TOGGLE-BACK'): FeatTodo001Scenario.toggleBack,
     ScenarioId('SCN-TODO-CLEAR-COMPLETED'): FeatTodo001Scenario.clearCompleted,
+    ScenarioId('SCN-TODO-CLEAR-KEEPS-INCOMPLETE'):
+        FeatTodo001Scenario.clearKeepsIncomplete,
   });
   static final Map<String, List<FeatTodo001Scenario>> byRule = Map.unmodifiable(
     <String, List<FeatTodo001Scenario>>{
@@ -325,8 +380,10 @@ abstract final class FeatTodo001Scenarios {
       ]),
       'RULE-TODO-COMPLETE-ITEM': List.unmodifiable(<FeatTodo001Scenario>[
         FeatTodo001Scenario.completeItem,
+        FeatTodo001Scenario.completeCount,
         FeatTodo001Scenario.toggleBack,
         FeatTodo001Scenario.clearCompleted,
+        FeatTodo001Scenario.clearKeepsIncomplete,
       ]),
     },
   );
@@ -349,11 +406,15 @@ abstract final class AddItemScenarios {
 
 abstract final class CompleteItemScenarios {
   static const completeItem = FeatTodo001Scenario.completeItem;
+  static const completeCount = FeatTodo001Scenario.completeCount;
   static const toggleBack = FeatTodo001Scenario.toggleBack;
   static const clearCompleted = FeatTodo001Scenario.clearCompleted;
+  static const clearKeepsIncomplete = FeatTodo001Scenario.clearKeepsIncomplete;
   static const all = <ZukeScenarioContract>[
     FeatTodo001Scenario.completeItem,
+    FeatTodo001Scenario.completeCount,
     FeatTodo001Scenario.toggleBack,
     FeatTodo001Scenario.clearCompleted,
+    FeatTodo001Scenario.clearKeepsIncomplete,
   ];
 }

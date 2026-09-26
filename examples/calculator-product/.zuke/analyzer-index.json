@@ -1,7 +1,7 @@
 {
   "kind": "zuke.analyzer-index",
-  "inputDigest": "sha256:fdc7dc33762659d5ad9e2f638712cab8dd0afa1e4301495f10e91a3ceaf1b66c",
-  "generatedManifestDigest": "sha256:9fb0b0c12ba708add80917825b8a7d3d8fd5d427e0243a99537ca3507474b75d",
+  "inputDigest": "sha256:19084675a041400fd672b60bd092c78556ce3892aa0f6ad8608bc552be6b5af1",
+  "generatedManifestDigest": "sha256:00b397aadc850c49c6fe28b5bbc955517be6077a2eb7a97ffcf295aa41de25aa",
   "generatedManifestPath": "packages/calculator_contracts/.zuke-generated.json",
   "inputs": [
     {
@@ -34,7 +34,7 @@
     },
     {
       "path": "specs/features/calculator_operations.feature",
-      "digest": "sha256:10bba2c94f4f76d70fd3248de3c985e876b21c6ed6c29679bb07b1e9c5678d5e"
+      "digest": "sha256:89b212fffb3009ea992cef7cc42953939be3606e2b9427f50f468eb14b7ebdb3"
     },
     {
       "path": "specs/features/calculator_security.feature",

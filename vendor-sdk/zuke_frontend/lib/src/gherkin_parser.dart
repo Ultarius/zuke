@@ -1,3 +1,4 @@
+import 'gherkin_syntax.dart';
 import 'types.dart';
 import 'package:yaml/yaml.dart';
 
@@ -89,7 +90,7 @@ class GherkinParser {
           }
         }
       }
-      if (trimmed.startsWith('Feature:')) {
+      if (GherkinSyntax.keywordOf(trimmed) == GherkinSyntax.feature) {
         featureLine = i;
         break;
       }
@@ -99,7 +100,7 @@ class GherkinParser {
 
     final featureTitle = lines[featureLine]
         .trim()
-        .substring('Feature:'.length)
+        .substring(GherkinSyntax.feature.length)
         .trim();
     final description = <String>[];
     int? ruleStart;
@@ -108,10 +109,7 @@ class GherkinParser {
       final trimmed = lines[i].trim();
       if (trimmed.isEmpty) continue;
       if (trimmed.startsWith('@') ||
-          trimmed.startsWith('Rule:') ||
-          trimmed.startsWith('Background:') ||
-          trimmed.startsWith('Scenario:') ||
-          trimmed.startsWith('Scenario Outline:')) {
+          GherkinSyntax.opens(trimmed, GherkinSyntax.blockOpeners)) {
         ruleStart = i;
         break;
       }
@@ -125,7 +123,7 @@ class GherkinParser {
     // Find all Rule: positions
     final rulePositions = <int>[];
     for (int i = ruleStart ?? featureLine + 1; i < lines.length; i++) {
-      if (lines[i].trim().startsWith('Rule:')) {
+      if (GherkinSyntax.keywordOf(lines[i].trim()) == GherkinSyntax.rule) {
         rulePositions.add(i);
       }
     }
@@ -135,7 +133,8 @@ class GherkinParser {
         ? lines.length
         : rulePositions.first;
     for (var i = featureLine + 1; i < featureBodyEnd; i++) {
-      if (lines[i].trim().startsWith('Background:')) {
+      if (GherkinSyntax.keywordOf(lines[i].trim()) ==
+          GherkinSyntax.background) {
         featureBackgroundPositions.add(i);
       }
     }
@@ -191,10 +190,7 @@ class GherkinParser {
           }
         } else if (t.isEmpty ||
             t.startsWith('#') ||
-            t.startsWith('Rule:') ||
-            t.startsWith('Scenario:') ||
-            t.startsWith('@')) {
-          if (t.startsWith('@')) continue;
+            GherkinSyntax.opens(t, GherkinSyntax.tagScanOpeners)) {
           // Continue scanning — might be more tags or a rule-spec end
           if (t == '# rule-spec-end') break;
         } else {
@@ -235,7 +231,7 @@ class GherkinParser {
       source: SourceLocation(
         file: file,
         line: featureLine + 1,
-        column: lines[featureLine].indexOf('Feature:') + 1,
+        column: lines[featureLine].indexOf(GherkinSyntax.feature) + 1,
       ),
       tags: featureTags,
       description: description.isNotEmpty ? description.join('\n') : null,
@@ -273,7 +269,7 @@ class GherkinParser {
   }) {
     int ruleLine = -1;
     for (int i = 0; i < lines.length; i++) {
-      if (lines[i].trim().startsWith('Rule:')) {
+      if (GherkinSyntax.keywordOf(lines[i].trim()) == GherkinSyntax.rule) {
         ruleLine = i;
         break;
       }
@@ -282,10 +278,13 @@ class GherkinParser {
     final source = SourceLocation(
       file: file,
       line: lineOffset + ruleLine + 1,
-      column: lines[ruleLine].indexOf('Rule:') + 1,
+      column: lines[ruleLine].indexOf(GherkinSyntax.rule) + 1,
     );
 
-    final ruleTitle = lines[ruleLine].trim().substring('Rule:'.length).trim();
+    final ruleTitle = lines[ruleLine]
+        .trim()
+        .substring(GherkinSyntax.rule.length)
+        .trim();
     final ruleElement = GherkinElement(
       keyword: GherkinKeyword.rule,
       title: ruleTitle,
@@ -310,13 +309,13 @@ class GherkinParser {
         }
         continue;
       }
-      if (trimmed.startsWith('Background:') && scenarioLines == null) {
+      if (GherkinSyntax.keywordOf(trimmed) == GherkinSyntax.background &&
+          scenarioLines == null) {
         backgroundLines = [lines[i]];
         backgroundStart = i;
         continue;
       }
-      if (trimmed.startsWith('Scenario:') ||
-          trimmed.startsWith('Scenario Outline:')) {
+      if (GherkinSyntax.opens(trimmed, GherkinSyntax.scenarioKeywords)) {
         if (scenarioLines != null) {
           final scenario = _parseScenario(
             scenarioLines,
@@ -375,7 +374,7 @@ class GherkinParser {
       if (next.isEmpty || next.startsWith('#') || next.startsWith('@')) {
         continue;
       }
-      return next.startsWith('Examples:');
+      return next.startsWith(GherkinSyntax.examples);
     }
     return false;
   }
@@ -387,8 +386,10 @@ class GherkinParser {
   }) {
     int scenarioLine = -1;
     for (int i = 0; i < lines.length; i++) {
-      if (lines[i].trim().startsWith('Scenario:') ||
-          lines[i].trim().startsWith('Scenario Outline:')) {
+      if (GherkinSyntax.opens(
+        lines[i].trim(),
+        GherkinSyntax.scenarioKeywords,
+      )) {
         scenarioLine = i;
         break;
       }
@@ -445,9 +446,11 @@ class GherkinParser {
         }
         continue;
       }
-      if (trimmed.startsWith('Examples:')) {
+      if (trimmed.startsWith(GherkinSyntax.examples)) {
         // Determine the title from the Examples: line
-        final titlePart = trimmed.substring('Examples:'.length).trim();
+        final titlePart = trimmed
+            .substring(GherkinSyntax.examples.length)
+            .trim();
         final examplesTitle = titlePart.isNotEmpty
             ? titlePart
             : 'examples_${examplesList.length}';
@@ -469,7 +472,7 @@ class GherkinParser {
               source: SourceLocation(
                 file: file,
                 line: lineOffset + scenarioLine + i + 2,
-                column: stepLines[i].indexOf('Examples:') + 1,
+                column: stepLines[i].indexOf(GherkinSyntax.examples) + 1,
               ),
             ),
           );
@@ -489,14 +492,14 @@ class GherkinParser {
     );
 
     final scenarioElement = GherkinElement(
-      keyword: line.startsWith('Scenario Outline:')
+      keyword: line.startsWith(GherkinSyntax.scenarioOutline)
           ? GherkinKeyword.scenarioOutline
           : GherkinKeyword.scenario,
       title: title,
       source: SourceLocation(
         file: file,
         line: lineOffset + scenarioLine + 1,
-        column: lines[scenarioLine].indexOf('Scenario') + 1,
+        column: lines[scenarioLine].indexOf(GherkinSyntax.scenarioStem) + 1,
       ),
       tags: tags,
     );
@@ -539,9 +542,7 @@ class GherkinParser {
         }
         continue;
       }
-      final match = RegExp(
-        r'^(Given|When|Then|And|But)\s+(.+)$',
-      ).firstMatch(trimmed);
+      final match = GherkinSyntax.step.firstMatch(trimmed);
       if (match != null) {
         final keyword = match.group(1)!;
         final inherited = keyword == 'And' || keyword == 'But'
@@ -680,6 +681,7 @@ class GherkinParser {
           'variant',
           'slot',
           'interaction',
+          'label',
           'defaultEvidence',
           'acceptableProviderKinds',
           'prohibitedProviderTargets',
@@ -905,6 +907,7 @@ class GherkinParser {
               variant: _yamlText(value['variant']) ?? 'default',
               slot: _yamlText(value['slot']) ?? 'primary',
               interaction: _yamlText(value['interaction']),
+              label: _yamlText(value['label']),
             ),
           )
           .toList(growable: false),

@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:zuke_cli/src/dart_extractor.dart';
 import 'package:zuke_cli/src/ir.dart';
 import 'package:test/test.dart';
+import 'package:zuke_core/zuke_core.dart' show SourceSnapshotDigest;
 import 'package:zuke_frontend/zuke_frontend.dart';
 import 'package:zuke_cli/src/extraction_service.dart';
 
@@ -106,8 +107,9 @@ void main() {
         expect(first.outputs.single.symbols, isNotEmpty);
         expect(second.outputs, hasLength(1));
         expect(
-          second.outputs.single.inputDigest,
-          first.outputs.single.inputDigest,
+          second.outputs.single.provenanceDigest,
+          first.outputs.single.provenanceDigest,
+          reason: 'a cache hit must republish the same snapshot identity',
         );
         expect(second.outputs.single.symbols, isNotEmpty);
         expect(second.outputs.single.graph, isNotNull);
@@ -166,6 +168,234 @@ void provideControl() {}
         expect(providers.single.symbolId, endsWith('#provideControl'));
       },
     );
+
+    test(
+      'excludes exactly the generated manifest paths from the source digest',
+      () async {
+        _writeAnnotationOnlyPackage(tempDir);
+        final generated = Directory('${tempDir.path}/lib/src/generated')
+          ..createSync(recursive: true);
+        final contract = File('${generated.path}/feat_one_contracts.g.dart')
+          ..writeAsStringSync('// generated contract v1\n');
+        File('${tempDir.path}/lib/src/.zuke-generated.json').writeAsStringSync(
+          '${const JsonEncoder.withIndent('  ').convert({
+            'files': [
+              {'path': 'lib/src/generated/feat_one_contracts.g.dart', 'contentHash': 'unused'},
+            ],
+            'hash': 'unused',
+          })}\n',
+        );
+        // A `.g.dart` from another generator is hand-maintained input, not a
+        // Zuke artifact, and must stay in the digest.
+        final freezed = File('${tempDir.path}/lib/src/analytics.freezed.dart')
+          ..writeAsStringSync('// hand-maintained generated code v1\n');
+
+        final workspace = WorkspaceDiscoveryResult(
+          config: ZukeConfig(
+            root: tempDir.path,
+            contractOutput: 'lib/src/generated',
+            workspaceTargets: {
+              'backend': const WorkspaceTarget(
+                id: 'backend',
+                language: 'dart',
+                framework: 'dart',
+                packages: [
+                  WorkspacePackage(id: 'test_pkg', path: '.', roots: ['lib']),
+                ],
+              ),
+            },
+          ),
+          data: const MetadataExtractorResult(),
+        );
+        final service = ExtractionService();
+
+        final first = await service.extract(workspace);
+        expect(first.errors, isEmpty);
+        final before = first.outputs.single.provenanceDigest;
+
+        contract.writeAsStringSync('// generated contract v2\n');
+        final regenerated = await service.extract(workspace);
+        expect(regenerated.errors, isEmpty);
+        expect(
+          regenerated.outputs.single.provenanceDigest,
+          before,
+          reason:
+              'a regenerated contract is already pinned by the contract '
+              'digest and must not move the source digest',
+        );
+
+        freezed.writeAsStringSync('// hand-maintained generated code v2\n');
+        final edited = await service.extract(workspace);
+        expect(edited.errors, isEmpty);
+        expect(
+          edited.outputs.single.provenanceDigest,
+          isNot(before),
+          reason: 'a non-manifest .g.dart is real source and must be hashed',
+        );
+      },
+    );
+
+    test(
+      'a regenerated contract misses the cache without moving the recorded digest',
+      () async {
+        _writeAnnotationOnlyPackage(tempDir);
+        final generated = Directory('${tempDir.path}/lib/src/generated')
+          ..createSync(recursive: true);
+        final contract = File('${generated.path}/feat_one_contracts.g.dart')
+          ..writeAsStringSync('// generated contract v1\n');
+        File('${tempDir.path}/lib/src/.zuke-generated.json').writeAsStringSync(
+          '${const JsonEncoder.withIndent('  ').convert({
+            'files': [
+              {'path': 'lib/src/generated/feat_one_contracts.g.dart', 'contentHash': 'unused'},
+            ],
+            'hash': 'unused',
+          })}\n',
+        );
+        final workspace = WorkspaceDiscoveryResult(
+          config: ZukeConfig(
+            root: tempDir.path,
+            contractOutput: 'lib/src/generated',
+            workspaceTargets: {
+              'backend': const WorkspaceTarget(
+                id: 'backend',
+                language: 'dart',
+                framework: 'dart',
+                packages: [
+                  WorkspacePackage(id: 'test_pkg', path: '.', roots: ['lib']),
+                ],
+              ),
+            },
+          ),
+          data: const MetadataExtractorResult(),
+        );
+        final service = ExtractionService();
+        int cacheEntries() => Directory(
+          '${tempDir.path}/.zuke/cache/dart',
+        ).listSync().whereType<File>().length;
+
+        final first = await service.extract(workspace);
+        expect(first.errors, isEmpty);
+        final digest = first.outputs.single.provenanceDigest;
+        final entriesAfterFirst = cacheEntries();
+        expect(entriesAfterFirst, 1);
+
+        // The provenance digest ignores the contract, so the recorded value is
+        // stable...
+        contract.writeAsStringSync('// generated contract v2\n');
+        final regenerated = await service.extract(workspace);
+        expect(regenerated.outputs.single.provenanceDigest, digest);
+        // ...but extraction reads it, so the cache must not serve the old
+        // symbols under a reused key.
+        expect(
+          cacheEntries(),
+          greaterThan(entriesAfterFirst),
+          reason:
+              'a regenerated contract has to miss the extraction cache, or a '
+              'later run reuses stale symbols and digests',
+        );
+      },
+    );
+
+    test('the published identity and the cache identity differ exactly where '
+        'they should', () async {
+      // The two digests are separate quantities, so this states the whole
+      // contract in one place: the published identity ignores generated
+      // files, the cache identity covers them, and nothing else moves.
+      _writeAnnotationOnlyPackage(tempDir);
+      final source = File('${tempDir.path}/lib/placeholder.dart');
+      final generated = Directory('${tempDir.path}/lib/src/generated')
+        ..createSync(recursive: true);
+      final contract = File('${generated.path}/feat_one_contracts.g.dart')
+        ..writeAsStringSync('// generated contract v1\n');
+      File('${tempDir.path}/lib/src/.zuke-generated.json').writeAsStringSync(
+        '${const JsonEncoder.withIndent('  ').convert({
+          'files': [
+            {'path': 'lib/src/generated/feat_one_contracts.g.dart', 'contentHash': 'unused'},
+          ],
+          'hash': 'unused',
+        })}\n',
+      );
+      final workspace = WorkspaceDiscoveryResult(
+        config: ZukeConfig(
+          root: tempDir.path,
+          contractOutput: 'lib/src/generated',
+          workspaceTargets: {
+            'backend': const WorkspaceTarget(
+              id: 'backend',
+              language: 'dart',
+              framework: 'dart',
+              packages: [
+                WorkspacePackage(id: 'test_pkg', path: '.', roots: ['lib']),
+              ],
+            ),
+          },
+        ),
+        data: const MetadataExtractorResult(),
+      );
+      final service = ExtractionService();
+      final cacheDirectory = Directory('${tempDir.path}/.zuke/cache/dart');
+
+      Future<({SourceSnapshotDigest? published, Set<String> cacheKeys})>
+      snapshot() async {
+        final result = await service.extract(workspace);
+        expect(result.errors, isEmpty);
+        return (
+          published: result.outputs.single.provenanceDigest,
+          cacheKeys: {
+            for (final entry in cacheDirectory.listSync().whereType<File>())
+              entry.uri.pathSegments.last,
+          },
+        );
+      }
+
+      final initial = await snapshot();
+      expect(
+        initial.published,
+        isNotNull,
+        reason: 'the service is the only publisher of a snapshot identity',
+      );
+      expect(initial.cacheKeys, hasLength(1));
+
+      // The adapter's own read-digest and the published identity are
+      // different quantities. Collapsing them is how the extraction cache and
+      // the recorded digest came to disagree, so pin them apart.
+      final output = (await service.extract(workspace)).outputs.single;
+      expect(
+        output.provenanceDigest!.value,
+        isNot(output.inputDigest),
+        reason: 'the published identity must not be the adapter read-digest',
+      );
+
+      // Nothing changed: neither identity moves.
+      final unchanged = await snapshot();
+      expect(unchanged.published, initial.published);
+      expect(unchanged.cacheKeys, initial.cacheKeys);
+
+      // Hand-written source is structure: both identities move.
+      source.writeAsStringSync('const value = 2;');
+      final sourceEdit = await snapshot();
+      expect(sourceEdit.published, isNot(initial.published));
+      expect(
+        sourceEdit.cacheKeys,
+        isNot(initial.cacheKeys),
+        reason: 'a source edit must miss the cache',
+      );
+
+      // A manifest-declared generated file is derived, not source: only the
+      // cache identity moves, so evidence and locks stay valid.
+      contract.writeAsStringSync('// generated contract v2\n');
+      final contractEdit = await snapshot();
+      expect(
+        contractEdit.published,
+        sourceEdit.published,
+        reason: 'regenerating a contract must not invalidate evidence',
+      );
+      expect(
+        contractEdit.cacheKeys,
+        isNot(sourceEdit.cacheKeys),
+        reason: 'regenerating a contract must still miss the cache',
+      );
+    });
 
     test(
       'loads wrapped evidence and rejects duplicates and malformed files',

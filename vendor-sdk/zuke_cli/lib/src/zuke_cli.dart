@@ -105,6 +105,9 @@ class ZukeCli {
           if ((command['roots'] as List<String>).isNotEmpty) {
             throw const FormatException('--roots requires lock --refresh');
           }
+          if (boolFlag(command, 'retest')) {
+            throw const FormatException('--retest requires lock --refresh');
+          }
           return await LockCommand(command).execute();
         case 'gate':
           if (command.command?.name == 'record') {

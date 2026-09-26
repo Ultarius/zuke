@@ -1,7 +1,10 @@
 import 'dart:convert';
-import 'package:crypto/crypto.dart';
+import 'dart:io';
+
 import 'package:dart_style/dart_style.dart';
 import 'package:path/path.dart' as p;
+import 'package:yaml/yaml.dart';
+import 'package:zuke_core/zuke_core.dart' show sha256DigestHex, sha256Text;
 import 'package:zuke_frontend/zuke_frontend.dart';
 import 'manifest.dart';
 
@@ -11,6 +14,34 @@ final class ContractPackage {
 
   final String name;
   final String libPath;
+}
+
+/// Resolves the package that owns [outputDir], when it sits inside a `lib/`
+/// tree with a parseable `pubspec.yaml`.
+///
+/// Generation, the contract digest, and the lock all use this so the barrel
+/// they hash is the barrel that is written: with a package name, exports use
+/// `package:` URIs instead of paths relative to the output directory.
+ContractPackage? contractPackageFor(String root, String outputDir) {
+  final output = outputDir.replaceAll('\\', '/');
+  final index = output.indexOf('/lib/');
+  final lib = output.startsWith('lib/')
+      ? 'lib'
+      : index > 0
+      ? output.substring(0, index + 4)
+      : null;
+  if (lib == null) return null;
+  final packagePath = lib == 'lib'
+      ? root
+      : '$root/${lib.substring(0, lib.length - 4)}';
+  final pubspec = File('$packagePath/pubspec.yaml');
+  if (!pubspec.existsSync()) return null;
+  final document = loadYaml(pubspec.readAsStringSync());
+  final name = document is Map ? document['name'] : null;
+  if (name is! String || !RegExp(r'^[a-z][a-z0-9_]*$').hasMatch(name)) {
+    return null;
+  }
+  return ContractPackage(name: name, libPath: lib);
 }
 
 class GeneratedFile {
@@ -35,6 +66,25 @@ class GenerationResult {
     required this.manifest,
     this.errors = const [],
   });
+}
+
+/// Hash of the generated contracts with scenario titles scrubbed.
+///
+/// Evidence records, evidence validation, and locks must all call this instead
+/// of hashing a manifest themselves, so a scenario retitle never makes a
+/// written artifact look stale to the step that has to accept it.
+String structuralContractDigest(
+  WorkspaceDiscoveryResult workspace, {
+  String outputDir = 'lib/src/generated',
+  String? exportPath,
+}) {
+  final manifest = DartContractGenerator().structuralManifest(
+    workspace: workspace,
+    outputDir: outputDir,
+    exportPath: exportPath,
+    contractPackage: contractPackageFor(workspace.config.root ?? '', outputDir),
+  );
+  return sha256Text(manifest.toJson());
 }
 
 // Reserved Dart words that can't be used as identifiers
@@ -105,8 +155,44 @@ const _reservedWords = {
 };
 
 class DartContractGenerator {
+  /// The generated contracts exactly as they should be written to disk.
+  ///
+  /// The result is always safe to persist; prose-free digests go through
+  /// [structuralManifest] instead.
   GenerationResult generate({
     required WorkspaceDiscoveryResult workspace,
+    String outputDir = 'lib/src/generated',
+    String? exportPath,
+    ContractPackage? contractPackage,
+  }) => _generate(
+    workspace: workspace,
+    outputDir: outputDir,
+    exportPath: exportPath,
+    contractPackage: contractPackage,
+    scrubProse: false,
+  );
+
+  /// The generated manifest projected onto prose-free content hashes.
+  ///
+  /// Scenario titles are replaced before the contract file is rendered, so a
+  /// retitle leaves every entry hash unchanged. Digests only — never write a
+  /// manifest produced this way to disk.
+  Manifest structuralManifest({
+    required WorkspaceDiscoveryResult workspace,
+    String outputDir = 'lib/src/generated',
+    String? exportPath,
+    ContractPackage? contractPackage,
+  }) => _generate(
+    workspace: workspace,
+    outputDir: outputDir,
+    exportPath: exportPath,
+    contractPackage: contractPackage,
+    scrubProse: true,
+  ).manifest;
+
+  GenerationResult _generate({
+    required WorkspaceDiscoveryResult workspace,
+    required bool scrubProse,
     String outputDir = 'lib/src/generated',
     String? exportPath,
     ContractPackage? contractPackage,
@@ -133,9 +219,11 @@ class DartContractGenerator {
       final fileName = '${snakeName}_contracts.g.dart';
       final filePath = '$outputDir/$fileName';
 
-      final bindings = feature.metadata.bindings ?? [];
+      final bindings = feature.metadata.bindings ?? const <ParsedBinding>[];
       final bindingMembers = <String>{};
       final bindingTypes = <String>{};
+      final bindingLabels = <String, String>{};
+      final bindingIds = <String>{for (final b in bindings) b.id};
       for (final binding in bindings) {
         final member = _bindingIdToMember(binding.id);
         final type = _bindingIdToType(pascalName, binding.id);
@@ -144,6 +232,23 @@ class DartContractGenerator {
         }
         if (!bindingTypes.add(type)) {
           errors.add('$featId has colliding Flutter binding subtype "$type"');
+        }
+        final label = binding.label;
+        if (label != null) {
+          final owner = bindingLabels[label];
+          if (owner != null && owner != binding.id) {
+            errors.add(
+              '$featId has colliding Flutter binding label "$label" '
+              'declared by "$owner" and "${binding.id}"',
+            );
+          }
+          bindingLabels[label] = binding.id;
+          if (bindingIds.contains(label) && label != binding.id) {
+            errors.add(
+              '$featId binding label "$label" on "${binding.id}" '
+              'collides with another binding id',
+            );
+          }
         }
       }
       final isFlutterFeature = (feature.metadata.targets ?? const []).contains(
@@ -201,7 +306,9 @@ class DartContractGenerator {
             scenarios.add(
               _GeneratedScenario(
                 id: tag.name,
-                title: scenario.scenarioElement.title,
+                title: scrubProse
+                    ? '{{scenario-title}}'
+                    : scenario.scenarioElement.title,
                 controlIds: _effectiveControlIds(workspace, rule),
               ),
             );
@@ -240,6 +347,12 @@ class DartContractGenerator {
         buffer.writeln('  final String id;');
         buffer.writeln();
         buffer.writeln(
+          '  /// Human-readable name from the feature metadata, when declared.',
+        );
+        buffer.writeln('  @override');
+        buffer.writeln('  String? get label => null;');
+        buffer.writeln();
+        buffer.writeln(
           '  T keyIn<T extends Object>(${pascalName}FlutterBindings<T> bindings);',
         );
         buffer.writeln();
@@ -255,6 +368,14 @@ class DartContractGenerator {
         for (final binding in bindings) {
           final member = _bindingIdToMember(binding.id);
           buffer.writeln('    ${_dartStringLiteral(binding.id)} => $member,');
+        }
+        for (final binding in bindings) {
+          final label = binding.label;
+          // The canonical id already handles this name; emitting it again
+          // creates a duplicate switch pattern.
+          if (label == null || label == binding.id) continue;
+          final member = _bindingIdToMember(binding.id);
+          buffer.writeln('    ${_dartStringLiteral(label)} => $member,');
         }
         buffer.writeln(
           "    _ => throw ArgumentError.value(bindingId, 'bindingId', "
@@ -281,6 +402,13 @@ class DartContractGenerator {
             '  BindingInstanceCardinality get instanceCardinality => '
             'BindingInstanceCardinality.${_bindingInstanceCardinalityMember(binding.instanceCardinality)};',
           );
+          if (binding.label != null) {
+            buffer.writeln();
+            buffer.writeln('  @override');
+            buffer.writeln(
+              '  String? get label => ${_dartStringLiteral(binding.label!)};',
+            );
+          }
           buffer.writeln('}');
           buffer.writeln();
         }
@@ -552,7 +680,7 @@ class DartContractGenerator {
         errors.add('$featId generated invalid Dart: $error');
         continue;
       }
-      final hash = sha256.convert(utf8.encode(content)).toString();
+      final hash = sha256DigestHex(utf8.encode(content));
 
       files.add(GeneratedFile(path: filePath, content: content, hash: hash));
       manifestEntries.add(ManifestEntry(path: filePath, contentHash: hash));
@@ -582,7 +710,7 @@ class DartContractGenerator {
           errors,
         );
         if (support == null) continue;
-        final supportHash = sha256.convert(utf8.encode(support)).toString();
+        final supportHash = sha256DigestHex(utf8.encode(support));
         files.add(
           GeneratedFile(path: supportPath, content: support, hash: supportHash),
         );
@@ -692,7 +820,7 @@ ZukeScenarioContract zukeScenarioContract(String id) =>
           errors: errors,
         );
       }
-      final hash = sha256.convert(utf8.encode(content)).toString();
+      final hash = sha256DigestHex(utf8.encode(content));
       files.add(GeneratedFile(path: exportPath, content: content, hash: hash));
       manifestEntries.add(ManifestEntry(path: exportPath, contentHash: hash));
     }
@@ -942,6 +1070,11 @@ ZukeScenarioContract zukeScenarioContract(String id) =>
       ? 'readAll${readMethod.substring('read'.length)}'
       : 'readAll$readMethod';
 
+  /// The source path shown in a generated header: workspace-relative when the
+  /// file is inside the root, otherwise its basename.
+  ///
+  /// Header rendering, not path normalization: see
+  /// `path_safety.normalizeRelativePath` for workspace-relative paths.
   String _normalizedSourcePath(
     WorkspaceDiscoveryResult workspace,
     String path,

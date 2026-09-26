@@ -12,6 +12,8 @@ final class FeatLibrary001GeneratedSteps<W extends ScenarioWorld> {
     branchConnectsToBranch,
     required FutureOr<void> Function(W world, String value1, String value2)
     branchHasLocalLoanISBN,
+    required FutureOr<void> Function(W world, String value1, String value2)
+    branchIsConnectedToBranch,
     required FutureOr<void> Function(W world, String value1)
     branchIsListeningForPeers,
     required FutureOr<void> Function(W world, String value1, String value2)
@@ -56,6 +58,19 @@ final class FeatLibrary001GeneratedSteps<W extends ScenarioWorld> {
         tier: StepTier.generated,
         target: 'catalog',
         action: (world, step, values) => branchHasLocalLoanISBN(
+          world,
+          values[0] as String,
+          values[1] as String,
+        ),
+      ),
+      StepDefinition<W>.cucumber(
+        expression: CucumberExpression(
+          'branch {string} is connected to branch {string}',
+          parameters,
+        ),
+        tier: StepTier.generated,
+        target: 'catalog',
+        action: (world, step, values) => branchIsConnectedToBranch(
           world,
           values[0] as String,
           values[1] as String,

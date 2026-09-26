@@ -2,8 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:zuke_core/zuke_core.dart'
-    show canonicalJson, writeBytesReplacing;
-import 'package:crypto/crypto.dart';
+    show canonicalJson, sha256Text, writeBytesReplacing;
 import 'package:zuke_frontend/zuke_frontend.dart';
 
 /// Resolves the configured profile's tag expression against parsed scenarios.
@@ -138,7 +137,7 @@ class ScenarioSelection {
       'tagExpression': expression,
       'scenarioIds': [...scenarioIds]..sort(),
     };
-    return 'sha256:${sha256.convert(utf8.encode(canonicalJson(body)))}';
+    return sha256Text(canonicalJson(body));
   }
 }
 

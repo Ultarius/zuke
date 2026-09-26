@@ -14,6 +14,129 @@ ToolRunnerMode? runnerModeFromValue(String? value) {
   };
 }
 
+/// Reads a boolean flag that the composing parser may not declare.
+///
+/// `check` and `lock --refresh` build reduced parsers, and `ArgResults.[]`
+/// throws for an option its parser never registered. The membership test is
+/// therefore load-bearing, not a redundant null guard.
+bool boolFlag(ArgResults args, String name) =>
+    args.options.contains(name) && (args[name] as bool? ?? false);
+
+/// Builds the `validate` argv accepted by [ValidateCommand].
+///
+/// Shared by `check` and the `lock --refresh` skip probe so a new flag cannot
+/// be added to one composer and forgotten in the other.
+ArgResults buildValidateArgs({
+  required String root,
+  String profile = 'pullRequest',
+  String format = 'text',
+  bool requireEvidence = false,
+  bool quiet = false,
+  bool silent = false,
+}) =>
+    (ArgParser()
+          ..addOption('root', abbr: 'r')
+          ..addOption('profile')
+          ..addOption('format', allowed: ['text', 'json'], defaultsTo: 'text')
+          ..addFlag('require-evidence')
+          ..addFlag('silent')
+          ..addFlag('quiet'))
+        .parse([
+          '--root',
+          root,
+          '--profile',
+          profile,
+          '--format',
+          format,
+          if (requireEvidence) '--require-evidence',
+          if (silent) '--silent',
+          if (quiet) '--quiet',
+        ]);
+
+/// Builds the `test` argv accepted by [TestCommandRunner].
+ArgResults buildTestArgs({
+  required String root,
+  String profile = 'pullRequest',
+  String format = 'text',
+  String? runnerMode,
+  bool coverage = false,
+  bool quiet = false,
+}) =>
+    (ArgParser()
+          ..addOption('root', abbr: 'r')
+          ..addOption('profile')
+          ..addOption('format', allowed: ['text', 'json'], defaultsTo: 'text')
+          ..addOption('runner-mode', allowed: _runnerModeNames)
+          ..addFlag('coverage')
+          ..addFlag('quiet'))
+        .parse([
+          '--root',
+          root,
+          '--profile',
+          profile,
+          '--format',
+          format,
+          if (runnerMode != null) ...['--runner-mode', runnerMode],
+          if (coverage) '--coverage',
+          if (quiet) '--quiet',
+        ]);
+
+/// Builds the `generate` argv accepted by [GenerateCommand].
+ArgResults buildGenerateArgs({
+  required String root,
+  bool check = false,
+  bool quiet = false,
+}) =>
+    (ArgParser()
+          ..addOption('root', abbr: 'r')
+          ..addFlag('check')
+          ..addOption('output', abbr: 'o')
+          ..addFlag('quiet'))
+        .parse(['--root', root, if (check) '--check', if (quiet) '--quiet']);
+
+/// Builds the `lock` argv accepted by [LockCommand].
+ArgResults buildLockArgs({
+  required String root,
+  String? profile,
+  List<String> profiles = const [],
+  bool allProfiles = false,
+  bool update = false,
+  bool check = false,
+  bool quiet = false,
+}) =>
+    (ArgParser()
+          ..addOption('root', abbr: 'r')
+          ..addMultiOption('roots')
+          ..addMultiOption('profiles')
+          ..addOption('profile')
+          ..addFlag('check')
+          ..addFlag('all-profiles')
+          ..addFlag('update')
+          ..addFlag('refresh')
+          ..addOption('runner-mode', allowed: _runnerModeNames)
+          ..addFlag('retest')
+          ..addOption('diff-output')
+          ..addOption('output')
+          ..addFlag('quiet'))
+        .parse([
+          '--root',
+          root,
+          if (profile != null) ...['--profile', profile],
+          for (final selected in profiles) ...['--profiles', selected],
+          if (allProfiles) '--all-profiles',
+          if (update) '--update',
+          if (check) '--check',
+          if (quiet) '--quiet',
+        ]);
+
+/// Builds the `report` argv accepted by [ReportCommand].
+ArgResults buildReportArgs({required String root, bool quiet = false}) =>
+    (ArgParser()
+          ..addOption('root', abbr: 'r')
+          ..addOption('output')
+          ..addFlag('quiet'))
+        .parse(['--root', root, if (quiet) '--quiet']);
+
 ArgParser buildZukeArgParser() {
   final parser = ArgParser()
     ..addFlag('help', abbr: 'h', help: 'Show help')
@@ -24,6 +147,15 @@ ArgParser buildZukeArgParser() {
         ..addOption('root', abbr: 'r', help: 'Workspace root directory')
         ..addOption('profile')
         ..addOption('format', allowed: ['text', 'json'], defaultsTo: 'text')
+        ..addFlag(
+          'require-evidence',
+          help: 'Fail when the profile has no executed evidence',
+        )
+        ..addFlag(
+          'silent',
+          hide: true,
+          help: 'Suppress findings as well as progress output',
+        )
         ..addFlag('quiet', hide: true),
     )
     ..addCommand(
@@ -62,9 +194,14 @@ ArgParser buildZukeArgParser() {
         ..addFlag(
           'refresh',
           help:
-              'Generate contracts, execute managed tests, validate, and refresh locks',
+              'Generate contracts, reuse current evidence or execute managed '
+              'tests, validate, and refresh locks',
         )
         ..addOption('runner-mode', allowed: _runnerModeNames)
+        ..addFlag(
+          'retest',
+          help: 'Execute managed tests even when evidence is already current',
+        )
         ..addOption(
           'diff-output',
           help: 'Write a framework-owned JSON summary of changed profile locks',
@@ -117,7 +254,13 @@ ArgParser buildZukeArgParser() {
         ..addOption('jobs', defaultsTo: '1')
         ..addOption('format', allowed: ['text', 'json'], defaultsTo: 'text')
         ..addOption('summary-file')
-        ..addOption('runner-mode', allowed: _runnerModeNames),
+        ..addOption('runner-mode', allowed: _runnerModeNames)
+        ..addFlag(
+          'coverage',
+          help:
+              'Collect coverage from test runners (Flutter: --coverage, '
+              'Dart: --coverage=coverage)',
+        ),
     )
     ..addCommand(
       'manifest',
@@ -314,7 +457,14 @@ ArgParser buildZukeArgParser() {
         ..addOption('root', abbr: 'r')
         ..addOption('profile')
         ..addOption('format', allowed: ['text', 'json'], defaultsTo: 'text')
-        ..addOption('runner-mode', allowed: _runnerModeNames),
+        ..addOption('runner-mode', allowed: _runnerModeNames)
+        ..addFlag(
+          'coverage',
+          help:
+              'Collect coverage from test runners (Flutter: --coverage, '
+              'Dart: --coverage=coverage)',
+        )
+        ..addFlag('quiet', hide: true),
     );
   parser.addCommand(
     'coverage',

@@ -30,6 +30,20 @@ final class ZukeIndexFreshnessIssue {
 /// Read-only input index shared by generation, editor diagnostics, and hooks.
 /// The index is never assurance evidence: it only allows local tooling to
 /// reject stale mappings before a CLI validation run.
+///
+/// Unlike the evidence and lock digests, the index is deliberately byte-exact:
+/// it answers "has anything I generated been regenerated?", not "did the
+/// specification's structure change?". Input digests therefore hash raw
+/// specification bytes, and `generatedManifestDigest` plus the generated-output
+/// checks compare exact generated content. A retitling is a change to the
+/// generated contract, so regeneration (and an index refresh) is required;
+/// `zuke check` runs generation before validation for exactly that reason.
+///
+/// Keep this file free of `zuke_frontend` and `zuke_core` symbols that are not
+/// in the published releases: the analysis-server plugin AOT-compiles it
+/// through `package:zuke_cli/editor.dart`, and the plugin resolves those
+/// packages from the pub cache rather than this workspace. That is why the
+/// local `_sha256` below is not the shared `zuke_core` helper.
 class ZukeIndex {
   static const kind = 'zuke.analyzer-index';
 
@@ -368,8 +382,7 @@ class ZukeIndex {
               message: 'Generated output is missing: $normalizedPath',
             ),
           );
-        } else if (sha256.convert(file.readAsBytesSync()).toString() !=
-            contentHash) {
+        } else if (_digestHex(file.readAsBytesSync()) != contentHash) {
           issues.add(
             ZukeIndexFreshnessIssue(
               kind: ZukeIndexFreshnessIssueKind.generatedOutputDigestMismatch,
@@ -518,7 +531,11 @@ class ZukeIndexInput {
   Map<String, Object?> toJson() => {'path': path, 'digest': digest};
 }
 
-String _sha256(List<int> bytes) => 'sha256:${sha256.convert(bytes)}';
+/// The bare hex form, for the per-file `contentHash` entries the manifest
+/// stores; the `sha256:` form is for the aggregate index digests.
+String _digestHex(List<int> bytes) => sha256.convert(bytes).toString();
+
+String _sha256(List<int> bytes) => 'sha256:${_digestHex(bytes)}';
 
 String _relative(String root, String path) {
   final normalizedRoot = root

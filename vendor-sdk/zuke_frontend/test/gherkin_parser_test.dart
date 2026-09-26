@@ -489,6 +489,42 @@ Feature: Flow metadata
       expect(metadata.endpoints!.single.usage, 'reference');
     });
 
+    test('parses binding display labels from spec blocks', () {
+      const content = '''
+# spec-begin
+# schemaVersion: 1
+# id: FEAT-LABEL-001
+# targets:
+#   - flutter
+# bindings:
+#   required:
+#     - id: todo.addTaskButton
+#       target: flutter
+#       cardinality: exactlyOne
+#       interaction: action
+#       label: add task button
+#     - id: todo.taskInput
+#       target: flutter
+#       cardinality: exactlyOne
+#       interaction: input
+# spec-end
+Feature: Binding labels
+''';
+
+      final result = GherkinParser().parseFile(content, 'labels.feature');
+
+      expect(
+        result.errors,
+        isEmpty,
+        reason: result.errors.map((error) => error.message).join('\n'),
+      );
+      final bindings = result.features.single.metadata.bindings!;
+      expect(bindings, hasLength(2));
+      expect(bindings.first.label, 'add task button');
+      expect(bindings.first.id, 'todo.addTaskButton');
+      expect(bindings.last.label, isNull);
+    });
+
     test('rejects unknown metadata keys in spec blocks', () {
       const gherkinContent = '''
 # spec-begin
@@ -909,6 +945,97 @@ retiredIds: [RULE-RETIRED, '', 99]
       );
       expect(result.data.registries, contains('retired:RULE-RETIRED'));
       expect(result.data.registries, isNot(contains('PBI-INCOMPLETE')));
+    });
+  });
+
+  group('Shared Gherkin vocabulary', () {
+    test('the parser accepts every keyword in GherkinSyntax', () {
+      const document = '''
+# spec-begin
+# schemaVersion: 1
+# id: FEAT-ONE-001
+# spec-end
+@FEAT-ONE-001
+Feature: One
+  Background:
+    Given a background step
+
+  # rule-spec-begin
+  # id: RULE-ONE-001
+  # requiredEvidence: []
+  # rule-spec-end
+  @RULE-ONE-001
+  Rule: One rule
+    @SCN-ONE-001
+    Scenario: A plain scenario
+      When something happens
+      Then something is true
+
+    @SCN-ONE-002
+    Scenario Outline: An outline
+      When the user enters <value>
+      Then the answer is <value>
+
+      Examples:
+        | value |
+        | 1     |
+''';
+      final result = GherkinParser().parseFile(
+        document,
+        'specs/features/one.feature',
+      );
+
+      expect(result.errors, isEmpty, reason: '${result.errors}');
+      expect(result.features, hasLength(1));
+      final feature = result.features.single;
+      expect(feature.featureElement.title, 'One');
+      expect(feature.backgroundSteps, hasLength(1));
+      final rule = feature.rules.single;
+      expect(rule.metadata.id, 'RULE-ONE-001');
+      expect(rule.scenarios, hasLength(2));
+      expect(rule.scenarios.last.examples.single.rows, isNotEmpty);
+    });
+
+    test('the vocabulary covers exactly the structural keywords', () {
+      expect(GherkinSyntax.keywords, hasLength(6));
+      for (final keyword in GherkinSyntax.keywords) {
+        expect(keyword, endsWith(':'), reason: keyword);
+      }
+      expect(GherkinSyntax.stepKeywords, [
+        'Given',
+        'When',
+        'Then',
+        'And',
+        'But',
+      ]);
+    });
+
+    test('every keyword group is drawn from the structural vocabulary', () {
+      // The parser classifies with these groups; a group entry that is missing
+      // from keywords would be recognized by the parser and dropped by the
+      // structural projections.
+      for (final group in [
+        GherkinSyntax.scenarioKeywords,
+        GherkinSyntax.blockOpeners,
+        GherkinSyntax.tagScanOpeners,
+      ]) {
+        for (final keyword in group) {
+          expect(GherkinSyntax.keywords, contains(keyword), reason: keyword);
+        }
+      }
+      expect(
+        GherkinSyntax.keywordOf('Scenario Outline: An outline'),
+        GherkinSyntax.scenarioOutline,
+      );
+      expect(GherkinSyntax.keywordOf('Something else'), isNull);
+      expect(
+        GherkinSyntax.opens('Scenario: Plain', GherkinSyntax.scenarioKeywords),
+        isTrue,
+      );
+      expect(
+        GherkinSyntax.opens('Background:', GherkinSyntax.scenarioKeywords),
+        isFalse,
+      );
     });
   });
 }

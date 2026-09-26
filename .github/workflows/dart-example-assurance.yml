@@ -45,11 +45,9 @@ jobs:
         working-directory: ${{ inputs.example-root }}
       - run: dart --suppress-analytics analyze --fatal-infos
         working-directory: ${{ inputs.example-root }}
-      - run: dart --suppress-analytics test --coverage=coverage
-        working-directory: ${{ inputs.example-root }}
-      - run: dart --suppress-analytics run vendor-sdk/check_coverage.dart --package ${{ inputs.package-name }} --format=json --output ${{ inputs.example-root }}/generated/coverage/summary.json
       - run: dart --suppress-analytics run zuke_cli:zuke doctor --root ${{ inputs.example-root }}
-      - run: dart --suppress-analytics run zuke_cli:zuke check --root ${{ inputs.example-root }} --profile ${{ inputs.profile }} --jobs 1 --format json
+      - run: dart --suppress-analytics run zuke_cli:zuke check --root ${{ inputs.example-root }} --profile ${{ inputs.profile }} --jobs 1 --coverage --format json
+      - run: dart --suppress-analytics run vendor-sdk/check_coverage.dart --package ${{ inputs.package-name }} --format=json --output ${{ inputs.example-root }}/generated/coverage/summary.json
       - if: ${{ inputs.changed-since != '' }}
         run: dart --suppress-analytics run zuke_cli:zuke affected --root ${{ inputs.example-root }} --changed-since ${{ inputs.changed-since }}
       - name: Verify assurance history policy

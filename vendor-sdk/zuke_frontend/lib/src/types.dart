@@ -109,6 +109,12 @@ class ParsedMetadata {
 }
 
 /// Metadata describing a generated UI binding.
+///
+/// A new field here has to reach every site that enumerates binding fields:
+/// this class, `GherkinParser` (`_parseSimpleYaml`'s allow-list), the generated
+/// descriptors in `dart_generator.dart`, `ZukeModelBinding` plus its mapping in
+/// `report_command.dart`, the runner surfaces in `zuke_runner_flutter`, and the
+/// binding metadata reference in `docs/integration-guide.md`.
 class ParsedBinding {
   /// Stable binding identifier.
   final String id;
@@ -139,6 +145,14 @@ class ParsedBinding {
   /// parsing of existing feature metadata.
   final String? interaction;
 
+  /// Human-readable name for the binding, in the domain's own words.
+  ///
+  /// Lets a scenario read `the user taps "add task button"` while the
+  /// generated contract still keys everything on [id]. Labels resolve in
+  /// `fromId`, so they must be unique within the feature and must not equal
+  /// another binding's id.
+  final String? label;
+
   /// Creates parsed binding metadata.
   const ParsedBinding({
     required this.id,
@@ -148,6 +162,7 @@ class ParsedBinding {
     this.variant = 'default',
     this.slot = 'primary',
     this.interaction,
+    this.label,
   });
 }
 

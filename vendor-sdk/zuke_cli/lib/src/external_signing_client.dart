@@ -1,7 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:crypto/crypto.dart';
 import 'package:zuke_core/zuke_core.dart';
 
 class ExternalSignature {
@@ -46,7 +45,7 @@ class ExternalSigningClient {
       'usage': usage,
       'algorithm': 'Ed25519',
       'domainSeparator': domainSeparator,
-      'payloadDigest': 'sha256:${sha256.convert(payload)}',
+      'payloadDigest': sha256Hex(payload),
       'payloadBase64': base64Encode(payload),
     };
     final client = _httpClientFactory();

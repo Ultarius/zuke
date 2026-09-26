@@ -1,7 +1,4 @@
-import 'dart:convert';
-
-import 'package:crypto/crypto.dart';
-import 'package:zuke_core/zuke_core.dart' show BindingIdentity;
+import 'package:zuke_core/zuke_core.dart' show BindingIdentity, sha256Text;
 import 'package:zuke_frontend/zuke_frontend.dart';
 import 'identity_validator.dart';
 import 'reference_resolver.dart';
@@ -967,4 +964,4 @@ final class _ImplementationCoverageEvaluation {
 }
 
 String _coverageGraphHash(IrGraph graph) =>
-    'sha256:${sha256.convert(utf8.encode(canonicalJson(graph.toJson())))}';
+    sha256Text(canonicalJson(graph.toJson()));

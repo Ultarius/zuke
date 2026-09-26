@@ -1,12 +1,12 @@
 import 'dart:convert';
 import 'dart:io';
 import 'package:args/args.dart';
-import 'package:yaml/yaml.dart';
 import 'package:zuke_cli/tooling.dart';
 import 'package:zuke_frontend/zuke_frontend.dart';
 
 import 'generator.dart';
 import 'configuration_preflight.dart';
+import 'generated_manifest_path.dart';
 import 'verified_requirement_scan.dart';
 
 class GenerateCommand {
@@ -36,7 +36,7 @@ class GenerateCommand {
       workspace: workspace,
       outputDir: outputDir,
       exportPath: workspace.config.contractExport,
-      contractPackage: _contractPackage(root, outputDir),
+      contractPackage: contractPackageFor(root, outputDir),
     );
 
     if (result.errors.isNotEmpty) {
@@ -52,11 +52,8 @@ class GenerateCommand {
         .toSet();
     final generatedDir = Directory('$root/${outputDir.replaceAll('\\', '/')}');
     final normalizedOutput = outputDir.replaceAll('\\', '/');
-    final libIndex = normalizedOutput.indexOf('/lib/');
-    final packageDir = libIndex > 0
-        ? normalizedOutput.substring(0, libIndex)
-        : normalizedOutput.split('/').take(2).join('/');
-    final manifestPath = '$root/$packageDir/.zuke-generated.json';
+    final manifestDirectory = generatedManifestDirectory(outputDir);
+    final manifestPath = generatedManifestPath(root, outputDir);
     final indexPath = '$root/.zuke/analyzer-index.json';
     // Keep the existing manifest location, including lib/src for root packages,
     // but permit their public barrel in lib rather than the fictitious
@@ -64,7 +61,7 @@ class GenerateCommand {
     final packageLibDir = Directory(
       normalizedOutput.startsWith('lib/')
           ? '$root/lib'
-          : '$root/$packageDir/lib',
+          : '$root/$manifestDirectory/lib',
     );
     final generatedStepRoots = _generatedStepRoots(root, workspace);
     final expectedManifest = result.manifest.toJson();
@@ -170,11 +167,11 @@ class GenerateCommand {
     if (checkOnly) {
       if (!manifestFile.existsSync() ||
           manifestFile.readAsStringSync() != expectedManifest) {
-        stderr.writeln('  STALE: $packageDir/.zuke-generated.json');
+        stderr.writeln('  STALE: $manifestDirectory/.zuke-generated.json');
         allMatch = false;
         staleCount++;
       } else {
-        info('  OK: $packageDir/.zuke-generated.json');
+        info('  OK: $manifestDirectory/.zuke-generated.json');
       }
       final indexFile = File(indexPath);
       if (!indexFile.existsSync() ||
@@ -219,28 +216,6 @@ class GenerateCommand {
 
     info('Generated ${result.files.length} file(s).');
     return 0;
-  }
-
-  ContractPackage? _contractPackage(String root, String outputDir) {
-    final output = outputDir.replaceAll('\\', '/');
-    final index = output.indexOf('/lib/');
-    final lib = output.startsWith('lib/')
-        ? 'lib'
-        : index > 0
-        ? output.substring(0, index + 4)
-        : null;
-    if (lib == null) return null;
-    final packagePath = lib == 'lib'
-        ? root
-        : '$root/${lib.substring(0, lib.length - 4)}';
-    final pubspec = File('$packagePath/pubspec.yaml');
-    if (!pubspec.existsSync()) return null;
-    final document = loadYaml(pubspec.readAsStringSync());
-    final name = document is Map ? document['name'] : null;
-    if (name is! String || !RegExp(r'^[a-z][a-z0-9_]*$').hasMatch(name)) {
-      return null;
-    }
-    return ContractPackage(name: name, libPath: lib);
   }
 
   ZukeIndex _buildAnalyzerIndex({

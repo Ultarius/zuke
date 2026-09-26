@@ -220,7 +220,10 @@ final application = ZukeHttpApplication(
 
         final lfOutput = lfExtraction.outputs.single;
         final crlfOutput = crlfExtraction.outputs.single;
-        expect(crlfOutput.inputDigest, equals(lfOutput.inputDigest));
+        expect(
+          crlfOutput.publishedSourceDigest,
+          equals(lfOutput.publishedSourceDigest),
+        );
         expect(
           lfOutput.symbols.any(
             (symbol) => symbol.requirementIds.contains('RULE-PARITY-001'),

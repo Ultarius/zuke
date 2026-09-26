@@ -4,6 +4,7 @@ import 'package:test/test.dart';
 import 'package:zuke_core/zuke_core.dart';
 import 'package:zuke_core/src/internal_adapter.dart';
 import 'package:yaml/yaml.dart' show loadYaml;
+import 'package:zuke_core/src/diagnostic_codes.dart';
 
 /// Locates the workspace from either a package-local or repository-root test
 /// invocation. `melos exec` changes the working directory; direct `dart test`
@@ -360,18 +361,9 @@ void main() {
         expect((entry['summary'] as String?)?.trim(), isNotEmpty);
       }
 
-      final emitted = <String>{};
-      final tooling = Directory('${workspaceRoot.path}/vendor-sdk');
-      for (final file in tooling.listSync(recursive: true).whereType<File>()) {
-        if (!file.path.endsWith('.dart') || file.path.contains('.dart_tool')) {
-          continue;
-        }
-        emitted.addAll(
-          RegExp(
-            r'(?:ZUKE|ZK)-[A-Z0-9]+(?:-[A-Z0-9]+)+',
-          ).allMatches(file.readAsStringSync()).map((match) => match.group(0)!),
-        );
-      }
+      final emitted = scanDeclaredDiagnosticCodes([
+        Directory('${workspaceRoot.path}/vendor-sdk'),
+      ]);
       expect(codes, containsAll(emitted));
     });
   });
