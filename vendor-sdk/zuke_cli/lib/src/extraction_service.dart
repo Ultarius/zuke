@@ -7,6 +7,7 @@ import 'dart_extractor.dart';
 import 'package:zuke_core/zuke_core.dart';
 import 'package:zuke_frontend/zuke_frontend.dart';
 import 'dart_frog_adapter.dart';
+import 'generated_manifest_path.dart';
 import 'ir.dart';
 import 'path_safety.dart';
 
@@ -37,6 +38,17 @@ class ExtractionService {
     _ => CompletenessValue.notApplicable,
   };
 
+  /// The evidence records already published for [workspace].
+  ///
+  /// Reads the configured evidence location only: no analyzer run, no cache
+  /// lookup. Callers that must decide *whether* to extract (the `lock --refresh`
+  /// skip probe) can use this to rule a profile out cheaply.
+  List<EvidenceRecord> publishedEvidence(WorkspaceDiscoveryResult workspace) {
+    final root = workspace.config.root;
+    if (root == null) return const [];
+    return _loadEvidence(root, workspace.config.evidenceOutput).records;
+  }
+
   /// Extracts configured Dart targets and their framework topology.
   ///
   /// [targetId] scopes work to one configured target. [topologyOnly] skips
@@ -52,6 +64,14 @@ class ExtractionService {
     final outputs = <IrAdapterOutput>[];
     final topologyOutputs = <AdapterOutput>[];
     final errors = <String>[];
+    // One manifest read per extraction. The manifest is workspace-level: it
+    // records the files generation wrote for the configured contract output,
+    // so a package that does not own that directory simply has nothing to
+    // exclude.
+    final generated = _GeneratedManifests.load(
+      root: root,
+      contractOutput: workspace.config.contractOutput,
+    );
     for (final targetEntry in workspace.config.workspaceTargets.entries) {
       final target = targetEntry.value;
       if (targetId != null && target.id != targetId) continue;
@@ -82,6 +102,7 @@ class ExtractionService {
                 framework == 'dart-frog'
                     ? dartFrogCompatibilityId
                     : DartExtractor.compatibilityId,
+                isGenerated: generated.predicateFor(package.path),
               );
         AdapterOutput? topology;
         if (framework == 'dart-frog') {
@@ -216,8 +237,9 @@ class ExtractionService {
     String root,
     List<String> roots,
     String adapter,
-    String compatibilityId,
-  ) {
+    String compatibilityId, {
+    bool Function(String relative)? isGenerated,
+  }) {
     final files = <File>[];
     for (final relative in [
       ...roots,
@@ -251,12 +273,13 @@ class ExtractionService {
       final relative = normalized.startsWith('$normalizedRoot/')
           ? normalized.substring(normalizedRoot.length + 1)
           : normalized;
+      if (isGenerated != null && isGenerated(relative)) continue;
       bytes.addAll(utf8.encode(relative));
       bytes.add(0);
       bytes.addAll(canonicalDigestBytes(relative, file.readAsBytesSync()));
       bytes.add(0);
     }
-    return sha256.convert(bytes).toString();
+    return sha256DigestHex(bytes);
   }
 
   IrAdapterOutput _topologyAdapterOutput(
@@ -756,4 +779,58 @@ class _EvidenceLoad {
   final List<EvidenceRecord> records;
   final List<String> errors;
   const _EvidenceLoad(this.records, this.errors);
+}
+
+/// Manifest-declared generated files, rebased onto a package when asked.
+///
+/// The manifest belongs to the workspace's contract output, not to a package:
+/// generation writes one output directory per workspace today.
+final class _GeneratedManifests {
+  const _GeneratedManifests(this._workspaceRelativePaths);
+
+  final Set<String> _workspaceRelativePaths;
+
+  static _GeneratedManifests load({
+    required String root,
+    required String? contractOutput,
+  }) {
+    if (contractOutput == null || contractOutput.isEmpty) {
+      return const _GeneratedManifests({});
+    }
+    final manifest = File(generatedManifestPath(root, contractOutput));
+    if (!manifest.existsSync()) return const _GeneratedManifests({});
+    Object? decoded;
+    try {
+      decoded = jsonDecode(manifest.readAsStringSync());
+    } on FormatException {
+      return const _GeneratedManifests({});
+    }
+    if (decoded is! Map) return const _GeneratedManifests({});
+    final files = decoded['files'];
+    if (files is! List) return const _GeneratedManifests({});
+    final paths = <String>{};
+    for (final entry in files.whereType<Map<Object?, Object?>>()) {
+      final path = entry['path'];
+      if (path is! String || path.isEmpty) continue;
+      paths.add(normalizeRelativePath(path));
+    }
+    return _GeneratedManifests(paths);
+  }
+
+  /// Recognizes generated files by their path inside [packagePath].
+  bool Function(String relative) predicateFor(String packagePath) {
+    final base = normalizeRelativePath(packagePath);
+    final packageRelative = <String>{};
+    for (final path in _workspaceRelativePaths) {
+      if (base.isEmpty || base == '.') {
+        packageRelative.add(path);
+      } else if (path.startsWith('$base/')) {
+        packageRelative.add(path.substring(base.length + 1));
+      }
+    }
+    return (relative) =>
+        relative == '.zuke-generated.json' ||
+        relative.endsWith('/.zuke-generated.json') ||
+        packageRelative.contains(relative);
+  }
 }

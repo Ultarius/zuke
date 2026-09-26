@@ -2,8 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:args/args.dart';
-import 'package:zuke_core/zuke_core.dart' show canonicalJson;
-import 'package:crypto/crypto.dart';
+import 'package:zuke_core/zuke_core.dart' show canonicalJson, sha256Hex;
 
 /// Produces a stable, non-secret APIM policy-evidence envelope from a raw
 /// export collected by the protected Azure workflow. The raw export is never
@@ -80,7 +79,7 @@ class GatewayCanonicalizeCommand {
     }
     output.parent.createSync(recursive: true);
     output.writeAsBytesSync(bytes, flush: true);
-    stdout.writeln('sha256:${sha256.convert(bytes)}');
+    stdout.writeln(sha256Hex(bytes));
     return 0;
   }
 

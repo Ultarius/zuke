@@ -6,11 +6,13 @@
     "SCN-TODO-ADD-ITEM",
     "SCN-TODO-ADD-WHITESPACE",
     "SCN-TODO-CLEAR-COMPLETED",
+    "SCN-TODO-CLEAR-KEEPS-INCOMPLETE",
+    "SCN-TODO-COMPLETE-COUNT",
     "SCN-TODO-COMPLETE-ITEM",
     "SCN-TODO-MULTI-TASKS",
     "SCN-TODO-TOGGLE-BACK"
   ],
-  "selectionDigest": "sha256:79fb1695eab59e3e9bc7be270f80e985ede4b0c560d64b8541f94e2adf930b90",
+  "selectionDigest": "sha256:a775b74fb0226d3bea8a0ce59c87b256a35d696223a064c875aa576c0df59609",
   "engineVersion": "0.1.0",
   "workspace": "todo_app",
   "policy": {
@@ -20,12 +22,12 @@
   },
   "policyHash": "sha256:2ecf0ad85e8443672156e6401da6ee9b051e07f39960a8734cc1241c5bd48ea7",
   "evidenceRequirementsHash": "sha256:efb6f1a9ca22e0cfccb01d9097c4062a4442559136cb82e8dccfcf9820e09a9f",
-  "specificationDigestScope": "discovery-inputs-v1",
-  "specificationDigest": "sha256:c608bf00288cd2d0565c8c0e0017f9a19378fc091ed3bf7367f37e1d74c42fcd",
-  "generatedManifestDigest": "sha256:0d35e5961f9422d3df46451d7cc361bd69907c051c20da98c4a98a59243b2712",
+  "specificationDigestScope": "discovery-inputs-structural-v1",
+  "specificationDigest": "sha256:6deabd8b943d042c8cd260905c002194a217d886deb91108ed424e6f8f8709e0",
+  "generatedManifestDigest": "sha256:dbf6d3e8114d71bcadfd0c240259e3cdb8411c61c50edd641a428f3a80b2d16e",
   "features": {
     "FEAT-TODO-001": {
-      "sourceHash": "sha256:855c6a45b269144ed99942329344ab358a0661a70947798e1373267039cc33eb"
+      "sourceHash": "sha256:f8beed8b60c76748b702e9c1fdb0d154c0991b2a94489db193da854891bdcca1"
     }
   },
   "fragments": [
@@ -34,7 +36,7 @@
       "version": "1.0.0",
       "compatibilityId": "dart-source-package-v1",
       "package": "todo-app",
-      "digest": "sha256:61268391df146dd88e7c8364ccd319be8c1b67f866f28f7caadb855758676ebb",
+      "digest": "sha256:a76265ceac6ff389e0a11d789bb23c1bff6f872f8b6241de594223ff07c2c1b0",
       "completeness": {
         "annotationTargets": "complete",
         "generatedParts": "complete",
@@ -66,14 +68,14 @@
       "mode": "annotationGoverned",
       "status": "verified",
       "evidenceDigests": [
-        "sha256:0d35e5961f9422d3df46451d7cc361bd69907c051c20da98c4a98a59243b2712",
-        "sha256:225ff507ee06f47368f7ff76825a39341387e4535c451ffecf29aec33db975f7",
-        "sha256:56d15a38711ac45aab82f03757e37ebb7aac67552b2ca0ec604ca90f31ced0db",
-        "sha256:5e60da6a3367989dbcab87856dcfeaf201aacd87e722be87d36d24554517f0c4",
-        "sha256:61268391df146dd88e7c8364ccd319be8c1b67f866f28f7caadb855758676ebb",
-        "sha256:71abbb824996bb5ede56b8487054600c1a8197bdd5cd6c97cf294f98dc554a03",
-        "sha256:732d0c363726c35bd8b82dc38a4a67987cb21c4ecd36816ccb42490767b79668",
-        "sha256:aa55abf88f04a1402ee354fb5e167d1d40fd886f38198b8eacb7fb72a03204ee"
+        "sha256:490ad1b0fd199dae978fb8bd1f0c33186412528fa30031d249c544d9a61e0574",
+        "sha256:6dc93accf02b0efcc9c30d98b9a5867b2cf2835573a35d251e69a5b470cc120a",
+        "sha256:7d0cec62579d767315ec2a9213274c0ad6d56260f890b18724fb13c6034387a0",
+        "sha256:88a1de039b9a8a7888356c3607612b7c30d201ca53de4cd56436f9bf2f32b193",
+        "sha256:96c355bac18a20fc37a2a4baf926842d73ce067fc21ec0b82b7d5275a5fde34e",
+        "sha256:a76265ceac6ff389e0a11d789bb23c1bff6f872f8b6241de594223ff07c2c1b0",
+        "sha256:aa55abf88f04a1402ee354fb5e167d1d40fd886f38198b8eacb7fb72a03204ee",
+        "sha256:dbf6d3e8114d71bcadfd0c240259e3cdb8411c61c50edd641a428f3a80b2d16e"
       ],
       "diagnostics": []
     },
@@ -89,13 +91,15 @@
       "mode": "annotationGoverned",
       "status": "verified",
       "evidenceDigests": [
-        "sha256:0d35e5961f9422d3df46451d7cc361bd69907c051c20da98c4a98a59243b2712",
-        "sha256:61268391df146dd88e7c8364ccd319be8c1b67f866f28f7caadb855758676ebb",
-        "sha256:72b54a5057679524bff70f573fa48af06ae8dd27f8a6250489afc9835526e23d",
-        "sha256:732d0c363726c35bd8b82dc38a4a67987cb21c4ecd36816ccb42490767b79668",
+        "sha256:30fc9ba2b30e90b7551fb7c635dba7f5467d24c5e08f25c7fdaf033a6b12b123",
+        "sha256:35befafac70565ff54a62aae0069d5d82af0dc8a4a646d1579f996864931e7ac",
+        "sha256:56e56bef57af9d5dbd664d24d6c692b01c20e8098ad84d485b038e47bb53d266",
+        "sha256:6dc93accf02b0efcc9c30d98b9a5867b2cf2835573a35d251e69a5b470cc120a",
+        "sha256:749324e4a8be7d72d69dec9d181ccba0a0641f12d0a0000741ab580011b0fb6e",
+        "sha256:81551de3c42b31eae64717c190f5e182269b00fe52b5dcf98a1b9cf92bbf5b0f",
+        "sha256:a76265ceac6ff389e0a11d789bb23c1bff6f872f8b6241de594223ff07c2c1b0",
         "sha256:aa55abf88f04a1402ee354fb5e167d1d40fd886f38198b8eacb7fb72a03204ee",
-        "sha256:bdfa7a3656140ee157ffa9879ec7ec6ee8297ffdd49fdf63dd833e2f9ef9e1a2",
-        "sha256:e1313340f76cf41675668740c606d7512b14356d538e5c13599b7026eec9fd91"
+        "sha256:dbf6d3e8114d71bcadfd0c240259e3cdb8411c61c50edd641a428f3a80b2d16e"
       ],
       "diagnostics": []
     }
@@ -108,14 +112,14 @@
         "package:todo_app/src/todo_controller.dart#TodoController"
       ],
       "evidenceDigests": [
-        "sha256:0d35e5961f9422d3df46451d7cc361bd69907c051c20da98c4a98a59243b2712",
-        "sha256:225ff507ee06f47368f7ff76825a39341387e4535c451ffecf29aec33db975f7",
-        "sha256:56d15a38711ac45aab82f03757e37ebb7aac67552b2ca0ec604ca90f31ced0db",
-        "sha256:5e60da6a3367989dbcab87856dcfeaf201aacd87e722be87d36d24554517f0c4",
-        "sha256:61268391df146dd88e7c8364ccd319be8c1b67f866f28f7caadb855758676ebb",
-        "sha256:71abbb824996bb5ede56b8487054600c1a8197bdd5cd6c97cf294f98dc554a03",
-        "sha256:732d0c363726c35bd8b82dc38a4a67987cb21c4ecd36816ccb42490767b79668",
-        "sha256:aa55abf88f04a1402ee354fb5e167d1d40fd886f38198b8eacb7fb72a03204ee"
+        "sha256:490ad1b0fd199dae978fb8bd1f0c33186412528fa30031d249c544d9a61e0574",
+        "sha256:6dc93accf02b0efcc9c30d98b9a5867b2cf2835573a35d251e69a5b470cc120a",
+        "sha256:7d0cec62579d767315ec2a9213274c0ad6d56260f890b18724fb13c6034387a0",
+        "sha256:88a1de039b9a8a7888356c3607612b7c30d201ca53de4cd56436f9bf2f32b193",
+        "sha256:96c355bac18a20fc37a2a4baf926842d73ce067fc21ec0b82b7d5275a5fde34e",
+        "sha256:a76265ceac6ff389e0a11d789bb23c1bff6f872f8b6241de594223ff07c2c1b0",
+        "sha256:aa55abf88f04a1402ee354fb5e167d1d40fd886f38198b8eacb7fb72a03204ee",
+        "sha256:dbf6d3e8114d71bcadfd0c240259e3cdb8411c61c50edd641a428f3a80b2d16e"
       ],
       "coverage": "verified",
       "graphHash": null,
@@ -132,13 +136,15 @@
         "package:todo_app/src/todo_controller.dart#TodoController"
       ],
       "evidenceDigests": [
-        "sha256:0d35e5961f9422d3df46451d7cc361bd69907c051c20da98c4a98a59243b2712",
-        "sha256:61268391df146dd88e7c8364ccd319be8c1b67f866f28f7caadb855758676ebb",
-        "sha256:72b54a5057679524bff70f573fa48af06ae8dd27f8a6250489afc9835526e23d",
-        "sha256:732d0c363726c35bd8b82dc38a4a67987cb21c4ecd36816ccb42490767b79668",
+        "sha256:30fc9ba2b30e90b7551fb7c635dba7f5467d24c5e08f25c7fdaf033a6b12b123",
+        "sha256:35befafac70565ff54a62aae0069d5d82af0dc8a4a646d1579f996864931e7ac",
+        "sha256:56e56bef57af9d5dbd664d24d6c692b01c20e8098ad84d485b038e47bb53d266",
+        "sha256:6dc93accf02b0efcc9c30d98b9a5867b2cf2835573a35d251e69a5b470cc120a",
+        "sha256:749324e4a8be7d72d69dec9d181ccba0a0641f12d0a0000741ab580011b0fb6e",
+        "sha256:81551de3c42b31eae64717c190f5e182269b00fe52b5dcf98a1b9cf92bbf5b0f",
+        "sha256:a76265ceac6ff389e0a11d789bb23c1bff6f872f8b6241de594223ff07c2c1b0",
         "sha256:aa55abf88f04a1402ee354fb5e167d1d40fd886f38198b8eacb7fb72a03204ee",
-        "sha256:bdfa7a3656140ee157ffa9879ec7ec6ee8297ffdd49fdf63dd833e2f9ef9e1a2",
-        "sha256:e1313340f76cf41675668740c606d7512b14356d538e5c13599b7026eec9fd91"
+        "sha256:dbf6d3e8114d71bcadfd0c240259e3cdb8411c61c50edd641a428f3a80b2d16e"
       ],
       "coverage": "verified",
       "graphHash": null,

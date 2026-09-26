@@ -1,5 +1,6 @@
 import 'dart:convert';
-import 'package:crypto/crypto.dart';
+
+import 'package:zuke_core/zuke_core.dart' show sha256DigestHex;
 
 class ManifestEntry {
   final String path;
@@ -27,7 +28,7 @@ class Manifest {
 
   String hash() {
     final content = entries.map((e) => '${e.path}|${e.contentHash}').join('\n');
-    return sha256.convert(utf8.encode(content)).toString();
+    return sha256DigestHex(utf8.encode(content));
   }
 
   String get hashValue => hash();

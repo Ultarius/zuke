@@ -8,6 +8,10 @@ sealed class FeatLibrary001FlutterBinding implements ZukeBindingDescriptor {
   @override
   final String id;
 
+  /// Human-readable name from the feature metadata, when declared.
+  @override
+  String? get label => null;
+
   T keyIn<T extends Object>(FeatLibrary001FlutterBindings<T> bindings);
 
   static const isbnInput = FeatLibrary001IsbnInputBinding();

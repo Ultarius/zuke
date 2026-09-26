@@ -168,6 +168,72 @@ void provideControl() {}
     );
 
     test(
+      'excludes exactly the generated manifest paths from the source digest',
+      () async {
+        _writeAnnotationOnlyPackage(tempDir);
+        final generated = Directory('${tempDir.path}/lib/src/generated')
+          ..createSync(recursive: true);
+        final contract = File('${generated.path}/feat_one_contracts.g.dart')
+          ..writeAsStringSync('// generated contract v1\n');
+        File('${tempDir.path}/lib/src/.zuke-generated.json').writeAsStringSync(
+          '${const JsonEncoder.withIndent('  ').convert({
+            'files': [
+              {'path': 'lib/src/generated/feat_one_contracts.g.dart', 'contentHash': 'unused'},
+            ],
+            'hash': 'unused',
+          })}\n',
+        );
+        // A `.g.dart` from another generator is hand-maintained input, not a
+        // Zuke artifact, and must stay in the digest.
+        final freezed = File('${tempDir.path}/lib/src/analytics.freezed.dart')
+          ..writeAsStringSync('// hand-maintained generated code v1\n');
+
+        final workspace = WorkspaceDiscoveryResult(
+          config: ZukeConfig(
+            root: tempDir.path,
+            contractOutput: 'lib/src/generated',
+            workspaceTargets: {
+              'backend': const WorkspaceTarget(
+                id: 'backend',
+                language: 'dart',
+                framework: 'dart',
+                packages: [
+                  WorkspacePackage(id: 'test_pkg', path: '.', roots: ['lib']),
+                ],
+              ),
+            },
+          ),
+          data: const MetadataExtractorResult(),
+        );
+        final service = ExtractionService();
+
+        final first = await service.extract(workspace);
+        expect(first.errors, isEmpty);
+        final before = first.outputs.single.inputDigest;
+
+        contract.writeAsStringSync('// generated contract v2\n');
+        final regenerated = await service.extract(workspace);
+        expect(regenerated.errors, isEmpty);
+        expect(
+          regenerated.outputs.single.inputDigest,
+          before,
+          reason:
+              'a regenerated contract is already pinned by the contract '
+              'digest and must not move the source digest',
+        );
+
+        freezed.writeAsStringSync('// hand-maintained generated code v2\n');
+        final edited = await service.extract(workspace);
+        expect(edited.errors, isEmpty);
+        expect(
+          edited.outputs.single.inputDigest,
+          isNot(before),
+          reason: 'a non-manifest .g.dart is real source and must be hashed',
+        );
+      },
+    );
+
+    test(
       'loads wrapped evidence and rejects duplicates and malformed files',
       () async {
         _writePackage(tempDir);

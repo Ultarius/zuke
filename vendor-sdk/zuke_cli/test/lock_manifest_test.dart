@@ -558,8 +558,8 @@ Feature: Gateway
       final feature = File('${tempDir.path}/specs/features/gateway.feature');
       feature.writeAsStringSync(
         feature.readAsStringSync().replaceFirst(
-          'Scenario: trivial',
-          'Scenario: committed source change',
+          'Given a step',
+          'Given a committed source change',
         ),
       );
       Process.runSync('git', ['add', '.'], workingDirectory: tempDir.path);

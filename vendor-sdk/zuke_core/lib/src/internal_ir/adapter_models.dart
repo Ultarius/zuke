@@ -9,6 +9,11 @@ class IrDiagnostic {
   final String message;
   final IrDiagnosticSeverity severity;
 
+  /// Concrete next step for this code, rendered alongside the message in
+  /// text mode. Validators own it so a failure never leaves the operator to
+  /// infer the remedy from the finding itself.
+  final String? remediation;
+
   /// SourceSpan is canonical; Object? keeps frontend diagnostics source
   /// compatible during the migration and is normalized by toJson.
   final Object? source;
@@ -17,6 +22,7 @@ class IrDiagnostic {
     required this.code,
     required this.message,
     required this.severity,
+    this.remediation,
     this.source,
   });
 
@@ -24,6 +30,7 @@ class IrDiagnostic {
     'code': code,
     'message': message,
     'severity': severity.name,
+    if (remediation != null) 'remediation': remediation,
     if (source != null)
       'source': source is SourceSpan
           ? (source as SourceSpan).toJson()

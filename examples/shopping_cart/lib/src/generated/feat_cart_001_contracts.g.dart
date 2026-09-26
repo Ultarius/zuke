@@ -8,6 +8,10 @@ sealed class FeatCart001FlutterBinding implements ZukeBindingDescriptor {
   @override
   final String id;
 
+  /// Human-readable name from the feature metadata, when declared.
+  @override
+  String? get label => null;
+
   T keyIn<T extends Object>(FeatCart001FlutterBindings<T> bindings);
 
   static const addToCartHeadphones = FeatCart001AddToCartHeadphonesBinding();
@@ -289,19 +293,19 @@ enum FeatCart001Scenario implements ZukeScenarioContract {
   addItem(
     ScenarioId('SCN-CART-ADD-ITEM'),
     RuleId('RULE-CART-ITEM-MANAGEMENT'),
-    'Add item to cart and verify updated subtotal',
+    'Adding an item updates the cart subtotal',
     <ControlId>{ControlId('CTRL-CART-VALIDATION')},
   ),
   addSecondItem(
     ScenarioId('SCN-CART-ADD-SECOND-ITEM'),
     RuleId('RULE-CART-ITEM-MANAGEMENT'),
-    'Add same item twice and verify updated quantity and subtotal',
+    'Adding the same item twice updates the quantity and subtotal',
     <ControlId>{ControlId('CTRL-CART-VALIDATION')},
   ),
   applyPromo(
     ScenarioId('SCN-CART-APPLY-PROMO'),
     RuleId('RULE-CART-PROMO-DISCOUNT'),
-    'Apply valid discount code and recalculate grand total',
+    'A known discount code reduces the order total',
     <ControlId>{ControlId('CTRL-PROMO-VALIDATION')},
   ),
   invalidPromo(
@@ -325,19 +329,19 @@ enum FeatCart001Scenario implements ZukeScenarioContract {
   emptyCheckout(
     ScenarioId('SCN-CART-EMPTY-CHECKOUT'),
     RuleId('RULE-CART-EMPTY-CHECKOUT'),
-    'Prevent checkout when the cart is empty',
+    'The checkout button is disabled for an empty cart',
     <ControlId>{ControlId('CTRL-CART-VALIDATION')},
   ),
   successCheckout(
     ScenarioId('SCN-CART-SUCCESS-CHECKOUT'),
     RuleId('RULE-CART-SUCCESSFUL-CHECKOUT'),
-    'Successfully place order with items in cart and reset promo state',
+    'Placing an order resets the cart and the discount',
     <ControlId>{ControlId('CTRL-CART-VALIDATION')},
   ),
   accessible(
     ScenarioId('SCN-CART-ACCESSIBLE'),
     RuleId('RULE-CART-ACCESSIBILITY'),
-    'Expose total order summary via semantics handle',
+    'The screen reader announces the order total',
     <ControlId>{ControlId('CTRL-CART-ACCESSIBLE')},
   );
 

@@ -2,7 +2,6 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:args/args.dart';
-import 'package:crypto/crypto.dart';
 import 'package:zuke_core/zuke_core.dart';
 import 'package:zuke_frontend/zuke_frontend.dart';
 
@@ -72,7 +71,7 @@ class AttestationCommand {
       'reference': reference,
       'scopeHash': _hash(provider['scope']),
       'evidenceType': (provider['evidence'] as Map?)?['type']?.toString() ?? '',
-      'evidenceDigest': 'sha256:${sha256.convert(evidence)}',
+      'evidenceDigest': sha256Hex(evidence),
       'issuedAt': issuedAt.toIso8601String(),
       'expiresAt': expiresAt.toIso8601String(),
     };
@@ -198,8 +197,7 @@ class AttestationCommand {
     return null;
   }
 
-  String _hash(Object? value) =>
-      'sha256:${sha256.convert(utf8.encode(canonicalJson(value)))}';
+  String _hash(Object? value) => sha256Text(canonicalJson(value));
 
   String _updateProviderPolicy(
     String source, {

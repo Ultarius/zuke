@@ -8,6 +8,8 @@ Future<Directory> createEligibleWorkspace(
   Directory tempDir, {
   DateTime? attestationIssuedAt,
   DateTime? attestationExpiresAt,
+  String? pullRequestTagExpression,
+  List<String> scenarioTags = const [],
 }) async {
   if (!tempDir.existsSync()) {
     tempDir.createSync(recursive: true);
@@ -64,6 +66,24 @@ Future<Directory> createEligibleWorkspace(
       ? ''
       : '\n${runnerArgs.map((a) => '        - $a').join('\n')}';
 
+  final execution = StringBuffer('execution:\n');
+  if (pullRequestTagExpression != null) {
+    execution
+      ..writeln('  pullRequest:')
+      ..writeln("    tagExpression: '$pullRequestTagExpression'");
+  }
+  execution
+    ..writeln('  runners:')
+    ..writeln('    - id: trivial')
+    ..writeln('      target: backend')
+    ..writeln('      sourcePackage: backend')
+    ..writeln('      sourceAdapter: dart-source')
+    ..writeln('      sourceCompatibilityId: dart-source-package-v1')
+    ..writeln('      runnerCompatibilityId: dart-runner-v1')
+    ..writeln("      executable: '$runnerExec'")
+    ..writeln('      args:$yamlArgs')
+    ..writeln('      timeoutSeconds: 30');
+
   File('${tempDir.path}/zuke.yaml').writeAsStringSync('''schemaVersion: 3
 workspace:
   name: test-workspace
@@ -85,18 +105,7 @@ lock:
   profiles: [pullRequest, merge, release, nightly]
 policies:
   project: specs/policies/project.yaml
-execution:
-  runners:
-    - id: trivial
-      target: backend
-      sourcePackage: backend
-      sourceAdapter: dart-source
-      sourceCompatibilityId: dart-source-package-v1
-      runnerCompatibilityId: dart-runner-v1
-      executable: '$runnerExec'
-      args:$yamlArgs
-      timeoutSeconds: 30
-''');
+$execution''');
   final packageConfig = _workspacePackageConfig();
   final repositoryRoot = packageConfig.parent.parent.path.replaceAll('\\', '/');
   File('${tempDir.path}/pubspec.yaml').writeAsStringSync('''
@@ -147,7 +156,7 @@ Feature: Gateway
   # rule-spec-end
   @RULE-GATEWAY-RATE-LIMIT
   Rule: Gateway rate-limit
-    @SCN-GATEWAY-001
+    ${[...scenarioTags, '@SCN-GATEWAY-001'].join(' ')}
     Scenario: trivial
       Given a step
 ''');

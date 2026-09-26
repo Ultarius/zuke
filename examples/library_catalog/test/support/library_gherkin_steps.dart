@@ -77,6 +77,11 @@ StepRegistry<LibraryWorld> buildLibraryRegistry() => buildStepRegistry([
     branchConnectsToBranch: (world, fromId, toId) async {
       await world.branch(fromId).connectTo(world.branch(toId));
     },
+    branchIsConnectedToBranch: (world, fromId, toId) async {
+      final from = world.branch(fromId);
+      if (from.isConnected) return;
+      await from.connectTo(world.branch(toId));
+    },
     thePeerConnectionBetweenAndIsEstablished: (world, fromId, toId) {
       final from = world.branch(fromId);
       final to = world.branch(toId);

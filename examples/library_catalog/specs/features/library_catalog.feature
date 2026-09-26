@@ -120,7 +120,7 @@ Feature: Library book checkout desk
     Scenario: Share active loans across a peer connection
       Given branch "north" is listening for peers
       And branch "south" is listening for peers
-      And branch "north" connects to branch "south"
+      And branch "north" is connected to branch "south"
       And branch "north" has local loan ISBN "9780134685991"
       When branch "north" shares its loan register with branch "south"
       Then branch "south" receives loan ISBN "9780134685991"

@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:args/args.dart';
+import 'package:zuke_frontend/zuke_frontend.dart' show ParsedBinding;
 
 import 'extraction_service.dart';
 import 'proof_engine.dart';
@@ -112,10 +113,11 @@ class ReportCommand {
         );
       }).toList()..sort((left, right) => left.id.compareTo(right.id));
       final bindings =
-          (feature.metadata.bindings ?? const [])
+          (feature.metadata.bindings ?? const <ParsedBinding>[])
               .map(
                 (binding) => ZukeModelBinding(
                   id: binding.id,
+                  label: binding.label,
                   target: binding.target,
                   cardinality: binding.cardinality,
                   instanceCardinality: binding.instanceCardinality,

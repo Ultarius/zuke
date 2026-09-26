@@ -9,4 +9,5 @@ export 'proof_engine/source_mapping_validator.dart';
 export 'proof_engine/dominance_validator.dart';
 export 'proof_engine/verification_backed_validator.dart';
 export 'proof_engine/workspace_digest.dart';
+export 'proof_engine/remediation.dart';
 export 'proof_engine/validator.dart';

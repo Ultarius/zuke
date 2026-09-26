@@ -44,3 +44,27 @@ bool isGuideSnippetFixture(String path) {
   final normalized = path.replaceAll('\\', '/');
   return normalized.contains('/guide_snippets/');
 }
+
+/// Normalizes a workspace-relative path to forward slashes.
+///
+/// Posix rules are applied explicitly (`p.url`): `p.normalize` would follow the
+/// host's separator style, and these values feed digests, so a lock built on
+/// Windows has to hash the same as one built on Linux. The separator
+/// conversion happens first because posix style does not treat `\` as a
+/// separator. `..` segments are resolved lexically, as the filesystem would.
+///
+/// Not for absolute paths, and not a replacement for [canonicalComparablePath],
+/// which resolves symlinks through the filesystem.
+String normalizeRelativePath(String path) {
+  final prefixed = path.replaceAll('\\', '/');
+  // `p.url.normalize` collapses the empty path to `.`.
+  if (prefixed.isEmpty) return '';
+  var normalized = p.url.normalize(prefixed);
+  while (normalized.startsWith('./')) {
+    normalized = normalized.substring(2);
+  }
+  while (normalized.startsWith('/')) {
+    normalized = normalized.substring(1);
+  }
+  return normalized;
+}

@@ -22,6 +22,9 @@ class CardinalityValidator {
                   'Binding provider "${sym.bindingId}" is missing an '
                   'explicit extraction target.',
               severity: Severity.error,
+              remediation:
+                  'Add `target:` to the `@ZukeBinding` on the provider for '
+                  '"${sym.bindingId}", naming a configured target.',
             ),
           );
           continue;

@@ -10,7 +10,6 @@ import 'package:analyzer/dart/constant/value.dart';
 import 'package:analyzer/dart/element/element.dart';
 import 'package:analyzer/error/error.dart' as analyzer_error;
 import 'package:analyzer/source/line_info.dart';
-import 'package:crypto/crypto.dart';
 import 'package:zuke_core/zuke_core.dart';
 import 'package:zuke_cli/src/ir.dart';
 import '../inspection.dart';
@@ -539,7 +538,7 @@ class DartExtractor implements DartSourceExtractor {
       bytes.add(0);
     }
     bytes.addAll(utf8.encode('${adapterInfo.id}@${adapterInfo.version}'));
-    return sha256.convert(bytes).toString();
+    return sha256DigestHex(bytes);
   }
 }
 

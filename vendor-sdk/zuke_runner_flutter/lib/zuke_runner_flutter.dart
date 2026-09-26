@@ -5,7 +5,6 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:crypto/crypto.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:zuke_annotations/zuke_annotations.dart';
@@ -178,7 +177,7 @@ void zukeTestWidgets(
         evidenceTypes: sortedTypes,
         target: context.target,
         runnerCompatibilityId: context.runnerCompatibilityId,
-        digestInput: sha256.convert(utf8.encode(digestInput)).toString(),
+        digestInput: sha256DigestHex(utf8.encode(digestInput)),
         controlIds: provedControls.map((control) => control.value),
         implementationSlots: implementationSlots,
         profile: context.profile,
@@ -653,7 +652,7 @@ flutterVendorSteps<W extends ScenarioWorld, B extends ZukeBindingDescriptor>({
     if (count == 0) throw StateError('No Flutter binding for $bindingId');
     if (count != 1) {
       throw StateError(
-        'Flutter binding $bindingId declares '
+        'Flutter binding ${bindingDisplayName(resolved.binding)} declares '
         '${resolved.binding.instanceCardinality.name} runtime instances but '
         'resolves to $count widgets; $operation requires exactly one.',
       );
@@ -840,12 +839,24 @@ Key _instanceKey(Key family, Object instanceId) {
 Finder _instanceFinder(Key family, Object instanceId) =>
     find.byKey(_instanceKey(family, instanceId));
 
+/// A binding's human-readable name for diagnostics.
+///
+/// The feature metadata may declare a `label` for a binding; when it does, the
+/// label is what a reader recognizes, so a failure names the binding that way
+/// and still shows the canonical id it maps to.
+String bindingDisplayName(ZukeBindingDescriptor binding) {
+  final label = binding.label;
+  if (label == null || label.isEmpty || label == binding.id) return binding.id;
+  return '$label (${binding.id})';
+}
+
 void _validateBindingKey(ZukeBindingDescriptor binding, Key key) {
   final repeated = binding.instanceCardinality.allowsMany;
   if (key is! FlutterBindingKey) {
     if (repeated) {
       throw StateError(
-        'Binding ${binding.id} declares ${binding.instanceCardinality.name} '
+        'Binding ${bindingDisplayName(binding)} declares '
+        '${binding.instanceCardinality.name} '
         'runtime instances and requires FlutterBindingKey.collection or a '
         'finder override for legacy keys.',
       );
@@ -857,7 +868,8 @@ void _validateBindingKey(ZukeBindingDescriptor binding, Key key) {
       : FlutterBindingKind.single;
   if (key.kind != expected) {
     throw StateError(
-      'Binding ${binding.id} declares ${binding.instanceCardinality.name} '
+      'Binding ${bindingDisplayName(binding)} declares '
+      '${binding.instanceCardinality.name} '
       'runtime instances but was given FlutterBindingKey.${key.kind.name}; '
       'use FlutterBindingKey.${expected.name}.',
     );

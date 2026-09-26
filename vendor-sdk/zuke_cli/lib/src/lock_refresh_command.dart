@@ -2,10 +2,12 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:args/args.dart';
-import 'package:crypto/crypto.dart';
 import 'package:path/path.dart' as p;
+import 'package:zuke_core/zuke_core.dart' show sha256DigestHex;
 
 import 'configuration_preflight.dart';
+import 'cli_parser.dart';
+import 'extraction_service.dart';
 import 'generate_command.dart';
 import 'lock_command.dart';
 import 'lock_refresh_roots.dart';
@@ -119,10 +121,10 @@ void _writeLockDiff(
       'profile': profile,
       'beforeSha256': previous == null
           ? null
-          : sha256.convert(utf8.encode(previous)).toString(),
+          : sha256DigestHex(utf8.encode(previous)),
       'afterSha256': current == null
           ? null
-          : sha256.convert(utf8.encode(current)).toString(),
+          : sha256DigestHex(utf8.encode(current)),
       'beforePresent': previous != null,
       'afterPresent': current != null,
     });
@@ -170,77 +172,73 @@ Future<int> _runLockRefreshRoot(
             : configuredProfiles)
       : [requestedProfile];
 
-  final generateParser = ArgParser()
-    ..addOption('root')
-    ..addFlag('check')
-    ..addOption('output')
-    ..addFlag('quiet');
   final generated = await GenerateCommand(
-    generateParser.parse(['--root', root]),
+    buildGenerateArgs(root: root),
   ).execute();
   if (generated != 0) return generated;
   final generationCheck = await GenerateCommand(
-    generateParser.parse(['--root', root, '--check', '--quiet']),
+    buildGenerateArgs(root: root, check: true, quiet: true),
   ).execute();
   if (generationCheck != 0) return generationCheck;
 
-  final testParser = ArgParser()
-    ..addOption('root')
-    ..addOption('profile')
-    ..addOption('format')
-    ..addOption('runner-mode')
-    ..addFlag('quiet');
-  final validateParser = ArgParser()
-    ..addOption('root')
-    ..addOption('profile')
-    ..addOption('format')
-    ..addFlag('quiet');
+  final retest = boolFlag(cmd, 'retest');
+  // A profile with no published evidence is stale by definition, so it needs
+  // no probe: that saves one full discovery/extraction/validation per profile
+  // on the first refresh of a workspace.
+  final publishedProfiles = {
+    for (final record in ExtractionService().publishedEvidence(workspace))
+      record.profile,
+  };
   for (final profile in profiles) {
+    // Evidence that already satisfies this profile does not need to be
+    // produced again. Without this check a prose-only edit re-ran the full
+    // suite once per configured profile.
+    //
+    // The probe is the production validator rather than a second, hand-rolled
+    // digest comparison: it has to agree with the validation that runs after
+    // the tests, and duplicating that logic is exactly how the two drift apart.
+    if (!retest && publishedProfiles.contains(profile)) {
+      // A genuinely silent probe: `--quiet` still reports findings, and the
+      // pipeline validates again after the tests, so echoing them here would
+      // print every finding twice.
+      final current = await ValidateCommand(
+        buildValidateArgs(
+          root: root,
+          profile: profile,
+          requireEvidence: true,
+          silent: true,
+        ),
+      ).execute();
+      if (current == 0) {
+        stdout.writeln(
+          'Evidence for profile $profile is current; skipping test execution. '
+          'Use --retest to execute it again.',
+        );
+        continue;
+      }
+    }
     stdout.writeln('Refreshing Zuke evidence for profile $profile...');
-    final testArgs = <String>[
-      '--root',
-      root,
-      '--profile',
-      profile,
-      '--format',
-      'text',
-      if (cmd['runner-mode'] case final String runnerMode) ...[
-        '--runner-mode',
-        runnerMode,
-      ],
-    ];
-    final tested = await testRunner(testParser.parse(testArgs));
+    final tested = await testRunner(
+      buildTestArgs(
+        root: root,
+        profile: profile,
+        runnerMode: cmd['runner-mode'] as String?,
+      ),
+    );
     if (tested != 0) return tested;
     final validated = await ValidateCommand(
-      validateParser.parse([
-        '--root',
-        root,
-        '--profile',
-        profile,
-        '--format',
-        'text',
-      ]),
+      buildValidateArgs(root: root, profile: profile),
     ).execute();
     if (validated != 0) return validated;
   }
 
-  final lockParser = ArgParser()
-    ..addOption('root')
-    ..addOption('profile')
-    ..addMultiOption('profiles')
-    ..addFlag('all-profiles')
-    ..addFlag('update')
-    ..addFlag('check')
-    ..addFlag('quiet');
-  final lockArgs = <String>['--root', root, '--update'];
-  if (requestedProfiles.isNotEmpty) {
-    for (final profile in profiles) {
-      lockArgs.addAll(['--profiles', profile]);
-    }
-  } else if (requestedProfile != null) {
-    lockArgs.addAll(['--profile', requestedProfile]);
-  } else {
-    lockArgs.add('--all-profiles');
-  }
-  return LockCommand(lockParser.parse(lockArgs)).execute();
+  return LockCommand(
+    buildLockArgs(
+      root: root,
+      profile: requestedProfile,
+      profiles: requestedProfiles.isNotEmpty ? profiles : const [],
+      allProfiles: requestedProfiles.isEmpty && requestedProfile == null,
+      update: true,
+    ),
+  ).execute();
 }

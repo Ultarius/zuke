@@ -2,7 +2,6 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:args/args.dart';
-import 'package:crypto/crypto.dart';
 import 'package:zuke/runner.dart';
 import 'package:zuke_core/zuke_core.dart';
 import 'package:zuke_frontend/zuke_frontend.dart';
@@ -14,6 +13,7 @@ import 'extraction_service.dart';
 import 'generator.dart';
 import 'process_supervisor.dart';
 import 'registration_audit.dart';
+import 'runner_arguments.dart';
 import 'scenario_selection.dart';
 import 'source_output_catalog.dart';
 import 'test_run_summary.dart';
@@ -37,7 +37,7 @@ void _writeSemanticEvidenceAtomic(String directory, EvidenceRecord record) {
   final root = Directory(directory)..createSync(recursive: true);
   final encoded =
       '${const JsonEncoder.withIndent('  ').convert(record.toJson())}\n';
-  final digest = sha256.convert(utf8.encode(encoded)).toString();
+  final digest = sha256DigestHex(utf8.encode(encoded));
   final semantic = File('${root.path}${Platform.pathSeparator}$digest.json');
   writeCommandResult(semantic, encoded);
 }
@@ -52,8 +52,8 @@ final class TestCommandRunner {
     final workspace = requireCurrentWorkspace(root);
     final profile = cmd['profile'] as String? ?? 'pullRequest';
     final jsonMode = (cmd['format'] as String? ?? 'text') == 'json';
-    final quiet =
-        cmd.options.contains('quiet') && (cmd['quiet'] as bool? ?? false);
+    final quiet = boolFlag(cmd, 'quiet');
+    final coverage = boolFlag(cmd, 'coverage');
     final cliRunnerMode = runnerModeFromValue(
       cmd.options.contains('runner-mode')
           ? cmd['runner-mode'] as String?
@@ -174,9 +174,11 @@ final class TestCommandRunner {
           }
           final executable = _resolveExecutable(configuredExecutable);
           if (runner['args'] != null && runner['args'] is! List) return 2;
-          final args = _runnerArguments(
+          final args = buildRunnerArguments(
             configuredExecutable,
             ((runner['args'] as List?) ?? const []).cast<String>(),
+            coverage: coverage,
+            setupRunner: runnerKind == 'setup',
           );
           final configuredRunnerMode = runnerModeFromValue(
             typedRunner?.runnerMode ?? runner['runnerMode']?.toString(),
@@ -330,7 +332,11 @@ final class TestCommandRunner {
         final configuredParts = configured is Map
             ? ((configured['args'] as List?) ?? const []).cast<String>()
             : const <String>[];
-        final parts = _runnerArguments(configuredExecutable, configuredParts);
+        final parts = buildRunnerArguments(
+          configuredExecutable,
+          configuredParts,
+          coverage: coverage,
+        );
         final configuredRunnerMode = runnerModeFromValue(
           configured is Map ? configured['runnerMode']?.toString() : null,
         );
@@ -527,7 +533,7 @@ final class TestCommandRunner {
       )..createSync(recursive: true);
       final recordDigests =
           records
-              .map((record) => _sha256Text(canonicalJson(record.toJson())))
+              .map((record) => sha256Text(canonicalJson(record.toJson())))
               .toList()
             ..sort();
       final observation = <String, Object?>{
@@ -793,12 +799,11 @@ final class TestCommandRunner {
       workspace,
       extraction.outputs,
     );
-    final generated = DartContractGenerator().generate(
-      workspace: workspace,
+    final contractDigest = structuralContractDigest(
+      workspace,
       outputDir: workspace.config.contractOutput ?? 'lib/src/generated',
       exportPath: workspace.config.contractExport,
     );
-    final contractDigest = _sha256Text(generated.manifest.toJson());
     final evidenceDigests = WorkspaceDigest.computeEvidenceIndexDigests(
       workspace.config.root!,
     );
@@ -847,7 +852,7 @@ final class TestCommandRunner {
           'contract': contractDigest,
           'mapping': mappingDigest,
           'specificationIndex': specificationIndexDigest,
-          'result': _sha256Text(canonicalJson(artifactJson)),
+          'result': sha256Text(canonicalJson(artifactJson)),
         },
         candidateId: artifact.candidateId,
         profile: profile,
@@ -875,9 +880,6 @@ final class TestCommandRunner {
     }
     return records;
   }
-
-  String _sha256Text(String value) =>
-      'sha256:${sha256.convert(utf8.encode(value))}';
 
   String _normalizeHash(String value) =>
       value.startsWith('sha256:') ? value : 'sha256:$value';
@@ -958,15 +960,6 @@ final class TestCommandRunner {
       // Process.run will produce the stable tooling error if resolution fails.
     }
     return executable;
-  }
-
-  List<String> _runnerArguments(String executable, List<String> configured) {
-    final name = executable.replaceAll('\\', '/').split('/').last.toLowerCase();
-    if ((name == 'dart' || name == 'dart.exe') &&
-        !configured.contains('--disable-dart-dev')) {
-      return ['--disable-dart-dev', '--suppress-analytics', ...configured];
-    }
-    return configured;
   }
 
   int _handleSupervisorException(SupervisedProcessException error) {

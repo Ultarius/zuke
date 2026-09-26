@@ -248,6 +248,10 @@ final class ZukeModelFeature {
 
 final class ZukeModelBinding {
   final String id;
+
+  /// Human-readable alias declared by the feature metadata, when present.
+  final String? label;
+
   final String target;
   final String cardinality;
   final String instanceCardinality;
@@ -257,6 +261,7 @@ final class ZukeModelBinding {
 
   const ZukeModelBinding({
     required this.id,
+    this.label,
     required this.target,
     required this.cardinality,
     this.instanceCardinality = 'exactlyOne',
@@ -267,6 +272,7 @@ final class ZukeModelBinding {
 
   Map<String, Object?> toJson() => {
     'id': id,
+    'label': label,
     'target': target,
     'cardinality': cardinality,
     'instanceCardinality': instanceCardinality,
