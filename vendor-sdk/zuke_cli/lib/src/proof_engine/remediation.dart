@@ -29,6 +29,11 @@ String? defaultRemediation(String code) {
     'ZUKE-SCENARIO-UNEXPECTED' =>
       'Evidence exists for a scenario the workspace no longer declares. '
           '$_evidenceRecipe',
+    'ZUKE-IMPL-001' =>
+      'The requirement is declared but nothing implements it. Add '
+          '@ImplementsRequirement for logic or @PresentsRequirement for UI '
+          'under a configured package root, or narrow the requirement\'s '
+          'declared targets.',
     'ZUKE-PROFILE-UNTESTED' =>
       'The profile has no executed evidence at all. $_evidenceRecipe',
     'ZUKE-EVIDENCE-006' =>

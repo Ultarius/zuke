@@ -1,12 +1,24 @@
 {
   "kind": "zuke.analyzer-index",
-  "inputDigest": "sha256:19084675a041400fd672b60bd092c78556ce3892aa0f6ad8608bc552be6b5af1",
+  "inputDigest": "sha256:324ae6ed6dc74bf9865f9f4e232b00630f2087de0768fd4fb3f003f71ff498c3",
   "generatedManifestDigest": "sha256:00b397aadc850c49c6fe28b5bbc955517be6077a2eb7a97ffcf295aa41de25aa",
   "generatedManifestPath": "packages/calculator_contracts/.zuke-generated.json",
   "inputs": [
     {
+      "path": "apps/calculator_api/lib/src/application.dart",
+      "digest": "sha256:9b0cc6fb4fa42a2f508cbb36185489b58262e113608284355479e93011ab6ce8"
+    },
+    {
       "path": "apps/calculator_api/test/calculator_api_test.dart",
       "digest": "sha256:c93b77fbb13eb74a0b9c96e1724aca2c39a42b765bdbd59df0d963ed4b89df12"
+    },
+    {
+      "path": "apps/calculator_mobile/lib/calculator_bindings.dart",
+      "digest": "sha256:946867c247420a5b456ae01bc42449ffcc5aa6be35c737204bef55af1e9a9d25"
+    },
+    {
+      "path": "apps/calculator_mobile/lib/calculator_screen.dart",
+      "digest": "sha256:ab18b89b2434097a26a7474e7f5b1dd0e3e8c62e01aa864834a33dbe7e05be57"
     },
     {
       "path": "apps/calculator_mobile/test/calculator_domain_test.dart",
@@ -15,6 +27,14 @@
     {
       "path": "apps/calculator_mobile/test/calculator_widget_test.dart",
       "digest": "sha256:08e2384c13fbb0cb2b5466e6c2dde9b03296139184376e512e8f83fc96a55af3"
+    },
+    {
+      "path": "packages/calculator_domain/lib/src/calculator.dart",
+      "digest": "sha256:6e6fb7b42c7d849afa7a2b839b6a2f3c8534bb5f2838a139799a6eba2d6457c3"
+    },
+    {
+      "path": "packages/calculator_domain/lib/src/finite_operand_parser.dart",
+      "digest": "sha256:2aa445dc63a669611f53cfcf3d08cda9468fbc8d2414395aa8af408f5a6ac281"
     },
     {
       "path": "policies/project-policy.yaml",
@@ -134,5 +154,105 @@
     "RULE-CALC-UI-FAILURE",
     "RULE-CALC-UI-VALIDATION",
     "RULE-CALC-VALIDATION"
-  ]
+  ],
+  "implementedRequirementIds": [
+    "RULE-CALC-ACCESSIBILITY",
+    "RULE-CALC-ADDITION",
+    "RULE-CALC-BODY-SIZE",
+    "RULE-CALC-DIVISION",
+    "RULE-CALC-ERROR-REDACTION",
+    "RULE-CALC-MULTIPLICATION",
+    "RULE-CALC-RATE-LIMIT",
+    "RULE-CALC-SUBTRACTION",
+    "RULE-CALC-UI-FAILURE",
+    "RULE-CALC-UI-VALIDATION",
+    "RULE-CALC-VALIDATION"
+  ],
+  "presentedRequirementIds": [
+    "RULE-CALC-ACCESSIBILITY",
+    "RULE-CALC-ADDITION",
+    "RULE-CALC-DIVISION",
+    "RULE-CALC-MULTIPLICATION",
+    "RULE-CALC-SUBTRACTION",
+    "RULE-CALC-UI-FAILURE",
+    "RULE-CALC-UI-VALIDATION"
+  ],
+  "providedControlIds": [
+    "CTRL-CALC-BODY-SIZE",
+    "CTRL-CALC-ERROR-REDACTION",
+    "CTRL-CALC-INPUT-VALIDATION",
+    "CTRL-CALC-LOG-REDACTION",
+    "CTRL-CALC-RATE-LIMIT"
+  ],
+  "implementedBindingIds": [
+    "calculator.calculateAction",
+    "calculator.display",
+    "calculator.errorMessage",
+    "calculator.firstOperand",
+    "calculator.operatorSelector",
+    "calculator.secondOperand"
+  ],
+  "requirementTargets": {
+    "FEAT-CALC-001": [
+      "backend",
+      "flutter"
+    ],
+    "FEAT-CALC-002": [
+      "backend"
+    ],
+    "RULE-CALC-ACCESSIBILITY": [
+      "backend",
+      "flutter"
+    ],
+    "RULE-CALC-ADDITION": [
+      "backend",
+      "flutter"
+    ],
+    "RULE-CALC-BODY-SIZE": [
+      "backend"
+    ],
+    "RULE-CALC-DIVISION": [
+      "backend",
+      "flutter"
+    ],
+    "RULE-CALC-ERROR-REDACTION": [
+      "backend"
+    ],
+    "RULE-CALC-MULTIPLICATION": [
+      "backend",
+      "flutter"
+    ],
+    "RULE-CALC-PERFORMANCE": [
+      "backend",
+      "flutter"
+    ],
+    "RULE-CALC-RATE-LIMIT": [
+      "backend"
+    ],
+    "RULE-CALC-SUBTRACTION": [
+      "backend",
+      "flutter"
+    ],
+    "RULE-CALC-UI-FAILURE": [
+      "backend",
+      "flutter"
+    ],
+    "RULE-CALC-UI-VALIDATION": [
+      "backend",
+      "flutter"
+    ],
+    "RULE-CALC-VALIDATION": [
+      "backend",
+      "flutter"
+    ]
+  },
+  "packageTargets": {
+    "apps/calculator_api": "backend",
+    "apps/calculator_mobile": "flutter",
+    "packages/calculator_domain": "flutter"
+  },
+  "featureFiles": {
+    "FEAT-CALC-001": "packages/calculator_contracts/lib/src/generated/feat_calc_001_contracts.g.dart",
+    "FEAT-CALC-002": "packages/calculator_contracts/lib/src/generated/feat_calc_002_contracts.g.dart"
+  }
 }

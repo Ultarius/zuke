@@ -241,6 +241,7 @@ class GherkinParser {
         ? _metadataFromYaml(
             featureMeta.content,
             featureMeta.source,
+            block: featureMeta,
             requireSchemaVersion: true,
           )
         : ParsedMetadata(source: SourceLocation(file: file, line: 1));
@@ -344,7 +345,11 @@ class GherkinParser {
 
     ParsedMetadata metadata;
     if (ruleMeta != null) {
-      metadata = _metadataFromYaml(ruleMeta.content, ruleMeta.source);
+      metadata = _metadataFromYaml(
+        ruleMeta.content,
+        ruleMeta.source,
+        block: ruleMeta,
+      );
     } else {
       throw FormatException(
         'rule "$ruleTitle" requires exactly one # rule-spec-begin/# rule-spec-end block',
@@ -604,6 +609,30 @@ class GherkinParser {
     return cells;
   }
 
+  /// Strips the leading `#` and one space from the metadata comment line [raw]
+  /// on [fileLine], recording both the content and where it started.
+  ///
+  /// Shared by the feature and rule block extractors so the reconstructed YAML
+  /// and the recorded line map cannot drift apart. The two remain separate loops
+  /// because rule blocks are stricter — nesting, orphans, and non-comment lines
+  /// are all errors there — but the per-line mechanics must be identical, and
+  /// when they were not, every rule-level position silently came back empty.
+  static MetadataLine _stripCommentLine(String raw, int fileLine) {
+    final hash = raw.indexOf('#');
+    var content = raw.substring(hash + 1);
+    var column = hash + 1;
+    if (content.startsWith(' ')) {
+      content = content.substring(1);
+      column += 1;
+    }
+    return MetadataLine(
+      content: content,
+      fileLine: fileLine,
+      // 1-based, and shifted by one because `column` counts from the `#`.
+      contentColumn: column + 1,
+    );
+  }
+
   MetadataBlock? _extractMetadataBlock(
     List<String> lines,
     String beginMarker,
@@ -612,6 +641,7 @@ class GherkinParser {
     bool inBlock = false;
     int startLine = 0;
     final content = StringBuffer();
+    final lineMap = <MetadataLine>[];
 
     for (int i = 0; i < lines.length; i++) {
       final raw = lines[i];
@@ -620,20 +650,22 @@ class GherkinParser {
         inBlock = true;
         startLine = i + 1;
         content.clear();
+        lineMap.clear();
       } else if (inBlock && trimmed == '# $endMarker') {
         if (content.isNotEmpty) {
           return MetadataBlock(
             content: content.toString(),
             source: SourceLocation(file: _lastFile!, line: startLine),
+            lines: List.unmodifiable(lineMap),
           );
         }
         inBlock = false;
       } else if (inBlock && raw.trimLeft().startsWith('#')) {
-        var lineContent = raw.substring(raw.indexOf('#') + 1);
-        if (lineContent.startsWith(' ')) {
-          lineContent = lineContent.substring(1);
-        }
-        content.writeln(lineContent);
+        // Recorded in lockstep with the content, so entry N of `lineMap` is
+        // always line N+1 of the reconstructed YAML.
+        final stripped = _stripCommentLine(raw, i + 1);
+        content.writeln(stripped.content);
+        lineMap.add(stripped);
       }
     }
     return null;
@@ -642,9 +674,10 @@ class GherkinParser {
   ParsedMetadata _metadataFromYaml(
     String yamlText,
     SourceLocation source, {
+    MetadataBlock? block,
     bool requireSchemaVersion = false,
   }) {
-    final metadata = _parseSimpleYaml(yamlText, source);
+    final metadata = _parseSimpleYaml(yamlText, source, block: block);
     final errors = <String>[];
     var extensions = metadata.extensions;
     try {
@@ -726,6 +759,10 @@ class GherkinParser {
       ),
       securityProfile: metadata.securityProfile,
       extensions: extensions,
+      // Carried across from _parseSimpleYaml. This rebuild copies every other
+      // field by hand, so omitting it silently drops every recorded position and
+      // the block start becomes the only location known again.
+      valueSources: metadata.valueSources,
       source: source,
       errors: errors,
     );
@@ -800,6 +837,11 @@ class GherkinParser {
     final blocks = <MetadataBlock>[];
     StringBuffer? content;
     int? beginLine;
+    // Kept in lockstep with `content`, as in _extractMetadataBlock. The two
+    // extractors are deliberately separate: rule blocks are stricter (nesting,
+    // orphans, and non-comment lines are all errors), so sharing one would mean
+    // sharing those rules too.
+    final lineMap = <MetadataLine>[];
     for (var index = start; index < end; index++) {
       final raw = lines[index];
       final trimmed = raw.trim();
@@ -809,6 +851,7 @@ class GherkinParser {
         }
         content = StringBuffer();
         beginLine = index + 1;
+        lineMap.clear();
       } else if (trimmed == '# rule-spec-end') {
         if (content == null || beginLine == null) {
           throw FormatException('orphan rule-spec end at line ${index + 1}');
@@ -817,6 +860,7 @@ class GherkinParser {
           MetadataBlock(
             content: content.toString(),
             source: SourceLocation(file: file, line: beginLine),
+            lines: List.unmodifiable(lineMap),
           ),
         );
         content = null;
@@ -827,9 +871,9 @@ class GherkinParser {
             'non-comment rule metadata at line ${index + 1}',
           );
         }
-        var lineContent = raw.substring(raw.indexOf('#') + 1);
-        if (lineContent.startsWith(' ')) lineContent = lineContent.substring(1);
-        content.writeln(lineContent);
+        final stripped = _stripCommentLine(raw, index + 1);
+        content.writeln(stripped.content);
+        lineMap.add(stripped);
       }
     }
     if (content != null) {
@@ -877,13 +921,21 @@ class GherkinParser {
     }
   }
 
-  ParsedMetadata _parseSimpleYaml(String yamlText, SourceLocation source) {
+  ParsedMetadata _parseSimpleYaml(
+    String yamlText,
+    SourceLocation source, {
+    MetadataBlock? block,
+  }) {
     final parsed = loadYaml(yamlText);
     if (parsed is! YamlMap) {
       throw const FormatException('metadata must be a YAML mapping');
     }
     final root = _yamlMap(parsed);
     final bindingsRoot = _yamlMap(root['bindings']);
+    // Read through parsed, not the flattened map below: the conversion keeps
+    // values but discards the YamlNodes that carry a location, and the location
+    // is the point of recording them.
+    final valueSources = _valueSources(parsed, block);
 
     return ParsedMetadata(
       schemaVersion: _yamlText(root['schemaVersion']),
@@ -952,6 +1004,7 @@ class GherkinParser {
       evidenceRequirements: _yamlEvidenceRequirements(root['requiredEvidence']),
       securityProfile: _yamlText(root['securityProfile']),
       extensions: Map.unmodifiable(_extensionsFromYaml(root)),
+      valueSources: valueSources,
       source: source,
     );
   }
@@ -1019,6 +1072,117 @@ class GherkinParser {
     return result;
   }
 
+  /// Maps every declared value in [root] to the line it was written on, grouped
+  /// by the field it was read from.
+  ///
+  /// Read through `.nodes`, not `[]`: `YamlMap[]` hands back the unwrapped
+  /// value, and a bare String carries no span, so there would be nothing to map.
+  Map<MetadataField, Map<String, SourceLocation>> _valueSources(
+    YamlMap root,
+    MetadataBlock? block,
+  ) {
+    final result = <MetadataField, Map<String, SourceLocation>>{};
+    if (block == null || block.lines.isEmpty) return const {};
+
+    SourceLocation? locate(YamlNode? node) {
+      if (node == null) return null;
+      final span = node.span;
+      // The span is 0-based in both axes, while MetadataBlock is 1-based, so the
+      // line is shifted here rather than in resolveAt: that keeps the helper's
+      // contract "a 1-based line in the content".
+      return block.resolveAt(span.start.line + 1, span.start.column);
+    }
+
+    String? textOf(YamlNode? node) {
+      if (node is! YamlScalar) return null;
+      final value = node.value;
+      if (value == null) return null;
+      final text = value is String ? value : value.toString();
+      return text.isEmpty ? null : text;
+    }
+
+    void record(MetadataField field, YamlNode? node, String? value) {
+      if (value == null) return;
+      final location = locate(node);
+      if (location == null) return;
+      (result[field] ??= <String, SourceLocation>{}).putIfAbsent(
+        value,
+        () => location,
+      );
+    }
+
+    // Scalars.
+    const scalars = {
+      MetadataField.id: 'id',
+      MetadataField.epic: 'epic',
+      MetadataField.owner: 'owner',
+      MetadataField.status: 'status',
+      MetadataField.securityProfile: 'securityProfile',
+    };
+    scalars.forEach((field, key) {
+      final node = root.nodes[key];
+      record(field, node, textOf(node));
+    });
+
+    // List entries, plus the identifying fields of list-of-mapping entries.
+    void recordList(String key, List<_FieldKey> entryFields) {
+      final listNode = root.nodes[key];
+      if (listNode is! YamlList) return;
+      for (final item in listNode.nodes) {
+        if (entryFields.isEmpty) {
+          record(MetadataField.targets, item, textOf(item));
+          continue;
+        }
+        if (item is! YamlMap) continue;
+        for (final entry in entryFields) {
+          final node = item.nodes[entry.key];
+          record(entry.field, node, textOf(node));
+        }
+      }
+    }
+
+    recordList('targets', const []);
+    recordList('pbis', const []);
+    recordList('events', const []);
+    recordList('featureFlags', const []);
+    recordList('requiredEvidence', const []);
+    recordList('performance', const [
+      _FieldKey(MetadataField.performanceId, 'id'),
+      _FieldKey(MetadataField.performanceTarget, 'target'),
+      _FieldKey(MetadataField.performanceProfile, 'profile'),
+    ]);
+    recordList('requires', const [
+      _FieldKey(MetadataField.requiresId, 'id'),
+      _FieldKey(MetadataField.requiresTarget, 'target'),
+      _FieldKey(MetadataField.requiresCardinality, 'cardinality'),
+    ]);
+    recordList('endpoints', const [
+      _FieldKey(MetadataField.endpointId, 'id'),
+      _FieldKey(MetadataField.endpointTarget, 'target'),
+      _FieldKey(MetadataField.endpointMethod, 'method'),
+      _FieldKey(MetadataField.endpointContract, 'contract'),
+    ]);
+
+    final bindings = root.nodes['bindings'];
+    if (bindings is YamlMap) {
+      final required = bindings.nodes['required'];
+      if (required is YamlList) {
+        for (final item in required.nodes) {
+          if (item is! YamlMap) continue;
+          for (final entry in const [
+            _FieldKey(MetadataField.bindingId, 'id'),
+            _FieldKey(MetadataField.bindingTarget, 'target'),
+            _FieldKey(MetadataField.bindingVariant, 'variant'),
+          ]) {
+            final node = item.nodes[entry.key];
+            record(entry.field, node, textOf(node));
+          }
+        }
+      }
+    }
+    return result.isEmpty ? const {} : Map.unmodifiable(result);
+  }
+
   String? _yamlText(Object? value) {
     if (value == null) return null;
     if (value is Map || (value is Iterable && value is! String)) {
@@ -1042,6 +1206,77 @@ class MetadataBlock {
   /// Location of the block in the source file.
   final SourceLocation source;
 
+  /// Where each line of [content] came from in the source file.
+  ///
+  /// A YAML node's span is relative to the reconstructed [content], not to the
+  /// file, and a fixed offset cannot recover the file line: a blank line inside
+  /// the block is dropped when [content] is rebuilt, so the two sequences drift
+  /// apart. A blank line is exactly the case that makes an offset silently
+  /// wrong, so the mapping is kept per line instead.
+  final List<MetadataLine> lines;
+
   /// Creates a metadata block.
-  const MetadataBlock({required this.content, required this.source});
+  const MetadataBlock({
+    required this.content,
+    required this.source,
+    this.lines = const [],
+  });
+
+  /// Maps a 1-based line in [content] and a 0-based [yamlColumn] to a location
+  /// in the source file, or null when the position is out of range.
+  ///
+  /// Named for the YAML coordinate it receives, to keep it distinct from
+  /// [MetadataLine.contentColumn], which is the file column the content starts
+  /// at. Returns null rather than throwing for an unexpected span: a location
+  /// only ever improves a diagnostic, so a mismatch must degrade to the coarser
+  /// answer instead of failing the parse.
+  SourceLocation? resolveAt(int contentLine, int yamlColumn) {
+    if (contentLine < 1 || contentLine > lines.length) return null;
+    final line = lines[contentLine - 1];
+    // `yamlColumn` is 0-based, matching the span it comes from.
+    // `contentColumn` on the line is 1-based, so its 0-based form is one less;
+    // adding the two and converting back to 1-based is therefore a plain sum.
+    return SourceLocation(
+      file: source.file,
+      line: line.fileLine,
+      column: line.contentColumn + yamlColumn,
+    );
+  }
+}
+
+/// A metadata field paired with the YAML key it is written under.
+///
+/// Grouping the two keeps a list of field mappings readable where a bare record
+/// or a pair of parallel lists would not: a field and its key always travel
+/// together, so one cannot be reordered or dropped without the other.
+class _FieldKey {
+  final MetadataField field;
+  final String key;
+
+  const _FieldKey(this.field, this.key);
+}
+
+/// One source line of a metadata block, and the content it contributed.
+class MetadataLine {
+  /// The line's text with the leading `#` and one following space removed.
+  ///
+  /// Carried so the reconstructed YAML and the position map are produced from
+  /// one pass over the same value, instead of two that can disagree.
+  final String content;
+
+  /// 1-based line in the source file.
+  final int fileLine;
+
+  /// 1-based column in the source file at which [content] begins.
+  ///
+  /// Recorded because the `#` and the single space after it are stripped, so a
+  /// YAML column has to be shifted back by the prefix width to point at the real
+  /// column in the file.
+  final int contentColumn;
+
+  const MetadataLine({
+    required this.content,
+    required this.fileLine,
+    required this.contentColumn,
+  });
 }

@@ -25,8 +25,75 @@ class SourceLocation {
   });
 }
 
+/// A metadata field a declared value can be read from.
+///
+/// An enum rather than a string so the parser and the validators cannot drift
+/// apart on a field name: both sides name the same constant, so a typo is a
+/// compile error instead of a finding that silently falls back to the block
+/// start. Fields that carry more than one value per entry are split, because the
+/// same string under two different fields means two different things — a target
+/// declared in `targets` and the same target on a binding are two separate
+/// declarations, and a finding must name the one it is about.
+enum MetadataField {
+  id,
+  epic,
+  owner,
+  status,
+  securityProfile,
+  targets,
+  pbis,
+  events,
+  featureFlags,
+  requiredEvidence,
+  performanceId,
+  performanceTarget,
+  performanceProfile,
+  requiresId,
+  requiresTarget,
+  requiresCardinality,
+  endpointId,
+  endpointTarget,
+  endpointMethod,
+  endpointContract,
+  bindingId,
+  bindingTarget,
+  bindingVariant,
+}
+
 /// Metadata extracted from a `# spec-begin` block.
 class ParsedMetadata {
+  /// Declared values mapped to the line and column they were written at,
+  /// grouped by the [MetadataField] they were read from.
+  ///
+  /// Grouping by field is what makes a lookup exact. Keyed by value alone, a
+  /// value declared twice in one block — a target that is also a binding's
+  /// target, say — resolves to whichever was recorded last, which points the
+  /// finding at a real line in the right block but the wrong one to edit.
+  ///
+  /// Empty when the block carried no position information, in which case
+  /// [source] remains the correct — if coarser — answer.
+  final Map<MetadataField, Map<String, SourceLocation>> valueSources;
+
+  /// Where [value] was written for [field], or null when it has no position.
+  SourceLocation? locationOf(MetadataField field, String value) =>
+      valueSources[field]?[value];
+
+  /// Where [value] was written under any field, or null when it is unknown.
+  ///
+  /// For callers that know the value but not where it came from. Prefers a field
+  /// that declares the value exactly once, so the answer is stable regardless of
+  /// declaration order.
+  SourceLocation? locationOfAny(String value) {
+    SourceLocation? ambiguous;
+    for (final entry in valueSources.entries) {
+      final location = entry.value[value];
+      if (location == null) continue;
+      if (ambiguous != null) return null;
+      ambiguous = location;
+    }
+    return ambiguous;
+  }
+
   /// Declared metadata schema version.
   final String? schemaVersion;
 
@@ -104,6 +171,7 @@ class ParsedMetadata {
     this.securityProfile,
     this.extensions = const {},
     this.errors = const [],
+    this.valueSources = const {},
     required this.source,
   });
 }

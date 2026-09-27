@@ -11,3 +11,5 @@ plugins:
       zuke_index_stale: true
       zuke_unknown_index_id: true
       zuke_missing_test: true
+      zuke_unimplemented_requirement: true
+      zuke_spec_lint: true

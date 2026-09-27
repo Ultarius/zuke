@@ -24,6 +24,8 @@ class ZukePlugin extends Plugin {
     registry.registerLintRule(ZukeIndexStaleRule());
     registry.registerLintRule(ZukeUnknownIndexIdRule());
     registry.registerLintRule(ZukeMissingTestRule());
+    registry.registerLintRule(ZukeUnimplementedRequirementRule());
+    registry.registerLintRule(ZukeSpecLintRule());
   }
 }
 
@@ -136,8 +138,165 @@ class ZukeMissingTestRule extends AnalysisRule {
 class _IndexState {
   final ZukeIndex? index;
   final bool hasWorkspace;
-  const _IndexState(this.index, {required this.hasWorkspace});
+
+  /// The directory holding the `zuke.yaml` this index came from, so a caller
+  /// can express an analyzed path relative to the workspace without walking the
+  /// tree a second time.
+  final String? workspaceRoot;
+  const _IndexState(
+    this.index, {
+    required this.hasWorkspace,
+    this.workspaceRoot,
+  });
   bool get isCurrent => index != null;
+}
+
+/// Reports requirement IDs that a generated contract declares but no configured
+/// source implements.
+///
+/// Warning by default, not error: a workspace that is mid-authoring its
+/// specifications would otherwise be red on every `dart analyze` before a line
+/// of implementation exists, which trains people to ignore the rule. A project
+/// that wants the stricter gate sets it to `error` in `analysis_options.yaml`,
+/// where it composes with `--fatal-infos` in CI.
+///
+/// Suppress a single contract with
+/// `// ignore: zuke/zuke_unimplemented_requirement`.
+class ZukeUnimplementedRequirementRule extends AnalysisRule {
+  static const code = LintCode(
+    'zuke_unimplemented_requirement',
+    'ZUKE-UNIMPLEMENTED-REQUIREMENT: Requirement {0} is declared for {1}; '
+        'nothing implements it. Add @ImplementsRequirement or '
+        '@PresentsRequirement, or narrow the requirement\'s declared targets.',
+    uniqueName: 'LintCode.zuke_unimplemented_requirement',
+    severity: DiagnosticSeverity.WARNING,
+  );
+
+  ZukeUnimplementedRequirementRule()
+    : super(
+        name: 'zuke_unimplemented_requirement',
+        description:
+            'Requires an implementation for every generated requirement ID',
+      );
+
+  @override
+  DiagnosticCode get diagnosticCode => code;
+
+  @override
+  void registerNodeProcessors(
+    RuleVisitorRegistry registry,
+    RuleContext context,
+  ) {
+    final path = context.definingUnit.file.path;
+    final state = _indexStateFor(path);
+    final index = state.index;
+    if (index == null) return;
+    // Only generated contracts declare requirement IDs. Hand-written code is
+    // free to declare its own constants, and a specification that has not been
+    // generated yet is reported by ZukeIndexStaleRule instead.
+    if (!path.replaceAll('\\', '/').endsWith('_contracts.g.dart')) return;
+    final root = state.workspaceRoot;
+    if (root == null) return;
+    // Guarded: a path that is not under the workspace root must not be sliced
+    // as if it were, or the file is attributed to whatever target the mangled
+    // remainder happens to match.
+    final relative = ZukeIndex.relativeToRoot(root, path);
+    if (relative == null) return;
+    final targetId = index.targetForPath(relative);
+    final visitor = ZukeUnimplementedRequirementVisitor(
+      index: index,
+      targetId: targetId,
+      report: (anchor, requirementId) => reportAtNode(
+        anchor,
+        arguments: [
+          requirementId,
+          // Name the target when there is one. "this target" reads as a dangling
+          // reference when the file could not be attributed at all, which is the
+          // case the leniency in requirementAppliesTo deliberately allows.
+          targetId ?? 'no target',
+        ],
+      ),
+    );
+    if (visitor.unimplemented.isEmpty) return;
+    registry.addFieldDeclaration(this, visitor);
+  }
+}
+
+/// Reports specification findings recorded in the index.
+///
+/// The reference resolver finds them and `zuke generate` records them; this rule
+/// is what makes them visible while editing. Without it a broken cross-reference
+/// in a `.feature` file is only discovered by running the CLI.
+///
+/// The squiggle lands on the generated contract for the feature that owns the
+/// finding, because a plugin can only anchor on a Dart node. The
+/// specification's own path, line, and column are in the message.
+///
+/// One rule serves every finding, so its severity is fixed at
+/// [DiagnosticSeverity.ERROR] and a finding's own severity cannot change the
+/// colour it renders. Today that is exact: the reference resolver emits errors
+/// and nothing else. If it ever emits a warning, that finding would render red
+/// here — the message says `(warning)`, so it is not misreported, only louder
+/// than it should be. Splitting this into one rule per severity is the fix, and
+/// it is deliberately not done for a case that cannot occur yet.
+class ZukeSpecLintRule extends AnalysisRule {
+  static const code = LintCode(
+    'zuke_spec_lint',
+    'ZUKE-SPEC-LINT: {0} ({1})',
+    uniqueName: 'LintCode.zuke_spec_lint',
+    severity: DiagnosticSeverity.ERROR,
+  );
+
+  ZukeSpecLintRule()
+    : super(
+        name: 'zuke_spec_lint',
+        description: 'Reports specification findings on the generated contract',
+      );
+
+  @override
+  DiagnosticCode get diagnosticCode => code;
+
+  @override
+  void registerNodeProcessors(
+    RuleVisitorRegistry registry,
+    RuleContext context,
+  ) {
+    final path = context.definingUnit.file.path;
+    final state = _indexStateFor(path);
+    final index = state.index;
+    if (index == null) return;
+    if (index.specDiagnostics.isEmpty) return;
+    final root = state.workspaceRoot;
+    if (root == null) return;
+    final relative = ZukeIndex.relativeToRoot(root, path);
+    if (relative == null) return;
+    // Only the file generated from the offending feature reports it, so one
+    // finding appears once rather than in every contract in the workspace.
+    final features = index.featuresAtPath(relative);
+    if (features.isEmpty) return;
+    final findings = index.specDiagnostics
+        .where(
+          (finding) =>
+              finding.featureId != null && features.contains(finding.featureId),
+        )
+        .toList(growable: false);
+    if (findings.isEmpty) return;
+    registry.addCompilationUnit(
+      this,
+      ZukeSpecLintVisitor(
+        findings: findings,
+        report: (anchor, finding) => reportAtNode(
+          anchor,
+          arguments: [
+            finding.severity == 'error'
+                ? finding.message
+                : '${finding.message} (${finding.severity})',
+            finding.location,
+          ],
+        ),
+      ),
+    );
+  }
 }
 
 /// Internal test seam for the workspace/index discovery used by analyzer
@@ -192,12 +351,20 @@ _IndexState _indexStateFor(String? sourcePath) {
       try {
         final index = ZukeIndex.read(indexFile);
         final state = index.isCurrent(root: directory.path)
-            ? _IndexState(index, hasWorkspace: true)
-            : const _IndexState(null, hasWorkspace: true);
+            ? _IndexState(
+                index,
+                hasWorkspace: true,
+                workspaceRoot: directory.path,
+              )
+            : _IndexState(null, hasWorkspace: true);
         _indexCache[key] = _IndexCacheEntry(now, modified, state);
         return state;
       } catch (_) {
-        const state = _IndexState(null, hasWorkspace: true);
+        final state = _IndexState(
+          null,
+          hasWorkspace: true,
+          workspaceRoot: directory.path,
+        );
         _indexCache[key] = _IndexCacheEntry(now, modified, state);
         return state;
       }

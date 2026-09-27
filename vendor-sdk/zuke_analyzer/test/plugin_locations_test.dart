@@ -253,6 +253,66 @@ class Holder {
       },
       timeout: const Timeout(Duration(minutes: 3)),
     );
+
+    test(
+      'dart analyze names the unimplemented requirement in the message',
+      () async {
+        final fixture = await _writeAnalyzeFixture();
+        addTearDown(() => deleteTemporaryDirectory(fixture));
+
+        // A workspace whose only requirement has no implementation, mirroring a
+        // generated contract that was never acted on.
+        _writeWorkspaceConfig(fixture);
+        _writeCurrentIndex(
+          fixture,
+          requirementIds: const ['RULE-E2E-MISSING'],
+          controlIds: const [],
+          bindingIds: const [],
+        );
+
+        final contract =
+            File(
+                '${fixture.path}/lib/src/generated/feat_demo_001_contracts.g.dart',
+              )
+              ..parent.createSync(recursive: true)
+              ..writeAsStringSync('''
+class FeatDemo001RequirementIds {
+  static const missing = 'RULE-E2E-MISSING';
+}
+''');
+
+        final result = await Process.run(
+          Platform.resolvedExecutable,
+          [
+            '--disable-dart-dev',
+            '--suppress-analytics',
+            'analyze',
+            contract.path,
+          ],
+          workingDirectory: fixture.path,
+          stdoutEncoding: utf8,
+          stderrEncoding: utf8,
+        );
+        final output = '${result.stdout}\n${result.stderr}'.replaceAll(
+          '\\',
+          '/',
+        );
+
+        expect(
+          output,
+          contains('zuke_unimplemented_requirement'),
+          reason:
+              'expected the unimplemented-requirement rule to fire in:\n$output',
+        );
+        // The analyzer substitutes arguments by index, so the template must use
+        // {0}. A `$0` template reaches the Problems pane verbatim and names no
+        // requirement, which is worse than no message at all: the reader has
+        // only the file and line to go on.
+        expect(output, isNot(contains(r'$0')));
+        expect(output, contains('Requirement RULE-E2E-MISSING'));
+      },
+      timeout: const Timeout(Duration(minutes: 3)),
+    );
   });
 }
 
@@ -353,6 +413,7 @@ plugins:
       zuke_index_stale: true
       zuke_unknown_index_id: true
       zuke_missing_test: true
+      zuke_unimplemented_requirement: true
 ''');
   final pubGet = await Process.run(
     Platform.resolvedExecutable,

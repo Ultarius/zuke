@@ -1,9 +1,21 @@
 {
   "kind": "zuke.analyzer-index",
-  "inputDigest": "sha256:52cc349fed92aa8ab8fd663e57526e2ad4537130dbd33386e45ad01b306934f2",
+  "inputDigest": "sha256:aa1efc5bf5b4adf62ccbb187333fa579d4826e01d4140d61b4124b9403f83b82",
   "generatedManifestDigest": "sha256:8336f0f6e268574768ca81bf98c37b6527fe5eb6dcd87b88c520b1e98005dc30",
   "generatedManifestPath": "lib/src/.zuke-generated.json",
   "inputs": [
+    {
+      "path": "lib/src/branch_peer_link.dart",
+      "digest": "sha256:c1b78a0864466a5c8dd59e59ef59a43d4087748c7f96f06bdd62013540b7a322"
+    },
+    {
+      "path": "lib/src/catalog_bindings.dart",
+      "digest": "sha256:690834ae011a1f7dac7df897ebd5b759af3736a71a772b73634686039476b214"
+    },
+    {
+      "path": "lib/src/checkout_controller.dart",
+      "digest": "sha256:cdb67d1afcd2b0443818dfe16077c5ece89e294d915f748e97d8fe7d02a1f7da"
+    },
     {
       "path": "policies/project-policy.yaml",
       "digest": "sha256:685f6c0e20a2723f159c879c7813d141af1bc2897aacea053544821376b023b9"
@@ -79,5 +91,42 @@
     "RULE-LIBRARY-BOOK-RETURN",
     "RULE-LIBRARY-BRANCH-PEER",
     "RULE-LIBRARY-CHECKOUT"
-  ]
+  ],
+  "implementedRequirementIds": [
+    "RULE-LIBRARY-BOOK-RETURN",
+    "RULE-LIBRARY-BRANCH-PEER",
+    "RULE-LIBRARY-CHECKOUT"
+  ],
+  "presentedRequirementIds": [],
+  "providedControlIds": [
+    "CTRL-LIBRARY-ISBN-VALIDATION"
+  ],
+  "implementedBindingIds": [
+    "library.checkoutButton",
+    "library.errorMessage",
+    "library.isbnInput",
+    "library.loanCountDisplay",
+    "library.loanList",
+    "library.statusMessage"
+  ],
+  "requirementTargets": {
+    "FEAT-LIBRARY-001": [
+      "catalog"
+    ],
+    "RULE-LIBRARY-BOOK-RETURN": [
+      "catalog"
+    ],
+    "RULE-LIBRARY-BRANCH-PEER": [
+      "catalog"
+    ],
+    "RULE-LIBRARY-CHECKOUT": [
+      "catalog"
+    ]
+  },
+  "packageTargets": {
+    ".": "catalog"
+  },
+  "featureFiles": {
+    "FEAT-LIBRARY-001": "lib/src/generated/feat_library_001_contracts.g.dart"
+  }
 }

@@ -3,6 +3,7 @@ import 'package:zuke_frontend/zuke_frontend.dart';
 import 'identity_validator.dart';
 import 'reference_resolver.dart';
 import 'cardinality_validator.dart';
+import 'implementation_coverage_validator.dart';
 import 'evidence_validator.dart';
 import 'source_mapping_validator.dart';
 import 'dominance_validator.dart';
@@ -355,6 +356,7 @@ class ValidatorEngine {
   final IdentityValidator identity;
   final ReferenceResolver references;
   final CardinalityValidator cardinality;
+  final ImplementationCoverageValidator unimplementedRequirements;
   final EvidenceValidator evidence;
   final SourceMappingValidator sourceMappings;
   final DominanceValidator dominance;
@@ -364,6 +366,7 @@ class ValidatorEngine {
     IdentityValidator? identity,
     ReferenceResolver? references,
     CardinalityValidator? cardinality,
+    ImplementationCoverageValidator? unimplementedRequirements,
     EvidenceValidator? evidence,
     SourceMappingValidator? sourceMappings,
     DominanceValidator? dominance,
@@ -371,6 +374,8 @@ class ValidatorEngine {
   }) : identity = identity ?? IdentityValidator(),
        references = references ?? ReferenceResolver(),
        cardinality = cardinality ?? CardinalityValidator(),
+       unimplementedRequirements =
+           unimplementedRequirements ?? ImplementationCoverageValidator(),
        evidence = evidence ?? EvidenceValidator(),
        sourceMappings = sourceMappings ?? SourceMappingValidator(),
        dominance = dominance ?? DominanceValidator(),
@@ -433,6 +438,16 @@ class ValidatorEngine {
       allInfos,
       allControlProofs,
       cardinality.validate(
+        workspace,
+        extractedSymbols: effectiveOutputs.expand((o) => o.symbols).toList(),
+      ),
+    );
+    _add(
+      allErrors,
+      allWarnings,
+      allInfos,
+      allControlProofs,
+      unimplementedRequirements.validate(
         workspace,
         extractedSymbols: effectiveOutputs.expand((o) => o.symbols).toList(),
       ),

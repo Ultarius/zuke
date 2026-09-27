@@ -7,6 +7,9 @@ import 'package:zuke_frontend/zuke_frontend.dart';
 import 'generator.dart';
 import 'configuration_preflight.dart';
 import 'generated_manifest_path.dart';
+import 'implementation_scan.dart';
+import 'requirement_scopes.dart';
+import 'spec_lint_scan.dart';
 import 'verified_requirement_scan.dart';
 
 class GenerateCommand {
@@ -16,7 +19,11 @@ class GenerateCommand {
 
   Future<int> execute() async {
     final requestedRoot = args['root'] as String? ?? Directory.current.path;
-    final root = Directory(requestedRoot).absolute.path;
+    // Canonical, so the root matches the one discovery resolved. Using
+    // `Directory.absolute` here instead would leave `--root .` as `.../ws/.`,
+    // which nothing relativizes against, and the index would then record
+    // absolute paths — making its digest differ per invocation and per machine.
+    final root = canonicalizeRoot(requestedRoot);
     final checkOnly = args['check'] as bool? ?? false;
     final quiet = args['quiet'] as bool? ?? false;
 
@@ -70,6 +77,7 @@ class GenerateCommand {
       workspace: workspace,
       generatedManifestContent: expectedManifest,
       generatedManifestPath: _relativeToRoot(root, manifestPath),
+      featureFiles: result.featureFiles,
     );
     final expectedIndexContent =
         '${const JsonEncoder.withIndent('  ').convert(expectedIndex.toJson())}\n';
@@ -223,11 +231,15 @@ class GenerateCommand {
     required WorkspaceDiscoveryResult workspace,
     required String generatedManifestContent,
     required String generatedManifestPath,
+    Map<String, String> featureFiles = const {},
   }) {
     final verification = scanVerifiedRequirements(root, workspace);
+    final implementations = scanImplementations(root, workspace);
+    final specDiagnostics = scanSpecDiagnostics(workspace, root: root);
     final inputs = <String>{
       ...workspace.inputContents.keys,
       ...verification.sourcePaths,
+      ...implementations.sourcePaths,
     };
     final requirements = <String>{};
     final bindings = <String>{};
@@ -246,10 +258,39 @@ class GenerateCommand {
       controlIds: workspace.data.controls.keys,
       bindingIds: bindings,
       verifiedRequirementIds: verification.requirementIds,
+      implementedRequirementIds: implementations.implementedRequirementIds,
+      presentedRequirementIds: implementations.presentedRequirementIds,
+      providedControlIds: implementations.providedControlIds,
+      implementedBindingIds: implementations.implementedBindingIds,
+      requirementTargets: requirementTargetScopes(workspace),
+      packageTargets: _packageTargets(workspace),
+      specDiagnostics: specDiagnostics,
+      featureFiles: featureFiles,
       inputPatterns: workspace.inputPatterns,
       patternInputPaths: workspace.patternInputPaths,
       inputContents: workspace.inputContents,
     );
+  }
+
+  /// The configured target that owns each package, keyed by workspace-relative
+  /// package path.
+  ///
+  /// The analyzer needs this to decide which requirements a file should be held
+  /// to: a Flutter package must not be told it fails to implement a `backend`
+  /// requirement.
+  Map<String, String> _packageTargets(WorkspaceDiscoveryResult workspace) {
+    final result = <String, String>{};
+    for (final entry in workspace.config.workspaceTargets.entries) {
+      for (final package in entry.value.packages) {
+        final path = package.path
+            .replaceAll('\\', '/')
+            .replaceFirst(RegExp(r'^\./'), '')
+            .replaceFirst(RegExp(r'/$'), '');
+        if (path.isEmpty) continue;
+        result[path] = entry.key;
+      }
+    }
+    return result;
   }
 
   void _collectMetadataIds(

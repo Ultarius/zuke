@@ -7,6 +7,24 @@ import 'gherkin_parser.dart';
 import 'metadata_extractor.dart';
 import 'config_models.dart';
 
+/// The workspace root as a canonical absolute path, with symlinks resolved.
+///
+/// Defined once because the root is compared against paths produced elsewhere.
+/// [Directory.absolute] is not enough: for `--root .` it yields `.../workspace/.`
+/// with a trailing `\.`, which no path produced by discovery will start with, so
+/// anything that relativizes against the root silently falls back to recording
+/// an absolute path. That makes generated artifacts machine-specific.
+///
+/// Falls back to [Directory.absolute] when the path cannot be resolved, which
+/// is the case for a root that does not exist yet.
+String canonicalizeRoot(String requestedRoot) {
+  try {
+    return Directory(requestedRoot).resolveSymbolicLinksSync();
+  } catch (_) {
+    return Directory(requestedRoot).absolute.path;
+  }
+}
+
 /// Base error raised when a workspace configuration cannot be used by the
 /// current frontend parser.
 sealed class WorkspaceConfigError implements Exception {
@@ -778,12 +796,7 @@ class WorkspaceDiscovery {
     }
 
     final requestedRoot = rootPath ?? Directory.current.path;
-    late final String root;
-    try {
-      root = Directory(requestedRoot).resolveSymbolicLinksSync();
-    } catch (_) {
-      root = Directory(requestedRoot).absolute.path;
-    }
+    final root = canonicalizeRoot(requestedRoot);
     final workspacePrefix = root.replaceAll('\\', '/').toLowerCase();
 
     final configPath = '$root/zuke.yaml';

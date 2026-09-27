@@ -1,9 +1,21 @@
 {
   "kind": "zuke.analyzer-index",
-  "inputDigest": "sha256:7280d716e97ee83c53cd4d87b28789a1087855e6876a295ecf32a60e77bd37cb",
+  "inputDigest": "sha256:8ec9e97301610a5948f0e2718eca706099d3de59003ab1a5ec87ee8316093078",
   "generatedManifestDigest": "sha256:5282d1e887a3b5186d2fe75d9b4ba8ddf4c3697ba551746ccbfd9503c9e081b2",
   "generatedManifestPath": "lib/src/.zuke-generated.json",
   "inputs": [
+    {
+      "path": "lib/src/todo_bindings.dart",
+      "digest": "sha256:95559388c25137124df4bc6d0ff01b971d0d524737612b716163b8ed246351ff"
+    },
+    {
+      "path": "lib/src/todo_controller.dart",
+      "digest": "sha256:ee988e4bfd3814973b9a4a56b1c8bc272369f51c719fc1ac7857855e2f836398"
+    },
+    {
+      "path": "lib/src/todo_screen.dart",
+      "digest": "sha256:3f25b7fda2aeec6128dfab02e99c6edd787473a11b3da6317378bb26b534fd0a"
+    },
     {
       "path": "policies/project-policy.yaml",
       "digest": "sha256:ba60974aec64984a23a821fffcbfaa8587c19a8fa69592f37a19a8e31a570508"
@@ -81,5 +93,44 @@
   "verifiedRequirementIds": [
     "RULE-TODO-ADD-ITEM",
     "RULE-TODO-COMPLETE-ITEM"
-  ]
+  ],
+  "implementedRequirementIds": [
+    "RULE-TODO-ADD-ITEM",
+    "RULE-TODO-COMPLETE-ITEM"
+  ],
+  "presentedRequirementIds": [
+    "RULE-TODO-COMPLETE-ITEM"
+  ],
+  "providedControlIds": [
+    "CTRL-TODO-ACCESSIBLE",
+    "CTRL-TODO-VALIDATION"
+  ],
+  "implementedBindingIds": [
+    "todo.addTaskButton",
+    "todo.clearCompletedButton",
+    "todo.emptyStateMessage",
+    "todo.errorMessage",
+    "todo.taskCountDisplay",
+    "todo.taskInput",
+    "todo.taskItemCheckbox",
+    "todo.taskItemText",
+    "todo.taskList"
+  ],
+  "requirementTargets": {
+    "FEAT-TODO-001": [
+      "flutter"
+    ],
+    "RULE-TODO-ADD-ITEM": [
+      "flutter"
+    ],
+    "RULE-TODO-COMPLETE-ITEM": [
+      "flutter"
+    ]
+  },
+  "packageTargets": {
+    ".": "flutter"
+  },
+  "featureFiles": {
+    "FEAT-TODO-001": "lib/src/generated/feat_todo_001_contracts.g.dart"
+  }
 }

@@ -1,9 +1,21 @@
 {
   "kind": "zuke.analyzer-index",
-  "inputDigest": "sha256:b0dba7b1083c7c948f1daee36287e820ed7dc5a1202ff1ea2ec5ab96e6924826",
+  "inputDigest": "sha256:e571334f9d1d5316bbfad2f269ed1915f49b67f6c3428f74161b1dcc5dd4a8c3",
   "generatedManifestDigest": "sha256:ef26c0cf81111c3a96a2e0dcfe1a5e23f62c4e72d115eec37d3b674a5a741f17",
   "generatedManifestPath": "lib/src/.zuke-generated.json",
   "inputs": [
+    {
+      "path": "lib/src/cart_controller.dart",
+      "digest": "sha256:343410d6000fc920620a3be964214b9aa813fb6dae8fce5b03820a1b269e2709"
+    },
+    {
+      "path": "lib/src/shopping_bindings.dart",
+      "digest": "sha256:dad39228a5423b5e8242970a3dad6afbb4dcf8312a46ca46dbdcda610102e596"
+    },
+    {
+      "path": "lib/src/shopping_screen.dart",
+      "digest": "sha256:3963233ea8f8e60d49437d1651fe9b86308ecc913927174de0627dbbecc93493"
+    },
     {
       "path": "policies/project-policy.yaml",
       "digest": "sha256:3ff1476f42a79ea5a97a639b52d8735227829f5450d42046b26473eb36f033b7"
@@ -35,6 +47,10 @@
     {
       "path": "test/cart_controller_test.dart",
       "digest": "sha256:197489b2506dc85cdc01e722eaf9fb82f04c9154ad0aac882976c585b2158244"
+    },
+    {
+      "path": "test/guide_snippets/controller.dart",
+      "digest": "sha256:1f76d3ae49ed0e7544f2c4433525b15f5d78e4ca2579c3ec5ee2a69cb1e1a115"
     },
     {
       "path": "test/shopping_cart_widget_test.dart",
@@ -94,5 +110,59 @@
     "RULE-CART-ITEM-MANAGEMENT",
     "RULE-CART-PROMO-DISCOUNT",
     "RULE-CART-SUCCESSFUL-CHECKOUT"
-  ]
+  ],
+  "implementedRequirementIds": [
+    "RULE-CART-ACCESSIBILITY",
+    "RULE-CART-EMPTY-CHECKOUT",
+    "RULE-CART-ITEM-MANAGEMENT",
+    "RULE-CART-PROMO-DISCOUNT",
+    "RULE-CART-SUCCESSFUL-CHECKOUT"
+  ],
+  "presentedRequirementIds": [
+    "RULE-CART-ACCESSIBILITY"
+  ],
+  "providedControlIds": [
+    "CTRL-CART-ACCESSIBLE",
+    "CTRL-CART-VALIDATION",
+    "CTRL-PROMO-VALIDATION"
+  ],
+  "implementedBindingIds": [
+    "shopping.addToCartHeadphones",
+    "shopping.applyPromoButton",
+    "shopping.cartBadge",
+    "shopping.catalogItemName",
+    "shopping.catalogItemPrice",
+    "shopping.checkoutButton",
+    "shopping.discountStatusDisplay",
+    "shopping.promoInput",
+    "shopping.statusMessageDisplay",
+    "shopping.subtotalDisplay",
+    "shopping.totalDisplay"
+  ],
+  "requirementTargets": {
+    "FEAT-CART-001": [
+      "flutter"
+    ],
+    "RULE-CART-ACCESSIBILITY": [
+      "flutter"
+    ],
+    "RULE-CART-EMPTY-CHECKOUT": [
+      "flutter"
+    ],
+    "RULE-CART-ITEM-MANAGEMENT": [
+      "flutter"
+    ],
+    "RULE-CART-PROMO-DISCOUNT": [
+      "flutter"
+    ],
+    "RULE-CART-SUCCESSFUL-CHECKOUT": [
+      "flutter"
+    ]
+  },
+  "packageTargets": {
+    ".": "flutter"
+  },
+  "featureFiles": {
+    "FEAT-CART-001": "lib/src/generated/feat_cart_001_contracts.g.dart"
+  }
 }

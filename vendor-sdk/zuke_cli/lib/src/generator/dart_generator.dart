@@ -61,10 +61,19 @@ class GenerationResult {
   final Manifest manifest;
   final List<String> errors;
 
+  /// Feature ID to the workspace-relative path of its generated contract file.
+  ///
+  /// Recorded by the generator rather than derived from a file name, because
+  /// the editor needs to know which generated file a specification finding
+  /// belongs to. A naming convention would break the moment a feature ID
+  /// contains an underscore, collided, or was renamed.
+  final Map<String, String> featureFiles;
+
   const GenerationResult({
     required this.files,
     required this.manifest,
     this.errors = const [],
+    this.featureFiles = const {},
   });
 }
 
@@ -200,6 +209,7 @@ class DartContractGenerator {
     final files = <GeneratedFile>[];
     final manifestEntries = <ManifestEntry>[];
     final errors = <String>[];
+    final featureFiles = <String, String>{};
     final reservedScenarioIds = <String, _ScenarioLocation>{};
     final reservedFeatureTypes = <String>{};
     final contractTypes = <String, String?>{};
@@ -218,6 +228,7 @@ class DartContractGenerator {
       final snakeName = featId.toLowerCase().replaceAll('-', '_');
       final fileName = '${snakeName}_contracts.g.dart';
       final filePath = '$outputDir/$fileName';
+      featureFiles[featId] = filePath.replaceAll('\\', '/');
 
       final bindings = feature.metadata.bindings ?? const <ParsedBinding>[];
       final bindingMembers = <String>{};
@@ -735,6 +746,7 @@ class DartContractGenerator {
           files: files,
           manifest: Manifest(entries: manifestEntries),
           errors: errors,
+          featureFiles: featureFiles,
         );
       }
       final paths = contractTypes.keys.toList()..sort();
@@ -818,6 +830,7 @@ ZukeScenarioContract zukeScenarioContract(String id) =>
           files: files,
           manifest: Manifest(entries: manifestEntries),
           errors: errors,
+          featureFiles: featureFiles,
         );
       }
       final hash = sha256DigestHex(utf8.encode(content));
@@ -829,6 +842,7 @@ ZukeScenarioContract zukeScenarioContract(String id) =>
       files: files,
       manifest: Manifest(entries: manifestEntries),
       errors: errors,
+      featureFiles: featureFiles,
     );
   }
 

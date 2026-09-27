@@ -321,6 +321,20 @@
       "remediation": "Run extraction with the explicit active target."
     },
     {
+      "code": "ZUKE-IMPL-001",
+      "severity": "warning",
+      "summary": "A declared requirement has no implementation in any of its declared targets.",
+      "owner": "project",
+      "remediation": "Add @ImplementsRequirement or @PresentsRequirement for the requirement in a configured package root, or narrow the requirement's declared targets."
+    },
+    {
+      "code": "ZUKE-SPEC-LINT",
+      "severity": "error",
+      "summary": "A specification cross-reference is invalid, reported in the editor on the generated contract for the feature that owns it.",
+      "owner": "project",
+      "remediation": "Fix the reference in the specification at the file, line, and column named in the message, then run zuke generate so the finding clears."
+    },
+    {
       "code": "ZK-IMPL-SLOT-CLAIM-REQUIRED",
       "severity": "error",
       "summary": "A managed test must explicitly claim implementation slots for a multi-slot requirement.",
@@ -902,6 +916,11 @@
       "code": "ZUKE-SCHEMA-002",
       "severity": "error",
       "summary": "A specification schema version is unsupported."
+    },
+    {
+      "code": "ZUKE-UNIMPLEMENTED-REQUIREMENT",
+      "severity": "warning",
+      "summary": "A generated requirement ID has no implementation in its declared targets."
     },
     {
       "code": "ZUKE-TEST-TIMEOUT",

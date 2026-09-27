@@ -5,6 +5,7 @@ import 'package:zuke_test_support/src/temporary_directory.dart';
 import 'package:analyzer/dart/analysis/analysis_context_collection.dart';
 import 'package:analyzer/dart/analysis/results.dart';
 import 'package:analyzer/dart/ast/ast.dart';
+import 'package:analyzer/error/error.dart';
 import 'package:analysis_server_plugin/registry.dart';
 import 'package:test/test.dart';
 import 'package:zuke_cli/tooling.dart';
@@ -168,7 +169,7 @@ class Service {
 
       analyzer_plugin.plugin.register(registry);
 
-      expect(registry.rules, hasLength(4));
+      expect(registry.rules, hasLength(6));
       expect(
         registry.rules.map((rule) => rule.name),
         containsAll([
@@ -176,6 +177,8 @@ class Service {
           'zuke_index_stale',
           'zuke_unknown_index_id',
           'zuke_missing_test',
+          'zuke_unimplemented_requirement',
+          'zuke_spec_lint',
         ]),
       );
       expect(
@@ -193,6 +196,30 @@ class Service {
       expect(
         analyzer_plugin.ZukeMissingTestRule().diagnosticCode.lowerCaseName,
         'zuke_missing_test',
+      );
+      expect(
+        analyzer_plugin.ZukeUnimplementedRequirementRule()
+            .diagnosticCode
+            .lowerCaseName,
+        'zuke_unimplemented_requirement',
+      );
+      // A specs-first workspace must not go red on `dart analyze` before any
+      // implementation exists, so the default stays a warning.
+      expect(
+        analyzer_plugin.ZukeUnimplementedRequirementRule()
+            .diagnosticCode
+            .severity,
+        DiagnosticSeverity.WARNING,
+      );
+      expect(
+        analyzer_plugin.ZukeSpecLintRule().diagnosticCode.lowerCaseName,
+        'zuke_spec_lint',
+      );
+      // A broken cross-reference is a defect in the specification, not a gap
+      // someone intends to close later, so this one is an error.
+      expect(
+        analyzer_plugin.ZukeSpecLintRule().diagnosticCode.severity,
+        DiagnosticSeverity.ERROR,
       );
     });
 
@@ -301,8 +328,272 @@ class Methods {
       },
     );
 
+    test(
+      'unimplemented generated requirements are reported per constant',
+      () async {
+        File('${tempDir.path}/pubspec.yaml').writeAsStringSync(
+          'name: contract_fixture\nenvironment:\n  sdk: ">=3.10.0 <4.0.0"\n',
+        );
+        final generated = Directory('${tempDir.path}/lib/src/generated')
+          ..createSync(recursive: true);
+        final contract =
+            File('${generated.path}/feat_demo_001_contracts.g.dart')
+              ..writeAsStringSync('''
+abstract final class FeatDemo001RequirementIds {
+  static const implemented = 'RULE-DEMO-IMPLEMENTED';
+  static const implementedId = 'RULE-DEMO-IMPLEMENTED';
+  static const missing = 'RULE-DEMO-MISSING';
+  static const missingId = 'RULE-DEMO-MISSING';
+  static const notDeclared = 'RULE-DEMO-UNDECLARED';
+}
+''');
+        final normalizedRoot = tempDir.resolveSymbolicLinksSync();
+        final normalizedContract = contract.resolveSymbolicLinksSync();
+        final collection = AnalysisContextCollection(
+          includedPaths: [normalizedRoot],
+        );
+        addTearDown(collection.dispose);
+        final resolved = await collection
+            .contextFor(normalizedContract)
+            .currentSession
+            .getResolvedUnit(normalizedContract);
+        final unit = (resolved as ResolvedUnitResult).unit;
+
+        const index = ZukeIndex(
+          inputDigest: 'input',
+          generatedManifestDigest: 'manifest',
+          generatedManifestPath: 'manifest.json',
+          inputs: [],
+          requirementIds: {'RULE-DEMO-IMPLEMENTED', 'RULE-DEMO-MISSING'},
+          controlIds: {},
+          bindingIds: {},
+          implementedRequirementIds: {'RULE-DEMO-IMPLEMENTED'},
+        );
+
+        final reported = <String>[];
+        final anchors = <AstNode>[];
+        _walk(
+          unit,
+          ZukeUnimplementedRequirementVisitor(
+            index: index,
+            targetId: 'backend',
+            report: (anchor, id) {
+              anchors.add(anchor);
+              reported.add(id);
+            },
+          ),
+        );
+
+        // Only the genuinely unimplemented, declared ID. The implemented one, the
+        // duplicate constant carrying the same ID, and the ID the workspace never
+        // declared are all correctly left alone — and the duplicate must not
+        // produce a second finding for one requirement.
+        expect(reported, ['RULE-DEMO-MISSING']);
+        expect(anchors, hasLength(1));
+        // The anchor is the constant itself, so the Problems pane points at the
+        // declaration rather than the top of the file.
+        expect(anchors.single, isA<VariableDeclaration>());
+        expect((anchors.single as VariableDeclaration).name.lexeme, 'missing');
+      },
+    );
+
+    test('unimplemented requirements are scoped to the analyzed target', () async {
+      File('${tempDir.path}/pubspec.yaml').writeAsStringSync(
+        'name: scoping_fixture\nenvironment:\n  sdk: ">=3.10.0 <4.0.0"\n',
+      );
+      final generated = Directory('${tempDir.path}/lib/src/generated')
+        ..createSync(recursive: true);
+      final contract = File('${generated.path}/feat_scope_001_contracts.g.dart')
+        ..writeAsStringSync('''
+abstract final class FeatScope001RequirementIds {
+  static const backendOnly = 'RULE-SCOPE-BACKEND';
+  static const bothTargets = 'RULE-SCOPE-BOTH';
+}
+''');
+      final normalizedRoot = tempDir.resolveSymbolicLinksSync();
+      final normalizedContract = contract.resolveSymbolicLinksSync();
+      final collection = AnalysisContextCollection(
+        includedPaths: [normalizedRoot],
+      );
+      addTearDown(collection.dispose);
+      final resolved = await collection
+          .contextFor(normalizedContract)
+          .currentSession
+          .getResolvedUnit(normalizedContract);
+      final unit = (resolved as ResolvedUnitResult).unit;
+
+      const index = ZukeIndex(
+        inputDigest: 'input',
+        generatedManifestDigest: 'manifest',
+        generatedManifestPath: 'manifest.json',
+        inputs: [],
+        requirementIds: {'RULE-SCOPE-BACKEND', 'RULE-SCOPE-BOTH'},
+        controlIds: {},
+        bindingIds: {},
+        requirementTargets: {
+          'RULE-SCOPE-BACKEND': ['backend'],
+          'RULE-SCOPE-BOTH': ['backend', 'flutter'],
+        },
+      );
+
+      List<String> reportFor(String? targetId) {
+        final found = <String>[];
+        _walk(
+          unit,
+          ZukeUnimplementedRequirementVisitor(
+            index: index,
+            targetId: targetId,
+            report: (_, id) => found.add(id),
+          ),
+        );
+        return found;
+      }
+
+      // A Flutter package must not be told it fails to implement a backend-only
+      // requirement; a backend package must be told about everything it owns.
+      expect(reportFor('flutter'), ['RULE-SCOPE-BOTH']);
+      expect(reportFor('backend'), ['RULE-SCOPE-BACKEND', 'RULE-SCOPE-BOTH']);
+      // An unattributable target never narrows: under-reporting is recoverable,
+      // hiding a requirement because scoping metadata was missing is not.
+      expect(reportFor(null), ['RULE-SCOPE-BACKEND', 'RULE-SCOPE-BOTH']);
+    });
+
+    test('spec findings are reported on the owning feature contract', () async {
+      File('${tempDir.path}/pubspec.yaml').writeAsStringSync(
+        'name: spec_fixture\nenvironment:\n  sdk: ">=3.10.0 <4.0.0"\n',
+      );
+      final generated = Directory('${tempDir.path}/lib/src/generated')
+        ..createSync(recursive: true);
+      final contract = File('${generated.path}/feat_dash_001_contracts.g.dart')
+        ..writeAsStringSync('''
+abstract final class FeatDash001RequirementIds {
+  static const one = 'RULE-DASH-ONE';
+}
+''');
+      final normalizedRoot = tempDir.resolveSymbolicLinksSync();
+      final normalizedContract = contract.resolveSymbolicLinksSync();
+      final collection = AnalysisContextCollection(
+        includedPaths: [normalizedRoot],
+      );
+      addTearDown(collection.dispose);
+      final resolved = await collection
+          .contextFor(normalizedContract)
+          .currentSession
+          .getResolvedUnit(normalizedContract);
+      final unit = (resolved as ResolvedUnitResult).unit;
+
+      const index = ZukeIndex(
+        inputDigest: 'input',
+        generatedManifestDigest: 'manifest',
+        generatedManifestPath: 'manifest.json',
+        inputs: [],
+        requirementIds: {'RULE-DASH-ONE'},
+        controlIds: {},
+        bindingIds: {},
+        featureFiles: {
+          'FEAT-DASH-001': 'lib/src/generated/feat_dash_001_contracts.g.dart',
+        },
+        specDiagnostics: [
+          ZukeSpecDiagnostic(
+            file: 'specs/features/dashboard.feature',
+            line: 5,
+            column: 5,
+            code: 'ZUKE-REF-009',
+            severity: 'error',
+            message: 'Unknown target "nope"',
+            featureId: 'FEAT-DASH-001',
+          ),
+          ZukeSpecDiagnostic(
+            file: 'specs/features/other.feature',
+            line: 9,
+            column: 1,
+            code: 'ZUKE-REF-001',
+            severity: 'error',
+            message: 'Unknown Epic "EPIC-X"',
+            featureId: 'FEAT-OTHER-001',
+          ),
+        ],
+      );
+
+      // Only the findings whose feature generated *this* file are reported, so a
+      // broken cross-reference appears once rather than in every contract.
+      final findings = index.specDiagnostics
+          .where(
+            (finding) =>
+                finding.featureId != null &&
+                index
+                    .featuresAtPath(
+                      'lib/src/generated/feat_dash_001_contracts.g.dart',
+                    )
+                    .contains(finding.featureId),
+          )
+          .toList();
+      expect(findings.map((f) => f.code), ['ZUKE-REF-009']);
+
+      final anchors = <AstNode>[];
+      final reported = <ZukeSpecDiagnostic>[];
+      _walk(
+        unit,
+        ZukeSpecLintVisitor(
+          findings: findings,
+          report: (anchor, finding) {
+            anchors.add(anchor);
+            reported.add(finding);
+          },
+        ),
+      );
+
+      expect(reported, hasLength(1));
+      expect(reported.single.message, contains('nope'));
+      // The specification's own location is what makes the finding actionable,
+      // because the squiggle cannot land on a .feature line.
+      expect(reported.single.file, 'specs/features/dashboard.feature');
+      expect(reported.single.line, 5);
+      expect(reported.single.column, 5);
+      // Anchored on the contract's class declaration, a real line in this file.
+      expect(anchors.single, isA<ClassDeclaration>());
+      expect(
+        anchors.single.toSource(),
+        startsWith('abstract final class FeatDash001RequirementIds'),
+      );
+    });
+
+    test('a contract with no spec findings registers nothing', () async {
+      File('${tempDir.path}/pubspec.yaml').writeAsStringSync(
+        'name: clean_fixture\nenvironment:\n  sdk: ">=3.10.0 <4.0.0"\n',
+      );
+      final generated = Directory('${tempDir.path}/lib/src/generated')
+        ..createSync(recursive: true);
+      final contract = File('${generated.path}/feat_ok_001_contracts.g.dart')
+        ..writeAsStringSync('''
+abstract final class FeatOk001RequirementIds {
+  static const one = 'RULE-OK-ONE';
+}
+''');
+      final normalizedRoot = tempDir.resolveSymbolicLinksSync();
+      final normalizedContract = contract.resolveSymbolicLinksSync();
+      final collection = AnalysisContextCollection(
+        includedPaths: [normalizedRoot],
+      );
+      addTearDown(collection.dispose);
+      final resolved = await collection
+          .contextFor(normalizedContract)
+          .currentSession
+          .getResolvedUnit(normalizedContract);
+      final unit = (resolved as ResolvedUnitResult).unit;
+
+      final reported = <ZukeSpecDiagnostic>[];
+      _walk(
+        unit,
+        ZukeSpecLintVisitor(
+          findings: const [],
+          report: (_, finding) => reported.add(finding),
+        ),
+      );
+      expect(reported, isEmpty);
+    });
+
     test('analysis-server index discovery fails closed at every boundary', () {
-      expect(analyzer_plugin.zukeIndexIsCurrentForTesting(null), isFalse);
       final source = File('${tempDir.path}/nested/lib/app.dart');
       source.parent.createSync(recursive: true);
       source.writeAsStringSync('void main() {}');
