@@ -10,6 +10,8 @@ import 'generated_manifest_path.dart';
 import 'implementation_scan.dart';
 import 'requirement_scopes.dart';
 import 'spec_lint_scan.dart';
+import 'tooling/source_files.dart';
+import 'workspace_annotation_scan.dart';
 import 'verified_requirement_scan.dart';
 
 class GenerateCommand {
@@ -37,7 +39,7 @@ class GenerateCommand {
 
     final generator = DartContractGenerator();
     final configuredOutput =
-        workspace.config.contractOutput ?? 'lib/src/generated';
+        workspace.config.contractOutput ?? defaultContractOutput;
     final outputDir = args['output'] as String? ?? configuredOutput;
     final result = generator.generate(
       workspace: workspace,
@@ -72,15 +74,6 @@ class GenerateCommand {
     );
     final generatedStepRoots = _generatedStepRoots(root, workspace);
     final expectedManifest = result.manifest.toJson();
-    final expectedIndex = _buildAnalyzerIndex(
-      root: root,
-      workspace: workspace,
-      generatedManifestContent: expectedManifest,
-      generatedManifestPath: _relativeToRoot(root, manifestPath),
-      featureFiles: result.featureFiles,
-    );
-    final expectedIndexContent =
-        '${const JsonEncoder.withIndent('  ').convert(expectedIndex.toJson())}\n';
     final manifestFile = File(manifestPath);
     final previousPaths = _previousManifestPaths(
       manifestFile,
@@ -90,6 +83,40 @@ class GenerateCommand {
       generatedStepRoots: generatedStepRoots,
     );
     final stalePaths = previousPaths.difference(expectedPaths).toList()..sort();
+    final expectedIndex = await _buildAnalyzerIndex(
+      root: root,
+      workspace: workspace,
+      generatedManifestContent: expectedManifest,
+      generatedManifestPath: _relativeToRoot(root, manifestPath),
+      featureFiles: result.featureFiles,
+      // The contracts this run is about to write, overlaid on disk so the scans
+      // resolve constants against what is being generated rather than what
+      // happened to be there before. Without it a first generation produces an
+      // index that disagrees with the files it just wrote.
+      //
+      // Keys are forward-slashed to match how the scans key and compare paths.
+      pendingContent: () {
+        final normalizedRoot = root.replaceAll('\\', '/');
+        return <String, String>{
+          for (final file in result.files)
+            '$normalizedRoot/${file.path.replaceAll('\\', '/')}': file.content,
+        };
+      }(),
+      // Every path the generator owns: being written now, or written by an
+      // earlier run and about to be deleted. Generated files are the manifest's
+      // business, so the index records hand-written sources only. Leaving a
+      // soon-to-be-deleted contract in the inventory is what made a workspace
+      // report itself stale the run after a feature was removed.
+      generatedPaths: () {
+        final normalizedRoot = root.replaceAll('\\', '/');
+        return <String>{
+          for (final path in {...expectedPaths, ...previousPaths})
+            '$normalizedRoot/${path.replaceAll('\\', '/')}',
+        };
+      }(),
+    );
+    final expectedIndexContent =
+        '${const JsonEncoder.withIndent('  ').convert(expectedIndex.toJson())}\n';
     // Older generators omitted the marker on barrels. Recognize only the
     // exact export-only content reconstructed from their existing manifest;
     // arbitrary handwritten barrels must still be refused.
@@ -226,20 +253,30 @@ class GenerateCommand {
     return 0;
   }
 
-  ZukeIndex _buildAnalyzerIndex({
+  Future<ZukeIndex> _buildAnalyzerIndex({
     required String root,
     required WorkspaceDiscoveryResult workspace,
     required String generatedManifestContent,
     required String generatedManifestPath,
     Map<String, String> featureFiles = const {},
-  }) {
-    final verification = scanVerifiedRequirements(root, workspace);
-    final implementations = scanImplementations(root, workspace);
+    Map<String, String> pendingContent = const {},
+    Set<String> generatedPaths = const {},
+  }) async {
+    final scan = await scanWorkspaceAnnotations(
+      root,
+      workspace,
+      pendingContent: pendingContent,
+      generatedPaths: generatedPaths,
+    );
+    final verification = VerifiedRequirementScan.fromScan(scan);
+    final implementations = ImplementationScan.fromScan(scan);
     final specDiagnostics = scanSpecDiagnostics(workspace, root: root);
     final inputs = <String>{
       ...workspace.inputContents.keys,
-      ...verification.sourcePaths,
-      ...implementations.sourcePaths,
+      // Everything the scans read, not only the files that contributed a
+      // resolved annotation: a file that merely defines a constant can change
+      // which requirement an annotation resolves to, and freshness must notice.
+      ...scan.inputPaths,
     };
     final requirements = <String>{};
     final bindings = <String>{};
@@ -258,39 +295,25 @@ class GenerateCommand {
       controlIds: workspace.data.controls.keys,
       bindingIds: bindings,
       verifiedRequirementIds: verification.requirementIds,
+      verifiedClaims: verification.claims.map((claim) => claim.toIndexClaim()),
       implementedRequirementIds: implementations.implementedRequirementIds,
       presentedRequirementIds: implementations.presentedRequirementIds,
       providedControlIds: implementations.providedControlIds,
       implementedBindingIds: implementations.implementedBindingIds,
       requirementTargets: requirementTargetScopes(workspace),
-      packageTargets: _packageTargets(workspace),
+      packageTargets: workspacePackageTargets(workspace),
       specDiagnostics: specDiagnostics,
       featureFiles: featureFiles,
+      implementationClaims: implementations.claims
+          .map((claim) => claim.toIndexClaim())
+          .toList(growable: false),
+      sourceRoots: workspaceDartSourceRoots(workspace),
+      sourcePaths: scan.sourcePaths,
       inputPatterns: workspace.inputPatterns,
       patternInputPaths: workspace.patternInputPaths,
       inputContents: workspace.inputContents,
+      pendingContents: pendingContent,
     );
-  }
-
-  /// The configured target that owns each package, keyed by workspace-relative
-  /// package path.
-  ///
-  /// The analyzer needs this to decide which requirements a file should be held
-  /// to: a Flutter package must not be told it fails to implement a `backend`
-  /// requirement.
-  Map<String, String> _packageTargets(WorkspaceDiscoveryResult workspace) {
-    final result = <String, String>{};
-    for (final entry in workspace.config.workspaceTargets.entries) {
-      for (final package in entry.value.packages) {
-        final path = package.path
-            .replaceAll('\\', '/')
-            .replaceFirst(RegExp(r'^\./'), '')
-            .replaceFirst(RegExp(r'/$'), '');
-        if (path.isEmpty) continue;
-        result[path] = entry.key;
-      }
-    }
-    return result;
   }
 
   void _collectMetadataIds(

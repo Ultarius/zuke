@@ -3,6 +3,9 @@ import 'dart:io';
 
 import 'package:crypto/crypto.dart';
 
+import '../../implementation_claims.dart';
+import '../../path_safety.dart';
+
 enum ZukeIndexFreshnessIssueKind {
   generatedManifestMissing,
   generatedManifestDigestMismatch,
@@ -12,6 +15,7 @@ enum ZukeIndexFreshnessIssueKind {
   inputMissing,
   inputDigestMismatch,
   inputInventoryMismatch,
+  sourceInventoryMismatch,
   inputSetDigestMismatch,
 }
 
@@ -193,13 +197,40 @@ class ZukeIndex {
   final List<ZukeIndexInput> inputs;
   final List<String> inputPatterns;
   final Set<String> patternInputs;
+
+  /// Dart source roots included in implementation and verification scans.
+  final List<String> sourceRoots;
+
+  /// Workspace-relative Dart files discovered under [sourceRoots].
+  ///
+  /// This inventory is compared against current directory contents so adding a
+  /// source file invalidates the index.
+  final Set<String> sourcePaths;
   final Set<String> requirementIds;
   final Set<String> controlIds;
   final Set<String> bindingIds;
 
   /// Requirement IDs that already carry a workspace `@VerifiesRequirement`.
   /// Stale after test edits until `zuke generate` refreshes the index.
+  ///
+  /// The flat set, kept for the common question "is this requirement verified
+  /// anywhere". It cannot answer "is it verified for the target I am", which is
+  /// what [verifiedClaims] is for.
   final Set<String> verifiedRequirementIds;
+
+  /// Each `@VerifiesRequirement`, with the target owning the test file.
+  ///
+  /// Verification is target-scoped for the same reason implementation is: a
+  /// backend test does not verify a requirement for a Flutter target, so
+  /// without this a Flutter package implementing a requirement that only the
+  /// backend package tests is told it has no test, while `zuke validate` on the
+  /// backend passes. The two have to agree, so both read these claims.
+  ///
+  /// Claims, not [verifiedRequirementIds], decide the target-aware question.
+  /// The factories reconcile the two — a flat set with no claims is backfilled
+  /// as unpinned — but a `const ZukeIndex(...)` built by hand bypasses that, so
+  /// a hand-built index has to supply the claims itself.
+  final List<ZukeImplementationClaim> verifiedClaims;
 
   /// Requirement IDs claimed by `@ImplementsRequirement` or
   /// `@PresentsRequirement` in the configured package roots.
@@ -235,6 +266,14 @@ class ZukeIndex {
   /// is what narrows [requirementTargets] to a single target.
   final Map<String, String> packageTargets;
 
+  /// Every implementation claim, with the target that made it.
+  ///
+  /// The authoritative record of coverage. [implementedRequirementIds] remains as
+  /// a flat summary, but it cannot answer "is this implemented *for the target I
+  /// am*?", which is the only question that matters once a requirement is
+  /// target-scoped — so the decision reads these instead.
+  final List<ZukeImplementationClaim> implementationClaims;
+
   /// Specification findings recorded at generation time.
   ///
   /// Spec problems are found by the reference resolver, not the generator, but
@@ -259,10 +298,13 @@ class ZukeIndex {
     required this.inputs,
     this.inputPatterns = const [],
     this.patternInputs = const {},
+    this.sourceRoots = const [],
+    this.sourcePaths = const {},
     required this.requirementIds,
     required this.controlIds,
     required this.bindingIds,
     this.verifiedRequirementIds = const {},
+    this.verifiedClaims = const [],
     this.implementedRequirementIds = const {},
     this.presentedRequirementIds = const {},
     this.providedControlIds = const {},
@@ -270,6 +312,7 @@ class ZukeIndex {
     this.requirementTargets = const {},
     this.packageTargets = const {},
     this.specDiagnostics = const [],
+    this.implementationClaims = const [],
     this.featureFiles = const {},
   });
 
@@ -282,6 +325,7 @@ class ZukeIndex {
     required Iterable<String> controlIds,
     required Iterable<String> bindingIds,
     Iterable<String> verifiedRequirementIds = const [],
+    Iterable<ZukeImplementationClaim> verifiedClaims = const {},
     Iterable<String> implementedRequirementIds = const [],
     Iterable<String> presentedRequirementIds = const [],
     Iterable<String> providedControlIds = const [],
@@ -289,10 +333,14 @@ class ZukeIndex {
     Map<String, List<String>> requirementTargets = const {},
     Map<String, String> packageTargets = const {},
     Iterable<ZukeSpecDiagnostic> specDiagnostics = const [],
+    Iterable<ZukeImplementationClaim> implementationClaims = const {},
     Map<String, String> featureFiles = const {},
     Iterable<String> inputPatterns = const [],
     Iterable<String> patternInputPaths = const [],
+    Iterable<String> sourceRoots = const [],
+    Iterable<String> sourcePaths = const [],
     Map<String, String>? inputContents,
+    Map<String, String> pendingContents = const {},
   }) {
     late final String rootPath;
     try {
@@ -300,6 +348,20 @@ class ZukeIndex {
     } catch (_) {
       rootPath = Directory(root).absolute.path;
     }
+    // Content supplied instead of read from disk, keyed by normalized path.
+    //
+    // Two sources: the workspace's own parsed inputs, and the files this
+    // generation is about to write. The latter matter because a first generation
+    // has no contract on disk yet, and without them the contract would be dropped
+    // from the inventory as unreadable — leaving an index that lists fewer inputs
+    // than the very next run computes, and reports itself stale immediately.
+    final suppliedContents = <String, String>{
+      if (inputContents != null)
+        for (final entry in inputContents.entries)
+          _normalizedFsPath(entry.key): entry.value,
+      for (final entry in pendingContents.entries)
+        _normalizedFsPath(entry.key): entry.value,
+    };
     final inputs =
         inputPaths
             .map((path) {
@@ -312,10 +374,11 @@ class ZukeIndex {
             .where(
               (path) =>
                   inputContents?.containsKey(path) == true ||
+                  suppliedContents.containsKey(_normalizedFsPath(path)) ||
                   File(path).existsSync(),
             )
             .map((path) {
-              final cached = inputContents?[path];
+              final cached = suppliedContents[_normalizedFsPath(path)];
               final bytes = cached != null
                   ? utf8.encode(cached)
                   : File(path).readAsBytesSync();
@@ -329,6 +392,17 @@ class ZukeIndex {
     final normalizedPatterns =
         inputPatterns.map(_validatedPattern).toSet().toList()..sort();
     final normalizedPatternInputs = patternInputPaths
+        .map((path) {
+          try {
+            return File(path).resolveSymbolicLinksSync();
+          } catch (_) {
+            return File(path).absolute.path;
+          }
+        })
+        .map((path) => _relative(rootPath, path))
+        .toSet();
+    final normalizedSourceRoots = _normalizedRelativePaths(sourceRoots);
+    final normalizedSourcePaths = sourcePaths
         .map((path) {
           try {
             return File(path).resolveSymbolicLinksSync();
@@ -358,23 +432,45 @@ class ZukeIndex {
     final scopedPackages = _normalizedPackageTargets(packageTargets);
     final specs = _normalizedSpecDiagnostics(specDiagnostics);
     final featurePaths = _normalizedFeatureFiles(featureFiles);
+    final claims = normalizedImplementationClaims(implementationClaims);
+    final reconciled = reconcileClaims(
+      claims: claims,
+      implementedRequirements: implemented,
+      presentedRequirements: presented,
+      providedControls: providedControls,
+      implementedBindings: implementedBindings,
+    );
+    // Verification is reconciled against its own flat set, never the
+    // implementation sets: a requirement can be verified without being
+    // implemented here, and backfilling from implementation would invent a test.
+    final reconciledVerified = reconcileClaims(
+      claims: normalizedImplementationClaims(verifiedClaims),
+      implementedRequirements: verified,
+      presentedRequirements: const {},
+      providedControls: const {},
+      implementedBindings: const {},
+    );
     return ZukeIndex(
       inputDigest: _inputDigest(
-        inputs,
-        requirements,
-        controls,
-        bindings,
-        verified,
-        implemented,
-        presented,
-        providedControls,
-        implementedBindings,
-        scopedTargets,
-        scopedPackages,
-        specs,
-        featurePaths,
-        normalizedPatterns,
-        normalizedPatternInputs,
+        inputs: inputs,
+        requirements: requirements,
+        controls: controls,
+        bindings: bindings,
+        verifiedRequirements: verified,
+        verifiedClaims: reconciledVerified,
+        implementedRequirements: implemented,
+        presentedRequirements: presented,
+        providedControls: providedControls,
+        implementedBindings: implementedBindings,
+        requirementTargets: scopedTargets,
+        packageTargets: scopedPackages,
+        specDiagnostics: specs,
+        featureFiles: featurePaths,
+        implementationClaims: reconciled,
+        sourceRoots: normalizedSourceRoots,
+        sourcePaths: normalizedSourcePaths,
+        patterns: normalizedPatterns,
+        matchedInputs: normalizedPatternInputs,
       ),
 
       generatedManifestDigest: _sha256(utf8.encode(generatedManifestContent)),
@@ -382,10 +478,13 @@ class ZukeIndex {
       inputs: List.unmodifiable(inputs),
       inputPatterns: List.unmodifiable(normalizedPatterns),
       patternInputs: Set.unmodifiable(normalizedPatternInputs),
+      sourceRoots: List.unmodifiable(normalizedSourceRoots),
+      sourcePaths: Set.unmodifiable(normalizedSourcePaths),
       requirementIds: Set.unmodifiable(requirements),
       controlIds: Set.unmodifiable(controls),
       bindingIds: Set.unmodifiable(bindings),
       verifiedRequirementIds: Set.unmodifiable(verified),
+      verifiedClaims: List.unmodifiable(reconciledVerified),
       implementedRequirementIds: Set.unmodifiable(implemented),
       presentedRequirementIds: Set.unmodifiable(presented),
       providedControlIds: Set.unmodifiable(providedControls),
@@ -394,6 +493,7 @@ class ZukeIndex {
       packageTargets: Map.unmodifiable(scopedPackages),
       specDiagnostics: List.unmodifiable(specs),
       featureFiles: Map.unmodifiable(featurePaths),
+      implementationClaims: List.unmodifiable(reconciled),
     );
   }
 
@@ -458,10 +558,23 @@ class ZukeIndex {
       patternInputs: Set.unmodifiable(
         patternInputs.cast<String>().map(_validatedRelativePath),
       ),
+      sourceRoots: List.unmodifiable(
+        _normalizedRelativePaths(_optionalPathList(json, 'sourceRoots')),
+      ),
+      sourcePaths: Set.unmodifiable(
+        _optionalPathList(json, 'sourcePaths').map(_validatedRelativePath),
+      ),
       requirementIds: ids('requirementIds'),
       controlIds: ids('controlIds'),
       bindingIds: ids('bindingIds'),
       verifiedRequirementIds: optionalIds('verifiedRequirementIds'),
+      verifiedClaims: reconcileClaims(
+        claims: claimsFromJson(json, 'verifiedClaims'),
+        implementedRequirements: optionalIds('verifiedRequirementIds'),
+        presentedRequirements: const {},
+        providedControls: const {},
+        implementedBindings: const {},
+      ),
       implementedRequirementIds: optionalIds('implementedRequirementIds'),
       presentedRequirementIds: optionalIds('presentedRequirementIds'),
       providedControlIds: optionalIds('providedControlIds'),
@@ -470,6 +583,13 @@ class ZukeIndex {
       packageTargets: _packageTargetsFromJson(json),
       specDiagnostics: _specDiagnosticsFromJson(json),
       featureFiles: _featureFilesFromJson(json),
+      implementationClaims: reconcileClaims(
+        claims: claimsFromJson(json, 'implementationClaims'),
+        implementedRequirements: optionalIds('implementedRequirementIds'),
+        presentedRequirements: optionalIds('presentedRequirementIds'),
+        providedControls: optionalIds('providedControlIds'),
+        implementedBindings: optionalIds('implementedBindingIds'),
+      ),
     );
   }
 
@@ -557,6 +677,8 @@ class ZukeIndex {
     'inputs': inputs.map((input) => input.toJson()).toList(),
     'inputPatterns': inputPatterns,
     'patternInputs': patternInputs.toList()..sort(),
+    if (sourceRoots.isNotEmpty) 'sourceRoots': sourceRoots,
+    if (sourcePaths.isNotEmpty) 'sourcePaths': sourcePaths.toList()..sort(),
     'requirementIds': requirementIds.toList()..sort(),
     'controlIds': controlIds.toList()..sort(),
     'bindingIds': bindingIds.toList()..sort(),
@@ -579,6 +701,12 @@ class ZukeIndex {
       'specDiagnostics': [
         for (final diagnostic in specDiagnostics) diagnostic.toJson(),
       ],
+    if (implementationClaims.isNotEmpty)
+      'implementationClaims': [
+        for (final claim in implementationClaims) claim.toJson(),
+      ],
+    if (verifiedClaims.isNotEmpty)
+      'verifiedClaims': [for (final claim in verifiedClaims) claim.toJson()],
     if (featureFiles.isNotEmpty)
       'featureFiles': {
         for (final id in featureFiles.keys.toList()..sort())
@@ -612,6 +740,33 @@ class ZukeIndex {
     }
     issues.addAll(_generatedOutputIssues(root, generatedManifest));
     final rootPath = Directory(root).absolute.path;
+    final currentSourcePaths = _currentSourcePaths(
+      rootPath,
+      sourceRoots,
+      _generatedPathsFromManifest(generatedManifest),
+    );
+    final currentSourceKeys = currentSourcePaths.map(pathComparisonKey).toSet();
+    final indexedSourceKeys = sourcePaths.map(pathComparisonKey).toSet();
+    if (!_sameSet(currentSourceKeys, indexedSourceKeys)) {
+      final changed =
+          <String>{...currentSourcePaths, ...sourcePaths}
+              .where(
+                (path) =>
+                    !currentSourceKeys.contains(pathComparisonKey(path)) ||
+                    !indexedSourceKeys.contains(pathComparisonKey(path)),
+              )
+              .toList()
+            ..sort();
+      issues.add(
+        ZukeIndexFreshnessIssue(
+          kind: ZukeIndexFreshnessIssueKind.sourceInventoryMismatch,
+          path: changed.isEmpty ? '.zuke/analyzer-index.json' : changed.first,
+          message:
+              'Configured Dart source files changed: '
+              '${changed.isEmpty ? '.zuke/analyzer-index.json' : changed.join(', ')}',
+        ),
+      );
+    }
     final currentPatternInputs = _matchedPatternInputs(rootPath, inputPatterns);
     if (!_sameSet(currentPatternInputs, patternInputs)) {
       final changed =
@@ -665,25 +820,30 @@ class ZukeIndex {
       (issue) =>
           issue.kind == ZukeIndexFreshnessIssueKind.inputMissing ||
           issue.kind == ZukeIndexFreshnessIssueKind.inputDigestMismatch ||
-          issue.kind == ZukeIndexFreshnessIssueKind.inputInventoryMismatch,
+          issue.kind == ZukeIndexFreshnessIssueKind.inputInventoryMismatch ||
+          issue.kind == ZukeIndexFreshnessIssueKind.sourceInventoryMismatch,
     );
     if (!hasInputIssue &&
         _inputDigest(
-              current,
-              requirementIds,
-              controlIds,
-              bindingIds,
-              verifiedRequirementIds,
-              implementedRequirementIds,
-              presentedRequirementIds,
-              providedControlIds,
-              implementedBindingIds,
-              requirementTargets,
-              packageTargets,
-              specDiagnostics,
-              featureFiles,
-              inputPatterns,
-              patternInputs,
+              inputs: current,
+              requirements: requirementIds,
+              controls: controlIds,
+              bindings: bindingIds,
+              verifiedRequirements: verifiedRequirementIds,
+              verifiedClaims: verifiedClaims,
+              implementedRequirements: implementedRequirementIds,
+              presentedRequirements: presentedRequirementIds,
+              providedControls: providedControlIds,
+              implementedBindings: implementedBindingIds,
+              requirementTargets: requirementTargets,
+              packageTargets: packageTargets,
+              specDiagnostics: specDiagnostics,
+              featureFiles: featureFiles,
+              implementationClaims: implementationClaims,
+              sourceRoots: sourceRoots,
+              sourcePaths: sourcePaths,
+              patterns: inputPatterns,
+              matchedInputs: patternInputs,
             ) !=
             inputDigest) {
       issues.add(
@@ -701,32 +861,11 @@ class ZukeIndex {
   /// The target that owns [relativePath], or null when no configured package
   /// contains it.
   ///
-  /// Longest matching package path wins, so a nested package (`apps/api`)
-  /// resolves to its own target rather than the workspace root's. The
-  /// comparison is case-insensitive because the same workspace is indexed from
-  /// differently cased paths on Windows and macOS.
-  String? targetForPath(String relativePath) {
-    final normalized = relativePath.replaceAll('\\', '/').toLowerCase();
-    String? best;
-    String? bestTarget;
-    for (final entry in packageTargets.entries) {
-      final path = _normalizePackagePath(entry.key).toLowerCase();
-      // A package declared at the workspace root owns every path in the
-      // workspace, so it matches anything. It still loses to a longer nested
-      // package path, which is what keeps a multi-package workspace resolving
-      // `apps/api` to `backend` instead of the root's target.
-      final matches =
-          _isWorkspaceRootPackage(path) ||
-          normalized == path ||
-          normalized.startsWith(path.endsWith('/') ? path : '$path/');
-      if (!matches) continue;
-      if (best == null || path.length > best.length) {
-        best = path;
-        bestTarget = entry.value;
-      }
-    }
-    return bestTarget;
-  }
+  /// Delegates to [targetForWorkspacePath] so the index and the implementation
+  /// scan, which must attribute a claim to the same target the index later
+  /// judges it by, cannot drift apart.
+  String? targetForPath(String relativePath) =>
+      targetForWorkspacePath(packageTargets, relativePath);
 
   /// Feature IDs whose generated contract file is [relativePath].
   ///
@@ -757,21 +896,65 @@ class ZukeIndex {
   ///
   /// The returned substring keeps the caller's original casing.
   static String? relativeToRoot(String root, String absolutePath) {
-    var normalizedRoot = root.replaceAll('\\', '/');
+    final normalizedRoot = _withoutTrailingSeparators(
+      root.replaceAll('\\', '/'),
+    );
     final normalizedPath = absolutePath.replaceAll('\\', '/');
-    while (normalizedRoot.endsWith('/')) {
-      normalizedRoot = normalizedRoot.substring(0, normalizedRoot.length - 1);
-    }
     if (normalizedRoot.isEmpty) return null;
+    final direct = _relativeUnder(normalizedRoot, normalizedPath);
+    if (direct != null) return direct;
+
+    // The literal comparison failed, which usually means the root is spelled
+    // differently from the canonical filesystem path: macOS reports its temp
+    // directory as `/var/...` while everything under it resolves to
+    // `/private/var/...`, and Windows hands out 8.3 aliases such as `RUNNER~1`
+    // for a long user directory. Both are the same directory, so the path is not
+    // outside the workspace and the diagnostic must not be dropped -- doing so
+    // silently removed every spec finding on those platforms. Retry against the
+    // resolved form before concluding the path is unrelated.
+    //
+    // Only when both sides agree about which volume they name. Resolving a path
+    // makes it absolute, and on Windows that attaches the current drive to a
+    // rooted-but-driveless spelling, so `/repo` would start matching
+    // `C:/repo/...` -- a different volume under the caller's reading.
+    if (Platform.isWindows &&
+        _hasDrive(normalizedRoot) != _hasDrive(normalizedPath)) {
+      return null;
+    }
+    final canonicalRoot = _withoutTrailingSeparators(
+      canonicalComparablePath(normalizedRoot).replaceAll('\\', '/'),
+    );
+    if (canonicalRoot.isEmpty || canonicalRoot == normalizedRoot) return null;
+    final canonicalPath = canonicalComparablePath(
+      normalizedPath,
+    ).replaceAll('\\', '/');
+    return _relativeUnder(canonicalRoot, canonicalPath);
+  }
+
+  /// Whether [path] names a Windows volume, as in `C:/repo`.
+  static bool _hasDrive(String path) =>
+      path.length >= 2 && path[1] == ':' && RegExp(r'^[A-Za-z]').hasMatch(path);
+
+  static String _withoutTrailingSeparators(String path) {
+    var result = path;
+    while (result.endsWith('/')) {
+      result = result.substring(0, result.length - 1);
+    }
+    return result;
+  }
+
+  /// The part of [absolutePath] below [root], or null when it is not strictly
+  /// inside it.
+  static String? _relativeUnder(String root, String absolutePath) {
     final fold = Platform.isWindows
         ? (String value) => value.toLowerCase()
         : (String value) => value;
-    final rootKey = fold(normalizedRoot);
-    final pathKey = fold(normalizedPath);
+    final rootKey = fold(root);
+    final pathKey = fold(absolutePath);
     if (pathKey.length <= rootKey.length) return null;
     if (!pathKey.startsWith(rootKey)) return null;
     if (pathKey[rootKey.length] != '/') return null;
-    return normalizedPath.substring(normalizedRoot.length + 1);
+    return absolutePath.substring(root.length + 1);
   }
 
   /// Whether [requirementId] is declared for [targetId].
@@ -781,14 +964,61 @@ class ZukeIndex {
   bool appliesToTarget(String requirementId, String? targetId) =>
       requirementAppliesTo(requirementTargets, requirementId, targetId);
 
-  /// Declared requirement IDs that no configured source claims to implement,
-  /// narrowed to those that apply to [targetId].
+  /// Declared requirement IDs that no configured source claims to implement for
+  /// [targetId], narrowed to those that apply to it.
+  ///
+  /// A claim made for a *different* target does not count: a Flutter package
+  /// claiming a `backend`-only requirement has not implemented it, and reporting
+  /// otherwise is exactly the false negative target scoping exists to prevent.
   Set<String> unimplementedRequirementIds(String? targetId) => {
     for (final id in requirementIds)
-      if (!implementedRequirementIds.contains(id) &&
+      if (!claimsSatisfyRequirement(implementationClaims, id, targetId) &&
           appliesToTarget(id, targetId))
         id,
   };
+
+  Set<String> _generatedPathsFromManifest(File manifest) {
+    try {
+      final decoded = jsonDecode(manifest.readAsStringSync());
+      if (decoded is! Map || decoded['files'] is! List) return const {};
+      return {
+        for (final entry in decoded['files'] as List)
+          if (entry is Map && entry['path'] is String)
+            _validatedRelativePath(entry['path'] as String),
+      };
+    } on FormatException {
+      return const {};
+    }
+  }
+
+  Set<String> _currentSourcePaths(
+    String root,
+    List<String> roots,
+    Set<String> generatedPaths,
+  ) {
+    final generated = generatedPaths.map(pathComparisonKey).toSet();
+    final found = <String>{};
+    for (final sourceRoot in roots) {
+      final directory = Directory(_join(root, sourceRoot));
+      if (!directory.existsSync()) continue;
+      try {
+        for (final entity in directory.listSync(
+          recursive: true,
+          followLinks: false,
+        )) {
+          if (entity is! File || !entity.path.endsWith('.dart')) continue;
+          final relative = _relative(root, entity.path);
+          final normalized = relative.replaceAll('\\', '/');
+          if (isGuideSnippetFixture(normalized)) continue;
+          if (generated.contains(pathComparisonKey(normalized))) continue;
+          found.add(normalized);
+        }
+      } on FileSystemException {
+        // An unreadable root will also make its indexed inputs missing below.
+      }
+    }
+    return found;
+  }
 
   List<ZukeIndexFreshnessIssue> _generatedOutputIssues(
     String root,
@@ -851,23 +1081,27 @@ class ZukeIndex {
   /// removing or re-targeting an implementation invalidates the index exactly
   /// like editing a test does. Without them the editor would keep reporting a
   /// requirement as unimplemented after the code that implements it was added.
-  static String _inputDigest(
-    List<ZukeIndexInput> inputs,
-    Set<String> requirements,
-    Set<String> controls,
-    Set<String> bindings,
-    Set<String> verifiedRequirements,
-    Set<String> implementedRequirements,
-    Set<String> presentedRequirements,
-    Set<String> providedControls,
-    Set<String> implementedBindings,
-    Map<String, List<String>> requirementTargets,
-    Map<String, String> packageTargets,
-    List<ZukeSpecDiagnostic> specDiagnostics,
-    Map<String, String> featureFiles,
-    List<String> patterns,
-    Set<String> matchedInputs,
-  ) => _sha256(
+  static String _inputDigest({
+    required List<ZukeIndexInput> inputs,
+    required Set<String> requirements,
+    required Set<String> controls,
+    required Set<String> bindings,
+    required Set<String> verifiedRequirements,
+    required List<ZukeImplementationClaim> verifiedClaims,
+    required Set<String> implementedRequirements,
+    required Set<String> presentedRequirements,
+    required Set<String> providedControls,
+    required Set<String> implementedBindings,
+    required Map<String, List<String>> requirementTargets,
+    required Map<String, String> packageTargets,
+    required List<ZukeSpecDiagnostic> specDiagnostics,
+    required Map<String, String> featureFiles,
+    required List<ZukeImplementationClaim> implementationClaims,
+    required List<String> sourceRoots,
+    required Set<String> sourcePaths,
+    required List<String> patterns,
+    required Set<String> matchedInputs,
+  }) => _sha256(
     utf8.encode(
       _canonicalJson({
         'kind': kind,
@@ -882,6 +1116,7 @@ class ZukeIndex {
         'controlIds': controls.toList()..sort(),
         'bindingIds': bindings.toList()..sort(),
         'verifiedRequirementIds': verifiedRequirements.toList()..sort(),
+        'verifiedClaims': [for (final claim in verifiedClaims) claim.toJson()],
         'implementedRequirementIds': implementedRequirements.toList()..sort(),
         'presentedRequirementIds': presentedRequirements.toList()..sort(),
         'providedControlIds': providedControls.toList()..sort(),
@@ -897,6 +1132,15 @@ class ZukeIndex {
         'specDiagnostics': [
           for (final diagnostic in specDiagnostics) diagnostic.toJson(),
         ],
+        'featureFiles': {
+          for (final id in featureFiles.keys.toList()..sort())
+            id: featureFiles[id]!,
+        },
+        'implementationClaims': [
+          for (final claim in implementationClaims) claim.toJson(),
+        ],
+        'sourceRoots': sourceRoots,
+        'sourcePaths': sourcePaths.toList()..sort(),
       }),
     ),
   );
@@ -951,7 +1195,7 @@ bool requirementAppliesTo(
 Map<String, String> _normalizedPackageTargets(Map<String, String> targets) {
   final result = <String, String>{};
   for (final entry in targets.entries) {
-    final path = _normalizePackagePath(entry.key);
+    final path = normalizePackagePath(entry.key);
     if (path.isEmpty) continue;
     final target = entry.value.trim();
     if (target.isEmpty) continue;
@@ -959,35 +1203,6 @@ Map<String, String> _normalizedPackageTargets(Map<String, String> targets) {
   }
   return result;
 }
-
-/// Normalizes a workspace-relative package path for comparison.
-///
-/// Forward-slashes, no surrounding whitespace, no leading `./` and no trailing
-/// `/`. A path that reduces to nothing (`./`, `./.`) becomes `.`, which is how
-/// a single-package workspace declares its only package in zuke.yaml.
-String _normalizePackagePath(String path) {
-  final trimmed = path.replaceAll('\\', '/').trim();
-  if (trimmed.isEmpty) return '';
-  var normalized = trimmed;
-  while (normalized.startsWith('./')) {
-    normalized = normalized.substring(2);
-  }
-  while (normalized.endsWith('/')) {
-    normalized = normalized.substring(0, normalized.length - 1);
-  }
-  return normalized.isEmpty ? '.' : normalized;
-}
-
-/// Whether [normalizedPath] denotes the workspace root rather than a directory
-/// inside it.
-///
-/// A single-package workspace records its one package as `.`, and that package
-/// owns the whole workspace. Matching `.` as a literal directory prefix would
-/// match no path at all, and a file whose target cannot be attributed is
-/// deliberately reported as *unscoped*, so the mistake does not look like a
-/// miss, it looks like every requirement applying everywhere. That is how
-/// `backend` requirements ended up reported in a Flutter app.
-bool _isWorkspaceRootPackage(String normalizedPath) => normalizedPath == '.';
 
 String _validatedPattern(String pattern) {
   final normalized = pattern.replaceAll('\\', '/');
@@ -1005,7 +1220,20 @@ String _validatedPattern(String pattern) {
 
 Set<String> _matchedPatternInputs(String root, List<String> patterns) {
   final resolvedRoot = Directory(root).resolveSymbolicLinksSync();
-  final prefix = resolvedRoot.replaceAll('\\', '/').toLowerCase();
+  // Both spellings of the root have to be recognised. `resolvedRoot` is what the
+  // filesystem says, but the walk below yields paths built from the spelling that
+  // was *passed in*, and the two differ whenever the root is itself an alias --
+  // macOS reports its temp directory as `/var/...` while it resolves to
+  // `/private/var/...`, and Windows CI hands out 8.3 aliases such as `RUNNER~1`.
+  // Comparing the walk against the resolved root alone silently matched nothing,
+  // so every specification input looked deleted and a freshly generated index
+  // reported itself stale. Keyed case-folded for the comparison, kept verbatim
+  // for slicing the relative path out.
+  final candidateRoots = <String>{
+    resolvedRoot.replaceAll('\\', '/'),
+    root.replaceAll('\\', '/'),
+  }.where((candidate) => candidate != '/').toList();
+  if (candidateRoots.isEmpty) return const {};
   final matched = <String>{};
   final expressions = patterns.map(_patternExpression).toList();
   for (final entity in Directory(
@@ -1017,8 +1245,16 @@ Set<String> _matchedPatternInputs(String root, List<String> patterns) {
           ? entity.resolveSymbolicLinksSync()
           : entity.path;
       final canonical = physical.replaceAll('\\', '/').toLowerCase();
-      if (canonical != prefix && !canonical.startsWith('$prefix/')) continue;
-      final relative = _relative(resolvedRoot, physical);
+      String? owner;
+      for (final candidate in candidateRoots) {
+        final prefix = candidate.toLowerCase();
+        if (canonical == prefix || canonical.startsWith('$prefix/')) {
+          owner = candidate;
+          break;
+        }
+      }
+      if (owner == null) continue;
+      final relative = _relative(owner, physical);
       if (expressions.any((expression) => expression.hasMatch(relative))) {
         matched.add(relative);
       }
@@ -1053,6 +1289,42 @@ RegExp _patternExpression(String pattern) {
 
 bool _sameSet(Set<String> left, Set<String> right) =>
     left.length == right.length && left.containsAll(right);
+
+/// A filesystem path reduced to forward slashes, without case folding.
+///
+/// Distinct from [pathComparisonKey]: this one keys pending content handed in by the
+/// generator, where the caller spells the path its own way and only the
+/// separator has to agree. Case is left alone so a path cannot collide with a
+/// differently cased file on a case-sensitive filesystem.
+String _normalizedFsPath(String path) => path.replaceAll('\\', '/');
+
+List<String> _normalizedRelativePaths(Iterable<String> paths) {
+  final normalized = <String>{};
+  for (final raw in paths) {
+    final trimmed = raw.trim();
+    // An empty path means the workspace root, which a single-package workspace
+    // records as `.`, so it is mapped rather than rejected.
+    if (trimmed.isEmpty) {
+      normalized.add('.');
+      continue;
+    }
+    // Validated before normalizing, not after: `normalizeRelativePath` strips a
+    // leading `/`, so normalizing first would turn an absolute path into an
+    // accepted relative one and quietly defeat this check.
+    _validatedRelativePath(trimmed);
+    normalized.add(normalizeRelativePath(trimmed));
+  }
+  return normalized.toList()..sort();
+}
+
+List<String> _optionalPathList(Map<Object?, Object?> json, String field) {
+  final value = json[field];
+  if (value == null) return const [];
+  if (value is! List || value.any((entry) => entry is! String)) {
+    throw FormatException('Analyzer index $field must be a list of paths');
+  }
+  return value.cast<String>().map(_validatedRelativePath).toList();
+}
 
 String _validatedRelativePath(String path) {
   final normalized = path.replaceAll('\\', '/');

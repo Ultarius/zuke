@@ -1,19 +1,283 @@
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:analyzer/dart/analysis/utilities.dart';
-import 'package:analyzer/dart/ast/ast.dart';
-import 'package:analyzer/dart/ast/visitor.dart';
 import 'package:test/test.dart';
 import 'package:zuke_cli/src/implementation_scan.dart';
 import 'package:zuke_cli/src/requirement_scopes.dart';
-import 'package:zuke_cli/src/tooling/source_constants.dart';
 import 'package:zuke_cli/tooling.dart';
 import 'package:zuke_frontend/zuke_frontend.dart';
 
 import 'support/temporary_directory.dart';
+import 'support/resolved_workspace.dart';
 
 void main() {
+  group('Target-aware implementation claims', () {
+    late Directory root;
+
+    setUp(() => root = Directory.systemTemp.createTempSync('zuke-claim-tgt-'));
+    tearDown(() => deleteTemporaryDirectory(root));
+
+    /// A workspace with a `backend` package at the root and a `flutter` package
+    /// under `app/`, where the only implementation of a backend-scoped rule
+    /// lives in the Flutter package.
+    ///
+    /// This is the case that made the editor and `zuke validate` disagree: a
+    /// flat set of implemented IDs cannot tell a Flutter claim from a backend
+    /// one, so the Flutter claim hid the missing backend implementation from the
+    /// editor while the CLI still reported it.
+    WorkspaceDiscoveryResult buildWorkspace() {
+      File('${root.path}/zuke.yaml').writeAsStringSync('''
+schemaVersion: 3
+workspace:
+  name: claims
+  root: .
+specifications:
+  features:
+    - specs/features/claims.feature
+targets:
+  backend:
+    language: dart
+    framework: dart
+    packages:
+      - id: claims_api
+        path: .
+        roots: [lib]
+  flutter:
+    language: dart
+    framework: flutter
+    packages:
+      - id: claims_app
+        path: app
+        roots: [lib]
+''');
+      final features = Directory('${root.path}/specs/features')
+        ..createSync(recursive: true);
+      File('${features.path}/claims.feature').writeAsStringSync('''
+# spec-begin
+# schemaVersion: 1
+# id: FEAT-CLAIMS-001
+# targets:
+#   - backend
+#   - flutter
+# spec-end
+@FEAT-CLAIMS-001
+Feature: Claims
+  # rule-spec-begin
+  # id: RULE-BACKEND-ONLY
+  # targets:
+  #   - backend
+  # rule-spec-end
+  @RULE-BACKEND-ONLY
+  Rule: Backend only
+    @SCN-CLAIMS-001
+    Scenario: Works
+      Given a step
+  # rule-spec-begin
+  # id: RULE-SHARED
+  # targets:
+  #   - backend
+  #   - flutter
+  # rule-spec-end
+  @RULE-SHARED
+  Rule: Shared
+    @SCN-CLAIMS-002
+    Scenario: Works
+      Given a step
+''');
+      final appLib = Directory('${root.path}/app/lib')
+        ..createSync(recursive: true);
+      File('${appLib.path}/screen.dart').writeAsStringSync('''
+import 'package:zuke_annotations/zuke_annotations.dart';
+
+class Screen {
+  @ImplementsRequirement(['RULE-BACKEND-ONLY'])
+  void build() {}
+}
+''');
+      final backendLib = Directory('${root.path}/lib')
+        ..createSync(recursive: true);
+      File('${backendLib.path}/service.dart').writeAsStringSync('''
+import 'package:zuke_annotations/zuke_annotations.dart';
+
+class Service {
+  @ImplementsRequirement(['RULE-SHARED'])
+  void run() {}
+}
+''');
+      return WorkspaceDiscovery().discover(root.path);
+    }
+
+    test('each claim records the target that owns its file', () async {
+      final workspace = buildWorkspace();
+      await configureFixturePackages(root);
+      final scan = await scanImplementations(root.path, workspace);
+
+      final backendOnly = scan.claims.firstWhere(
+        (claim) => claim.id == 'RULE-BACKEND-ONLY',
+      );
+      // Declared in the Flutter package, so the claim belongs to `flutter`.
+      expect(backendOnly.target, 'flutter');
+      expect(backendOnly.sourcePath, 'app/lib/screen.dart');
+      expect(backendOnly.kind, ImplementationKind.implemented);
+
+      final shared = scan.claims.firstWhere(
+        (claim) => claim.id == 'RULE-SHARED',
+      );
+      expect(shared.target, 'backend');
+      expect(shared.sourcePath, 'lib/service.dart');
+    });
+
+    test('a claim from another target does not satisfy this one', () async {
+      final workspace = buildWorkspace();
+      await configureFixturePackages(root);
+      final scan = await scanImplementations(root.path, workspace);
+      final claims = scan.claims
+          .map((claim) => claim.toIndexClaim())
+          .toList(growable: false);
+      final index = ZukeIndex(
+        inputDigest: 'input',
+        generatedManifestDigest: 'manifest',
+        generatedManifestPath: 'manifest.json',
+        inputs: const [],
+        requirementIds: const {'RULE-BACKEND-ONLY', 'RULE-SHARED'},
+        controlIds: const {},
+        bindingIds: const {},
+        requirementTargets: const {
+          'RULE-BACKEND-ONLY': ['backend'],
+          'RULE-SHARED': ['backend', 'flutter'],
+        },
+        packageTargets: workspacePackageTargets(workspace),
+        implementationClaims: claims,
+      );
+
+      // The Flutter claim does not implement the backend-only requirement, so
+      // the backend package is still told about it.
+      expect(index.unimplementedRequirementIds('backend'), {
+        'RULE-BACKEND-ONLY',
+      });
+      // `RULE-SHARED` is declared for both targets and only the backend package
+      // claims it, so the Flutter package is told about it too. A claim satisfies
+      // only its own target — the rule `zuke validate` already applied, and the
+      // reason the two now share one function.
+      expect(index.unimplementedRequirementIds('flutter'), {'RULE-SHARED'});
+    });
+
+    test('an unattributable file makes an unpinned claim that satisfies all', () {
+      // Leniency in the same direction as requirementAppliesTo: a file Zuke
+      // cannot attribute is not held to a target, so its claim counts for all of
+      // them rather than none.
+      const claims = [
+        ZukeImplementationClaim(id: 'RULE-ANY'),
+        ZukeImplementationClaim(id: 'RULE-PINNED', target: 'backend'),
+      ];
+      const index = ZukeIndex(
+        inputDigest: 'input',
+        generatedManifestDigest: 'manifest',
+        generatedManifestPath: 'manifest.json',
+        inputs: [],
+        requirementIds: {'RULE-ANY', 'RULE-PINNED'},
+        controlIds: {},
+        bindingIds: {},
+        implementationClaims: claims,
+      );
+
+      // backend: RULE-ANY by the unpinned claim, RULE-PINNED by its own claim.
+      expect(index.unimplementedRequirementIds('backend'), isEmpty);
+      // flutter: RULE-ANY by the unpinned claim, but RULE-PINNED was claimed for
+      // backend only — which is the whole point of keeping the target.
+      expect(index.unimplementedRequirementIds('flutter'), {'RULE-PINNED'});
+      // catalog: neither claim applies except the unpinned one.
+      expect(index.unimplementedRequirementIds('catalog'), {'RULE-PINNED'});
+    });
+  });
+
+  group('Annotation source selection', () {
+    late Directory root;
+
+    setUp(() => root = Directory.systemTemp.createTempSync('zuke-annot-src-'));
+    tearDown(() => deleteTemporaryDirectory(root));
+
+    /// A workspace with three sources: a plain annotated file, one using a
+    /// prefixed import, and a documentation snippet under `test/guide_snippets/`.
+    WorkspaceDiscoveryResult buildWorkspace() {
+      File('${root.path}/pubspec.yaml').writeAsStringSync(
+        'name: annot_src\nenvironment:\n  sdk: ">=3.10.0 <4.0.0"\n',
+      );
+      File('${root.path}/zuke.yaml').writeAsStringSync('''
+schemaVersion: 3
+workspace:
+  name: annot-src
+  root: .
+specifications:
+  features: []
+targets:
+  backend:
+    language: dart
+    framework: dart
+    packages:
+      - id: annot_src
+        path: .
+        roots: [lib, test]
+''');
+      final lib = Directory('${root.path}/lib/src')
+        ..createSync(recursive: true);
+      File('${lib.path}/plain.dart').writeAsStringSync('''
+import 'package:zuke_annotations/zuke_annotations.dart';
+
+class Plain {
+  @ImplementsRequirement(['RULE-PLAIN'])
+  void go() {}
+}
+''');
+      // The same annotation, reached through an import prefix. Matching the
+      // source spelling alone drops it, which reads as a requirement nothing
+      // implements — the exact inverse of what the rule reports.
+      File('${lib.path}/prefixed.dart').writeAsStringSync('''
+import 'package:zuke_annotations/zuke_annotations.dart' as z;
+
+class Prefixed {
+  @z.ImplementsRequirement(['RULE-PREFIXED'])
+  void go() {}
+}
+''');
+      final snippet = Directory('${root.path}/test/guide_snippets')
+        ..createSync(recursive: true);
+      File('${snippet.path}/doc.dart').writeAsStringSync('''
+// Documentation snippet, deliberately not real code.
+class Snippet {
+  @ImplementsRequirement(['RULE-SNIPPET'])
+  void go() {}
+}
+''');
+      return WorkspaceDiscovery().discover(root.path);
+    }
+
+    test('a prefixed annotation still contributes coverage', () async {
+      final workspace = buildWorkspace();
+      await configureFixturePackages(root);
+      final scan = await scanImplementations(root.path, workspace);
+
+      expect(
+        scan.implementedRequirementIds,
+        containsAll(['RULE-PLAIN', 'RULE-PREFIXED']),
+      );
+    });
+
+    test('a documentation snippet does not count as an implementation', () async {
+      // Extraction excludes these, so counting them here would let prose in the
+      // guide satisfy coverage for a requirement nothing implements.
+      final workspace = buildWorkspace();
+      await configureFixturePackages(root);
+      final scan = await scanImplementations(root.path, workspace);
+
+      expect(scan.implementedRequirementIds, isNot(contains('RULE-SNIPPET')));
+      expect(
+        scan.claims.map((claim) => claim.id),
+        isNot(contains('RULE-SNIPPET')),
+      );
+    });
+  });
+
   group('Implementation scan', () {
     late Directory root;
 
@@ -81,8 +345,10 @@ class BodyGuard {}
       return WorkspaceDiscovery().discover(root.path);
     }
 
-    test('collects every implementation annotation kind', () {
-      final scan = scanImplementations(root.path, buildWorkspace());
+    test('collects every implementation annotation kind', () async {
+      final workspace = buildWorkspace();
+      await configureFixturePackages(root);
+      final scan = await scanImplementations(root.path, workspace);
 
       // A presented requirement is an implementation too, so it must appear in
       // both sets: the distinction is what the requirement is, not whether it is
@@ -102,15 +368,19 @@ class BodyGuard {}
       );
     });
 
-    test('resolves IDs written as contract constant references', () {
-      final scan = scanImplementations(root.path, buildWorkspace());
+    test('resolves IDs written as contract constant references', () async {
+      final workspace = buildWorkspace();
+      await configureFixturePackages(root);
+      final scan = await scanImplementations(root.path, workspace);
       // logic.dart references FeatScan001RequirementIds.addition rather than
       // spelling the literal, which is how the examples are written.
       expect(scan.implementedRequirementIds, contains('RULE-SCAN-ADDITION'));
     });
 
-    test('a generated contract is never its own implementation', () {
-      final scan = scanImplementations(root.path, buildWorkspace());
+    test('a generated contract is never its own implementation', () async {
+      final workspace = buildWorkspace();
+      await configureFixturePackages(root);
+      final scan = await scanImplementations(root.path, workspace);
       // The contract declares RULE-SCAN-ADDITION as a constant, and logic.dart
       // claims the same ID through a reference to it. Exactly one claim must
       // exist: if the contract counted itself, the requirement would look
@@ -127,16 +397,20 @@ class BodyGuard {}
       );
     });
 
-    test('records only sources that contributed a claim', () {
-      final scan = scanImplementations(root.path, buildWorkspace());
+    test('records only sources that contributed a claim', () async {
+      final workspace = buildWorkspace();
+      await configureFixturePackages(root);
+      final scan = await scanImplementations(root.path, workspace);
       expect(
         scan.sourcePaths.map((path) => path.split(RegExp(r'[/\\]')).last),
         containsAll(['logic.dart', 'screen.dart']),
       );
     });
 
-    test('every claim carries the kind of annotation that made it', () {
-      final scan = scanImplementations(root.path, buildWorkspace());
+    test('every claim carries the kind of annotation that made it', () async {
+      final workspace = buildWorkspace();
+      await configureFixturePackages(root);
+      final scan = await scanImplementations(root.path, workspace);
       final byKind = <ImplementationKind, Set<String>>{};
       for (final claim in scan.claims) {
         byKind.putIfAbsent(claim.kind, () => <String>{}).add(claim.id);
@@ -147,8 +421,10 @@ class BodyGuard {}
       expect(byKind[ImplementationKind.binding], {'scan.addButton'});
     });
 
-    test('an empty workspace scans to the empty result', () {
-      final scan = scanImplementations(root.path, buildWorkspace());
+    test('an empty workspace scans to the empty result', () async {
+      final workspace = buildWorkspace();
+      await configureFixturePackages(root);
+      final scan = await scanImplementations(root.path, workspace);
       expect(ImplementationScan.empty.implementedRequirementIds, isEmpty);
       expect(scan.implementedRequirementIds, isNot(isEmpty));
     });
@@ -224,6 +500,7 @@ Feature: Scoping
 
     ZukeIndex buildIndex({
       Set<String> implemented = const {'RULE-ONE'},
+      String? claimTarget = 'lib',
       Map<String, List<String>> requirementTargets = const {},
       Map<String, String> packageTargets = const {'lib': 'backend'},
     }) {
@@ -240,6 +517,15 @@ Feature: Scoping
         controlIds: const {'CTRL-ONE'},
         bindingIds: const {'binding.one'},
         implementedRequirementIds: implemented,
+        // The claims are what the coverage decision reads; the flat set above is
+        // a summary. Passing null creates unpinned claims.
+        implementationClaims: [
+          for (final id in implemented)
+            ZukeImplementationClaim(
+              id: id,
+              target: claimTarget == null ? null : packageTargets[claimTarget],
+            ),
+        ],
         requirementTargets: requirementTargets,
         packageTargets: packageTargets,
       );
@@ -409,126 +695,6 @@ Feature: Scoping
       );
     });
   });
-
-  group('SourceConstants', () {
-    test('resolves bare, qualified, and list references', () {
-      final root = Directory.systemTemp.createTempSync('zuke-consts-');
-      addTearDown(() => deleteTemporaryDirectory(root));
-      final declarations = File('${root.path}/contracts.dart')
-        ..writeAsStringSync('''
-class Ids {
-  static const one = 'RULE-ONE';
-  static const many = ['RULE-TWO', 'RULE-THREE'];
-  static const qualified = 'RULE-FOUR';
-}
-''');
-      final constants = SourceConstants();
-      collectSourceConstants(declarations, constants);
-      expect(constants.values['one'], 'RULE-ONE');
-      expect(constants.values['Ids.one'], 'RULE-ONE');
-
-      // Exercise reference resolution with real AST nodes, the way an
-      // annotation argument arrives.
-      final uses = File('${root.path}/uses.dart')
-        ..writeAsStringSync('''
-final bare = Ids.one;
-final qualified = Ids.qualified;
-final listed = Ids.many;
-''');
-      final unit = parseString(
-        content: uses.readAsStringSync(),
-        path: uses.path,
-        throwIfDiagnostics: false,
-      ).unit;
-      final references = <String, Expression>{};
-      unit.accept(
-        _ReferenceCollector(
-          (name, expression) => references[name] = expression,
-        ),
-      );
-
-      expect(constants.valueOf(references['bare']!), 'RULE-ONE');
-      expect(constants.valueOf(references['qualified']!), 'RULE-FOUR');
-      expect(constants.idsForList(references['listed']!), [
-        'RULE-TWO',
-        'RULE-THREE',
-      ]);
-    });
-
-    test('resolves an inline list literal, not only a named constant', () {
-      final root = Directory.systemTemp.createTempSync('zuke-consts-inline-');
-      addTearDown(() => deleteTemporaryDirectory(root));
-      final file = File('${root.path}/inline.dart')
-        ..writeAsStringSync('''
-@Marker(['RULE-INLINE-A', 'RULE-INLINE-B'])
-class Inline {}
-''');
-      final constants = SourceConstants();
-      collectSourceConstants(file, constants);
-      final ids = collectAnnotationIds(
-        file,
-        constants,
-        annotationNames: const {'Marker'},
-        idField: 'requirementIds',
-      );
-      expect(ids, {'RULE-INLINE-A', 'RULE-INLINE-B'});
-    });
-
-    test('reads the named argument as well as the first positional one', () {
-      final root = Directory.systemTemp.createTempSync('zuke-consts-named-');
-      addTearDown(() => deleteTemporaryDirectory(root));
-      final file = File('${root.path}/named.dart')
-        ..writeAsStringSync('''
-@Marker(requirementIds: ['RULE-NAMED-A'])
-class Named {}
-
-@Single(value: 'ID-NAMED-B')
-class SingleNamed {}
-''');
-      final constants = SourceConstants();
-      collectSourceConstants(file, constants);
-
-      // The declared field is what identifies which argument to read, so the
-      // named form cannot be silently ignored — which would report nothing and
-      // read as a missing implementation.
-      expect(
-        collectAnnotationIds(
-          file,
-          constants,
-          annotationNames: const {'Marker'},
-          idField: 'requirementIds',
-        ),
-        {'RULE-NAMED-A'},
-      );
-      expect(
-        collectAnnotationIds(
-          file,
-          constants,
-          annotationNames: const {'Single'},
-          idField: 'value',
-          single: true,
-        ),
-        {'ID-NAMED-B'},
-      );
-    });
-  });
-}
-
-/// Collects each top-level variable's initializer, so a test can obtain real
-/// [Expression] nodes to resolve against.
-class _ReferenceCollector extends RecursiveAstVisitor<void> {
-  _ReferenceCollector(this.record);
-
-  final void Function(String name, Expression expression) record;
-
-  @override
-  void visitTopLevelVariableDeclaration(TopLevelVariableDeclaration node) {
-    for (final variable in node.variables.variables) {
-      final initializer = variable.initializer;
-      if (initializer != null) record(variable.name.lexeme, initializer);
-    }
-    super.visitTopLevelVariableDeclaration(node);
-  }
 }
 
 /// A workspace whose single feature is parsed from [feature].

@@ -113,7 +113,11 @@ class ZukeMissingTestVisitor extends SimpleAstVisitor<void> {
   final ZukeIndex index;
   final AnnotationReporter report;
 
-  ZukeMissingTestVisitor(this.index, this.report);
+  /// The target that owns the file being analyzed, or null when the index
+  /// cannot attribute it to a configured package.
+  final String? targetId;
+
+  ZukeMissingTestVisitor(this.index, this.report, {this.targetId});
 
   @override
   void visitAnnotation(Annotation node) {
@@ -125,10 +129,14 @@ class ZukeMissingTestVisitor extends SimpleAstVisitor<void> {
     final value = node.elementAnnotation?.computeConstantValue();
     if (value == null || !value.hasKnownValue) return;
     final ids = constantStrings(value, 'requirementIds') ?? const <String>[];
+    // Verification is target-scoped, so the flat set is not enough: a
+    // requirement tested only by the backend package is still untested for a
+    // Flutter file that implements it. Reading the claims keeps this in step
+    // with `zuke validate`, which resolves the same rule.
     final missing = ids.where(
       (id) =>
           index.requirementIds.contains(id) &&
-          !index.verifiedRequirementIds.contains(id),
+          !claimsSatisfyRequirement(index.verifiedClaims, id, targetId),
     );
     if (missing.isNotEmpty) report(node);
   }
@@ -182,9 +190,11 @@ class ZukeUnimplementedRequirementVisitor extends SimpleAstVisitor<void> {
       final id = initializer.stringValue;
       if (id == null || id.isEmpty) continue;
       if (_reported.contains(id)) continue;
-      if (!index.requirementIds.contains(id)) continue;
-      if (index.implementedRequirementIds.contains(id)) continue;
-      if (!index.appliesToTarget(id, targetId)) continue;
+      // [unimplemented] is the target-aware definition, already folded together
+      // with `appliesToTarget`. Testing the flat `implementedRequirementIds`
+      // instead would skip a requirement that only some other target implements,
+      // which is exactly the gap this rule exists to report.
+      if (!unimplemented.contains(id)) continue;
       _reported.add(id);
       report(variable, id);
     }

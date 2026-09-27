@@ -1,8 +1,8 @@
 import 'package:zuke_frontend/zuke_frontend.dart';
 
+import '../implementation_claims.dart';
 import '../ir.dart';
 import '../requirement_scopes.dart';
-import '../tooling/dart_extractor/zuke_index.dart';
 import 'validator.dart';
 
 /// Reports declared requirements that no extracted source implements.
@@ -19,30 +19,25 @@ class ImplementationCoverageValidator {
   }) {
     final messages = <ValidationMessage>[];
     final scopes = requirementTargetScopes(workspace);
-    // One flat set of claims, not one bucket per annotation role. Whether a
-    // requirement was implemented or presented does not change *whether* it is
-    // implemented, so a per-role key would only invite a reader to believe the
-    // two were checked separately.
-    //
-    // An entry is either a bare requirement ID — the symbol declared no target,
-    // so it cannot be pinned to one and satisfies every target — or
-    // `target|ID`.
-    final implemented = <String>{};
+    // Flattened into the index's claim type so the coverage decision below is
+    // literally the same function the editor rule calls. Encoding the target into
+    // a string key instead would be free to drift from it.
+    final implemented = <ZukeImplementationClaim>[];
     for (final symbol in extractedSymbols) {
       if (symbol.kind != ExtractedSymbolKind.requirementBoundary &&
           symbol.kind != ExtractedSymbolKind.presentationBoundary) {
         continue;
       }
       if (symbol.requirementIds.isEmpty) continue;
-      final target = symbol.target;
       for (final id in symbol.requirementIds) {
-        // A symbol with no target is not attributed to one, so it counts for
-        // every target — the same lenient direction the editor rule takes.
-        if (target == null || target.isEmpty) {
-          implemented.add(id);
-        } else {
-          implemented.add('$target|$id');
-        }
+        implemented.add(
+          ZukeImplementationClaim(
+            id: id,
+            target: symbol.target == null || symbol.target!.isEmpty
+                ? null
+                : symbol.target,
+          ),
+        );
       }
     }
 
@@ -51,20 +46,22 @@ class ImplementationCoverageValidator {
         final id = rule.metadata.id;
         if (id == null || id.isEmpty) continue;
         final targets = scopes[id] ?? const <String>[];
-        if (targets.isEmpty) {
-          if (_implementedAnywhere(implemented, id)) continue;
-        } else {
-          final anyTargetImplemented = targets.any(
-            (target) => _implementedIn(implemented, id, target),
-          );
-          if (anyTargetImplemented) continue;
+        final missingTargets = targets
+            .where(
+              (target) => !claimsSatisfyRequirement(implemented, id, target),
+            )
+            .toList();
+        if (targets.isEmpty
+            ? claimsSatisfyRequirement(implemented, id, null)
+            : missingTargets.isEmpty) {
+          continue;
         }
         messages.add(
           ValidationMessage(
             code: 'ZUKE-IMPL-001',
             message:
                 'Requirement "$id" is declared'
-                '${targets.isEmpty ? '' : ' for target(s) ${targets.join(", ")}'}'
+                '${targets.isEmpty ? '' : ' for target(s) ${missingTargets.join(", ")}'}'
                 ' but no @ImplementsRequirement or @PresentsRequirement '
                 'implements it',
             severity: Severity.warning,
@@ -79,21 +76,5 @@ class ImplementationCoverageValidator {
       }
     }
     return ValidationResult(warnings: messages);
-  }
-
-  bool _implementedAnywhere(Set<String> implemented, String requirementId) {
-    if (implemented.contains(requirementId)) return true;
-    return implemented.any((entry) => entry.endsWith('|$requirementId'));
-  }
-
-  bool _implementedIn(
-    Set<String> implemented,
-    String requirementId,
-    String target,
-  ) {
-    // A bare entry is a symbol with no target, which cannot be pinned to one
-    // and therefore satisfies every target.
-    if (implemented.contains(requirementId)) return true;
-    return implemented.contains('$target|$requirementId');
   }
 }

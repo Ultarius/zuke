@@ -1,8 +1,7 @@
-import 'dart:io';
-
 import 'package:zuke_frontend/zuke_frontend.dart';
 
-import 'tooling/source_constants.dart';
+import 'annotation_claim.dart';
+import 'workspace_annotation_scan.dart';
 
 /// Requirement IDs declared by `@VerifiesRequirement` plus the source files
 /// that contributed them, so generate can index verification coverage and
@@ -11,51 +10,43 @@ final class VerifiedRequirementScan {
   final Set<String> requirementIds;
   final List<String> sourcePaths;
 
+  /// Each verification, with the target owning the test file.
+  ///
+  /// Symmetric with [ImplementationScan.claims]. Dropping these would leave
+  /// verification target-blind, and a backend-only test would then satisfy a
+  /// Flutter package's requirement — the editor would report a missing test
+  /// that `zuke validate` considers covered.
+  final List<ImplementationClaim> claims;
+
+  factory VerifiedRequirementScan.fromScan(WorkspaceAnnotationScan scan) {
+    final claims = scan.claims
+        .where((claim) => claim.kind == ImplementationKind.verified)
+        .toList();
+    return VerifiedRequirementScan(
+      requirementIds: {for (final claim in claims) claim.id},
+      sourcePaths: scan.contributingPaths(claims),
+      claims: claims,
+    );
+  }
+
   const VerifiedRequirementScan({
     required this.requirementIds,
     required this.sourcePaths,
+    this.claims = const [],
   });
 }
 
-VerifiedRequirementScan scanVerifiedRequirements(
+/// Convenience entry point for callers that only need verification coverage.
+Future<VerifiedRequirementScan> scanVerifiedRequirements(
   String root,
-  WorkspaceDiscoveryResult workspace,
-) {
-  final requirementIds = <String>{};
-  final sourcePaths = <String>{};
-  final constants = SourceConstants();
-
-  // Two phases, and the order matters. Every file is scanned for constants
-  // first, then every list alias is resolved against the complete value map,
-  // and only then are annotations read. A list alias may reference constants
-  // declared in a file that sorts after the alias, so reading annotations
-  // during the walk would resolve it to nothing.
-  //
-  // Generated contracts are scanned first because annotations in the package
-  // roots routinely reference IDs declared in the contract files.
-  for (final file in generatedContractFiles(root, workspace)) {
-    collectSourceConstants(file, constants);
-  }
-  final annotationFiles = <File>[];
-  for (final file in packageDartFiles(root, workspace)) {
-    collectSourceConstants(file, constants);
-    if (!isGeneratedSource(file)) annotationFiles.add(file);
-  }
-  constants.resolveLists();
-
-  for (final file in annotationFiles) {
-    final ids = collectAnnotationIds(
-      file,
-      constants,
-      annotationNames: const {'VerifiesRequirement'},
-      idField: 'requirementIds',
-    );
-    if (ids.isEmpty) continue;
-    requirementIds.addAll(ids);
-    sourcePaths.add(file.absolute.path);
-  }
-  return VerifiedRequirementScan(
-    requirementIds: requirementIds,
-    sourcePaths: sourcePaths.toList()..sort(),
-  );
-}
+  WorkspaceDiscoveryResult workspace, {
+  Map<String, String> pendingContent = const {},
+  Set<String> generatedPaths = const {},
+}) async => VerifiedRequirementScan.fromScan(
+  await scanWorkspaceAnnotations(
+    root,
+    workspace,
+    pendingContent: pendingContent,
+    generatedPaths: generatedPaths,
+  ),
+);

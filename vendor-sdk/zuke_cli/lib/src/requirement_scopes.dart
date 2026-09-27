@@ -1,5 +1,25 @@
 import 'package:zuke_frontend/zuke_frontend.dart';
 
+import 'path_safety.dart';
+
+/// Package path to target ID for every configured package.
+///
+/// The single source of that mapping, so the implementation scan and the index
+/// cannot disagree about which target owns a file.
+Map<String, String> workspacePackageTargets(
+  WorkspaceDiscoveryResult workspace,
+) {
+  final result = <String, String>{};
+  for (final entry in workspace.config.workspaceTargets.entries) {
+    for (final package in entry.value.packages) {
+      final path = normalizePackagePath(package.path);
+      if (path.isEmpty) continue;
+      result[path] = entry.key;
+    }
+  }
+  return result;
+}
+
 /// The targets each declared requirement ID applies to.
 ///
 /// Specifications declare `targets:` once per feature and rarely repeat it on a

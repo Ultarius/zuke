@@ -50,7 +50,11 @@ class ZukeAnalyzer {
       if (isImplementation) {
         for (final requirementId in symbol.requirementIds) {
           if (index.requirementIds.contains(requirementId) &&
-              !index.verifiedRequirementIds.contains(requirementId)) {
+              !claimsSatisfyRequirement(
+                index.verifiedClaims,
+                requirementId,
+                symbol.target,
+              )) {
             diagnostics.add(
               ZukeDiagnostic(
                 code: 'ZUKE-MISSING-TEST',

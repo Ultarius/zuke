@@ -40,10 +40,26 @@ bool pathEqualsOrWithin(String parent, String child) {
 /// Documentation fixtures under `test/guide_snippets/` intentionally restate
 /// production annotations for the integration guide. They are not
 /// implementation sources and must not contribute binding identities.
+///
+/// Matches the `guide_snippets` segment anywhere in the path rather than only
+/// where a separator precedes it, so a workspace whose fixtures sit at the root
+/// instead of under `test/` is still excluded.
 bool isGuideSnippetFixture(String path) {
   final normalized = path.replaceAll('\\', '/');
-  return normalized.contains('/guide_snippets/');
+  return '/$normalized/'.contains('/guide_snippets/');
 }
+
+/// A filesystem path reduced to a comparison key.
+///
+/// Forward slashes so keys built with either separator agree, and lower case on
+/// Windows only, so differently cased spellings of the same path collide there
+/// while remaining distinct on a case-sensitive filesystem.
+///
+/// Distinct from a plain slash conversion: use that where the spelling has to be
+/// preserved, such as keying content the caller supplied.
+String pathComparisonKey(String path) => Platform.isWindows
+    ? path.replaceAll('\\', '/').toLowerCase()
+    : path.replaceAll('\\', '/');
 
 /// Normalizes a workspace-relative path to forward slashes.
 ///
@@ -73,3 +89,19 @@ String normalizeRelativePath(String path) {
   }
   return normalized;
 }
+
+/// Normalizes a workspace-relative *package* path, as declared by a
+/// `zuke.yaml` target's `packages:` entries.
+///
+/// Delegates to [normalizeRelativePath] so the target scoping, the source-root
+/// scan, and the index cannot disagree about what `./apps/api`, `apps/api/` and
+/// `.\apps\api` all name. Those three used to normalize separately and
+/// disagreed on the root-ish spellings, which is how a package declared as `./`
+/// could be dropped by one reader and kept as the workspace root by another.
+///
+/// A path that reduces to nothing denotes the workspace root, which is how a
+/// single-package workspace declares its only package, and that is what
+/// [normalizeRelativePath] already returns for `.`, `./` and `./.`. An empty
+/// input stays empty, and stays meaningful: it is the one spelling that means
+/// "no path at all" rather than "the root".
+String normalizePackagePath(String path) => normalizeRelativePath(path.trim());

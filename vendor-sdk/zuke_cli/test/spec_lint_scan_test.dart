@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:test/test.dart';
+import 'package:zuke_cli/src/implementation_claims.dart';
 import 'package:zuke_cli/src/spec_lint_scan.dart';
 import 'package:zuke_cli/src/tooling/dart_extractor/zuke_index.dart';
 import 'package:zuke_frontend/zuke_frontend.dart';
@@ -109,10 +110,16 @@ Feature: Dashboard
 
     test('a root that was not canonicalized cannot leak an absolute path', () {
       // `Directory('.').absolute.path` is `.../ws/.`, with a trailing `\.` that
-      // no discovered path starts with. Relativizing against it fails, and the
-      // old fallback then recorded the absolute path — which made the index
-      // digest differ per invocation and per machine. A path that cannot be
-      // expressed relatively is now dropped instead.
+      // no discovered path starts with literally. Relativizing against it used to
+      // fail, and the old fallback then recorded the absolute path -- which made
+      // the index digest differ per invocation and per machine.
+      //
+      // The spelling is now resolved before comparing, so this root yields the
+      // same findings as the canonical one. What this test protects is that they
+      // are identical and workspace-relative, not that they are absent: a root
+      // that merely cannot be matched must not silently drop real findings,
+      // because on macOS and on Windows 8.3 aliases the canonical spelling is
+      // the one a caller rarely passes.
       final workspace = buildWorkspace(featureTargets: const ['nope']);
       final uncanonical = '${root.path}\\.';
       expect(
@@ -121,10 +128,35 @@ Feature: Dashboard
         reason: 'guards the premise of this test',
       );
 
+      final canonical = canonicalizeRoot(root.path);
+      final viaUncanonical = scanSpecDiagnostics(workspace, root: uncanonical);
+      final viaCanonical = scanSpecDiagnostics(workspace, root: canonical);
+
+      expect(viaCanonical, isNotEmpty);
       expect(
-        scanSpecDiagnostics(workspace, root: uncanonical),
+        viaUncanonical.map((d) => d.key),
+        viaCanonical.map((d) => d.key),
+        reason: 'a non-canonical spelling must not change the findings',
+      );
+      for (final diagnostic in viaUncanonical) {
+        expect(
+          diagnostic.file.startsWith('/') ||
+              diagnostic.file.contains(':\\') ||
+              diagnostic.file.contains(':\\\\'),
+          isFalse,
+          reason: 'no finding may carry an absolute path: ${diagnostic.file}',
+        );
+      }
+    });
+
+    test('a root unrelated to the workspace records nothing', () {
+      // The counterpart to the case above: a root that genuinely does not
+      // contain the workspace still yields nothing, so resolving spellings has
+      // not turned every path into a match.
+      final workspace = buildWorkspace(featureTargets: const ['nope']);
+      expect(
+        scanSpecDiagnostics(workspace, root: '${root.path}-not-a-real-dir'),
         isEmpty,
-        reason: 'no finding may be recorded with an un-relativizable root',
       );
     });
 
@@ -214,6 +246,102 @@ Feature: Dashboard
       final index = buildIndex();
       expect(index.toJson().containsKey('specDiagnostics'), isFalse);
       expect(index.toJson().containsKey('featureFiles'), isFalse);
+    });
+
+    group('implementation claims are authoritative', () {
+      ZukeIndex buildClaimIndex({
+        Iterable<String> implementedRequirementIds = const {},
+        Iterable<ZukeImplementationClaim> implementationClaims = const {},
+      }) {
+        final config = File('${root.path}/zuke.yaml')
+          ..writeAsStringSync('schemaVersion: 3\n');
+        final manifest = File('${root.path}/generated-manifest.json')
+          ..writeAsStringSync('{"files":[]}');
+        return ZukeIndex.create(
+          root: root.path,
+          inputPaths: [config.path],
+          generatedManifestContent: manifest.readAsStringSync(),
+          generatedManifestPath: 'generated-manifest.json',
+          requirementIds: const {'RULE-ONE'},
+          controlIds: const {},
+          bindingIds: const {},
+          implementedRequirementIds: implementedRequirementIds,
+          implementationClaims: implementationClaims,
+          packageTargets: const {
+            'apps/api': 'backend',
+            'apps/mobile': 'flutter',
+          },
+          requirementTargets: const {
+            'RULE-ONE': ['backend', 'flutter'],
+          },
+        );
+      }
+
+      test('a flat set with no claims backfills as unpinned', () {
+        // An index generated before claims existed still has to answer the
+        // target question, and unpinned is the safe direction: it satisfies
+        // every target rather than inventing a gap.
+        final index = buildClaimIndex(
+          implementedRequirementIds: const {'RULE-ONE'},
+        );
+        expect(index.implementationClaims, hasLength(1));
+        expect(index.implementationClaims.single.id, 'RULE-ONE');
+        expect(index.implementationClaims.single.target, isNull);
+        expect(
+          claimsSatisfyRequirement(
+            index.implementationClaims,
+            'RULE-ONE',
+            'flutter',
+          ),
+          isTrue,
+        );
+        expect(
+          claimsSatisfyRequirement(
+            index.implementationClaims,
+            'RULE-ONE',
+            'backend',
+          ),
+          isTrue,
+        );
+      });
+
+      test('a stale flat set cannot rescue an unclaimed requirement', () {
+        // Claims win outright. If the flat set says implemented but no claim
+        // backs it for this target, the requirement is still unimplemented.
+        final index = buildClaimIndex(
+          implementedRequirementIds: const {'RULE-ONE'},
+          implementationClaims: const [
+            ZukeImplementationClaim(id: 'RULE-ONE', target: 'backend'),
+          ],
+        );
+        expect(
+          claimsSatisfyRequirement(
+            index.implementationClaims,
+            'RULE-ONE',
+            'flutter',
+          ),
+          isFalse,
+        );
+        expect(
+          claimsSatisfyRequirement(
+            index.implementationClaims,
+            'RULE-ONE',
+            'backend',
+          ),
+          isTrue,
+        );
+      });
+
+      test('the backfill survives a JSON round trip', () {
+        final restored = ZukeIndex.fromJson(
+          Map<Object?, Object?>.from(
+            jsonDecode(jsonEncode(buildClaimIndex().toJson())) as Map,
+          ),
+        );
+        // Nothing implemented anything here, so the backfill has nothing to
+        // add and must not invent a claim.
+        expect(restored.implementationClaims, isEmpty);
+      });
     });
 
     test('duplicate findings collapse and order is deterministic', () {

@@ -4,6 +4,7 @@ library;
 import 'package:analyzer/dart/constant/value.dart';
 import 'package:analyzer/dart/element/element.dart';
 
+export '../implementation_claims.dart';
 export 'dart_extractor/zuke_index.dart';
 
 const zukeAnnotationLibrary = 'package:zuke_annotations/zuke_annotations.dart';

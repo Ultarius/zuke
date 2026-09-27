@@ -128,9 +128,26 @@ class ZukeMissingTestRule extends AnalysisRule {
     RuleVisitorRegistry registry,
     RuleContext context,
   ) {
-    final index = _indexStateFor(context.definingUnit.file.path).index;
+    final path = context.definingUnit.file.path;
+    final state = _indexStateFor(path);
+    final index = state.index;
     if (index != null) {
-      registry.addAnnotation(this, ZukeMissingTestVisitor(index, reportAtNode));
+      // Verification is target-scoped, so the rule has to know which target
+      // owns the implementation being judged. An unattributable file resolves
+      // to null, which the claim rule treats as "satisfies every target", so
+      // missing scoping metadata under-reports rather than inventing a gap.
+      final root = state.workspaceRoot;
+      final relative = root == null
+          ? null
+          : ZukeIndex.relativeToRoot(root, path);
+      registry.addAnnotation(
+        this,
+        ZukeMissingTestVisitor(
+          index,
+          reportAtNode,
+          targetId: relative == null ? null : index.targetForPath(relative),
+        ),
+      );
     }
   }
 }

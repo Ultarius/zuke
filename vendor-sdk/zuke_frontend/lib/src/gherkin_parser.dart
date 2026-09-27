@@ -1125,38 +1125,51 @@ class GherkinParser {
     });
 
     // List entries, plus the identifying fields of list-of-mapping entries.
-    void recordList(String key, List<_FieldKey> entryFields) {
+    //
+    // [scalarField] is the field a list of plain scalars belongs to. It is
+    // named explicitly rather than inferred, because a list of scalars carries no
+    // field of its own to read back: defaulting it would file every scalar list
+    // under one field, and a finding about a PBI would then resolve to whatever
+    // happened to share its value.
+    void recordList(
+      String key,
+      MetadataField scalarField,
+      List<_FieldKey> entryFields,
+    ) {
       final listNode = root.nodes[key];
       if (listNode is! YamlList) return;
       for (final item in listNode.nodes) {
-        if (entryFields.isEmpty) {
-          record(MetadataField.targets, item, textOf(item));
+        if (item is YamlMap) {
+          for (final entry in entryFields) {
+            final node = item.nodes[entry.key];
+            record(entry.field, node, textOf(node));
+          }
           continue;
         }
-        if (item is! YamlMap) continue;
-        for (final entry in entryFields) {
-          final node = item.nodes[entry.key];
-          record(entry.field, node, textOf(node));
-        }
+        // `requiredEvidence` accepts either a scalar per entry or a mapping.
+        record(scalarField, item, textOf(item));
       }
     }
 
-    recordList('targets', const []);
-    recordList('pbis', const []);
-    recordList('events', const []);
-    recordList('featureFlags', const []);
-    recordList('requiredEvidence', const []);
-    recordList('performance', const [
+    recordList('targets', MetadataField.targets, const []);
+    recordList('pbis', MetadataField.pbis, const []);
+    recordList('events', MetadataField.events, const []);
+    recordList('featureFlags', MetadataField.featureFlags, const []);
+    recordList('requiredEvidence', MetadataField.requiredEvidence, const [
+      _FieldKey(MetadataField.requiredEvidence, 'type'),
+      _FieldKey(MetadataField.requiredEvidence, 'evidenceType'),
+    ]);
+    recordList('performance', MetadataField.performanceId, const [
       _FieldKey(MetadataField.performanceId, 'id'),
       _FieldKey(MetadataField.performanceTarget, 'target'),
       _FieldKey(MetadataField.performanceProfile, 'profile'),
     ]);
-    recordList('requires', const [
+    recordList('requires', MetadataField.requiresId, const [
       _FieldKey(MetadataField.requiresId, 'id'),
       _FieldKey(MetadataField.requiresTarget, 'target'),
       _FieldKey(MetadataField.requiresCardinality, 'cardinality'),
     ]);
-    recordList('endpoints', const [
+    recordList('endpoints', MetadataField.endpointId, const [
       _FieldKey(MetadataField.endpointId, 'id'),
       _FieldKey(MetadataField.endpointTarget, 'target'),
       _FieldKey(MetadataField.endpointMethod, 'method'),

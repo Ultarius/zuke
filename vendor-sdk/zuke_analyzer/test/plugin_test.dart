@@ -305,6 +305,9 @@ class Methods {
           controlIds: {'CTRL-KNOWN'},
           bindingIds: {'binding.known'},
           verifiedRequirementIds: {'RULE-KNOWN'},
+          // A hand-built index has to carry the claim itself; only the ZukeIndex
+          // factories backfill claims from the flat set.
+          verifiedClaims: [ZukeImplementationClaim(id: 'RULE-KNOWN')],
         );
         final missingWhenVerified = <Object>[];
         _walk(
@@ -368,6 +371,11 @@ abstract final class FeatDemo001RequirementIds {
           controlIds: {},
           bindingIds: {},
           implementedRequirementIds: {'RULE-DEMO-IMPLEMENTED'},
+          // A hand-built index has to carry the claim itself; only the
+          // ZukeIndex factories backfill claims from the flat set.
+          implementationClaims: [
+            ZukeImplementationClaim(id: 'RULE-DEMO-IMPLEMENTED'),
+          ],
         );
 
         final reported = <String>[];
@@ -456,6 +464,135 @@ abstract final class FeatScope001RequirementIds {
       // An unattributable target never narrows: under-reporting is recoverable,
       // hiding a requirement because scoping metadata was missing is not.
       expect(reportFor(null), ['RULE-SCOPE-BACKEND', 'RULE-SCOPE-BOTH']);
+    });
+
+    test('a requirement claimed by another target is still reported', () async {
+      File('${tempDir.path}/pubspec.yaml').writeAsStringSync(
+        'name: cross_target_fixture\nenvironment:\n  sdk: ">=3.10.0 <4.0.0"\n',
+      );
+      final generated = Directory('${tempDir.path}/lib/src/generated')
+        ..createSync(recursive: true);
+      final contract = File('${generated.path}/feat_scope_002_contracts.g.dart')
+        ..writeAsStringSync('''
+abstract final class FeatScope002RequirementIds {
+  static const flutterOnly = 'RULE-SCOPE-FLUTTER';
+}
+''');
+      final normalizedRoot = tempDir.resolveSymbolicLinksSync();
+      final normalizedContract = contract.resolveSymbolicLinksSync();
+      final collection = AnalysisContextCollection(
+        includedPaths: [normalizedRoot],
+      );
+      addTearDown(collection.dispose);
+      final resolved = await collection
+          .contextFor(normalizedContract)
+          .currentSession
+          .getResolvedUnit(normalizedContract);
+      final unit = (resolved as ResolvedUnitResult).unit;
+
+      // The flat implemented set contains the ID, because *something*
+      // implemented it. Only the claims say which target did.
+      const index = ZukeIndex(
+        inputDigest: 'input',
+        generatedManifestDigest: 'manifest',
+        generatedManifestPath: 'manifest.json',
+        inputs: [],
+        requirementIds: {'RULE-SCOPE-FLUTTER'},
+        controlIds: {},
+        bindingIds: {},
+        implementedRequirementIds: {'RULE-SCOPE-FLUTTER'},
+        requirementTargets: {
+          'RULE-SCOPE-FLUTTER': ['flutter'],
+        },
+        packageTargets: {'apps/api': 'backend', 'apps/mobile': 'flutter'},
+        implementationClaims: [
+          ZukeImplementationClaim(id: 'RULE-SCOPE-FLUTTER', target: 'backend'),
+        ],
+      );
+
+      List<String> reportFor(String? targetId) {
+        final found = <String>[];
+        _walk(
+          unit,
+          ZukeUnimplementedRequirementVisitor(
+            index: index,
+            targetId: targetId,
+            report: (_, id) => found.add(id),
+          ),
+        );
+        return found;
+      }
+
+      // The backend package is the only one claiming the requirement, and it
+      // does not apply to the backend, so backend is satisfied. A flutter file
+      // has implemented nothing that covers its own requirement and must say so:
+      // reading the flat set here would suppress the finding entirely, and the
+      // editor would disagree with `zuke validate`.
+      expect(reportFor('backend'), isEmpty);
+      expect(reportFor('flutter'), ['RULE-SCOPE-FLUTTER']);
+      // An unpinned claim satisfies every target, so an unattributable file
+      // never narrows.
+      expect(reportFor(null), isEmpty);
+    });
+
+    test('a test verified for another target does not satisfy this one', () async {
+      File('${tempDir.path}/pubspec.yaml').writeAsStringSync(
+        'name: verification_target_fixture\nenvironment:\n  sdk: ">=3.10.0 <4.0.0"\n',
+      );
+      final generated = Directory('${tempDir.path}/lib/src/generated')
+        ..createSync(recursive: true);
+      final source = File('${generated.path}/service.dart')
+        ..writeAsStringSync('''
+import 'package:zuke_annotations/zuke_annotations.dart';
+
+@ImplementsRequirement(['RULE-VERIFY-FLUTTER'])
+void service() {}
+''');
+      final normalizedRoot = tempDir.resolveSymbolicLinksSync();
+      final collection = AnalysisContextCollection(
+        includedPaths: [normalizedRoot],
+      );
+      addTearDown(collection.dispose);
+      final resolved = await collection
+          .contextFor(source.resolveSymbolicLinksSync())
+          .currentSession
+          .getResolvedUnit(source.resolveSymbolicLinksSync());
+      final unit = (resolved as ResolvedUnitResult).unit;
+
+      // The flat verified set contains the ID because the backend package has a
+      // test for it. Only the claims say which target that test covers.
+      const index = ZukeIndex(
+        inputDigest: 'input',
+        generatedManifestDigest: 'manifest',
+        generatedManifestPath: 'manifest.json',
+        inputs: [],
+        requirementIds: {'RULE-VERIFY-FLUTTER'},
+        controlIds: {},
+        bindingIds: {},
+        verifiedRequirementIds: {'RULE-VERIFY-FLUTTER'},
+        verifiedClaims: [
+          ZukeImplementationClaim(id: 'RULE-VERIFY-FLUTTER', target: 'backend'),
+        ],
+      );
+
+      List<String> reportFor(String? targetId) {
+        final found = <String>[];
+        _walk(
+          unit,
+          ZukeMissingTestVisitor(
+            index,
+            (_) => found.add('reported'),
+            targetId: targetId,
+          ),
+        );
+        return found;
+      }
+
+      // The only test belongs to the backend, so a flutter file implementing the
+      // requirement genuinely has no test and must be told; the backend file's
+      // test satisfies the backend.
+      expect(reportFor('flutter'), ['reported']);
+      expect(reportFor('backend'), isEmpty);
     });
 
     test('spec findings are reported on the owning feature contract', () async {

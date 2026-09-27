@@ -1,9 +1,13 @@
 {
   "kind": "zuke.analyzer-index",
-  "inputDigest": "sha256:8ec9e97301610a5948f0e2718eca706099d3de59003ab1a5ec87ee8316093078",
+  "inputDigest": "sha256:95e1ea51c09cbb7645786448d7c9fc3f364a9981d89c317f1a1c2ea5aea5b593",
   "generatedManifestDigest": "sha256:5282d1e887a3b5186d2fe75d9b4ba8ddf4c3697ba551746ccbfd9503c9e081b2",
   "generatedManifestPath": "lib/src/.zuke-generated.json",
   "inputs": [
+    {
+      "path": "lib/main.dart",
+      "digest": "sha256:f7fa373e86e104a084d599d51aa0de5b175e5f2dd2cb31e81fca45b48d6afee1"
+    },
     {
       "path": "lib/src/todo_bindings.dart",
       "digest": "sha256:95559388c25137124df4bc6d0ff01b971d0d524737612b716163b8ed246351ff"
@@ -15,6 +19,10 @@
     {
       "path": "lib/src/todo_screen.dart",
       "digest": "sha256:3f25b7fda2aeec6128dfab02e99c6edd787473a11b3da6317378bb26b534fd0a"
+    },
+    {
+      "path": "lib/todo_app.dart",
+      "digest": "sha256:625a18dde3a74c61e8f8785bda50cae8e3c8a3b7674570a9df6f46aba729d6e9"
     },
     {
       "path": "policies/project-policy.yaml",
@@ -45,8 +53,16 @@
       "digest": "sha256:12236cee08854945126b2490d0670c0909d0900c5a335480302aa35f5915b264"
     },
     {
+      "path": "test/support/todo_driver.dart",
+      "digest": "sha256:26cf75da960694321a01b8166597f9e4c9e4b89fea08651019454a395c7b7730"
+    },
+    {
       "path": "test/todo_controller_test.dart",
       "digest": "sha256:61a4acc86c94aa0b219bfea9816ab795a2db5f4263790208db530ef63a80c5e3"
+    },
+    {
+      "path": "test/todo_widget_test.dart",
+      "digest": "sha256:c46e2164c1d4a4637e65e1a580bae89d704b2f00b687db09a4bd1c1a328510cc"
     },
     {
       "path": "zuke.yaml",
@@ -69,6 +85,20 @@
     "specs/features/todo.feature",
     "specs/registry/pbis.yaml",
     "specs/registry/retired-ids.yaml"
+  ],
+  "sourceRoots": [
+    "lib",
+    "test"
+  ],
+  "sourcePaths": [
+    "lib/main.dart",
+    "lib/src/todo_bindings.dart",
+    "lib/src/todo_controller.dart",
+    "lib/src/todo_screen.dart",
+    "lib/todo_app.dart",
+    "test/support/todo_driver.dart",
+    "test/todo_controller_test.dart",
+    "test/todo_widget_test.dart"
   ],
   "requirementIds": [
     "FEAT-TODO-001",
@@ -130,6 +160,70 @@
   "packageTargets": {
     ".": "flutter"
   },
+  "implementationClaims": [
+    {
+      "id": "CTRL-TODO-ACCESSIBLE",
+      "target": "flutter"
+    },
+    {
+      "id": "CTRL-TODO-VALIDATION",
+      "target": "flutter"
+    },
+    {
+      "id": "RULE-TODO-ADD-ITEM",
+      "target": "flutter"
+    },
+    {
+      "id": "RULE-TODO-COMPLETE-ITEM",
+      "target": "flutter"
+    },
+    {
+      "id": "todo.addTaskButton",
+      "target": "flutter"
+    },
+    {
+      "id": "todo.clearCompletedButton",
+      "target": "flutter"
+    },
+    {
+      "id": "todo.emptyStateMessage",
+      "target": "flutter"
+    },
+    {
+      "id": "todo.errorMessage",
+      "target": "flutter"
+    },
+    {
+      "id": "todo.taskCountDisplay",
+      "target": "flutter"
+    },
+    {
+      "id": "todo.taskInput",
+      "target": "flutter"
+    },
+    {
+      "id": "todo.taskItemCheckbox",
+      "target": "flutter"
+    },
+    {
+      "id": "todo.taskItemText",
+      "target": "flutter"
+    },
+    {
+      "id": "todo.taskList",
+      "target": "flutter"
+    }
+  ],
+  "verifiedClaims": [
+    {
+      "id": "RULE-TODO-ADD-ITEM",
+      "target": "flutter"
+    },
+    {
+      "id": "RULE-TODO-COMPLETE-ITEM",
+      "target": "flutter"
+    }
+  ],
   "featureFiles": {
     "FEAT-TODO-001": "lib/src/generated/feat_todo_001_contracts.g.dart"
   }

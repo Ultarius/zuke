@@ -115,6 +115,7 @@ Feature: Coverage
         extractedSymbols: [
           implementation('RULE-COV-ONE'),
           implementation('RULE-COV-TWO'),
+          implementation('RULE-COV-TWO', target: 'flutter'),
         ],
       );
       expect(result.warnings, isEmpty);
@@ -130,16 +131,16 @@ Feature: Coverage
             kind: ExtractedSymbolKind.presentationBoundary,
           ),
           implementation('RULE-COV-TWO'),
+          implementation('RULE-COV-TWO', target: 'flutter'),
         ],
       );
       expect(result.warnings, isEmpty);
     });
 
-    test('scopes implementation to the target that owns the requirement', () {
+    test('reports each declared target still missing an implementation', () {
       final workspace = buildWorkspace();
       // RULE-COV-ONE narrows to backend, so only a backend implementation
-      // satisfies it. RULE-COV-TWO inherits the feature's targets, so a flutter
-      // implementation satisfies it.
+      // satisfies it. RULE-COV-TWO requires coverage for both declared targets.
       final result = ImplementationCoverageValidator().validate(
         workspace,
         extractedSymbols: [
@@ -147,7 +148,10 @@ Feature: Coverage
           implementation('RULE-COV-TWO', target: 'flutter'),
         ],
       );
-      expect(result.warnings, isEmpty);
+      expect(result.warnings, hasLength(1));
+      expect(result.warnings.single.message, contains('RULE-COV-TWO'));
+      expect(result.warnings.single.message, contains('target(s) backend'));
+      expect(result.warnings.single.message, isNot(contains('flutter')));
     });
 
     test('an implementation in the wrong target does not count', () {
@@ -158,7 +162,7 @@ Feature: Coverage
         workspace,
         extractedSymbols: [
           implementation('RULE-COV-ONE', target: 'flutter'),
-          implementation('RULE-COV-TWO', target: 'backend'),
+          implementation('RULE-COV-TWO', target: null),
         ],
       );
       expect(result.warnings, hasLength(1));

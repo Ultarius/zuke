@@ -1,9 +1,13 @@
 {
   "kind": "zuke.analyzer-index",
-  "inputDigest": "sha256:aa1efc5bf5b4adf62ccbb187333fa579d4826e01d4140d61b4124b9403f83b82",
+  "inputDigest": "sha256:e9a19353b3f38552c881a48e27ded656b0e93da2f2a3746bed72831187f771c4",
   "generatedManifestDigest": "sha256:8336f0f6e268574768ca81bf98c37b6527fe5eb6dcd87b88c520b1e98005dc30",
   "generatedManifestPath": "lib/src/.zuke-generated.json",
   "inputs": [
+    {
+      "path": "lib/library_catalog.dart",
+      "digest": "sha256:d5800229a6857cc37e8a549e9c80b1fe514099e9e91c6f1334259cd06da4464c"
+    },
     {
       "path": "lib/src/branch_peer_link.dart",
       "digest": "sha256:c1b78a0864466a5c8dd59e59ef59a43d4087748c7f96f06bdd62013540b7a322"
@@ -49,6 +53,22 @@
       "digest": "sha256:df7d44baffd91eb7941e72c151856bf913a8a6446649d3c9625aa398e89dc0ee"
     },
     {
+      "path": "test/library_gherkin_test.dart",
+      "digest": "sha256:724a2388d5acc6646099661aaff27ccde89669688af594be096db1c89e63dae6"
+    },
+    {
+      "path": "test/support/library_fixtures.dart",
+      "digest": "sha256:491aa3ac9edf36cbcc561200d19b1ddbe9508585bff2140cd7e0b98459368201"
+    },
+    {
+      "path": "test/support/library_gherkin_steps.dart",
+      "digest": "sha256:af35317bf80e878a5c05697c817dd40f317e0eea99129dcc8fabb0144c5ec78f"
+    },
+    {
+      "path": "test/support/library_world.dart",
+      "digest": "sha256:2d22037c53ab729a03c9225381c5b13c8ecf72b3311a0fbd75973cb99ede7bed"
+    },
+    {
       "path": "zuke.yaml",
       "digest": "sha256:8bfd3db7f50549b65df93800dae4b5b72fdf8273ffe29d83c618f44940ebe316"
     }
@@ -69,6 +89,21 @@
     "specs/features/library_catalog.feature",
     "specs/registry/pbis.yaml",
     "specs/registry/retired-ids.yaml"
+  ],
+  "sourceRoots": [
+    "lib",
+    "test"
+  ],
+  "sourcePaths": [
+    "lib/library_catalog.dart",
+    "lib/src/branch_peer_link.dart",
+    "lib/src/catalog_bindings.dart",
+    "lib/src/checkout_controller.dart",
+    "test/checkout_controller_test.dart",
+    "test/library_gherkin_test.dart",
+    "test/support/library_fixtures.dart",
+    "test/support/library_gherkin_steps.dart",
+    "test/support/library_world.dart"
   ],
   "requirementIds": [
     "FEAT-LIBRARY-001",
@@ -126,6 +161,62 @@
   "packageTargets": {
     ".": "catalog"
   },
+  "implementationClaims": [
+    {
+      "id": "CTRL-LIBRARY-ISBN-VALIDATION",
+      "target": "catalog"
+    },
+    {
+      "id": "RULE-LIBRARY-BOOK-RETURN",
+      "target": "catalog"
+    },
+    {
+      "id": "RULE-LIBRARY-BRANCH-PEER",
+      "target": "catalog"
+    },
+    {
+      "id": "RULE-LIBRARY-CHECKOUT",
+      "target": "catalog"
+    },
+    {
+      "id": "library.checkoutButton",
+      "target": "catalog"
+    },
+    {
+      "id": "library.errorMessage",
+      "target": "catalog"
+    },
+    {
+      "id": "library.isbnInput",
+      "target": "catalog"
+    },
+    {
+      "id": "library.loanCountDisplay",
+      "target": "catalog"
+    },
+    {
+      "id": "library.loanList",
+      "target": "catalog"
+    },
+    {
+      "id": "library.statusMessage",
+      "target": "catalog"
+    }
+  ],
+  "verifiedClaims": [
+    {
+      "id": "RULE-LIBRARY-BOOK-RETURN",
+      "target": "catalog"
+    },
+    {
+      "id": "RULE-LIBRARY-BRANCH-PEER",
+      "target": "catalog"
+    },
+    {
+      "id": "RULE-LIBRARY-CHECKOUT",
+      "target": "catalog"
+    }
+  ],
   "featureFiles": {
     "FEAT-LIBRARY-001": "lib/src/generated/feat_library_001_contracts.g.dart"
   }

@@ -77,6 +77,32 @@ void main() {
       return parsed.features.single;
     }
 
+    test('mapping evidence entries retain their type positions', () {
+      final parsed = parse([
+        '# spec-begin',
+        '# schemaVersion: 1',
+        '# id: FEAT-EVIDENCE-POS',
+        '# requiredEvidence:',
+        '#   - type: domain',
+        '#   - evidenceType: security',
+        '# spec-end',
+        '@FEAT-EVIDENCE-POS',
+        'Feature: Evidence positions',
+      ]);
+      expect(
+        parsed.metadata
+            .locationOf(MetadataField.requiredEvidence, 'domain')
+            ?.line,
+        5,
+      );
+      expect(
+        parsed.metadata
+            .locationOf(MetadataField.requiredEvidence, 'security')
+            ?.line,
+        6,
+      );
+    });
+
     test('a value maps to the line it was written on', () {
       final parsed = parse([
         '# spec-begin',
@@ -157,6 +183,68 @@ void main() {
       // A lookup that knows only the value is ambiguous, and says so rather than
       // guessing.
       expect(parsed.metadata.locationOfAny('flutter'), isNull);
+    });
+
+    test('each scalar list records under its own field', () {
+      // A list of scalars carries no field to read back, so the field has to be
+      // named. Filing every scalar list under one field makes a PBI's location
+      // unreachable, and a finding about it silently falls back to the block.
+      final parsed = parse([
+        '# spec-begin',
+        '# schemaVersion: 1',
+        '# id: FEAT-POS-008',
+        '# targets:',
+        '#   - flutter',
+        '# pbis:',
+        '#   - PBI-ONE',
+        '# events:',
+        '#   - event.alpha',
+        '# featureFlags:',
+        '#   - flag.beta',
+        '# requiredEvidence:',
+        '#   - screenshot',
+        '# spec-end',
+        '@FEAT-POS-008',
+        'Feature: Positions',
+        '  # rule-spec-begin',
+        '  # id: RULE-POS-EIGHT',
+        '  # rule-spec-end',
+        '  @RULE-POS-EIGHT',
+        '  Rule: Eight',
+        '    @SCN-POS-008',
+        '    Scenario: Works',
+        '      Given a step',
+      ]);
+
+      expect(
+        parsed.metadata.locationOf(MetadataField.targets, 'flutter')?.line,
+        5,
+      );
+      expect(
+        parsed.metadata.locationOf(MetadataField.pbis, 'PBI-ONE')?.line,
+        7,
+      );
+      expect(
+        parsed.metadata.locationOf(MetadataField.events, 'event.alpha')?.line,
+        9,
+      );
+      expect(
+        parsed.metadata
+            .locationOf(MetadataField.featureFlags, 'flag.beta')
+            ?.line,
+        11,
+      );
+      expect(
+        parsed.metadata
+            .locationOf(MetadataField.requiredEvidence, 'screenshot')
+            ?.line,
+        13,
+      );
+      // And none of them leaked into another field's map.
+      expect(
+        parsed.metadata.locationOf(MetadataField.targets, 'PBI-ONE'),
+        isNull,
+      );
     });
 
     test('a value declared once resolves without naming its field', () {

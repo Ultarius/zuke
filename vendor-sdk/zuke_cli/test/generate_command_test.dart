@@ -6,7 +6,9 @@ import 'package:args/args.dart';
 import 'package:zuke_cli/zuke_cli.dart';
 import 'package:test/test.dart';
 import 'package:zuke_cli/tooling.dart';
+import 'package:zuke_frontend/zuke_frontend.dart';
 import 'cli_test_helper.dart';
+import 'support/resolved_workspace.dart';
 
 void main() {
   group('GenerateCommand', () {
@@ -372,9 +374,17 @@ void main() {
           stale.stderr,
           contains('Generated files are stale (1 issue(s)).'),
         );
+        // Compared against the *canonical* root, because that is what the
+        // command reports. `Directory.systemTemp` can hand back a spelling that
+        // differs from the canonical path -- a Windows 8.3 alias such as
+        // `RUNNER~1`, or macOS's `/var` against `/private/var` -- and asserting
+        // the raw `root.path` would pin the message to whichever spelling this
+        // machine happened to use.
         expect(
           stale.stderr,
-          contains('dart run zuke_cli:zuke generate --root "${root.path}"'),
+          contains(
+            'dart run zuke_cli:zuke generate --root "${canonicalizeRoot(root.path)}"',
+          ),
         );
       },
     );
@@ -488,6 +498,9 @@ String finderFor(FeatTest001FlutterBinding binding) => switch (binding) {
     );
 
     test('indexes verified requirement IDs from package sources', () async {
+      // The scan resolves annotations through the element model, so the fixture
+      // has to resolve `package:zuke_annotations` the way a real project does.
+      await configureFixturePackages(root);
       final testDir = Directory('${root.path}/test')
         ..createSync(recursive: true);
       File('${testDir.path}/fixture_test.dart').writeAsStringSync('''

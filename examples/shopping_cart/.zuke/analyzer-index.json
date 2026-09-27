@@ -1,9 +1,17 @@
 {
   "kind": "zuke.analyzer-index",
-  "inputDigest": "sha256:e571334f9d1d5316bbfad2f269ed1915f49b67f6c3428f74161b1dcc5dd4a8c3",
+  "inputDigest": "sha256:0e90a3ddd9dafc00fee0af4cf426dd2b91843e0c2fdc9da822bf299a60856355",
   "generatedManifestDigest": "sha256:ef26c0cf81111c3a96a2e0dcfe1a5e23f62c4e72d115eec37d3b674a5a741f17",
   "generatedManifestPath": "lib/src/.zuke-generated.json",
   "inputs": [
+    {
+      "path": "lib/main.dart",
+      "digest": "sha256:1c16a41341dab5d4cbcb6c0df53463bf5e7bc4f3b4083d3089681cd7a4d4f23c"
+    },
+    {
+      "path": "lib/shopping_cart.dart",
+      "digest": "sha256:6d49b16eca1f020b7ba212126c201c78459ef31a69d5529b163976ab4d81f03f"
+    },
     {
       "path": "lib/src/cart_controller.dart",
       "digest": "sha256:343410d6000fc920620a3be964214b9aa813fb6dae8fce5b03820a1b269e2709"
@@ -49,12 +57,40 @@
       "digest": "sha256:197489b2506dc85cdc01e722eaf9fb82f04c9154ad0aac882976c585b2158244"
     },
     {
-      "path": "test/guide_snippets/controller.dart",
-      "digest": "sha256:1f76d3ae49ed0e7544f2c4433525b15f5d78e4ca2579c3ec5ee2a69cb1e1a115"
+      "path": "test/guide_snippets/executor.dart",
+      "digest": "sha256:19bd9f4b29c93ceb7617fa12dc63fa554dd8d9e519532e3014d9232e4ec3b908"
+    },
+    {
+      "path": "test/guide_snippets/profile_filter.dart",
+      "digest": "sha256:35e839cbddf75055a582ebfa815f30c98eff606541409ba160cc9c1018009b88"
+    },
+    {
+      "path": "test/guide_snippets/registration.dart",
+      "digest": "sha256:1a52b119a6a622906b94e54900330f2b61ea57013278dfba3d57f0959bf3529d"
+    },
+    {
+      "path": "test/guide_snippets/vendor_steps.dart",
+      "digest": "sha256:6d509109642b557d731ec4647dedb7ca668b3b596fe5de869c3d2bda1648de19"
+    },
+    {
+      "path": "test/guide_snippets/world.dart",
+      "digest": "sha256:7ed6950e6924bf73b76e8cd71856628d2e00c086f578c9d4094561cceb0a17db"
+    },
+    {
+      "path": "test/integration_guide_snippets_test.dart",
+      "digest": "sha256:42442a3b6192cb986060f7ff5167f358c1d4ca197514c535bac36ebad8fda26c"
+    },
+    {
+      "path": "test/scenario_filter_test.dart",
+      "digest": "sha256:e06b80e70925154fbff94a2164b5aba9309028a417087ab55d19bcb28a4d6dae"
     },
     {
       "path": "test/shopping_cart_widget_test.dart",
       "digest": "sha256:eb2deb3a817d35a417f82bc1779ace753f1daf0247a0a031a97190e985f4e07f"
+    },
+    {
+      "path": "test/support/shopping_cart_flutter_driver.dart",
+      "digest": "sha256:3cb4e1da20390f9a2d15e2a28cdaf4dee022bc1a0f26b4401e23c3a3de3c1e24"
     },
     {
       "path": "zuke.yaml",
@@ -77,6 +113,22 @@
     "specs/features/shopping_cart.feature",
     "specs/registry/pbis.yaml",
     "specs/registry/retired-ids.yaml"
+  ],
+  "sourceRoots": [
+    "lib",
+    "test"
+  ],
+  "sourcePaths": [
+    "lib/main.dart",
+    "lib/shopping_cart.dart",
+    "lib/src/cart_controller.dart",
+    "lib/src/shopping_bindings.dart",
+    "lib/src/shopping_screen.dart",
+    "test/cart_controller_test.dart",
+    "test/integration_guide_snippets_test.dart",
+    "test/scenario_filter_test.dart",
+    "test/shopping_cart_widget_test.dart",
+    "test/support/shopping_cart_flutter_driver.dart"
   ],
   "requirementIds": [
     "FEAT-CART-001",
@@ -162,6 +214,106 @@
   "packageTargets": {
     ".": "flutter"
   },
+  "implementationClaims": [
+    {
+      "id": "CTRL-CART-ACCESSIBLE",
+      "target": "flutter"
+    },
+    {
+      "id": "CTRL-CART-VALIDATION",
+      "target": "flutter"
+    },
+    {
+      "id": "CTRL-PROMO-VALIDATION",
+      "target": "flutter"
+    },
+    {
+      "id": "RULE-CART-ACCESSIBILITY",
+      "target": "flutter"
+    },
+    {
+      "id": "RULE-CART-EMPTY-CHECKOUT",
+      "target": "flutter"
+    },
+    {
+      "id": "RULE-CART-ITEM-MANAGEMENT",
+      "target": "flutter"
+    },
+    {
+      "id": "RULE-CART-PROMO-DISCOUNT",
+      "target": "flutter"
+    },
+    {
+      "id": "RULE-CART-SUCCESSFUL-CHECKOUT",
+      "target": "flutter"
+    },
+    {
+      "id": "shopping.addToCartHeadphones",
+      "target": "flutter"
+    },
+    {
+      "id": "shopping.applyPromoButton",
+      "target": "flutter"
+    },
+    {
+      "id": "shopping.cartBadge",
+      "target": "flutter"
+    },
+    {
+      "id": "shopping.catalogItemName",
+      "target": "flutter"
+    },
+    {
+      "id": "shopping.catalogItemPrice",
+      "target": "flutter"
+    },
+    {
+      "id": "shopping.checkoutButton",
+      "target": "flutter"
+    },
+    {
+      "id": "shopping.discountStatusDisplay",
+      "target": "flutter"
+    },
+    {
+      "id": "shopping.promoInput",
+      "target": "flutter"
+    },
+    {
+      "id": "shopping.statusMessageDisplay",
+      "target": "flutter"
+    },
+    {
+      "id": "shopping.subtotalDisplay",
+      "target": "flutter"
+    },
+    {
+      "id": "shopping.totalDisplay",
+      "target": "flutter"
+    }
+  ],
+  "verifiedClaims": [
+    {
+      "id": "RULE-CART-ACCESSIBILITY",
+      "target": "flutter"
+    },
+    {
+      "id": "RULE-CART-EMPTY-CHECKOUT",
+      "target": "flutter"
+    },
+    {
+      "id": "RULE-CART-ITEM-MANAGEMENT",
+      "target": "flutter"
+    },
+    {
+      "id": "RULE-CART-PROMO-DISCOUNT",
+      "target": "flutter"
+    },
+    {
+      "id": "RULE-CART-SUCCESSFUL-CHECKOUT",
+      "target": "flutter"
+    }
+  ],
   "featureFiles": {
     "FEAT-CART-001": "lib/src/generated/feat_cart_001_contracts.g.dart"
   }
