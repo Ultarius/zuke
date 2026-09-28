@@ -88,6 +88,26 @@ class ZukeConfig {
   /// Evidence output path.
   final String? evidenceOutput;
 
+  /// Where evidence records are published when `evidence.output` is unset.
+  ///
+  /// One default, deliberately owned by the configuration rather than by each
+  /// command that touches evidence. `zuke test` published to
+  /// `generated/evidence/records` while `zuke validate` read `.zuke/evidence`,
+  /// so a workspace that left `evidence.output` unset wrote records that nothing
+  /// ever read — a silent failure that surfaced only as "No execution evidence
+  /// records were observed" plus a wall of unmet evidence requirements. A
+  /// reader with no configured path must resolve to this same value.
+  static const defaultEvidenceOutput = 'generated/evidence/records';
+
+  /// The effective evidence output path, falling back to [defaultEvidenceOutput].
+  String get resolvedEvidenceOutput {
+    final configured = evidenceOutput;
+    if (configured == null || configured.trim().isEmpty) {
+      return defaultEvidenceOutput;
+    }
+    return configured.trim();
+  }
+
   /// Trust bundle path.
   final String? trustBundle;
 

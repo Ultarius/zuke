@@ -33,6 +33,25 @@ jobs:
       - name: Check test-host dependency firewall
         run: dart --suppress-analytics run tool/check_dependency_firewall.dart
 
+  editor-contract:
+    name: analyzer index contract
+    runs-on: ubuntu-26.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - uses: ./.github/actions/setup-zuke
+        with:
+          fetch-depth: '0'
+      - name: Check contract and plugin version bumps
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: dart --suppress-analytics run tool/check_editor_contract.dart "$BASE_SHA"
+      - name: Check serializer golden
+        working-directory: vendor-sdk/zuke_cli
+        run: dart --suppress-analytics test test/index_contract_test.dart
+      - name: Check plugin contract diagnostics
+        working-directory: vendor-sdk/zuke_analyzer
+        run: dart --suppress-analytics test
+
   shopping-cart-assurance:
     uses: ./.github/workflows/flutter-example-assurance.yml
     with:

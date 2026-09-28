@@ -4,9 +4,11 @@ import 'dart:io';
 import 'package:crypto/crypto.dart';
 
 import '../../implementation_claims.dart';
+import '../../index_contract.dart';
 import '../../path_safety.dart';
 
 enum ZukeIndexFreshnessIssueKind {
+  contractMismatch,
   generatedManifestMissing,
   generatedManifestDigestMismatch,
   generatedManifestMalformed,
@@ -76,7 +78,8 @@ final class ZukeSpecDiagnostic {
   /// *which* generated contract the finding is reported on: one specification
   /// file can declare two features, and collapsing two identical findings would
   /// silently drop one feature's copy.
-  String get key => '$code|$file|$line|$column|$message|${featureId ?? ''}';
+  String get key =>
+      jsonEncode([code, file, line, column, message, featureId, severity]);
 
   /// The finding's location as `file:line`, or `file:line:column` when the
   /// parser reported a column.
@@ -291,7 +294,12 @@ class ZukeIndex {
   /// collides after normalization.
   final Map<String, String> featureFiles;
 
+  final int? contractVersion;
+  final String? diagnosticAnchor;
+
   const ZukeIndex({
+    this.contractVersion = zukeIndexContract,
+    this.diagnosticAnchor,
     required this.inputDigest,
     required this.generatedManifestDigest,
     required this.generatedManifestPath,
@@ -317,6 +325,7 @@ class ZukeIndex {
   });
 
   factory ZukeIndex.create({
+    String? diagnosticAnchor,
     required String root,
     required Iterable<String> inputPaths,
     required String generatedManifestContent,
@@ -451,7 +460,9 @@ class ZukeIndex {
       implementedBindings: const {},
     );
     return ZukeIndex(
+      diagnosticAnchor: diagnosticAnchor,
       inputDigest: _inputDigest(
+        diagnosticAnchor: diagnosticAnchor,
         inputs: inputs,
         requirements: requirements,
         controls: controls,
@@ -539,6 +550,10 @@ class ZukeIndex {
       throw const FormatException('Analyzer index patternInputs missing');
     }
     return ZukeIndex(
+      contractVersion: ZukeIndexHeader(json).contractVersion,
+      diagnosticAnchor: json['diagnosticAnchor'] is String
+          ? _validatedRelativePath(json['diagnosticAnchor'] as String)
+          : null,
       inputDigest: requiredString('inputDigest'),
       generatedManifestDigest: requiredString('generatedManifestDigest'),
       generatedManifestPath: _validatedRelativePath(
@@ -671,6 +686,8 @@ class ZukeIndex {
 
   Map<String, Object?> toJson() => {
     'kind': kind,
+    if (contractVersion != null) 'contractVersion': contractVersion,
+    if (diagnosticAnchor != null) 'diagnosticAnchor': diagnosticAnchor,
     'inputDigest': inputDigest,
     'generatedManifestDigest': generatedManifestDigest,
     'generatedManifestPath': generatedManifestPath,
@@ -717,6 +734,16 @@ class ZukeIndex {
   bool isCurrent({required String root}) => freshnessIssues(root: root).isEmpty;
 
   List<ZukeIndexFreshnessIssue> freshnessIssues({required String root}) {
+    if (contractVersion != zukeIndexContract) {
+      return [
+        ZukeIndexFreshnessIssue(
+          kind: ZukeIndexFreshnessIssueKind.contractMismatch,
+          path: '.zuke/analyzer-index.json',
+          message:
+              'Analyzer index contract is missing or incompatible; run zuke generate.',
+        ),
+      ];
+    }
     final issues = <ZukeIndexFreshnessIssue>[];
     final generatedManifest = File(_join(root, generatedManifestPath));
     if (!generatedManifest.existsSync()) {
@@ -825,6 +852,7 @@ class ZukeIndex {
     );
     if (!hasInputIssue &&
         _inputDigest(
+              diagnosticAnchor: diagnosticAnchor,
               inputs: current,
               requirements: requirementIds,
               controls: controlIds,
@@ -1082,6 +1110,7 @@ class ZukeIndex {
   /// like editing a test does. Without them the editor would keep reporting a
   /// requirement as unimplemented after the code that implements it was added.
   static String _inputDigest({
+    required String? diagnosticAnchor,
     required List<ZukeIndexInput> inputs,
     required Set<String> requirements,
     required Set<String> controls,
@@ -1105,6 +1134,8 @@ class ZukeIndex {
     utf8.encode(
       _canonicalJson({
         'kind': kind,
+        'contractVersion': zukeIndexContract,
+        'diagnosticAnchor': ?diagnosticAnchor,
         'inputs': (inputs.map((input) => input.toJson()).toList()
           ..sort(
             (left, right) =>

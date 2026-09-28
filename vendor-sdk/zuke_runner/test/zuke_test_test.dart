@@ -53,6 +53,13 @@ void main() {
   });
 
   group('zukeTest', () {
+    // These two registrations demonstrate the concise `zukeTest` syntax, so they
+    // deliberately omit `evidenceTypes` -- that is the form being documented.
+    // The diagnostic is suppressed rather than satisfied because this file is a
+    // plain `dart test` suite: it is never launched by a managed run, so the
+    // `ArgumentError` it guards against cannot be reached here. It would fire
+    // correctly the moment this file became managed evidence.
+    // ignore: zuke/zuke_missing_evidence_types
     zukeTest(
       () async {
         expect(1 + 1, equals(2));

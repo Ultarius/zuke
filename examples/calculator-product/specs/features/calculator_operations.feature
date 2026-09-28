@@ -304,6 +304,7 @@ Feature: Evaluate basic arithmetic operations
 
   # rule-spec-begin
   # id: RULE-CALC-PERFORMANCE
+  # targets: [backend]
   # requiredEvidence: [{type: performance, target: backend, sourcePackage: calculator-api, sourceAdapter: dart-source, variant: default}]
   # rule-spec-end
   @PBI-CALC-002 @RULE-CALC-PERFORMANCE

@@ -741,9 +741,24 @@
       "summary": "The generated analyzer index is stale."
     },
     {
+      "code": "ZUKE-PLUGIN-CACHE",
+      "severity": "warning",
+      "summary": "The analyzer plugin snapshot no longer matches the local Zuke sources."
+    },
+    {
+      "code": "ZUKE-PLUGIN-STALE",
+      "severity": "error",
+      "summary": "The compiled analyzer plugin and the analyzer index were built for different index contract versions."
+    },
+    {
       "code": "ZUKE-INDEX-UNKNOWN-ID",
       "severity": "error",
       "summary": "The generated analyzer index does not contain an annotation identifier."
+    },
+    {
+      "code": "ZUKE-MISSING-EVIDENCE-TYPES",
+      "severity": "warning",
+      "summary": "A managed test registration omits or empties evidenceTypes, which prevents the managed-run ArgumentError. It does not report a requirement left unevidenced; that is a workspace-wide check."
     },
     {
       "code": "ZUKE-MISSING-TEST",

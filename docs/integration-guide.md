@@ -1036,7 +1036,7 @@ only be configured at the analysis-options **root** (not nested package files):
 # analysis_options.yaml (workspace root)
 plugins:
   zuke_analyzer:
-    path: vendor-sdk/zuke_analyzer # or ^0.1.0 from pub.dev
+    path: vendor-sdk/zuke_analyzer # repository-only; not published to pub.dev
     diagnostics:
       zuke_annotation: true # error
       zuke_index_stale: true # error
@@ -1047,6 +1047,17 @@ plugins:
 ```
 
 ### Editor and CLI coverage diagnostics
+
+The compatibility guard `zuke_plugin_stale` is enabled by default, with error
+severity. When the plugin's compiled index contract differs from the generated
+index, it suppresses the other Zuke rules and reports once on the configured
+barrel (or a deterministic generated/source file). Run
+`dart run zuke_cli:zuke doctor --fix`, then restart the analysis server.
+The command rebuilds matching local plugin cache entries using content hashes;
+it never clears the entire Dart server or pub cache. `zuke analyze -- <args>`
+performs that repair before running `dart analyze`. See
+[plugin cache recovery](editor-plugin-cache.md) for scope, release checks, and
+the one-time migration for old plugins without this guard.
 
 Two rules look at the same relationship from opposite ends, and neither
 subsumes the other:
@@ -1156,11 +1167,13 @@ package (see `analysis_options.flutter.yaml` in this repo), or declare the same
 Do not put `plugins:` under `analyzer:`, and do not put it directly in a nested
 package options file (`plugins_in_inner_options`).
 
-And add `zuke_analyzer` to `dev_dependencies`:
+The plugin is repository-only. If invoking its standalone analyzer, add the
+local checkout to `dev_dependencies` (adjust the relative path):
 
 ```yaml
 dev_dependencies:
-  zuke_analyzer: ^0.1.0
+  zuke_analyzer:
+    path: ../zuke/vendor-sdk/zuke_analyzer
 ```
 
 After `pub get`, restart the analysis server (VS Code: **Dart: Restart Analysis

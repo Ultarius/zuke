@@ -38,3 +38,22 @@ bool _isDartSdk(String candidate) {
   return Directory(path.join(sdk.path, 'lib')).existsSync() &&
       Directory(path.join(sdk.path, 'lib', '_internal')).existsSync();
 }
+
+/// The SDK executable, including when Zuke itself is an AOT executable.
+String resolveDartExecutable() {
+  final sdk = resolveAnalyzerSdkPath();
+  if (sdk == null) {
+    throw StateError(
+      'Cannot locate Dart SDK. Set ZUKE_DART_SDK to the SDK directory.',
+    );
+  }
+  final executable = path.join(
+    sdk,
+    'bin',
+    Platform.isWindows ? 'dart.exe' : 'dart',
+  );
+  if (!File(executable).existsSync()) {
+    throw FileSystemException('Dart SDK executable is missing', executable);
+  }
+  return executable;
+}

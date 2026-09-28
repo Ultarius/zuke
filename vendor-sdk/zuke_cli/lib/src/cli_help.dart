@@ -23,6 +23,8 @@ Usage:
   zuke contract verify --openapi    Compare OpenAPI paths with route topology
   zuke policy check                 Validate consumer risk acceptance
   zuke doctor       Diagnose project setup
+  zuke doctor --fix  Rebuild local analyzer plugins and repair the index contract
+  zuke analyze      Repair plugin caches, then run dart analyze (arguments after --)
   zuke doctor --check-alignment  Check the supported Zuke dependency tuple
   zuke doctor --check-overrides   Reject release-unsafe dependency overrides
   zuke doctor test-host  Explain Flutter/test SDK compatibility

@@ -451,6 +451,156 @@ void provideControl() {}
       },
     );
 
+    /// Build a workspace with either the default or a configured evidence path.
+    WorkspaceDiscoveryResult evidenceWorkspace(
+      Directory root, {
+      String? evidenceOutput,
+    }) {
+      return WorkspaceDiscoveryResult(
+        config: ZukeConfig(
+          root: root.path,
+          evidenceOutput: evidenceOutput,
+          workspaceTargets: {
+            'backend': const WorkspaceTarget(
+              id: 'backend',
+              language: 'dart',
+              framework: 'dart',
+              packages: [
+                WorkspacePackage(id: 'backend', path: '.', roots: ['lib']),
+              ],
+            ),
+          },
+        ),
+        data: const MetadataExtractorResult(),
+      );
+    }
+
+    EvidenceRecord buildRecord(String requirementId, String executionId) =>
+        EvidenceRecord(
+          requirementId: requirementId,
+          evidenceType: 'domain-unit',
+          target: 'backend',
+          executionId: executionId,
+          profile: 'pullRequest',
+          digests: _digests(),
+          candidateId: 'SCN-TEST-001',
+          runnerId: 'unit-runner',
+          runnerCompatibilityId: 'unit-runner-v1',
+          sourcePackage: 'test_pkg',
+          sourceAdapter: 'dart-source',
+          sourceCompatibilityId: DartExtractor.compatibilityId,
+        );
+
+    test('evidence published to the default location is readable', () {
+      // The default must be a single value. When it was not, a workspace that
+      // left `evidence.output` unset had `zuke test` publish to one directory
+      // and every reader look in another, so the only symptom was "No execution
+      // evidence records were observed" plus an unmet-evidence finding for every
+      // requirement in the workspace.
+      _writePackage(tempDir);
+      final workspace = evidenceWorkspace(tempDir);
+      expect(
+        workspace.config.evidenceOutput,
+        isNull,
+        reason: 'guards the premise: this workspace configures no output',
+      );
+
+      final published = Directory(
+        '${tempDir.path}/${ZukeConfig.defaultEvidenceOutput}',
+      )..createSync(recursive: true);
+      File('${published.path}/run.json').writeAsStringSync(
+        jsonEncode({
+          'record': buildRecord('RULE-TEST-001', 'run-default').toJson(),
+        }),
+      );
+
+      expect(
+        ExtractionService()
+            .publishedEvidence(workspace)
+            .map((record) => record.requirementId),
+        contains('RULE-TEST-001'),
+        reason: 'the write default and the read default must be the same path',
+      );
+    });
+
+    test('records under the legacy .zuke/evidence path are still read', () {
+      // A runner may declare its own `evidenceOutput`, and workspaces that
+      // published there before the default was unified must not lose evidence.
+      _writePackage(tempDir);
+      final workspace = evidenceWorkspace(tempDir);
+      final legacy = Directory('${tempDir.path}/.zuke/evidence')
+        ..createSync(recursive: true);
+      File('${legacy.path}/old.json').writeAsStringSync(
+        jsonEncode({
+          'record': buildRecord('RULE-LEGACY-001', 'run-legacy').toJson(),
+        }),
+      );
+
+      expect(
+        ExtractionService()
+            .publishedEvidence(workspace)
+            .map((record) => record.requirementId),
+        contains('RULE-LEGACY-001'),
+      );
+    });
+
+    test('current default evidence takes priority over legacy records', () {
+      _writePackage(tempDir);
+      final workspace = evidenceWorkspace(tempDir);
+      final current = Directory(
+        '${tempDir.path}/${ZukeConfig.defaultEvidenceOutput}',
+      )..createSync(recursive: true);
+      final legacy = Directory('${tempDir.path}/.zuke/evidence')
+        ..createSync(recursive: true);
+      File('${current.path}/run.json').writeAsStringSync(
+        jsonEncode({
+          'record': buildRecord('RULE-CURRENT-001', 'same-run').toJson(),
+        }),
+      );
+      File('${legacy.path}/run.json').writeAsStringSync(
+        jsonEncode({
+          'record': buildRecord('RULE-OLD-001', 'same-run').toJson(),
+        }),
+      );
+
+      expect(
+        ExtractionService()
+            .publishedEvidence(workspace)
+            .map((record) => record.requirementId),
+        ['RULE-CURRENT-001'],
+      );
+    });
+
+    test('configured evidence path excludes legacy and trims whitespace', () {
+      _writePackage(tempDir);
+      final workspace = evidenceWorkspace(
+        tempDir,
+        evidenceOutput: '  custom/evidence  ',
+      );
+      expect(workspace.config.resolvedEvidenceOutput, 'custom/evidence');
+      final configured = Directory('${tempDir.path}/custom/evidence')
+        ..createSync(recursive: true);
+      final legacy = Directory('${tempDir.path}/.zuke/evidence')
+        ..createSync(recursive: true);
+      File('${configured.path}/run.json').writeAsStringSync(
+        jsonEncode({
+          'record': buildRecord('RULE-CUSTOM-001', 'custom-run').toJson(),
+        }),
+      );
+      File('${legacy.path}/run.json').writeAsStringSync(
+        jsonEncode({
+          'record': buildRecord('RULE-OLD-001', 'legacy-run').toJson(),
+        }),
+      );
+
+      expect(
+        ExtractionService()
+            .publishedEvidence(workspace)
+            .map((record) => record.requirementId),
+        ['RULE-CUSTOM-001'],
+      );
+    });
+
     test(
       'feeds native Dart Frog topology into the proof extraction outputs',
       () async {

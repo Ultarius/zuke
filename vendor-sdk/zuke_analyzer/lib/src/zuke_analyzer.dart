@@ -11,6 +11,22 @@ class ZukeAnalyzer {
       return [ZukeDiagnostic(code: error.code, message: error.message)];
     }
     final workspaceRoot = Directory(placement.workspaceRoot);
+    final indexFile = File('${workspaceRoot.path}/.zuke/analyzer-index.json');
+    try {
+      if (indexFile.existsSync()) {
+        final header = ZukeIndexHeader.read(indexFile);
+        if (header.isIncompatible) {
+          return [
+            ZukeDiagnostic(
+              code: 'ZUKE-PLUGIN-STALE',
+              message: header.mismatchMessage,
+            ),
+          ];
+        }
+      }
+    } on FormatException {
+      // The existing stale-index diagnostic covers a malformed header.
+    }
     final output = await DartExtractor().extract(
       packageRoot,
       roots: placement.package.roots,
@@ -23,7 +39,6 @@ class ZukeAnalyzer {
         )
         .toList();
 
-    final indexFile = File('${workspaceRoot.path}/.zuke/analyzer-index.json');
     ZukeIndex index;
     try {
       if (!indexFile.existsSync()) {

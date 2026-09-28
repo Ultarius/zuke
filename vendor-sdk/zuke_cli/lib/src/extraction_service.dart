@@ -53,13 +53,13 @@ class ExtractionService {
 
   /// The evidence records already published for [workspace].
   ///
-  /// Reads the configured evidence location only: no analyzer run, no cache
-  /// lookup. Callers that must decide *whether* to extract (the `lock --refresh`
+  /// Reads the effective evidence location: no analyzer run, no cache lookup.
+  /// Callers that must decide *whether* to extract (the `lock --refresh`
   /// skip probe) can use this to rule a profile out cheaply.
   List<EvidenceRecord> publishedEvidence(WorkspaceDiscoveryResult workspace) {
     final root = workspace.config.root;
     if (root == null) return const [];
-    return _loadEvidence(root, workspace.config.evidenceOutput).records;
+    return _loadEvidence(root, workspace.config).records;
   }
 
   /// Extracts configured Dart targets and their framework topology.
@@ -217,7 +217,7 @@ class ExtractionService {
       }
     }
     final evidenceLoad = includeEvidence && !topologyOnly
-        ? _loadEvidence(root, workspace.config.evidenceOutput)
+        ? _loadEvidence(root, workspace.config)
         : const _EvidenceLoad([], []);
     errors.addAll(evidenceLoad.errors);
     final evidence = evidenceLoad.records;
@@ -569,10 +569,16 @@ class ExtractionService {
   String _cachePath(String root, String adapter, String key) =>
       _join(root, '.zuke/cache/$adapter/$key.json');
 
-  _EvidenceLoad _loadEvidence(String root, String? configuredPath) {
-    final path = configuredPath == null || configuredPath.isEmpty
-        ? _join(root, '.zuke/evidence')
-        : _join(root, configuredPath);
+  _EvidenceLoad _loadEvidence(String root, ZukeConfig config) {
+    final primary = _join(root, config.resolvedEvidenceOutput);
+    // An explicitly configured path is authoritative. For an unconfigured
+    // workspace, use legacy evidence only if the current default does not
+    // exist; merging both can let an old record displace a newly published one.
+    final useLegacy =
+        (config.evidenceOutput?.trim().isEmpty ?? true) &&
+        !File(primary).existsSync() &&
+        !Directory(primary).existsSync();
+    final path = useLegacy ? _join(root, '.zuke/evidence') : primary;
     final files = <File>[];
     final candidate = File(path);
     if (candidate.existsSync()) {

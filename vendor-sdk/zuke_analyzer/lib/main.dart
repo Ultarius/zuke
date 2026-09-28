@@ -20,13 +20,71 @@ class ZukePlugin extends Plugin {
 
   @override
   void register(PluginRegistry registry) {
+    // A newly introduced guard must work with existing lint configurations.
+    // Warning-rule registration enables it by default; the code severity is ERROR.
+    registry.registerWarningRule(ZukePluginStaleRule());
     registry.registerLintRule(ZukeAnnotationRule());
     registry.registerLintRule(ZukeIndexStaleRule());
     registry.registerLintRule(ZukeUnknownIndexIdRule());
     registry.registerLintRule(ZukeMissingTestRule());
+    registry.registerLintRule(ZukeMissingEvidenceTypesRule());
     registry.registerLintRule(ZukeUnimplementedRequirementRule());
     registry.registerLintRule(ZukeSpecLintRule());
   }
+}
+
+class ZukePluginStaleRule extends AnalysisRule {
+  static const code = LintCode(
+    'zuke_plugin_stale',
+    '{0}',
+    uniqueName: 'LintCode.zuke_plugin_stale',
+    severity: DiagnosticSeverity.ERROR,
+  );
+
+  ZukePluginStaleRule()
+    : super(
+        name: 'zuke_plugin_stale',
+        description: 'Rejects incompatible analyzer and index contracts',
+      );
+
+  @override
+  DiagnosticCode get diagnosticCode => code;
+
+  @override
+  void registerNodeProcessors(
+    RuleVisitorRegistry registry,
+    RuleContext context,
+  ) {
+    final path = context.definingUnit.file.path;
+    final message = _pluginStaleMessageFor(path);
+    if (message == null) return;
+    registry.addCompilationUnit(this, _PluginStaleVisitor(this, message));
+  }
+}
+
+class _PluginStaleVisitor extends SimpleAstVisitor<void> {
+  final ZukePluginStaleRule rule;
+  final String message;
+  _PluginStaleVisitor(this.rule, this.message);
+
+  @override
+  void visitCompilationUnit(CompilationUnit node) =>
+      rule.reportAtNode(_diagnosticAnchor(node), arguments: [message]);
+}
+
+String? zukePluginStaleMessageForTesting(String path) =>
+    _pluginStaleMessageFor(path);
+
+String? _pluginStaleMessageFor(String path) {
+  final state = _indexStateFor(path);
+  if (!state.incompatible) return null;
+  final anchor = state.header!.diagnosticAnchor(state.workspaceRoot!);
+  if (anchor == null ||
+      ZukeIndex.relativeToRoot(state.workspaceRoot!, anchor) !=
+          ZukeIndex.relativeToRoot(state.workspaceRoot!, path)) {
+    return null;
+  }
+  return state.header!.mismatchMessage;
 }
 
 class ZukeIndexStaleRule extends AnalysisRule {
@@ -54,7 +112,7 @@ class ZukeIndexStaleRule extends AnalysisRule {
     final state = _indexStateFor(context.definingUnit.file.path);
     // Only Zuke workspaces (zuke.yaml present) own index freshness. Files
     // outside a workspace are not stale—they are not governed by Zuke.
-    if (!state.hasWorkspace || state.isCurrent) return;
+    if (!state.hasWorkspace || state.isCurrent || state.incompatible) return;
     registry.addCompilationUnit(this, _StaleIndexVisitor(this));
   }
 }
@@ -65,16 +123,16 @@ class _StaleIndexVisitor extends SimpleAstVisitor<void> {
 
   @override
   void visitCompilationUnit(CompilationUnit node) {
-    // Anchor on the first directive (or declaration) so Problems points at a
-    // real line in the analyzed file, not always offset 0 / line 1.
-    final AstNode anchor = node.directives.isNotEmpty
-        ? node.directives.first
-        : node.declarations.isNotEmpty
-        ? node.declarations.first
-        : node;
-    rule.reportAtNode(anchor);
+    rule.reportAtNode(_diagnosticAnchor(node));
   }
 }
+
+/// Give both workspace-wide diagnostics one short, stable source location.
+AstNode _diagnosticAnchor(CompilationUnit node) => node.directives.isNotEmpty
+    ? node.directives.first
+    : node.declarations.isNotEmpty
+    ? node.declarations.first
+    : node;
 
 class ZukeUnknownIndexIdRule extends AnalysisRule {
   static const code = LintCode(
@@ -102,6 +160,64 @@ class ZukeUnknownIndexIdRule extends AnalysisRule {
     if (index != null) {
       registry.addAnnotation(this, ZukeUnknownIdVisitor(index, reportAtNode));
     }
+  }
+}
+
+class ZukeMissingEvidenceTypesRule extends AnalysisRule {
+  static const code = LintCode(
+    'zuke_missing_evidence_types',
+    'ZUKE-MISSING-EVIDENCE-TYPES: {0}',
+    uniqueName: 'LintCode.zuke_missing_evidence_types',
+    severity: DiagnosticSeverity.WARNING,
+  );
+
+  ZukeMissingEvidenceTypesRule()
+    : super(
+        name: 'zuke_missing_evidence_types',
+        description:
+            'Requires a managed test to declare which evidence types it publishes',
+      );
+
+  @override
+  DiagnosticCode get diagnosticCode => code;
+
+  @override
+  void registerNodeProcessors(
+    RuleVisitorRegistry registry,
+    RuleContext context,
+  ) {
+    // Needs no index payload, but does need a managed workspace with a
+    // compatible contract; a mismatch must suppress every other Zuke rule.
+    //
+    // The rule reports a registration that would throw *under a managed run*, so
+    // outside one it is noise: a `zukeTest` in a plain `dart test` suite is a
+    // legitimate unit test, and the framework's own test suite is exactly that.
+    // A managed registration cannot exist outside a workspace either, because
+    // the scenario contract it names is generated into one.
+    //
+    // This also means the diagnostic cannot be silenced where it is wrong: an
+    // analysis-server plugin diagnostic does not honour `// ignore:` here, so
+    // the workspace test is the only available guard.
+    if (!_missingEvidenceTypesApplies(context.definingUnit.file.path)) return;
+    registry.addMethodInvocation(
+      this,
+      ZukeMissingEvidenceTypesVisitor((node, declaresEmpty) {
+        reportAtNode(
+          node,
+          arguments: [
+            declaresEmpty
+                ? 'This managed test declares an empty evidenceTypes list, so it '
+                      'publishes no evidence. `zuke test` fails with an '
+                      "ArgumentError, and a requirement it was meant to verify is "
+                      'left unevidenced.'
+                : 'This managed test does not declare evidenceTypes. `zuke test` '
+                      'fails with an ArgumentError because a managed test must '
+                      'publish at least one evidence type; a plain test() run '
+                      'stays green and the requirement is left unevidenced.',
+          ],
+        );
+      }),
+    );
   }
 }
 
@@ -155,6 +271,8 @@ class ZukeMissingTestRule extends AnalysisRule {
 class _IndexState {
   final ZukeIndex? index;
   final bool hasWorkspace;
+  final ZukeIndexHeader? header;
+  bool get incompatible => header?.isIncompatible ?? false;
 
   /// The directory holding the `zuke.yaml` this index came from, so a caller
   /// can express an analyzed path relative to the workspace without walking the
@@ -164,6 +282,7 @@ class _IndexState {
     this.index, {
     required this.hasWorkspace,
     this.workspaceRoot,
+    this.header,
   });
   bool get isCurrent => index != null;
 }
@@ -177,14 +296,19 @@ class _IndexState {
 /// that wants the stricter gate sets it to `error` in `analysis_options.yaml`,
 /// where it composes with `--fatal-infos` in CI.
 ///
-/// Suppress a single contract with
-/// `// ignore: zuke/zuke_unimplemented_requirement`.
+/// This diagnostic cannot be silenced per line. An earlier version of this
+/// comment claimed `// ignore: zuke/zuke_unimplemented_requirement` worked; it
+/// does not. Neither `// ignore:` nor `// ignore_for_file:` suppresses a
+/// diagnostic produced by an analysis-server plugin in this configuration, and
+/// the bare code name is no better. The only supported relief is the
+/// `diagnostics:` map in `analysis_options.yaml`, which is per workspace. Treat
+/// any single-diagnostic escape hatch here as unproven until it is tested.
 class ZukeUnimplementedRequirementRule extends AnalysisRule {
   static const code = LintCode(
     'zuke_unimplemented_requirement',
-    'ZUKE-UNIMPLEMENTED-REQUIREMENT: Requirement {0} is declared for {1}; '
-        'nothing implements it. Add @ImplementsRequirement or '
-        '@PresentsRequirement, or narrow the requirement\'s declared targets.',
+    'ZUKE-UNIMPLEMENTED-REQUIREMENT: Requirement {0} is unimplemented{1}; '
+        'add @ImplementsRequirement or @PresentsRequirement, or narrow the '
+        'requirement\'s declared targets.',
     uniqueName: 'LintCode.zuke_unimplemented_requirement',
     severity: DiagnosticSeverity.WARNING,
   );
@@ -227,10 +351,20 @@ class ZukeUnimplementedRequirementRule extends AnalysisRule {
         anchor,
         arguments: [
           requirementId,
-          // Name the target when there is one. "this target" reads as a dangling
-          // reference when the file could not be attributed at all, which is the
-          // case the leniency in requirementAppliesTo deliberately allows.
-          targetId ?? 'no target',
+          // Two different facts must not read as one. With a target, name it.
+          // Without one, say *why*: the generated contract can sit outside
+          // every configured package -- a shared contracts package belonging to
+          // no single target is the ordinary case -- and then the requirement's
+          // own scoping is irrelevant, because the file cannot be attributed
+          // to anything. "declared for no target" was read as a statement about
+          // the requirement's targets when it is a statement about this file.
+          //
+          // The clause states the cause only. The template already carries the
+          // remedy, and restating it here printed the advice twice.
+          targetId != null
+              ? ' for target $targetId'
+              : ', and this contract is outside every configured package so it '
+                    'belongs to no target',
         ],
       ),
     );
@@ -325,7 +459,23 @@ bool zukeIndexIsCurrentForTesting(String? sourcePath) =>
 /// a Zuke workspace was found and its index is missing, malformed, or stale.
 bool zukeIndexStaleAppliesForTesting(String? sourcePath) {
   final state = _indexStateFor(sourcePath);
-  return state.hasWorkspace && !state.isCurrent;
+  return state.hasWorkspace && !state.isCurrent && !state.incompatible;
+}
+
+/// Whether [ZukeMissingEvidenceTypesRule] would register a visitor for
+/// [sourcePath]: the file is inside a Zuke workspace.
+///
+/// Outside one, a `zukeTest` is an ordinary unit-test helper and the managed
+/// `ArgumentError` is unreachable, so reporting it there is noise the developer
+/// cannot silence -- an analysis-server plugin diagnostic does not honour
+/// `// ignore:`. This is the guard that keeps the framework's own `zuke_runner`
+/// suite clean.
+bool zukeMissingEvidenceTypesAppliesForTesting(String? sourcePath) =>
+    _missingEvidenceTypesApplies(sourcePath);
+
+bool _missingEvidenceTypesApplies(String? sourcePath) {
+  final state = _indexStateFor(sourcePath);
+  return state.hasWorkspace && !state.incompatible;
 }
 
 /// Clears process-local index state between isolated analyzer tests.
@@ -366,7 +516,18 @@ _IndexState _indexStateFor(String? sourcePath) {
       }
 
       try {
-        final index = ZukeIndex.read(indexFile);
+        final header = ZukeIndexHeader.read(indexFile);
+        if (header.isIncompatible) {
+          final state = _IndexState(
+            null,
+            hasWorkspace: true,
+            workspaceRoot: directory.path,
+            header: header,
+          );
+          _indexCache[key] = _IndexCacheEntry(now, modified, state);
+          return state;
+        }
+        final index = ZukeIndex.fromJson(header.json);
         final state = index.isCurrent(root: directory.path)
             ? _IndexState(
                 index,
@@ -416,6 +577,7 @@ class ZukeAnnotationRule extends AnalysisRule {
     RuleVisitorRegistry registry,
     RuleContext context,
   ) {
+    if (_indexStateFor(context.definingUnit.file.path).incompatible) return;
     final visitor = ZukeAnnotationVisitor(reportAtNode);
     registry
       ..addClassDeclaration(this, visitor)

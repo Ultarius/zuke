@@ -59,6 +59,7 @@ final class CalculatorApplication {
   'RULE-CALC-BODY-SIZE',
   'RULE-CALC-RATE-LIMIT',
   'RULE-CALC-ERROR-REDACTION',
+  FeatCalc001RequirementIds.performance,
 ])
 final class CalculatorController implements ZukeController {
   final CalculatorApplication app;

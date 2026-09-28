@@ -1,6 +1,8 @@
 {
   "kind": "zuke.analyzer-index",
-  "inputDigest": "sha256:0fda8301c506413da297f5f95c74bfca17ff8da035875ef48d20be5649d435df",
+  "contractVersion": 1,
+  "diagnosticAnchor": "packages/calculator_contracts/lib/calculator_contracts.dart",
+  "inputDigest": "sha256:429e66c777f5685c5baf0a96c054b8e7a1344e802066d101a121e9cef65272b7",
   "generatedManifestDigest": "sha256:00b397aadc850c49c6fe28b5bbc955517be6077a2eb7a97ffcf295aa41de25aa",
   "generatedManifestPath": "packages/calculator_contracts/.zuke-generated.json",
   "inputs": [
@@ -18,7 +20,7 @@
     },
     {
       "path": "apps/calculator_api/lib/src/application.dart",
-      "digest": "sha256:9b0cc6fb4fa42a2f508cbb36185489b58262e113608284355479e93011ab6ce8"
+      "digest": "sha256:d96de3e40d1e0aa0a6f6a7e9158b8475eb6b5da04713adbeba1f4cb4d8d5c7c1"
     },
     {
       "path": "apps/calculator_api/lib/src/server.dart",
@@ -26,7 +28,7 @@
     },
     {
       "path": "apps/calculator_api/test/calculator_api_test.dart",
-      "digest": "sha256:c93b77fbb13eb74a0b9c96e1724aca2c39a42b765bdbd59df0d963ed4b89df12"
+      "digest": "sha256:4d82811d7c73e9f3efc9092000a35f53e8cd722511100db448b51aedf55be453"
     },
     {
       "path": "apps/calculator_mobile/lib/calculator_bindings.dart",
@@ -94,7 +96,7 @@
     },
     {
       "path": "specs/features/calculator_operations.feature",
-      "digest": "sha256:89b212fffb3009ea992cef7cc42953939be3606e2b9427f50f468eb14b7ebdb3"
+      "digest": "sha256:5963e40c204bd9462dc346fa43ff933bc835b2f8e77fdba1a5cca89faa2e4f9b"
     },
     {
       "path": "specs/features/calculator_security.feature",
@@ -126,7 +128,7 @@
     },
     {
       "path": "zuke.yaml",
-      "digest": "sha256:45e725cca22602dca2642a92a36753ba12833f941ed424854d1fced43be09913"
+      "digest": "sha256:018c8acb5b0da1fe986b2783aa66bd73f539695f2bba35f4d6896a2c1aa0eeaa"
     }
   ],
   "inputPatterns": [
@@ -217,6 +219,7 @@
     "RULE-CALC-DIVISION",
     "RULE-CALC-ERROR-REDACTION",
     "RULE-CALC-MULTIPLICATION",
+    "RULE-CALC-PERFORMANCE",
     "RULE-CALC-RATE-LIMIT",
     "RULE-CALC-SUBTRACTION",
     "RULE-CALC-UI-FAILURE",
@@ -230,6 +233,7 @@
     "RULE-CALC-DIVISION",
     "RULE-CALC-ERROR-REDACTION",
     "RULE-CALC-MULTIPLICATION",
+    "RULE-CALC-PERFORMANCE",
     "RULE-CALC-RATE-LIMIT",
     "RULE-CALC-SUBTRACTION",
     "RULE-CALC-UI-FAILURE",
@@ -291,8 +295,7 @@
       "flutter"
     ],
     "RULE-CALC-PERFORMANCE": [
-      "backend",
-      "flutter"
+      "backend"
     ],
     "RULE-CALC-RATE-LIMIT": [
       "backend"
@@ -358,6 +361,10 @@
     },
     {
       "id": "RULE-CALC-MULTIPLICATION",
+      "target": "backend"
+    },
+    {
+      "id": "RULE-CALC-PERFORMANCE",
       "target": "backend"
     },
     {
@@ -452,6 +459,10 @@
     },
     {
       "id": "RULE-CALC-MULTIPLICATION",
+      "target": "backend"
+    },
+    {
+      "id": "RULE-CALC-PERFORMANCE",
       "target": "backend"
     },
     {

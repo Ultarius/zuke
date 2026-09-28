@@ -1,0 +1,671 @@
+import 'dart:convert';
+import 'dart:io';
+
+import 'package:crypto/crypto.dart';
+import 'package:path/path.dart' as p;
+import 'package:yaml/yaml.dart';
+
+import 'path_safety.dart';
+import 'tooling/analyzer_sdk.dart';
+
+typedef PluginCompiler = Future<String> Function(Directory directory);
+typedef PluginResolver = Future<void> Function(Directory directory);
+
+final class PluginCacheFinding {
+  final String path;
+  final String status;
+  final String message;
+  const PluginCacheFinding(this.path, this.status, this.message);
+  bool get failed => status == 'failed';
+  bool get needsRepair => status != 'current' && status != 'repaired';
+  Map<String, Object?> toJson() => {
+    'path': path,
+    'status': status,
+    'message': message,
+  };
+}
+
+/// Audits only synthetic packages resolving the workspace's local Zuke clone.
+/// A receipt is created only after compilation, never by assuming an existing
+/// AOT was built from the sources currently on disk.
+final class PluginCacheDoctor {
+  final Directory cacheRoot;
+  final Set<String> localZukeRoots;
+  final PluginCompiler compiler;
+  final PluginResolver resolver;
+
+  /// Compiles [directory] to a throwaway output, purely to observe whether it
+  /// builds. Never writes the live snapshot.
+  final PluginCompiler buildVerifier;
+
+  PluginCacheDoctor({
+    required this.cacheRoot,
+    required Set<String> localZukeRoots,
+    PluginCompiler? compiler,
+    PluginResolver? resolver,
+    PluginCompiler? buildVerifier,
+  }) : localZukeRoots = localZukeRoots.map(_canonical).toSet(),
+       compiler = compiler ?? _compile,
+       resolver = resolver ?? _resolve,
+       buildVerifier = buildVerifier ?? _verifyBuild;
+
+  static PluginCacheDoctor forWorkspace(String root) {
+    final roots = <String>{};
+    var directory = Directory(root).absolute;
+    while (true) {
+      final options = File(p.join(directory.path, 'analysis_options.yaml'));
+      if (options.existsSync()) {
+        final yaml = loadYaml(options.readAsStringSync());
+        final plugins = yaml is Map ? yaml['plugins'] : null;
+        final plugin = plugins is Map ? plugins['zuke_analyzer'] : null;
+        if (plugin is Map && plugin['path'] is String) {
+          roots.add(
+            _canonical(p.join(directory.path, plugin['path'] as String)),
+          );
+        }
+      }
+      final config = File(
+        p.join(directory.path, '.dart_tool', 'package_config.json'),
+      );
+      if (config.existsSync()) {
+        final packages = _packageRoots(config);
+        for (final name in ['zuke_analyzer', 'zuke_cli']) {
+          final package = packages[name];
+          if (package != null) roots.add(_canonical(package));
+        }
+        break;
+      }
+      final parent = directory.parent;
+      if (parent.path == directory.path) break;
+      directory = parent;
+    }
+    final home = Platform.isWindows
+        ? Platform.environment['LOCALAPPDATA']
+        : Platform.environment['HOME'];
+    if (home == null) {
+      throw const FileSystemException('Cannot locate Dart plugin cache');
+    }
+    return PluginCacheDoctor(
+      cacheRoot: Directory(p.join(home, '.dartServer', '.plugin_manager')),
+      localZukeRoots: roots,
+    );
+  }
+
+  Future<List<PluginCacheFinding>> inspect({
+    bool fix = false,
+    bool checkBuild = false,
+  }) async {
+    if (localZukeRoots.isEmpty || !cacheRoot.existsSync()) return const [];
+    final findings = <PluginCacheFinding>[];
+    // Shared dependencies are hashed once per audit, never cached across runs.
+    final hashes = <String, String>{};
+    final verifiedBuilds = <String, _BuildVerdict>{};
+    for (final entity in cacheRoot.listSync(followLinks: false)) {
+      // Windows reports a directory junction as a Link, not a Directory, so
+      // testing for Directory alone would skip it and leave the user with a
+      // cache entry that is never audited, repaired, or explained.
+      if (entity is! Directory && entity is! Link) continue;
+      var selected = false;
+      try {
+        // A link is never written through: repairing one would act on a
+        // directory the cache does not own. Reading the pubspec is safe and is
+        // what establishes ownership below.
+        //
+        // The cache is shared with other plugins, so a link is only reported
+        // once it is known to be one of ours: without this a third-party
+        // plugin's link fails `zuke doctor` for a workspace it has nothing to
+        // do with. Windows reports a directory junction as a Link rather than
+        // a Directory, so without this branch such entries would be skipped by
+        // the Directory-only test, never audited, repaired, or explained.
+        if (entity is! Directory) {
+          if (!_declaresZuke(entity.path)) continue;
+          findings.add(
+            PluginCacheFinding(
+              entity.path,
+              'failed',
+              'Cache entry is a link and cannot be audited or repaired safely. '
+                  'Replace it with a real directory.',
+            ),
+          );
+          continue;
+        }
+        if (!_declaresZuke(entity.path)) continue;
+        final config = File(
+          p.join(entity.path, '.dart_tool', 'package_config.json'),
+        );
+        if (!config.existsSync()) continue; // no compiled plugin to audit
+        // Which clone an entry belongs to is decided by where its packages
+        // resolve, not by its lock file. The lock is the thing that can be
+        // corrupt, so reading ownership from it first would either report
+        // another clone's breakage as this workspace's or drop this clone's.
+        final Map<String, String> packages;
+        try {
+          packages = _packageRoots(config);
+        } on Object {
+          // Unreadable configuration cannot be attributed to any clone, and
+          // guessing would make another checkout's entry our problem.
+          continue;
+        }
+        final belongsToThisClone = packages.entries.any(
+          (candidate) =>
+              (candidate.key == 'zuke_cli' ||
+                  candidate.key == 'zuke_analyzer') &&
+              localZukeRoots.contains(_canonical(candidate.value)),
+        );
+        if (!belongsToThisClone) continue;
+        // Ours, and attributable, so a later parse failure is a real finding
+        // rather than an entry that quietly disappears from the audit.
+        selected = true;
+        final local = _localPackages(entity, packages);
+        if (!_safeEntry(entity)) {
+          throw const FileSystemException(
+            'Linked cache entry cannot be repaired safely',
+          );
+        }
+
+        final snapshot = File(p.join(entity.path, 'bin', 'plugin.aot'));
+        final receipt = File(p.join(entity.path, '.zuke-plugin-receipt.json'));
+        String digest;
+        try {
+          digest = _sourceDigest(entity, local, hashes);
+        } on FileSystemException catch (error) {
+          findings.add(
+            PluginCacheFinding(
+              entity.path,
+              'orphaned',
+              'Local plugin sources are unavailable: $error. Entry left untouched.',
+            ),
+          );
+          continue;
+        }
+        final saved = _readReceipt(receipt);
+        final current =
+            snapshot.existsSync() &&
+            saved != null &&
+            saved['sourceDigest'] == digest &&
+            saved['snapshotDigest'] == _hash(snapshot, hashes);
+        if (current) {
+          findings.add(
+            PluginCacheFinding(
+              entity.path,
+              'current',
+              'Plugin content verified.',
+            ),
+          );
+          continue;
+        }
+        if (!fix) {
+          // A read-only audit can report that an entry is stale but never why,
+          // and the analysis server reports the reason as a bare AOT compile
+          // error with no command attached. Compiling to a throwaway output
+          // turns that into a finding the user can act on, without touching the
+          // snapshot the editor is using.
+          if (checkBuild) {
+            // Share one compile across entries whose sources are identical, but
+            // never across entries that merely point at the same plugin root.
+            // Synthetic packages for one clone can resolve different analyzer
+            // versions, and those builds genuinely differ -- a real cache held
+            // 81 entries on one analyzer, 49 on another and 1 on a third, all
+            // sharing a single plugin root. Keyed on the root, the first
+            // verdict was reused for all of them and the entry most likely to
+            // fail to build was the one silently skipped. Keyed on the source
+            // fingerprint the same cache costs three compiles, not 131.
+            final fingerprint = _buildFingerprint(entity, local, hashes);
+            final shared = verifiedBuilds[fingerprint];
+            if (shared != null) {
+              // Still reported: the entry is stale or unbuildable whatever we
+              // decided about its twin, and the user needs to see its own path.
+              findings.add(
+                PluginCacheFinding(entity.path, shared.status, shared.message),
+              );
+              continue;
+            }
+            _BuildVerdict verdict;
+            try {
+              await buildVerifier(entity);
+              verdict = const _BuildVerdict(
+                'stale',
+                'Snapshot is out of date but still compiles.',
+              );
+            } on Object catch (error) {
+              verdict = _BuildVerdict(
+                'failed',
+                'The plugin does not build, so rebuilding cannot fix it: $error',
+              );
+            }
+            verifiedBuilds[fingerprint] = verdict;
+            findings.add(
+              PluginCacheFinding(entity.path, verdict.status, verdict.message),
+            );
+            continue;
+          }
+          findings.add(
+            PluginCacheFinding(
+              entity.path,
+              saved == null ? 'unverified' : 'stale',
+              // Naming the likely cause matters most here. A read-only audit
+              // cannot know why the snapshot is unusable, but the overwhelmingly
+              // common reason is that it will not build -- and the analysis server
+              // reports that as a raw AOT compile error, with nothing pointing at
+              // a command that would show it in context.
+              saved == null
+                  ? 'Existing AOT has no trusted content receipt. Run '
+                        '`zuke doctor --check-build` to compile it here and see '
+                        'why, or `--fix` to rebuild it.'
+                  : 'Plugin sources or compiled snapshot changed. Run '
+                        '`zuke doctor --check-build` to compile it here and see '
+                        'why, or `--fix` to rebuild it.',
+            ),
+          );
+          continue;
+        }
+        // A lock also serializes concurrent doctor/analyze invocations. The
+        // analysis server does not honor it; snapshot hashes detect its writes.
+        final lock = File(p.join(entity.path, '.zuke-plugin-repair.lock'));
+        final handle = lock.openSync(mode: FileMode.append);
+        try {
+          handle.lockSync(FileLock.exclusive);
+          if (!_safeEntry(entity)) {
+            throw const FileSystemException('Cache entry changed');
+          }
+          await resolver(entity);
+          final resolvedLocal = _localPackages(entity, _packageRoots(config));
+          final before = _sourceDigest(entity, resolvedLocal, {});
+          final compiledDigest = await compiler(entity);
+          final after = _sourceDigest(entity, resolvedLocal, {});
+          if (before != after) {
+            throw const FileSystemException(
+              'Sources changed during compilation; retry doctor --fix',
+            );
+          }
+          if (!snapshot.existsSync()) {
+            throw const FileSystemException('Compiler produced no plugin.aot');
+          }
+          if (_hash(snapshot, {}) != compiledDigest) {
+            throw const FileSystemException(
+              'Snapshot changed during repair; retry after stopping analysis',
+            );
+          }
+          receipt.writeAsStringSync(
+            jsonEncode({
+              'sourceDigest': after,
+              'snapshotDigest': compiledDigest,
+            }),
+            flush: true,
+          );
+          // Do not retain pre-repair hashes for later entries.
+          hashes.clear();
+          findings.add(
+            PluginCacheFinding(
+              entity.path,
+              'repaired',
+              'Plugin rebuilt and content verified. Restart the analysis server / reload the window.',
+            ),
+          );
+        } finally {
+          handle.closeSync();
+        }
+      } on Object catch (error) {
+        if (!selected) continue;
+        findings.add(
+          PluginCacheFinding(
+            entity.path,
+            'failed',
+            'Could not ${fix ? 'repair' : 'audit'} plugin cache: $error',
+          ),
+        );
+      }
+    }
+    findings.sort((a, b) => a.path.compareTo(b.path));
+    return findings;
+  }
+
+  bool _safeEntry(Directory directory) {
+    // Compare canonical spellings rather than the literal one the caller passed
+    // in. Windows hands callers an 8.3 alias for a path whose ancestor resolves
+    // to its long form, and a junctioned cache root is the same shape. Testing
+    // the caller's spelling for equality with the resolved one then rejects a
+    // perfectly ordinary entry and reports every cached plugin as unrepairable.
+    final base = _canonical(cacheRoot.path);
+    final resolved = _canonical(directory.path);
+    final isDirectChildOfCache = p.equals(p.dirname(resolved), base);
+    // Checked separately because canonicalizing both sides of an equality test
+    // would hide a link that points at a sibling entry inside the cache.
+    final entryItselfIsALink =
+        FileSystemEntity.typeSync(directory.path, followLinks: false) ==
+        FileSystemEntityType.link;
+    return isDirectChildOfCache &&
+        !entryItselfIsALink &&
+        !directory
+            .listSync(recursive: true, followLinks: false)
+            .any((e) => e is Link);
+  }
+
+  /// The plugin root whose sources decide whether [entity] builds.
+  ///
+  /// Whether the cache entry at [path] is a Zuke plugin entry. This is the
+  /// ownership test: the plugin cache is shared with every other Dart plugin,
+  /// so entries belonging to someone else are none of our business.
+  static bool _declaresZuke(String path) {
+    final spec = File(p.join(path, 'pubspec.yaml'));
+    if (!spec.existsSync()) return false;
+    final Object? yaml;
+    try {
+      yaml = loadYaml(spec.readAsStringSync());
+    } on YamlException {
+      // An unreadable pubspec means the entry cannot be shown to be ours.
+      return false;
+    }
+    if (yaml is! Map) return false;
+    final dependencies = yaml['dependencies'];
+    return dependencies is Map && dependencies.containsKey('zuke_analyzer');
+  }
+
+  static Map<String, String> _localPackages(
+    Directory directory,
+    Map<String, String> packages,
+  ) {
+    final lock = loadYaml(
+      File(p.join(directory.path, 'pubspec.lock')).readAsStringSync(),
+    );
+    if (lock is! Map || lock['packages'] is! Map) {
+      throw const FormatException('Invalid plugin pubspec.lock');
+    }
+    return {
+      for (final entry in (lock['packages'] as Map).entries)
+        if (entry.value is Map && entry.value['source'] == 'path')
+          entry.key as String:
+              packages[entry.key] ??
+              (throw FormatException(
+                'Missing package configuration for ${entry.key}',
+              )),
+    };
+  }
+
+  /// Every file whose content decides whether [directory] builds, paired with a
+  /// logical key that does not contain the entry's own directory.
+  ///
+  /// The absolute path is kept for the receipt digest, which must change if a
+  /// file moves. The logical key is what makes two byte-identical synthetic
+  /// packages recognisable as the same build: it is stable across cache
+  /// directories but still distinguishes `zuke_analyzer/lib/src/x.dart` from
+  /// `zuke_cli/lib/src/x.dart`, which a bare basename would not.
+  ///
+  /// The two namespaces are prefixed with `@`, which a pub package name cannot
+  /// contain. Without that, a path dependency named `entry` would write the same
+  /// key as the synthetic pubspec and silently drop it from the digest, so a
+  /// changed pubspec would not invalidate the receipt.
+  static Map<String, String> _buildInputs(
+    Directory directory,
+    Map<String, String> local,
+  ) {
+    final files = <String, String>{
+      for (final name in [
+        'pubspec.yaml',
+        'pubspec.lock',
+        '.dart_tool/package_config.json',
+        'bin/plugin.dart',
+      ])
+        '@synthetic/$name': p.join(directory.path, name),
+    };
+    for (final dependency in local.entries) {
+      final root = dependency.value;
+      final prefix = '@pkg/${dependency.key}';
+      files['$prefix/pubspec.yaml'] = p.join(root, 'pubspec.yaml');
+      final overrides = File(p.join(root, 'pubspec_overrides.yaml'));
+      if (overrides.existsSync()) {
+        files['$prefix/pubspec_overrides.yaml'] = overrides.path;
+      }
+      final lib = Directory(p.join(root, 'lib'));
+      if (!lib.existsSync()) {
+        throw FileSystemException('Missing local library', lib.path);
+      }
+      for (final source in lib.listSync(recursive: true, followLinks: false)) {
+        if (source is Link) {
+          throw FileSystemException(
+            'Linked source cannot be verified',
+            source.path,
+          );
+        }
+        if (source is File) {
+          files['$prefix/${p.relative(source.path, from: root)}'] = source.path;
+        }
+      }
+    }
+    return files;
+  }
+
+  /// A path-independent fingerprint of everything that decides whether a cache
+  /// entry builds, keyed on content alone.
+  ///
+  /// The receipt's [sourceDigest] cannot serve as a build key: it is keyed on
+  /// absolute paths, so the many byte-identical synthetic packages a workspace
+  /// accumulates would never match each other. This one deliberately drops the
+  /// entry's own directory while keeping the content that does vary between
+  /// entries -- notably `.dart_tool/package_config.json`, which records which
+  /// analyzer version an entry resolves.
+  static String _buildFingerprint(
+    Directory directory,
+    Map<String, String> local,
+    Map<String, String> hashes,
+  ) {
+    final inputs = _buildInputs(directory, local);
+    return sha256
+        .convert(
+          utf8.encode(
+            jsonEncode({
+              'sdk': resolveDartExecutable(),
+              'sdkVersion': File(
+                p.join(resolveAnalyzerSdkPath()!, 'version'),
+              ).readAsStringSync(),
+              'contents': {
+                for (final key in inputs.keys.toList()..sort())
+                  key: _hash(File(inputs[key]!), hashes),
+              },
+            }),
+          ),
+        )
+        .toString();
+  }
+
+  static String _sourceDigest(
+    Directory directory,
+    Map<String, String> local,
+    Map<String, String> hashes,
+  ) {
+    final inputs = _buildInputs(directory, local);
+    // Keyed on the canonical path, not the spelling the caller used. A cache
+    // root reached through an 8.3 alias or a junction resolves to the same
+    // files, and hashing the spelling made a receipt written one way look stale
+    // the next time the entry was reached the other way -- so alternating
+    // between spellings repaired the same snapshot forever.
+    final canonical = {
+      for (final input in inputs.entries) _canonical(input.value): input.value,
+    };
+    final ordered = canonical.keys.toList()..sort();
+    return sha256
+        .convert(
+          utf8.encode(
+            jsonEncode({
+              'sdk': resolveDartExecutable(),
+              'sdkVersion': File(
+                p.join(resolveAnalyzerSdkPath()!, 'version'),
+              ).readAsStringSync(),
+              'files': {
+                for (final path in ordered)
+                  path: _hash(File(canonical[path]!), hashes),
+              },
+            }),
+          ),
+        )
+        .toString();
+  }
+
+  static String _hash(File file, Map<String, String> hashes) =>
+      hashes.putIfAbsent(
+        file.path,
+        () => sha256.convert(file.readAsBytesSync()).toString(),
+      );
+
+  static Map<Object?, Object?>? _readReceipt(File file) {
+    try {
+      if (!file.existsSync()) return null;
+      final value = jsonDecode(file.readAsStringSync());
+      return value is Map ? value : null;
+    } on FormatException {
+      return null;
+    }
+  }
+
+  static Future<void> _resolve(Directory directory) async {
+    final result = await Process.run(resolveDartExecutable(), [
+      '--suppress-analytics',
+      'pub',
+      'get',
+    ], workingDirectory: directory.path);
+    if (result.exitCode != 0) {
+      throw ProcessException(
+        resolveDartExecutable(),
+        const ['pub', 'get'],
+        '${result.stdout}\n${result.stderr}',
+        result.exitCode,
+      );
+    }
+  }
+
+  /// Compiles the entry to a temporary snapshot and discards it.
+  ///
+  /// Separate from [_compile] so verifying buildability can never touch the
+  /// snapshot the editor has already loaded: a diagnostic that replaced the
+  /// snapshot it was diagnosing would be worse than no diagnostic.
+  static Future<String> _verifyBuild(Directory directory) async {
+    final temporary = File(
+      p.join(directory.path, 'bin', 'plugin.zuke-verify.aot'),
+    );
+    try {
+      final result = await Process.run(resolveDartExecutable(), [
+        '--suppress-analytics',
+        'compile',
+        'aot-snapshot',
+        '--output',
+        temporary.path,
+        'bin/plugin.dart',
+      ], workingDirectory: directory.path);
+      if (result.exitCode != 0) {
+        throw ProcessException(
+          resolveDartExecutable(),
+          const ['compile', 'aot-snapshot'],
+          '${result.stdout}\n${result.stderr}'.trim(),
+          result.exitCode,
+        );
+      }
+      return temporary.existsSync() ? temporary.path : '';
+    } finally {
+      if (temporary.existsSync()) temporary.deleteSync();
+    }
+  }
+
+  static Future<String> _compile(Directory directory) async {
+    final temporary = File(
+      p.join(directory.path, 'bin', 'plugin.zuke-repair.aot'),
+    );
+    final result = await Process.run(resolveDartExecutable(), [
+      '--suppress-analytics',
+      'compile',
+      'aot-snapshot',
+      '--output',
+      temporary.path,
+      '--depfile',
+      p.join(directory.path, 'bin', 'depfile.txt'),
+      p.join(directory.path, 'bin', 'plugin.dart'),
+    ], workingDirectory: directory.path);
+    if (result.exitCode != 0) {
+      if (temporary.existsSync()) temporary.deleteSync();
+      throw ProcessException(
+        resolveDartExecutable(),
+        const [],
+        '${result.stdout}\n${result.stderr}',
+        result.exitCode,
+      );
+    }
+    final digest = _hash(temporary, {});
+    temporary.renameSync(p.join(directory.path, 'bin', 'plugin.aot'));
+    return digest;
+  }
+}
+
+Map<String, String> _packageRoots(File config) {
+  final document = jsonDecode(config.readAsStringSync());
+  if (document is! Map || document['packages'] is! List) {
+    throw const FormatException('Invalid package configuration');
+  }
+  return {
+    for (final package in document['packages'] as List)
+      if (package is Map &&
+          package['name'] is String &&
+          package['rootUri'] is String)
+        package['name'] as String: config.absolute.uri
+            .resolve(package['rootUri'] as String)
+            .toFilePath(),
+  };
+}
+
+/// The result of compiling one cache entry's sources, reusable for any other
+/// entry whose source fingerprint matches.
+class _BuildVerdict {
+  const _BuildVerdict(this.status, this.message);
+  final String status;
+  final String message;
+}
+
+String _canonical(String path) {
+  final comparable = canonicalComparablePath(path);
+  return p.normalize(
+    Platform.isWindows ? comparable.toLowerCase() : comparable,
+  );
+}
+
+Future<List<PluginCacheFinding>> auditPluginCache(
+  String root, {
+  bool fix = false,
+  bool checkBuild = false,
+}) async {
+  try {
+    return await PluginCacheDoctor.forWorkspace(
+      root,
+    ).inspect(fix: fix, checkBuild: checkBuild);
+  } on Object catch (error) {
+    return [
+      PluginCacheFinding(root, 'failed', 'Plugin cache audit failed: $error'),
+    ];
+  }
+}
+
+/// Prints plugin-cache findings that are not already current.
+///
+/// [sink] defaults to stderr, which is right for `zuke doctor`: the findings are
+/// diagnostics about the machine. `zuke generate` passes stdout instead, because
+/// the audit there is advisory and generate already reserves stderr for its own
+/// failures -- writing to stderr would interleave advice with errors for anything
+/// reading the two separately.
+void printPluginCacheFindings(
+  Iterable<PluginCacheFinding> findings, {
+  void Function(String line)? sink,
+}) {
+  final emit = sink ?? stderr.writeln;
+  // Only statuses a rebuild can actually resolve get the hint. A plugin that
+  // does not compile, or an entry deliberately left untouched, would be sent
+  // straight back to the command that already failed to help.
+  var advisedRepair = false;
+  for (final finding in findings.where((f) => f.status != 'current')) {
+    final canRebuild =
+        finding.status == 'stale' || finding.status == 'unverified';
+    // A workspace accumulates many entries and they share one remedy, so it is
+    // stated once at the end rather than repeated on every line.
+    emit(
+      'ZUKE-PLUGIN-CACHE [${finding.status}]: ${finding.path}: ${finding.message}',
+    );
+    if (finding.needsRepair && canRebuild) advisedRepair = true;
+  }
+  if (advisedRepair) emit(' Run zuke doctor --fix to rebuild these entries.');
+}

@@ -113,12 +113,12 @@ bool isWorkspaceRootPackage(String normalizedPath) => normalizedPath == '.';
 List<ZukeImplementationClaim> normalizedImplementationClaims(
   Iterable<ZukeImplementationClaim> claims,
 ) {
-  final byKey = <String, ZukeImplementationClaim>{};
+  final byTarget = <String?, Map<String, ZukeImplementationClaim>>{};
   for (final claim in claims) {
     if (claim.id.isEmpty) continue;
-    byKey.putIfAbsent('${claim.target ?? ''}|${claim.id}', () => claim);
+    (byTarget[claim.target] ??= {}).putIfAbsent(claim.id, () => claim);
   }
-  final ordered = byKey.values.toList()
+  final ordered = byTarget.values.expand((claims) => claims.values).toList()
     ..sort((left, right) {
       final byTarget = (left.target ?? '').compareTo(right.target ?? '');
       return byTarget != 0 ? byTarget : left.id.compareTo(right.id);

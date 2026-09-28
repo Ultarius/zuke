@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:args/args.dart';
 
 import 'artifact_audit.dart';
+import 'analyze_command.dart';
 import 'attestation_command.dart';
 import 'check_command.dart';
 import 'clean_command.dart';
@@ -73,6 +74,8 @@ class ZukeCli {
           return await ValidateCommand(command).execute();
         case 'generate':
           return await GenerateCommand(command).execute();
+        case 'analyze':
+          return await runAnalyze(command);
         case 'doctor':
           if (command.command?.name == 'test-host') {
             return await runTestHostDoctor(command.command!);

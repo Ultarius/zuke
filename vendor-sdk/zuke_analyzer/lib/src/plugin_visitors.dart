@@ -202,6 +202,41 @@ class ZukeUnimplementedRequirementVisitor extends SimpleAstVisitor<void> {
   }
 }
 
+/// Flags a managed test registration that publishes no evidence type.
+///
+/// `zukeTest` and `zukeTestWidgets` both throw an `ArgumentError` when
+/// `evidenceTypes` is absent or empty, but only under a managed run. A plain
+/// `dart test` therefore stays green, and the failure surfaces later as
+/// "published no Zuke result artifacts" or an unmet evidence type -- far from the
+/// line that caused it. This reports at the call site instead.
+///
+/// Deliberately per-call: it fires on a registration that would throw, and on
+/// nothing else. It does not try to decide whether the requirement a scenario
+/// names is covered, because that is a workspace-wide question and belongs in
+/// the index.
+class ZukeMissingEvidenceTypesVisitor extends SimpleAstVisitor<void> {
+  final void Function(MethodInvocation node, bool declaresEmpty) report;
+
+  ZukeMissingEvidenceTypesVisitor(this.report);
+
+  @override
+  void visitMethodInvocation(MethodInvocation node) {
+    final name = zukeManagedEntrypointName(node.methodName.element);
+    // `zukeUnit` supplies its own type, so it is never missing one.
+    if (name != null && zukeEvidenceDeclaringEntrypoints.contains(name)) {
+      final declaresTypes = declaresReadableEvidenceTypes(
+        node.argumentList.arguments,
+      );
+      if (declaresTypes == null) {
+        report(node, false);
+      } else if (!declaresTypes) {
+        report(node, true);
+      }
+    }
+    super.visitMethodInvocation(node);
+  }
+}
+
 /// Reports the specification findings recorded in the index against the
 /// contract generated from the feature that owns them.
 ///

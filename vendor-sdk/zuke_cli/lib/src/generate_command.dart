@@ -5,6 +5,7 @@ import 'package:zuke_cli/tooling.dart';
 import 'package:zuke_frontend/zuke_frontend.dart';
 
 import 'generator.dart';
+import 'plugin_cache.dart';
 import 'configuration_preflight.dart';
 import 'generated_manifest_path.dart';
 import 'implementation_scan.dart';
@@ -36,6 +37,16 @@ class GenerateCommand {
     info('${checkOnly ? "Checking" : "Generating"} contracts...');
 
     final workspace = requireCurrentWorkspace(root);
+    // Advisory, and about the machine rather than the workspace, so it goes to
+    // stdout. Generate's own failures are the stderr channel, and anything
+    // capturing the two separately would otherwise read a stale-plugin hint as
+    // if generation had failed.
+    if (!quiet) {
+      printPluginCacheFindings(
+        await auditPluginCache(root),
+        sink: stdout.writeln,
+      );
+    }
 
     final generator = DartContractGenerator();
     final configuredOutput =
@@ -287,6 +298,7 @@ class GenerateCommand {
       }
     }
     return ZukeIndex.create(
+      diagnosticAnchor: workspace.config.contractExport,
       root: root,
       inputPaths: inputs,
       generatedManifestContent: generatedManifestContent,

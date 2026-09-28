@@ -282,7 +282,7 @@ final class TestCommandRunner {
                   );
             if (runnerArtifacts.isEmpty && expectedTypes.isNotEmpty) {
               throw StateError(
-                'Runner $runnerId succeeded without producing result artifacts',
+                runnerProducedNoArtifactsMessage(runnerId, expectedTypes),
               );
             }
             if (expectedTypes.isNotEmpty) {
@@ -292,7 +292,11 @@ final class TestCommandRunner {
               final missing = expectedTypes.difference(observedTypes);
               if (missing.isNotEmpty) {
                 throw StateError(
-                  'Runner $runnerId did not produce expected results: ${missing.toList()..sort()}',
+                  runnerMissingEvidenceTypesMessage(
+                    runnerId,
+                    missing,
+                    observedTypes,
+                  ),
                 );
               }
             }
@@ -447,8 +451,7 @@ final class TestCommandRunner {
     required ScenarioSelection selection,
     List<ExecutionResult> artifacts = const [],
   }) async {
-    final evidencePath =
-        workspace.config.evidenceOutput ?? 'generated/evidence/records';
+    final evidencePath = workspace.config.resolvedEvidenceOutput;
     final directory = Directory('${workspace.config.root}/$evidencePath');
     final records = await _recordsFromArtifacts(workspace, profile, artifacts);
 
@@ -963,4 +966,48 @@ final class TestCommandRunner {
     stderr.writeln('${error.diagnosticCode}: ${error.message}');
     return 3;
   }
+}
+
+/// The failure shown when a runner exited cleanly but published nothing.
+///
+/// This is the moment a user learns that declaring intent is not the same as
+/// producing evidence, so the text names the cause and the fix rather than only
+/// the symptom. A plain `test()`/`testWidgets()` runs, passes, and publishes
+/// nothing the gate can read, which is otherwise indistinguishable from a
+/// misconfigured runner.
+///
+/// Built here rather than inline so the wording can be pinned by a test without
+/// standing up a managed run.
+String runnerProducedNoArtifactsMessage(
+  String runnerId,
+  Set<String> expectedTypes,
+) {
+  final required = expectedTypes.toList()..sort();
+  return 'Runner $runnerId succeeded but published no Zuke result artifacts.\n'
+      '  Evidence types this runner must publish: ${required.join(", ")}.\n'
+      '  Register managed tests with zukeTest(...) or zukeTestWidgets(...) and '
+      'declare evidenceTypes. A plain test()/testWidgets() call runs and passes, '
+      'but publishes nothing the assurance gate can read.';
+}
+
+/// The failure shown when a runner published evidence, but not the kinds this
+/// run required.
+///
+/// Reports observed against expected, because "did not produce expected results"
+/// on its own leaves the user guessing which half is wrong. A requirement is
+/// only evidenced by a managed test whose `evidenceTypes` names it, so a missing
+/// type means no registration claimed it.
+String runnerMissingEvidenceTypesMessage(
+  String runnerId,
+  Set<String> expectedTypes,
+  Set<String> observedTypes,
+) {
+  final missingList = expectedTypes.toList()..sort();
+  final observedList = observedTypes.toList()..sort();
+  return 'Runner $runnerId did not publish the expected evidence types.\n'
+      '  Missing: ${missingList.join(", ")}.\n'
+      '  Observed: ${observedList.isEmpty ? "(none)" : observedList.join(", ")}.\n'
+      '  A requirement is only evidenced by a managed test whose evidenceTypes '
+      'declare it, so a type is missing when no zukeTest(...)/zukeTestWidgets(...) '
+      'names it.';
 }

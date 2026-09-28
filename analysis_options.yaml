@@ -14,13 +14,14 @@ analyzer:
 plugins:
   zuke_analyzer:
     path: vendor-sdk/zuke_analyzer
-  diagnostics:
-    zuke_annotation: true
-    zuke_index_stale: true
-    zuke_unknown_index_id: true
-    zuke_missing_test: true
-    zuke_unimplemented_requirement: true
-    zuke_spec_lint: true
+    diagnostics:
+      zuke_annotation: true
+      zuke_index_stale: true
+      zuke_unknown_index_id: true
+      zuke_missing_test: true
+      zuke_missing_evidence_types: true
+      zuke_unimplemented_requirement: true
+      zuke_spec_lint: true
 
 linter:
   rules:

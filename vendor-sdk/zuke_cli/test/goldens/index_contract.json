@@ -1,0 +1,50 @@
+{
+  "contractVersion": 1,
+  "pluginVersion": "0.1.1",
+  "serializers": {
+    "ZukeImplementationClaim": [
+      "id",
+      "target"
+    ],
+    "ZukeIndex": [
+      "bindingIds",
+      "contractVersion",
+      "controlIds",
+      "diagnosticAnchor",
+      "featureFiles",
+      "generatedManifestDigest",
+      "generatedManifestPath",
+      "implementationClaims",
+      "implementedBindingIds",
+      "implementedRequirementIds",
+      "inputDigest",
+      "inputPatterns",
+      "inputs",
+      "kind",
+      "packageTargets",
+      "patternInputs",
+      "presentedRequirementIds",
+      "providedControlIds",
+      "requirementIds",
+      "requirementTargets",
+      "sourcePaths",
+      "sourceRoots",
+      "specDiagnostics",
+      "verifiedClaims",
+      "verifiedRequirementIds"
+    ],
+    "ZukeIndexInput": [
+      "digest",
+      "path"
+    ],
+    "ZukeSpecDiagnostic": [
+      "code",
+      "column",
+      "featureId",
+      "file",
+      "line",
+      "message",
+      "severity"
+    ]
+  }
+}

@@ -9,6 +9,27 @@ void main() {
   setUp(() => root = Directory.systemTemp.createTempSync('zuke-editor-'));
   tearDown(() => root.deleteSync(recursive: true));
 
+  test(
+    'doctor folder-open task audits and repair remains an explicit task',
+    () {
+      for (final update in prepareVscodePreset(root.path)) {
+        update.write();
+      }
+      final document =
+          jsonDecode(File('${root.path}/.vscode/tasks.json').readAsStringSync())
+              as Map;
+      final tasks = (document['tasks'] as List).cast<Map<String, Object?>>();
+      final audit = tasks.singleWhere(
+        (t) => t['label'] == 'Zuke: Doctor Check',
+      );
+      final repair = tasks.singleWhere((t) => t['label'] == 'Zuke: Doctor Fix');
+      expect(audit['runOptions'], {'runOn': 'folderOpen'});
+      expect(audit['args'], isNot(contains('--fix')));
+      expect(repair['args'], contains('--fix'));
+      expect(repair.containsKey('runOptions'), isFalse);
+    },
+  );
+
   test('preserves aliases referenced by tasks or launch configurations', () {
     final taskFile = File('${root.path}/.vscode/tasks.json')
       ..parent.createSync(recursive: true);

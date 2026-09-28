@@ -255,6 +255,47 @@ class Holder {
     );
 
     test(
+      'fresh plugin resolution diagnoses missing evidence types',
+      () async {
+        final fixture = await _writeAnalyzeFixture(includeZukeTesting: true);
+        addTearDown(() => deleteTemporaryDirectory(fixture));
+        _writeWorkspaceConfig(fixture);
+        final source = File('${fixture.path}/lib/managed_test.dart')
+          ..parent.createSync(recursive: true)
+          ..writeAsStringSync('''
+import 'package:zuke/testing.dart';
+
+void evidenceTypesCallback() {}
+
+void register() {
+  zukeTest(evidenceTypesCallback, scenario: null as dynamic);
+}
+''');
+
+        final result = await Process.run(
+          Platform.resolvedExecutable,
+          [
+            '--disable-dart-dev',
+            '--suppress-analytics',
+            'analyze',
+            source.path,
+          ],
+          workingDirectory: fixture.path,
+          stdoutEncoding: utf8,
+          stderrEncoding: utf8,
+        );
+        final output = '${result.stdout}\n${result.stderr}';
+        expect(
+          output,
+          contains('zuke_missing_evidence_types'),
+          reason:
+              'the fresh plugin must inspect the named argument AST:\n$output',
+        );
+      },
+      timeout: const Timeout(Duration(minutes: 3)),
+    );
+
+    test(
       'dart analyze names the unimplemented requirement in the message',
       () async {
         final fixture = await _writeAnalyzeFixture();
@@ -310,8 +351,179 @@ class FeatDemo001RequirementIds {
         // only the file and line to go on.
         expect(output, isNot(contains(r'$0')));
         expect(output, contains('Requirement RULE-E2E-MISSING'));
+        // The cause clause and the template must not both give the remedy. A
+        // regression shipped the same advice twice, once from the target-scope
+        // clause and once from the template tail.
+        expect(
+          RegExp('narrow the requirement').allMatches(output).length,
+          1,
+          reason: 'the remedy must be stated exactly once:\n$output',
+        );
+        expect(
+          output,
+          contains('is unimplemented'),
+          reason: 'the message states the fact, not a scoping claim:\n$output',
+        );
       },
       timeout: const Timeout(Duration(minutes: 3)),
+    );
+
+    test(
+      'a contract outside every configured package says so, and says it once',
+      () async {
+        // The shape `calculator-product` has: one contracts package shared by two
+        // targets that is listed in neither target's `packages:`. The generated
+        // contract therefore belongs to no target, which is a fact about the
+        // *file*. Reporting it as "declared for no target" read as a claim about
+        // the requirement's scoping, and when the explanation was added to that
+        // clause it repeated the template's remedy.
+        final fixture = await _writeAnalyzeFixture();
+        addTearDown(() => deleteTemporaryDirectory(fixture));
+
+        File('${fixture.path}/zuke.yaml').writeAsStringSync('''
+  schemaVersion: 3
+  workspace:
+    name: loc-shared
+    root: .
+  specifications:
+    features: []
+  targets:
+    backend:
+      language: dart
+      framework: dart
+      packages:
+        - id: api_pkg
+          path: apps/api
+          roots: [lib]
+  ''');
+        _writeCurrentIndex(
+          fixture,
+          requirementIds: const ['RULE-E2E-SHARED'],
+          controlIds: const [],
+          bindingIds: const [],
+          packageTargets: const {'apps/api': 'backend'},
+        );
+
+        final contract =
+            File(
+                '${fixture.path}/packages/contracts/lib/src/generated/'
+                'feat_shared_001_contracts.g.dart',
+              )
+              ..parent.createSync(recursive: true)
+              ..writeAsStringSync('''
+  class FeatShared001RequirementIds {
+    static const shared = 'RULE-E2E-SHARED';
+  }
+  ''');
+
+        final result = await Process.run(
+          Platform.resolvedExecutable,
+          [
+            '--disable-dart-dev',
+            '--suppress-analytics',
+            'analyze',
+            contract.path,
+          ],
+          workingDirectory: fixture.path,
+          stdoutEncoding: utf8,
+          stderrEncoding: utf8,
+        );
+        final output = '${result.stdout}\n${result.stderr}';
+
+        expect(
+          output,
+          contains('outside every configured package'),
+          reason: 'the message must name the real cause:\n$output',
+        );
+        expect(
+          RegExp('narrow the requirement').allMatches(output).length,
+          1,
+          reason: 'the remedy must be stated exactly once:\n$output',
+        );
+      },
+      timeout: const Timeout(Duration(minutes: 3)),
+    );
+
+    test('the calculator performance rule is backend-only and covered', () {
+      final workspaceRoot = _findWorkspaceRoot();
+      final index = ZukeIndex.read(
+        File(
+          '${workspaceRoot.path}${Platform.pathSeparator}examples'
+          '${Platform.pathSeparator}calculator-product'
+          '${Platform.pathSeparator}.zuke${Platform.pathSeparator}'
+          'analyzer-index.json',
+        ),
+      );
+      const id = 'RULE-CALC-PERFORMANCE';
+      expect(index.requirementTargets[id], ['backend']);
+      expect(index.unimplementedRequirementIds(null), isNot(contains(id)));
+      expect(index.unimplementedRequirementIds('backend'), isNot(contains(id)));
+      expect(
+        index.verifiedClaims.any(
+          (claim) => claim.id == id && claim.target == 'backend',
+        ),
+        isTrue,
+      );
+    });
+
+    test(
+      'the calculator-product contract has no unimplemented performance rule',
+      () async {
+        // The contracts package remains shared and unattributed, but the
+        // backend-only performance rule has a backend implementation claim.
+        // The shared contract must not report it as unimplemented.
+        final workspaceRoot = _findWorkspaceRoot();
+        final contract = File(
+          '${workspaceRoot.path}${Platform.pathSeparator}examples'
+          '${Platform.pathSeparator}calculator-product'
+          '${Platform.pathSeparator}packages'
+          '${Platform.pathSeparator}calculator_contracts'
+          '${Platform.pathSeparator}lib${Platform.pathSeparator}src'
+          '${Platform.pathSeparator}generated'
+          '${Platform.pathSeparator}feat_calc_001_contracts.g.dart',
+        );
+        expect(
+          contract.existsSync(),
+          isTrue,
+          reason:
+              'the example commits its generated contracts. If this is missing, '
+              'run `zuke generate --root examples/calculator-product`.',
+        );
+
+        final result = await Process.run(
+          Platform.resolvedExecutable,
+          [
+            '--disable-dart-dev',
+            '--suppress-analytics',
+            'analyze',
+            contract.path,
+          ],
+          workingDirectory: workspaceRoot.path,
+          stdoutEncoding: utf8,
+          stderrEncoding: utf8,
+        );
+        final output = '${result.stdout}\n${result.stderr}';
+
+        expect(result.exitCode, 0, reason: output);
+        expect(
+          output,
+          isNot(contains('Requirement RULE-CALC-PERFORMANCE')),
+          reason:
+              'the backend implementation must satisfy the performance rule: '
+              '$output',
+        );
+        expect(
+          output,
+          isNot(
+            contains('An error occurred while executing an analyzer plugin'),
+          ),
+          reason:
+              'a plugin load failure cannot establish that the warning cleared: '
+              '$output',
+        );
+      },
+      // A real plugin AOT build plus analysing the example's dependency graph.
+      timeout: const Timeout(Duration(minutes: 5)),
     );
   });
 }
@@ -361,6 +573,7 @@ void _writeCurrentIndex(
   required Iterable<String> controlIds,
   required Iterable<String> bindingIds,
   Iterable<String> verifiedRequirementIds = const [],
+  Map<String, String> packageTargets = const {},
 }) {
   final config = File('${root.path}/zuke.yaml');
   final manifest = File('${root.path}/generated-manifest.json')
@@ -374,6 +587,7 @@ void _writeCurrentIndex(
     controlIds: controlIds,
     bindingIds: bindingIds,
     verifiedRequirementIds: verifiedRequirementIds,
+    packageTargets: packageTargets,
   );
   final indexFile = File('${root.path}/.zuke/analyzer-index.json');
   indexFile.parent.createSync(recursive: true);
@@ -382,7 +596,9 @@ void _writeCurrentIndex(
 }
 
 /// Isolated package that enables the real plugin the way a consumer would.
-Future<Directory> _writeAnalyzeFixture() async {
+Future<Directory> _writeAnalyzeFixture({
+  bool includeZukeTesting = false,
+}) async {
   final workspaceRoot = _findWorkspaceRoot().path;
   final annotationsPath = _posixPath(
     '$workspaceRoot${Platform.pathSeparator}vendor-sdk'
@@ -392,14 +608,17 @@ Future<Directory> _writeAnalyzeFixture() async {
     '$workspaceRoot${Platform.pathSeparator}vendor-sdk'
     '${Platform.pathSeparator}zuke_analyzer',
   );
+  final zukePath = _posixPath(
+    '$workspaceRoot${Platform.pathSeparator}vendor-sdk'
+    '${Platform.pathSeparator}zuke',
+  );
   final fixture = Directory.systemTemp.createTempSync('zuke-analyze-e2e-');
   File('${fixture.path}/pubspec.yaml').writeAsStringSync('''
 name: loc_e2e_pkg
 environment:
   sdk: ">=3.10.0 <4.0.0"
 dependencies:
-  zuke_annotations:
-    path: $annotationsPath
+${includeZukeTesting ? '  zuke:\n    path: $zukePath\n' : '  zuke_annotations:\n    path: $annotationsPath\n'}
 dev_dependencies:
   lints: any
 ''');
@@ -413,6 +632,7 @@ plugins:
       zuke_index_stale: true
       zuke_unknown_index_id: true
       zuke_missing_test: true
+      zuke_missing_evidence_types: true
       zuke_unimplemented_requirement: true
 ''');
   final pubGet = await Process.run(

@@ -361,12 +361,33 @@ ArgParser buildZukeArgParser() {
         ),
     )
     ..addCommand(
+      'analyze',
+      ArgParser()..addOption(
+        'root',
+        abbr: 'r',
+        help: 'Workspace root; pass dart analyze arguments after --',
+      ),
+    )
+    ..addCommand(
       'doctor',
       ArgParser()
         ..addOption('root', abbr: 'r', help: 'Workspace root directory')
         ..addOption('format', allowed: ['text', 'json'], defaultsTo: 'text')
         ..addOption('summary-file')
         ..addFlag('check-alignment')
+        ..addFlag(
+          'fix',
+          negatable: false,
+          help:
+              'Rebuild stale local plugin snapshots and regenerate incompatible indexes',
+        )
+        ..addFlag(
+          'check-build',
+          negatable: false,
+          help:
+              'Compile each stale plugin snapshot to a throwaway output and '
+              'report why it fails, instead of rebuilding it',
+        )
         ..addFlag('check-overrides')
         ..addCommand(
           'test-host',

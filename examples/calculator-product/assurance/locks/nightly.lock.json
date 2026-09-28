@@ -28,11 +28,11 @@
   "policyHash": "sha256:0e415690723d2589b09681eeb983daab39231d75e659f9754f94a51cea8556dd",
   "evidenceRequirementsHash": "sha256:d63cef243ff1530bc5b8199c3812af46310998bf18f528bcec11d8e97c825b5f",
   "specificationDigestScope": "discovery-inputs-structural-v1",
-  "specificationDigest": "sha256:75cc558c9fe840289c8314b3e5204cbf4129fcf42e43da76907b775e96d3d9f0",
+  "specificationDigest": "sha256:ba7097925d0d33d6a102875a9973d5d49fb7108f05287eadb105d5639928081e",
   "generatedManifestDigest": "sha256:56d16ee067d90be333b8e7390dcec1a919f585235fe7b2bd064d24d99362fbf0",
   "features": {
     "FEAT-CALC-001": {
-      "sourceHash": "sha256:71c1da702c8591e2a2f4d8d521e7ded54c54fe29a8019c62ed89005aad9adbc5"
+      "sourceHash": "sha256:3cd36d3e4ae02bf024006e55e8de43f8a4e3569f237105c7555ba66f8152c6de"
     },
     "FEAT-CALC-002": {
       "sourceHash": "sha256:13ec88fb2dcfcec8c4df2f844c63a7b692b3281029428ae14d979fcdfa07df43"
@@ -44,7 +44,7 @@
       "version": "1.0.0",
       "compatibilityId": "dart-source-package-v1",
       "package": "calculator-api",
-      "digest": "sha256:e9f5a94c6488b195f6654c7bbcee70eb914c172760c3a77da171cb6bb6965967",
+      "digest": "sha256:3cf37d2e77805e2fa2df94867f210e0dea6d869cbf938dcfb1da6cdac9fae395",
       "completeness": {
         "annotationTargets": "complete",
         "generatedParts": "complete",
@@ -119,7 +119,7 @@
       },
       "mode": "topologyAuthoritative",
       "status": "proven",
-      "governedGraphHash": "sha256:bfd503a79861301439a263dadcdc2becfd34d8ed90188e6a87c96b1000448f18",
+      "governedGraphHash": "sha256:708a3c2bf77c9100f5258bfd7f8fa198e6a77050f5403427e97b4954c4385ca4",
       "evidenceDigests": [],
       "diagnostics": []
     },
@@ -139,10 +139,10 @@
         "sha256:2f22889ec813d8a08eeec61cd38cdaeaf32b2be0c5d43ed09532aa232052cb3d",
         "sha256:312688d2a20b5057abaabb3f1c0a1c5bb944e9e4629434b602fc1176dbbde225",
         "sha256:56d16ee067d90be333b8e7390dcec1a919f585235fe7b2bd064d24d99362fbf0",
-        "sha256:804b8774eeb39181a97b95c0bd62ca21f24d44f197b9a3dfa58c012c7b0d1726",
         "sha256:c3c21d2090e51441952e6ff020970e1a96c3d68c9826b13fc0eac0b4ba4b40b9",
-        "sha256:d487c51aa2733b882f882e714a3533b1c581e14410bc6899619758bbc47868b7",
-        "sha256:ea105fdebdc21e7e6aba23d131f6edd750390164436b4a0dd13895f35d73a204"
+        "sha256:d48349ab36af5779f02e7090b27356959151d63833e8e85c9cfa5f9866868e2f",
+        "sha256:ea105fdebdc21e7e6aba23d131f6edd750390164436b4a0dd13895f35d73a204",
+        "sha256:f527ec470c1334d876a7071eb0ed245342469df312311bce45989b7f040984ce"
       ],
       "diagnostics": []
     },
@@ -157,7 +157,7 @@
       },
       "mode": "topologyAuthoritative",
       "status": "proven",
-      "governedGraphHash": "sha256:bfd503a79861301439a263dadcdc2becfd34d8ed90188e6a87c96b1000448f18",
+      "governedGraphHash": "sha256:708a3c2bf77c9100f5258bfd7f8fa198e6a77050f5403427e97b4954c4385ca4",
       "evidenceDigests": [],
       "diagnostics": []
     },
@@ -172,7 +172,7 @@
       },
       "mode": "topologyAuthoritative",
       "status": "proven",
-      "governedGraphHash": "sha256:bfd503a79861301439a263dadcdc2becfd34d8ed90188e6a87c96b1000448f18",
+      "governedGraphHash": "sha256:708a3c2bf77c9100f5258bfd7f8fa198e6a77050f5403427e97b4954c4385ca4",
       "evidenceDigests": [],
       "diagnostics": []
     },
@@ -191,13 +191,13 @@
         "sha256:04c3eda8b1454257bf25581252cb5fb9c04732fee426cf227e3e3f24006011d9",
         "sha256:1bea2eb6f44c43ef3f4219968c34c5382860e69fa282ab8b1a6e2c609ed2f9b5",
         "sha256:56d16ee067d90be333b8e7390dcec1a919f585235fe7b2bd064d24d99362fbf0",
-        "sha256:804b8774eeb39181a97b95c0bd62ca21f24d44f197b9a3dfa58c012c7b0d1726",
         "sha256:94a0333fa20701461b944b03232ae0b1415013ece987f822fa4a8008e0b28127",
         "sha256:b08b58852d006cb3c580b308412c206e101c12ef466b1dcce3bafc9291d95fcb",
-        "sha256:d487c51aa2733b882f882e714a3533b1c581e14410bc6899619758bbc47868b7",
+        "sha256:d48349ab36af5779f02e7090b27356959151d63833e8e85c9cfa5f9866868e2f",
         "sha256:e1ae3b64679e0c0e92d1af133e3518fcbb62d66072a5c9e1e445e68c9f293366",
         "sha256:e1f4bbf797a48a29512d32df02a168d2c3d589ce2b776750b17fda7a5154a854",
-        "sha256:e666621b9e9e41185ff36c2ebeaebb0b0a4f85edfca003872a14f3c70e6c697f"
+        "sha256:e666621b9e9e41185ff36c2ebeaebb0b0a4f85edfca003872a14f3c70e6c697f",
+        "sha256:f527ec470c1334d876a7071eb0ed245342469df312311bce45989b7f040984ce"
       ],
       "diagnostics": []
     },
@@ -212,7 +212,7 @@
       },
       "mode": "topologyAuthoritative",
       "status": "proven",
-      "governedGraphHash": "sha256:bfd503a79861301439a263dadcdc2becfd34d8ed90188e6a87c96b1000448f18",
+      "governedGraphHash": "sha256:708a3c2bf77c9100f5258bfd7f8fa198e6a77050f5403427e97b4954c4385ca4",
       "evidenceDigests": [],
       "diagnostics": []
     },
@@ -227,7 +227,7 @@
       },
       "mode": "topologyAuthoritative",
       "status": "proven",
-      "governedGraphHash": "sha256:bfd503a79861301439a263dadcdc2becfd34d8ed90188e6a87c96b1000448f18",
+      "governedGraphHash": "sha256:708a3c2bf77c9100f5258bfd7f8fa198e6a77050f5403427e97b4954c4385ca4",
       "evidenceDigests": [],
       "diagnostics": []
     },
@@ -248,9 +248,24 @@
         "sha256:447637e7ed498c1a24cf929e3cfa3472c575f9177aeca05b1ebc074c907298a0",
         "sha256:56d16ee067d90be333b8e7390dcec1a919f585235fe7b2bd064d24d99362fbf0",
         "sha256:6fe5e6c269e21a47b909a0321759bb3c2c35d46817f8bf79ec65fd94143d4304",
-        "sha256:804b8774eeb39181a97b95c0bd62ca21f24d44f197b9a3dfa58c012c7b0d1726",
-        "sha256:d487c51aa2733b882f882e714a3533b1c581e14410bc6899619758bbc47868b7"
+        "sha256:d48349ab36af5779f02e7090b27356959151d63833e8e85c9cfa5f9866868e2f",
+        "sha256:f527ec470c1334d876a7071eb0ed245342469df312311bce45989b7f040984ce"
       ],
+      "diagnostics": []
+    },
+    {
+      "binding": {
+        "subjectKind": "requirement",
+        "subjectId": "RULE-CALC-PERFORMANCE",
+        "target": "backend",
+        "role": "implementation",
+        "variant": "default",
+        "slot": "primary"
+      },
+      "mode": "topologyAuthoritative",
+      "status": "proven",
+      "governedGraphHash": "sha256:708a3c2bf77c9100f5258bfd7f8fa198e6a77050f5403427e97b4954c4385ca4",
+      "evidenceDigests": [],
       "diagnostics": []
     },
     {
@@ -264,7 +279,7 @@
       },
       "mode": "topologyAuthoritative",
       "status": "proven",
-      "governedGraphHash": "sha256:bfd503a79861301439a263dadcdc2becfd34d8ed90188e6a87c96b1000448f18",
+      "governedGraphHash": "sha256:708a3c2bf77c9100f5258bfd7f8fa198e6a77050f5403427e97b4954c4385ca4",
       "evidenceDigests": [],
       "diagnostics": []
     },
@@ -279,7 +294,7 @@
       },
       "mode": "topologyAuthoritative",
       "status": "proven",
-      "governedGraphHash": "sha256:bfd503a79861301439a263dadcdc2becfd34d8ed90188e6a87c96b1000448f18",
+      "governedGraphHash": "sha256:708a3c2bf77c9100f5258bfd7f8fa198e6a77050f5403427e97b4954c4385ca4",
       "evidenceDigests": [],
       "diagnostics": []
     },
@@ -297,11 +312,11 @@
       "evidenceDigests": [
         "sha256:04c3eda8b1454257bf25581252cb5fb9c04732fee426cf227e3e3f24006011d9",
         "sha256:56d16ee067d90be333b8e7390dcec1a919f585235fe7b2bd064d24d99362fbf0",
-        "sha256:804b8774eeb39181a97b95c0bd62ca21f24d44f197b9a3dfa58c012c7b0d1726",
         "sha256:9542a42a3e048bb6c908680a0ca42947115a2c91610af5d835cb2e85dac31a69",
         "sha256:a30d0174fa2f8d251b53503a6f9fe5809355b79412ab828d8bf89b6a438f406f",
         "sha256:c9687ac3d44b6fc9abe0d74bd88d444a2f64b11a55486c61e2d64faa3305f8f9",
-        "sha256:d487c51aa2733b882f882e714a3533b1c581e14410bc6899619758bbc47868b7"
+        "sha256:d48349ab36af5779f02e7090b27356959151d63833e8e85c9cfa5f9866868e2f",
+        "sha256:f527ec470c1334d876a7071eb0ed245342469df312311bce45989b7f040984ce"
       ],
       "diagnostics": []
     },
@@ -316,7 +331,7 @@
       },
       "mode": "topologyAuthoritative",
       "status": "proven",
-      "governedGraphHash": "sha256:bfd503a79861301439a263dadcdc2becfd34d8ed90188e6a87c96b1000448f18",
+      "governedGraphHash": "sha256:708a3c2bf77c9100f5258bfd7f8fa198e6a77050f5403427e97b4954c4385ca4",
       "evidenceDigests": [],
       "diagnostics": []
     },
@@ -335,9 +350,9 @@
         "sha256:04c3eda8b1454257bf25581252cb5fb9c04732fee426cf227e3e3f24006011d9",
         "sha256:1ae032ad8fa9d56fe93cfb593baa997049800bb21627fe19b50effac45d66037",
         "sha256:56d16ee067d90be333b8e7390dcec1a919f585235fe7b2bd064d24d99362fbf0",
-        "sha256:804b8774eeb39181a97b95c0bd62ca21f24d44f197b9a3dfa58c012c7b0d1726",
         "sha256:c8ee41c3ee02b804199500c4eac515fc70ec15b868597204f61dd8b41449f0f5",
-        "sha256:d487c51aa2733b882f882e714a3533b1c581e14410bc6899619758bbc47868b7"
+        "sha256:d48349ab36af5779f02e7090b27356959151d63833e8e85c9cfa5f9866868e2f",
+        "sha256:f527ec470c1334d876a7071eb0ed245342469df312311bce45989b7f040984ce"
       ],
       "diagnostics": []
     }
@@ -351,7 +366,7 @@
       ],
       "evidenceDigests": [],
       "coverage": "proven",
-      "graphHash": "sha256:abb860d715a8068eef9a835ec7c4ae995d82b5df2220b560db706d4610c63362",
+      "graphHash": "sha256:c644c0925d8230620355b6821bf83de157576882ba9d2ae2abf601cfd51484e6",
       "completeness": {
         "routeRegistration": "complete",
         "middlewareOrder": "complete",
@@ -370,7 +385,7 @@
       ],
       "evidenceDigests": [],
       "coverage": "proven",
-      "graphHash": "sha256:abb860d715a8068eef9a835ec7c4ae995d82b5df2220b560db706d4610c63362",
+      "graphHash": "sha256:c644c0925d8230620355b6821bf83de157576882ba9d2ae2abf601cfd51484e6",
       "completeness": {
         "routeRegistration": "complete",
         "middlewareOrder": "complete",
@@ -389,7 +404,7 @@
       ],
       "evidenceDigests": [],
       "coverage": "proven",
-      "graphHash": "sha256:abb860d715a8068eef9a835ec7c4ae995d82b5df2220b560db706d4610c63362",
+      "graphHash": "sha256:c644c0925d8230620355b6821bf83de157576882ba9d2ae2abf601cfd51484e6",
       "completeness": {
         "routeRegistration": "complete",
         "middlewareOrder": "complete",
@@ -408,7 +423,7 @@
       ],
       "evidenceDigests": [],
       "coverage": "proven",
-      "graphHash": "sha256:abb860d715a8068eef9a835ec7c4ae995d82b5df2220b560db706d4610c63362",
+      "graphHash": "sha256:c644c0925d8230620355b6821bf83de157576882ba9d2ae2abf601cfd51484e6",
       "completeness": {
         "routeRegistration": "complete",
         "middlewareOrder": "complete",

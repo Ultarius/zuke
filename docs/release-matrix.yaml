@@ -85,13 +85,13 @@ packages:
     supportStatement: Supported optional package-owned build-time validation hook.
     bumpReason: Coordinated build-hook release for target-aware CLI extraction.
   zuke_analyzer:
-    version: 0.1.0
+    version: 0.1.1
     previousVersion: 0.1.0
     publish: false
     releaseAction: internal
     tier: Repository tooling
     supportStatement: Repository-only analyzer plugin; not published to pub.dev.
-    bumpReason: Internal workspace tooling.
+    bumpReason: Introduce versioned analyzer index handshake and cache recovery.
   zuke_conformance:
     version: 0.1.0
     previousVersion: 0.1.0

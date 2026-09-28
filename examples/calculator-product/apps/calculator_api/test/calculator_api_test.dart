@@ -160,6 +160,11 @@ Future<void> _runRateLimit() async {
   expect(server.application.events.length, completedBeforeBlocked + 1);
 }
 
+@VerifiesRequirement(
+  [FeatCalc001RequirementIds.performance],
+  evidenceType: 'performance',
+  variant: 'default',
+)
 Future<void> _runPerformanceBudget() async {
   final server = await _server();
   final samples = <int>[];

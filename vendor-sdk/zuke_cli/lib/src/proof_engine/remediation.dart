@@ -57,6 +57,25 @@ String? defaultRemediation(String code) {
       'Publish the trust bundle at the reported path with an '
           'authorized key whose status is active and whose usages include the '
           'required one.',
+    'ZUKE-MISSING-EVIDENCE-TYPES' =>
+      'A managed test must say what it proves, or `zuke test` throws an '
+          'ArgumentError before the suite runs. Pass `evidenceTypes: [...]` naming a '
+          'type the rule requires, or use `zukeUnit(...)`, which publishes "unit" '
+          'itself. This prevents that crash; whether a requirement is left '
+          'unevidenced is a separate, workspace-wide check.',
+    'ZUKE-PLUGIN-CACHE' =>
+      'The analyzer plugin snapshot no longer matches the local Zuke sources. '
+          'Run `zuke doctor --fix`, then restart the analysis server or reload the '
+          'IDE window so it reloads the rebuilt snapshot.',
+    'ZUKE-PLUGIN-STALE' =>
+      'The compiled analyzer plugin and this analyzer index were built for '
+          'different index contract versions, so the plugin cannot read the index '
+          'safely. Run `zuke doctor --fix` with the workspace\'s current Zuke CLI, '
+          'then restart the analysis server.',
+    'ZUKE-INDEX-STALE' =>
+      'The analyzer index no longer matches the workspace inputs. Run '
+          '`zuke generate` to refresh it, then restart the analysis server so the '
+          'plugin picks up the new contract version.',
     _ => _familyRemediation(code),
   };
 }

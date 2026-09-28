@@ -497,29 +497,37 @@ String finderFor(FeatTest001FlutterBinding binding) => switch (binding) {
       },
     );
 
-    test('indexes verified requirement IDs from package sources', () async {
-      // The scan resolves annotations through the element model, so the fixture
-      // has to resolve `package:zuke_annotations` the way a real project does.
-      await configureFixturePackages(root);
-      final testDir = Directory('${root.path}/test')
-        ..createSync(recursive: true);
-      File('${testDir.path}/fixture_test.dart').writeAsStringSync('''
+    test(
+      'indexes verified requirement IDs from package sources',
+      () async {
+        // The scan resolves annotations through the element model, so the fixture
+        // has to resolve `package:zuke_annotations` the way a real project does.
+        await configureFixturePackages(root);
+        final testDir = Directory('${root.path}/test')
+          ..createSync(recursive: true);
+        File('${testDir.path}/fixture_test.dart').writeAsStringSync('''
 import 'package:zuke_annotations/zuke_annotations.dart';
 
 @VerifiesRequirement(['RULE-TEST-001'])
 void coversFixture() {}
 ''');
-      expect(await _run(root), 0);
-      final decoded =
-          jsonDecode(
-                File(
-                  '${root.path}/.zuke/analyzer-index.json',
-                ).readAsStringSync(),
-              )
-              as Map<String, Object?>;
-      expect(decoded['verifiedRequirementIds'], ['RULE-TEST-001']);
-      expect(await _run(root, check: true), 0);
-    });
+        expect(await _run(root), 0);
+        final decoded =
+            jsonDecode(
+                  File(
+                    '${root.path}/.zuke/analyzer-index.json',
+                  ).readAsStringSync(),
+                )
+                as Map<String, Object?>;
+        expect(decoded['verifiedRequirementIds'], ['RULE-TEST-001']);
+        expect(await _run(root, check: true), 0);
+      },
+      // Bounded but slow: this resolves the fixture through the element model
+      // and generates twice, and the default 30s is not enough for it when the
+      // suite runs concurrently. Confirmed to pass well inside this budget on
+      // its own, so this is contention headroom and not a mask for a hang.
+      timeout: const Timeout(Duration(minutes: 3)),
+    );
   });
 }
 

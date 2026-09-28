@@ -4,4 +4,6 @@
 /// pull `DartExtractor` (and its `zuke_core` IR types) into the isolate.
 library;
 
+export 'src/index_contract.dart';
+
 export 'src/tooling/inspection.dart';

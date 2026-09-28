@@ -4,6 +4,10 @@ import 'package:args/args.dart';
 import 'package:zuke_core/zuke_core.dart';
 
 import 'alignment_doctor.dart';
+import 'plugin_cache.dart';
+import 'index_contract.dart';
+import 'cli_parser.dart';
+import 'generate_command.dart';
 import 'command_result.dart';
 import 'configuration_preflight.dart';
 import 'generated/release_contract.dart';
@@ -12,10 +16,51 @@ import 'test_host_doctor.dart';
 bool _isZukePackageName(String name) =>
     name == 'zuke' || name.startsWith('zuke_');
 
-Future<int> runDoctor(ArgResults cmd) async {
+/// Audits a workspace's analyzer plugin caches.
+///
+/// Injectable so a test can exercise the rest of [runDoctor] without reaching
+/// the real `~/.dartServer/.plugin_manager`. The default walks ancestor
+/// directories looking for a plugin declaration, and a fixture with no Dart
+/// package boundary walks all the way to the filesystem root -- which is how a
+/// `doctor --fix` test could otherwise recompile a real machine's plugin cache.
+typedef PluginCacheAudit =
+    Future<List<PluginCacheFinding>> Function(String root, bool fix);
+
+Future<int> runDoctor(ArgResults cmd, {PluginCacheAudit? pluginAudit}) async {
   final root = cmd['root'] as String? ?? Directory.current.path;
   final jsonMode = (cmd['format'] as String? ?? 'text') == 'json';
   final diagnostics = <Diagnostic>[];
+  final fix = cmd.options.contains('fix') && cmd['fix'] == true;
+  final checkBuild =
+      cmd.options.contains('check-build') && cmd['check-build'] == true;
+  if (!jsonMode) {
+    print(
+      fix
+          ? 'Checking and repairing analyzer plugin caches...'
+          : checkBuild
+          ? 'Checking whether analyzer plugin caches build...'
+          : 'Checking analyzer plugin caches...',
+    );
+  }
+  // `--fix` already compiles every entry it repairs, so verifying buildability
+  // alongside it would compile the same entry twice for no new information.
+  final pluginFindings = pluginAudit == null
+      ? await auditPluginCache(root, fix: fix, checkBuild: checkBuild && !fix)
+      : await pluginAudit(root, fix);
+  if (!jsonMode) printPluginCacheFindings(pluginFindings);
+  for (final finding in pluginFindings.where((f) => f.needsRepair)) {
+    diagnostics.add(
+      Diagnostic(
+        code: 'ZUKE-PLUGIN-CACHE',
+        stage: 'doctor',
+        severity: fix ? DiagnosticSeverity.error : DiagnosticSeverity.warning,
+        owner: DiagnosticOwner.project,
+        message: '${finding.path}: ${finding.message}',
+        remediation: 'Run zuke doctor --fix, then restart the analysis server.',
+      ),
+    );
+  }
+  var repairFailed = fix && pluginFindings.any((f) => f.needsRepair);
   final releaseDetails = <String, Object?>{
     'publicPackageVersions': Map<String, String>.from(
       releasePublicPackageVersions,
@@ -45,6 +90,7 @@ Future<int> runDoctor(ArgResults cmd) async {
       diagnostics: diagnostics,
       details: {
         'release': releaseDetails,
+        'pluginCache': pluginFindings.map((f) => f.toJson()).toList(),
         if (checkAlignment) 'alignmentChecked': true,
         if (checkOverrides) 'overridesChecked': true,
       },
@@ -79,6 +125,38 @@ Future<int> runDoctor(ArgResults cmd) async {
       }
     }
     return finish(1);
+  }
+  if (fix) {
+    final indexFile = File('$root/.zuke/analyzer-index.json');
+    bool regenerate;
+    try {
+      regenerate =
+          !indexFile.existsSync() ||
+          ZukeIndexHeader.read(indexFile).contractVersion != zukeIndexContract;
+    } on FormatException {
+      regenerate = true;
+    }
+    if (regenerate) {
+      final generate = buildZukeArgParser().parse([
+        'generate',
+        '--root',
+        root,
+        '--quiet',
+      ]).command!;
+      if (await GenerateCommand(generate).execute() != 0) {
+        repairFailed = true;
+        diagnostics.add(
+          const Diagnostic(
+            code: 'ZUKE-INDEX-STALE',
+            stage: 'doctor',
+            severity: DiagnosticSeverity.error,
+            owner: DiagnosticOwner.project,
+            message: 'Index regeneration failed.',
+            remediation: 'Fix generation errors and retry zuke doctor --fix.',
+          ),
+        );
+      }
+    }
   }
   if (!jsonMode) print('  zuke.yaml: found');
   if (!jsonMode) {
@@ -193,7 +271,7 @@ Future<int> runDoctor(ArgResults cmd) async {
   }
 
   if (!jsonMode) print('Doctor check complete.');
-  return finish(0);
+  return finish(repairFailed ? 1 : 0);
 }
 
 Future<int> runTestHostDoctor(ArgResults cmd) async {

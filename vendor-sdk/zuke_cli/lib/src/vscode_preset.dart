@@ -141,6 +141,7 @@ Map<String, Object?> _task({
   required String label,
   required List<String> arguments,
   bool presentation = true,
+  bool folderOpen = false,
 }) => {
   'label': label,
   'type': 'process',
@@ -150,6 +151,7 @@ Map<String, Object?> _task({
   if (presentation)
     'presentation': {'group': 'zuke', 'panel': 'dedicated', 'reveal': 'always'},
   'problemMatcher': <String>[],
+  if (folderOpen) 'runOptions': {'runOn': 'folderOpen'},
 };
 
 const _zukeRoot = r'${workspaceFolder}';
@@ -227,7 +229,7 @@ List<Map<String, Object?>> _vscodeTasks(List<String> scopeOptions) => [
   ),
   _task(
     label: 'Zuke: Doctor Check',
-    presentation: false,
+    folderOpen: true,
     arguments: [
       '--suppress-analytics',
       'run',
@@ -235,6 +237,18 @@ List<Map<String, Object?>> _vscodeTasks(List<String> scopeOptions) => [
       'doctor',
       '--root',
       _zukeRoot,
+    ],
+  ),
+  _task(
+    label: 'Zuke: Doctor Fix',
+    arguments: [
+      '--suppress-analytics',
+      'run',
+      'zuke_cli:zuke',
+      'doctor',
+      '--root',
+      _zukeRoot,
+      '--fix',
     ],
   ),
   _task(

@@ -25,6 +25,82 @@ void main() {
 
     tearDown(() => deleteTemporaryDirectory(tempDir));
 
+    for (final version in [zukeIndexContract - 1, zukeIndexContract + 1]) {
+      test(
+        'contract $version suppresses index noise and reports once before parsing',
+        () async {
+          _writeCurrentConfig(tempDir);
+          final barrel = File('${tempDir.path}/lib/zuke_contracts.dart')
+            ..createSync(recursive: true)
+            ..writeAsStringSync('library;');
+          final source = File('${tempDir.path}/lib/app.dart')
+            ..writeAsStringSync('''
+import 'package:zuke_annotations/zuke_annotations.dart';
+@ImplementsRequirement([])
+class Invalid {}
+''');
+          File('${tempDir.path}/.zuke/analyzer-index.json')
+            ..createSync(recursive: true)
+            // Deliberately lacks the rest of the version-specific schema.
+            ..writeAsStringSync(jsonEncode({'contractVersion': version}));
+          expect(
+            analyzer_plugin.zukePluginStaleMessageForTesting(source.path),
+            isNull,
+          );
+          final message = analyzer_plugin.zukePluginStaleMessageForTesting(
+            barrel.path,
+          );
+          expect(message, contains('this index is $version'));
+          expect(message, contains('doctor --fix'));
+          expect(
+            analyzer_plugin.zukeIndexStaleAppliesForTesting(source.path),
+            isFalse,
+          );
+          expect(
+            analyzer_plugin.zukeMissingEvidenceTypesAppliesForTesting(
+              source.path,
+            ),
+            isFalse,
+            reason: 'contract mismatch suppresses every other Zuke rule',
+          );
+          expect(
+            analyzer_plugin.zukeIndexIsCurrentForTesting(source.path),
+            isFalse,
+          );
+          final diagnostics = await ZukeAnalyzer().analyzePackage(tempDir.path);
+          expect(diagnostics.map((d) => d.code), ['ZUKE-PLUGIN-STALE']);
+        },
+      );
+    }
+
+    test(
+      'contract mismatch uses configured barrel and rejects escaping anchors',
+      () {
+        _writeCurrentConfig(tempDir);
+        final barrel = File('${tempDir.path}/lib/public.dart')
+          ..createSync(recursive: true)
+          ..writeAsStringSync('library;');
+        File('${tempDir.path}/lib/other.dart').writeAsStringSync('library;');
+        final header = ZukeIndexHeader({
+          'contractVersion': zukeIndexContract + 1,
+          'diagnosticAnchor': 'lib/public.dart',
+        });
+        expect(
+          header.diagnosticAnchor(tempDir.path)?.replaceAll('\\', '/'),
+          barrel.path.replaceAll('\\', '/'),
+        );
+        final escaped = ZukeIndexHeader({
+          'contractVersion': zukeIndexContract + 1,
+          'diagnosticAnchor': '../external.dart',
+          'featureFiles': {'FEATURE': 'lib/public.dart'},
+        });
+        expect(
+          escaped.diagnosticAnchor(tempDir.path)?.replaceAll('\\', '/'),
+          barrel.path.replaceAll('\\', '/'),
+        );
+      },
+    );
+
     test(
       'analyzer plugin extracts diagnostics from out-of-date index',
       () async {
@@ -169,14 +245,16 @@ class Service {
 
       analyzer_plugin.plugin.register(registry);
 
-      expect(registry.rules, hasLength(6));
+      expect(registry.rules, hasLength(8));
       expect(
         registry.rules.map((rule) => rule.name),
         containsAll([
           'zuke_annotation',
+          'zuke_plugin_stale',
           'zuke_index_stale',
           'zuke_unknown_index_id',
           'zuke_missing_test',
+          'zuke_missing_evidence_types',
           'zuke_unimplemented_requirement',
           'zuke_spec_lint',
         ]),
@@ -752,7 +830,194 @@ abstract final class FeatOk001RequirementIds {
         isFalse,
       );
     });
+
+    test(
+      'a managed test must declare which evidence types it publishes',
+      () async {
+        final lib = Directory('${tempDir.path}/lib')
+          ..createSync(recursive: true);
+        final source = File('${lib.path}/managed_test.dart')
+          ..writeAsStringSync('''
+import 'package:zuke/testing.dart';
+import 'package:zuke_annotations/zuke_annotations.dart';
+import 'package:zuke_core/zuke_core.dart';
+
+final scenario = _Scenario();
+
+void evidenceTypesCallback() {}
+
+void missingArgument() {
+  zukeTest(() {}, scenario: scenario);
+}
+
+void misleadingPositional() {
+  zukeTest(evidenceTypesCallback, scenario: scenario);
+}
+
+void emptyList() {
+  zukeTest(() {}, scenario: scenario, evidenceTypes: const []);
+}
+
+void emptySet() {
+  zukeTest(() {}, scenario: scenario, evidenceTypes: <String>{});
+}
+
+void declared() {
+  zukeTest(() {}, scenario: scenario, evidenceTypes: const ['unit']);
+}
+
+void selfEvidencing() {
+  zukeUnit(() {}, scenario: scenario);
+}
+
+void notManaged() {
+  test('plain', () {});
+}
+
+class _Scenario implements ZukeScenarioContract {
+  @override
+  ScenarioId get id => const ScenarioId('SCN-TEST-001');
+  @override
+  RuleId get requirementId => const RuleId('RULE-TEST-001');
+  @override
+  String get title => 'Test';
+  @override
+  Set<ControlId> get controlIds => const {};
+}
+''');
+        final unit = await _resolveUnit(tempDir, source);
+
+        final findings = <String>[];
+        _walk(
+          unit,
+          ZukeMissingEvidenceTypesVisitor((node, declaresEmpty) {
+            findings.add(
+              '${_enclosingName(node)}:${declaresEmpty ? 'empty' : 'absent'}',
+            );
+          }),
+        );
+
+        // A managed call with no argument, or an empty collection, is the only
+        // thing that throws under `zuke test`. Everything else is legitimate.
+        expect(
+          findings,
+          containsAll([
+            'missingArgument:absent',
+            'misleadingPositional:absent',
+            'emptyList:empty',
+            'emptySet:empty',
+          ]),
+        );
+        expect(findings, isNot(contains('declared:absent')));
+        expect(
+          findings,
+          isNot(contains('selfEvidencing:absent')),
+          reason: 'zukeUnit publishes "unit" itself',
+        );
+        expect(findings, isNot(contains('notManaged:absent')));
+      },
+    );
+
+    test('a local zukeTest cannot impersonate the managed entry point', () async {
+      // The negative control, committed rather than re-derived by mutating the
+      // visitor. An earlier attempt to prove this by stubbing the identity
+      // check edited the wrong file and appeared to pass, which is exactly what
+      // a committed fixture prevents: if this call ever starts being reported,
+      // the identity check has been weakened.
+      //
+      // It has to be a separate library. A local declaration shadows the
+      // import for every unqualified call in the same file, so declaring it
+      // beside the real calls would silently redirect *those* too and the
+      // positive assertions would stop testing anything.
+      final lib = Directory('${tempDir.path}/lib')..createSync(recursive: true);
+      final source = File('${lib.path}/impostor.dart')
+        ..writeAsStringSync('''
+void zukeTest(
+  void Function() body, {
+  List<String> evidenceTypes = const [],
+}) {
+  body();
+}
+
+void localImpostor() {
+  zukeTest(() {});
+}
+''');
+      final unit = await _resolveUnit(tempDir, source);
+
+      final findings = <AstNode>[];
+      _walk(
+        unit,
+        ZukeMissingEvidenceTypesVisitor((node, _) => findings.add(node)),
+      );
+
+      expect(
+        findings,
+        isEmpty,
+        reason:
+            'library identity, not the spelling, decides what is managed. '
+            'This call has no evidenceTypes but is not a managed registration.',
+      );
+    });
+
+    test('the missing-evidence-types rule registers as a lint rule', () {
+      final registry = _RecordingRegistry();
+      analyzer_plugin.ZukePlugin().register(registry);
+      expect(
+        registry.rules
+            .whereType<analyzer_plugin.ZukeMissingEvidenceTypesRule>(),
+        hasLength(1),
+      );
+    });
+
+    test('the missing-evidence-types rule only applies inside a workspace', () {
+      // The guard that keeps the framework's own `zuke_runner` suite clean. A
+      // `zukeTest` outside a Zuke workspace is an ordinary unit-test helper: no
+      // managed run can reach the `ArgumentError`, and a plugin diagnostic
+      // cannot be silenced with `// ignore:`, so reporting there would leave the
+      // developer with no way to act on it.
+      final lib = Directory('${tempDir.path}/lib')..createSync(recursive: true);
+      final source = File('${lib.path}/app.dart')
+        ..writeAsStringSync('void main() {}\n');
+      final path = source.absolute.path;
+
+      expect(
+        analyzer_plugin.zukeMissingEvidenceTypesAppliesForTesting(path),
+        isFalse,
+        reason: 'no zuke.yaml yet, so this is not a managed workspace',
+      );
+
+      File('${tempDir.path}/zuke.yaml').writeAsStringSync('schemaVersion: 3\n');
+      analyzer_plugin.zukeClearIndexCacheForTesting();
+
+      expect(
+        analyzer_plugin.zukeMissingEvidenceTypesAppliesForTesting(path),
+        isTrue,
+        reason: 'a managed registration can only exist in a workspace',
+      );
+    });
   });
+}
+
+Future<CompilationUnit> _resolveUnit(Directory root, File source) async {
+  final collection = AnalysisContextCollection(
+    includedPaths: [root.resolveSymbolicLinksSync()],
+  );
+  addTearDown(collection.dispose);
+  final resolved = await collection
+      .contextFor(source.resolveSymbolicLinksSync())
+      .currentSession
+      .getResolvedUnit(source.resolveSymbolicLinksSync());
+  return (resolved as ResolvedUnitResult).unit;
+}
+
+/// The function or method enclosing a call, so findings read by call site.
+String _enclosingName(AstNode node) {
+  for (var current = node.parent; current != null; current = current.parent) {
+    if (current is FunctionDeclaration) return current.name.lexeme;
+    if (current is MethodDeclaration) return current.name.lexeme;
+  }
+  return '<top-level>';
 }
 
 /// System-temporary fixtures do not inherit this package's `.dart_tool`
@@ -844,7 +1109,8 @@ class _RecordingRegistry implements PluginRegistry {
 
   @override
   dynamic noSuchMethod(Invocation invocation) {
-    if (invocation.memberName == #registerLintRule) {
+    if (invocation.memberName == #registerLintRule ||
+        invocation.memberName == #registerWarningRule) {
       rules.add(invocation.positionalArguments.single);
       return null;
     }
