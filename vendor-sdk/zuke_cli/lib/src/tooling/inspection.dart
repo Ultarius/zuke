@@ -53,11 +53,40 @@ String? zukeAnnotationName(Element? element) =>
 /// through `package:zuke_runner_flutter`, and both expose a `zukeTest` with the
 /// same contract, so both have to be recognised or a pure-Dart project is never
 /// checked.
+/// The library exporting the Flutter evidence harness. Named because a caller
+/// matching a harness by library had no constant to reach for and inlined the
+/// URI, which then drifted from the set above.
+const zukeFlutterHarnessLibrary =
+    'package:zuke_runner_flutter/zuke_runner_flutter.dart';
+
 const zukeManagedTestLibraries = {
   'package:zuke/testing.dart',
   'package:zuke/src/testing.dart',
-  'package:zuke_runner_flutter/zuke_runner_flutter.dart',
+  zukeFlutterHarnessLibrary,
 };
+
+/// The Flutter harness constructions, paired with the named argument each one
+/// carries its scenarios in: a single `scenario:` per case, a `scenarios:`
+/// collection per harness.
+const zukeFlutterHarnessScenarioArguments = {
+  'FlutterEvidenceCase': 'scenario',
+  'ZukeFlutterHarness': 'scenarios',
+};
+
+/// The scenario argument [node] names, or null when it is not a Flutter
+/// evidence harness construction from the harness library.
+///
+/// Matches on the resolved library rather than the name alone so a
+/// user-defined `FlutterEvidenceCase` cannot register a scenario that `zuke
+/// test` will never run.
+String? flutterHarnessScenarioArgument(InstanceCreationExpression node) {
+  final type = node.constructorName.type.element;
+  if (type?.library?.firstFragment.source.uri.toString() !=
+      zukeFlutterHarnessLibrary) {
+    return null;
+  }
+  return zukeFlutterHarnessScenarioArguments[type?.name];
+}
 
 /// Managed entry points that must be told which evidence they publish.
 ///
@@ -89,6 +118,23 @@ String? zukeManagedEntrypointName(Element? element) {
           zukeSelfEvidencingEntrypoints.contains(name)
       ? name
       : null;
+}
+
+/// The value expression of the named argument [name], or null when absent.
+///
+/// Analyzer 12 models a named argument as `NamedExpression` and analyzer 14 as
+/// `NamedArgument`; both expose the name and colon as consecutive tokens and the
+/// value as their final expression child. Walking that common structure keeps
+/// this usable from the CLI and the analysis-server plugin without binding to
+/// either node API.
+Expression? namedArgumentValue(Iterable<AstNode> arguments, String name) {
+  for (final argument in arguments) {
+    final label = argument.beginToken;
+    if (label.lexeme != name || label.next?.lexeme != ':') continue;
+    final expressions = argument.childEntities.whereType<Expression>();
+    return expressions.isEmpty ? null : expressions.last;
+  }
+  return null;
 }
 
 /// Whether a managed call's `evidenceTypes` argument is present and non-empty.

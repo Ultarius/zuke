@@ -761,6 +761,13 @@
       "summary": "A managed test registration omits or empties evidenceTypes, which prevents the managed-run ArgumentError. It does not report a requirement left unevidenced; that is a workspace-wide check."
     },
     {
+      "code": "ZUKE-SCENARIO-UNVERIFIED",
+      "severity": "warning",
+      "summary": "A declared scenario is named by no managed test registration, so zuke test never executes it. Reported only when every managed registration resolved to its constant scenario.",
+      "owner": "project",
+      "remediation": "Add a zukeTest(...) or zukeTestWidgets(...) registration naming the scenario, or retire the scenario."
+    },
+    {
       "code": "ZUKE-MISSING-TEST",
       "severity": "warning",
       "summary": "An implemented or presented requirement has no @VerifiesRequirement in the analyzer index.",

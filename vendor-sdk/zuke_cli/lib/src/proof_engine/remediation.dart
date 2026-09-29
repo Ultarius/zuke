@@ -63,6 +63,11 @@ String? defaultRemediation(String code) {
           'type the rule requires, or use `zukeUnit(...)`, which publishes "unit" '
           'itself. This prevents that crash; whether a requirement is left '
           'unevidenced is a separate, workspace-wide check.',
+    'ZUKE-SCENARIO-UNVERIFIED' =>
+      'The scenario is declared but no managed test registers it, so `zuke test` '
+          'never executes it. Add a zukeTest(...) or zukeTestWidgets(...) '
+          'registration naming the scenario, or retire the scenario if the '
+          'behavior is no longer required.',
     'ZUKE-PLUGIN-CACHE' =>
       'The analyzer plugin snapshot no longer matches the local Zuke sources. '
           'Run `zuke doctor --fix`, then restart the analysis server or reload the '

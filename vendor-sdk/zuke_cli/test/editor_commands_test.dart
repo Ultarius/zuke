@@ -13,6 +13,44 @@ import 'helpers/schema3_workspace.dart';
 import 'support/temporary_directory.dart';
 
 void main() {
+  test('doctor accepts a bounded repair count only with --fix', () async {
+    final parser = buildZukeArgParser();
+    final bounded = parser.parse([
+      'doctor',
+      '--fix',
+      '--max-plugin-repairs',
+      '10',
+      '--plugin-cache-entry',
+      'cache/entry-one',
+      '--plugin-cache-entry',
+      'cache/entry-two',
+    ]).command!;
+    expect(bounded['max-plugin-repairs'], '10');
+    expect(bounded['plugin-cache-entry'], [
+      'cache/entry-one',
+      'cache/entry-two',
+    ]);
+    final invalid = parser.parse([
+      'doctor',
+      '--fix',
+      '--max-plugin-repairs',
+      'many',
+    ]).command!;
+    expect(await runDoctor(invalid), 64);
+    final withoutFix = parser.parse([
+      'doctor',
+      '--max-plugin-repairs',
+      '10',
+    ]).command!;
+    expect(await runDoctor(withoutFix), 64);
+    final entryWithoutFix = parser.parse([
+      'doctor',
+      '--plugin-cache-entry',
+      'cache/entry-one',
+    ]).command!;
+    expect(await runDoctor(entryWithoutFix), 64);
+  });
+
   test(
     'analyze repairs before forwarding arguments and preserves exit status',
     () async {

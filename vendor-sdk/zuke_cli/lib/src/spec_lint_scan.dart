@@ -73,6 +73,65 @@ List<ZukeSpecDiagnostic> scanSpecDiagnostics(
   return diagnostics;
 }
 
+/// Scenario-coverage findings: declared scenarios that no managed test
+/// registration names.
+///
+/// `zuke test` only executes a scenario when a managed registration
+/// (`zukeTest`, `zukeTestWidgets`, `zukeUnit`, or an evidence-harness case)
+/// names it. A declared scenario with no registration is a behavior the gate
+/// will never exercise, and it is invisible to every requirement-level rule:
+/// the rule can be implemented and verified while a newly added scenario in it
+/// has neither a test nor an implementation. Reporting the gap next to the
+/// contract is what turns that into an editor finding.
+///
+/// The caller owns the decision to call this at all: when the workspace's
+/// registrations were not fully resolvable, scenario coverage is unknown and
+/// must not be reported as a gap.
+List<ZukeSpecDiagnostic> scanScenarioCoverage(
+  WorkspaceDiscoveryResult workspace, {
+  required String root,
+  required Set<String> registeredScenarioIds,
+}) {
+  final diagnostics = <ZukeSpecDiagnostic>[];
+  for (final feature in workspace.data.features) {
+    final featureId = feature.metadata.id;
+    if (featureId == null || featureId.isEmpty) continue;
+    for (final rule in feature.rules) {
+      for (final scenario in rule.scenarios) {
+        final tag = _scenarioTag(scenario);
+        if (tag == null || registeredScenarioIds.contains(tag.name)) continue;
+        final source = tag.source;
+        final specPath = _specPath(root, source.file);
+        if (specPath == null) continue;
+        diagnostics.add(
+          ZukeSpecDiagnostic(
+            file: specPath,
+            line: source.line < 1 ? 1 : source.line,
+            column: source.column < 0 ? 0 : source.column,
+            code: 'ZUKE-SCENARIO-UNVERIFIED',
+            severity: 'warning',
+            message:
+                'Scenario "${tag.name}" has no managed test registration; '
+                '`zuke test` will not execute it. Register it with '
+                'zukeTest(...)/zukeTestWidgets(...) naming this scenario, or '
+                'retire the scenario.',
+            featureId: featureId,
+          ),
+        );
+      }
+    }
+  }
+  return diagnostics;
+}
+
+/// The scenario's stable ID tag, or null when it declares none.
+GherkinTag? _scenarioTag(GherkinScenario scenario) {
+  for (final tag in scenario.tags) {
+    if (tag.name.startsWith('SCN-')) return tag;
+  }
+  return null;
+}
+
 /// A specification path as workspace-relative and forward-slashed, or null when
 /// it cannot be expressed that way.
 ///

@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:developer';
 import 'dart:io';
 
 import 'package:crypto/crypto.dart';
@@ -10,6 +11,18 @@ import 'tooling/analyzer_sdk.dart';
 
 typedef PluginCompiler = Future<String> Function(Directory directory);
 typedef PluginResolver = Future<void> Function(Directory directory);
+typedef PluginCacheProgress =
+    void Function(int completed, int total, PluginCacheFinding? finding);
+
+/// How many entries a `doctor --fix` repairs at once when the caller does not
+/// choose. Past four, the compiles contend for the same cores and stop scaling:
+/// 24 entries took 113s at four workers against 361s at one.
+final int defaultRepairWorkers = Platform.numberOfProcessors < 4
+    ? Platform.numberOfProcessors
+    : 4;
+
+/// Ceiling for [PluginCacheDoctor.inspect]'s `repairWorkers`.
+const int maxRepairWorkers = 16;
 
 final class PluginCacheFinding {
   final String path;
@@ -17,7 +30,17 @@ final class PluginCacheFinding {
   final String message;
   const PluginCacheFinding(this.path, this.status, this.message);
   bool get failed => status == 'failed';
-  bool get needsRepair => status != 'current' && status != 'repaired';
+
+  /// Whether this finding describes something actually wrong with an entry.
+  ///
+  /// Named rather than derived from a blacklist of statuses so that a status
+  /// invented later cannot silently become a failure. `deferred` is excluded on
+  /// purpose: it records a limit the user asked for, so treating it as a
+  /// failure made `doctor --fix --max-plugin-repairs N` exit non-zero on a run
+  /// that did everything it was asked to do.
+  static const repairing = {'stale', 'unverified', 'orphaned', 'failed'};
+
+  bool get needsRepair => repairing.contains(status);
   Map<String, Object?> toJson() => {
     'path': path,
     'status': status,
@@ -94,13 +117,41 @@ final class PluginCacheDoctor {
   Future<List<PluginCacheFinding>> inspect({
     bool fix = false,
     bool checkBuild = false,
+    int? maxRepairs,
+    Set<String>? onlyEntries,
+    int? repairWorkers,
+    PluginCacheProgress? onProgress,
   }) async {
+    if (maxRepairs != null && maxRepairs < 0) {
+      throw ArgumentError.value(
+        maxRepairs,
+        'maxRepairs',
+        'must be non-negative',
+      );
+    }
+    // Repair runs one `dart compile` per worker, so the bound is about memory
+    // and CPU contention rather than a correctness limit. Measured on a 16-core
+    // host, 4 workers repaired 24 entries in 113s against 361s for one.
+    final workers = repairWorkers ?? defaultRepairWorkers;
+    if (workers < 1 || workers > maxRepairWorkers) {
+      throw ArgumentError.value(
+        repairWorkers,
+        'repairWorkers',
+        'must be between 1 and $maxRepairWorkers',
+      );
+    }
     if (localZukeRoots.isEmpty || !cacheRoot.existsSync()) return const [];
     final findings = <PluginCacheFinding>[];
-    // Shared dependencies are hashed once per audit, never cached across runs.
+    final repairs = <Directory>[];
+    final requested = onlyEntries?.map(_canonical).toSet();
+    final matched = <String>{};
+    // Share hashes only during the sequential audit. Repair workers use their
+    // own fresh hashes to detect sources changing during compilation.
     final hashes = <String, String>{};
     final verifiedBuilds = <String, _BuildVerdict>{};
-    for (final entity in cacheRoot.listSync(followLinks: false)) {
+    final entries = cacheRoot.listSync(followLinks: false)
+      ..sort((a, b) => a.path.compareTo(b.path));
+    for (final entity in entries) {
       // Windows reports a directory junction as a Link, not a Directory, so
       // testing for Directory alone would skip it and leave the user with a
       // cache entry that is never audited, repaired, or explained.
@@ -119,6 +170,7 @@ final class PluginCacheDoctor {
         // the Directory-only test, never audited, repaired, or explained.
         if (entity is! Directory) {
           if (!_declaresZuke(entity.path)) continue;
+          matched.add(_canonical(entity.path));
           findings.add(
             PluginCacheFinding(
               entity.path,
@@ -156,6 +208,7 @@ final class PluginCacheDoctor {
         // Ours, and attributable, so a later parse failure is a real finding
         // rather than an entry that quietly disappears from the audit.
         selected = true;
+        matched.add(_canonical(entity.path));
         final local = _localPackages(entity, packages);
         if (!_safeEntry(entity)) {
           throw const FileSystemException(
@@ -259,52 +312,7 @@ final class PluginCacheDoctor {
           );
           continue;
         }
-        // A lock also serializes concurrent doctor/analyze invocations. The
-        // analysis server does not honor it; snapshot hashes detect its writes.
-        final lock = File(p.join(entity.path, '.zuke-plugin-repair.lock'));
-        final handle = lock.openSync(mode: FileMode.append);
-        try {
-          handle.lockSync(FileLock.exclusive);
-          if (!_safeEntry(entity)) {
-            throw const FileSystemException('Cache entry changed');
-          }
-          await resolver(entity);
-          final resolvedLocal = _localPackages(entity, _packageRoots(config));
-          final before = _sourceDigest(entity, resolvedLocal, {});
-          final compiledDigest = await compiler(entity);
-          final after = _sourceDigest(entity, resolvedLocal, {});
-          if (before != after) {
-            throw const FileSystemException(
-              'Sources changed during compilation; retry doctor --fix',
-            );
-          }
-          if (!snapshot.existsSync()) {
-            throw const FileSystemException('Compiler produced no plugin.aot');
-          }
-          if (_hash(snapshot, {}) != compiledDigest) {
-            throw const FileSystemException(
-              'Snapshot changed during repair; retry after stopping analysis',
-            );
-          }
-          receipt.writeAsStringSync(
-            jsonEncode({
-              'sourceDigest': after,
-              'snapshotDigest': compiledDigest,
-            }),
-            flush: true,
-          );
-          // Do not retain pre-repair hashes for later entries.
-          hashes.clear();
-          findings.add(
-            PluginCacheFinding(
-              entity.path,
-              'repaired',
-              'Plugin rebuilt and content verified. Restart the analysis server / reload the window.',
-            ),
-          );
-        } finally {
-          handle.closeSync();
-        }
+        repairs.add(entity);
       } on Object catch (error) {
         if (!selected) continue;
         findings.add(
@@ -316,8 +324,134 @@ final class PluginCacheDoctor {
         );
       }
     }
+    if (fix) {
+      final inScope = requested == null
+          ? repairs
+          : repairs
+                .where((entry) => requested.contains(_canonical(entry.path)))
+                .toList();
+      final selected = maxRepairs == null
+          ? inScope
+          : inScope.take(maxRepairs).toList();
+      final selectedPaths = selected.map((entry) => entry.path).toSet();
+      // Per entry, because these are the ones the user still has to deal with
+      // and --plugin-cache-entry accepts them straight back. An entry excluded
+      // with --plugin-cache-entry is not deferred, it is out of scope, and
+      // reporting it turned a one-entry request into hundreds of findings about
+      // entries the user never named. A plain `zuke doctor` still reports those
+      // as stale.
+      for (final entry in inScope.where(
+        (entry) => !selectedPaths.contains(entry.path),
+      )) {
+        findings.add(
+          PluginCacheFinding(
+            entry.path,
+            'deferred',
+            'Repair deferred by --max-plugin-repairs. Pass this entry to '
+                '--plugin-cache-entry, or run doctor --fix again, to repair it.',
+          ),
+        );
+      }
+      for (final missing
+          in requested?.difference(matched) ?? const <String>{}) {
+        findings.add(
+          PluginCacheFinding(
+            missing,
+            'failed',
+            'Requested entry is not a cache entry for this local Zuke clone.',
+          ),
+        );
+      }
+      onProgress?.call(0, selected.length, null);
+      var next = 0;
+      var completed = 0;
+      Future<void> worker() async {
+        while (next < selected.length) {
+          final entity = selected[next++];
+          final finding = await _repair(entity);
+          findings.add(finding);
+          onProgress?.call(++completed, selected.length, finding);
+        }
+      }
+
+      await Future.wait([
+        for (var i = 0; i < workers && i < selected.length; i++) worker(),
+      ]);
+    }
     findings.sort((a, b) => a.path.compareTo(b.path));
     return findings;
+  }
+
+  Future<PluginCacheFinding> _repair(Directory entity) async {
+    // Each worker owns its entry and hash maps. A lock also serializes other
+    // doctor invocations; the analysis server does not honor it, so the final
+    // snapshot hash still detects concurrent writes.
+    final config = File(
+      p.join(entity.path, '.dart_tool', 'package_config.json'),
+    );
+    final snapshot = File(p.join(entity.path, 'bin', 'plugin.aot'));
+    final receipt = File(p.join(entity.path, '.zuke-plugin-receipt.json'));
+    final lock = File(p.join(entity.path, '.zuke-plugin-repair.lock'));
+    RandomAccessFile? handle;
+    late PluginCacheFinding finding;
+    try {
+      handle = lock.openSync(mode: FileMode.append);
+      await handle.lock(FileLock.exclusive);
+      if (!_safeEntry(entity)) {
+        throw const FileSystemException('Cache entry changed');
+      }
+      await resolver(entity);
+      final resolvedLocal = _localPackages(entity, _packageRoots(config));
+      final before = _sourceDigest(entity, resolvedLocal, {});
+      final compiledDigest = await compiler(entity);
+      final after = _sourceDigest(entity, resolvedLocal, {});
+      if (before != after) {
+        throw const FileSystemException(
+          'Sources changed during compilation; retry doctor --fix',
+        );
+      }
+      if (!snapshot.existsSync()) {
+        throw const FileSystemException('Compiler produced no plugin.aot');
+      }
+      if (_hash(snapshot, {}) != compiledDigest) {
+        throw const FileSystemException(
+          'Snapshot changed during repair; retry after stopping analysis',
+        );
+      }
+      receipt.writeAsStringSync(
+        jsonEncode({'sourceDigest': after, 'snapshotDigest': compiledDigest}),
+        flush: true,
+      );
+      finding = PluginCacheFinding(
+        entity.path,
+        'repaired',
+        'Plugin rebuilt and content verified. Restart the analysis server / reload the window.',
+      );
+    } on Object catch (error) {
+      finding = PluginCacheFinding(
+        entity.path,
+        'failed',
+        'Could not repair plugin cache: $error',
+      );
+    } finally {
+      try {
+        handle?.closeSync();
+      } on Object catch (error) {
+        // Never downgrade a repair that already wrote its receipt: the next
+        // audit reads that entry as `current`, so reporting a failure here would
+        // make the same entry fail once and pass forever after. A close failure
+        // only matters when the repair itself did not get far enough to record
+        // anything, and that case already reported above.
+        if (finding.status == 'repaired') {
+          log(
+            'released the repair lock for ${entity.path} with an error after a '
+            'successful repair: $error',
+            name: 'zuke.plugin_cache',
+          );
+        }
+      }
+    }
+    return finding;
   }
 
   bool _safeEntry(Directory directory) {
@@ -629,11 +763,18 @@ Future<List<PluginCacheFinding>> auditPluginCache(
   String root, {
   bool fix = false,
   bool checkBuild = false,
+  int? maxRepairs,
+  Set<String>? onlyEntries,
+  PluginCacheProgress? onProgress,
 }) async {
   try {
-    return await PluginCacheDoctor.forWorkspace(
-      root,
-    ).inspect(fix: fix, checkBuild: checkBuild);
+    return await PluginCacheDoctor.forWorkspace(root).inspect(
+      fix: fix,
+      checkBuild: checkBuild,
+      maxRepairs: maxRepairs,
+      onlyEntries: onlyEntries,
+      onProgress: onProgress,
+    );
   } on Object catch (error) {
     return [
       PluginCacheFinding(root, 'failed', 'Plugin cache audit failed: $error'),
@@ -657,15 +798,30 @@ void printPluginCacheFindings(
   // does not compile, or an entry deliberately left untouched, would be sent
   // straight back to the command that already failed to help.
   var advisedRepair = false;
+  var deferred = 0;
   for (final finding in findings.where((f) => f.status != 'current')) {
-    final canRebuild =
-        finding.status == 'stale' || finding.status == 'unverified';
     // A workspace accumulates many entries and they share one remedy, so it is
     // stated once at the end rather than repeated on every line.
     emit(
       'ZUKE-PLUGIN-CACHE [${finding.status}]: ${finding.path}: ${finding.message}',
     );
-    if (finding.needsRepair && canRebuild) advisedRepair = true;
+    if (finding.status == 'deferred') {
+      deferred += 1;
+      continue;
+    }
+    if (finding.needsRepair &&
+        (finding.status == 'stale' || finding.status == 'unverified')) {
+      advisedRepair = true;
+    }
   }
   if (advisedRepair) emit(' Run zuke doctor --fix to rebuild these entries.');
+  // Counted rather than restated per entry: the reader asked for this limit, so
+  // telling them to run the command again is the whole remedy, and repeating it
+  // once per deferred entry buried it.
+  if (deferred > 0) {
+    emit(
+      ' $deferred plugin cache '
+      '${deferred == 1 ? 'entry was' : 'entries were'} left for a later run.',
+    );
+  }
 }

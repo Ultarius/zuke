@@ -4,6 +4,7 @@ import 'package:analyzer/dart/analysis/analysis_context_collection.dart';
 import 'package:analyzer/dart/analysis/results.dart';
 import 'package:analyzer/dart/ast/ast.dart';
 import 'package:analyzer/dart/ast/visitor.dart';
+import 'package:analyzer/dart/constant/value.dart';
 import 'package:analyzer/dart/element/element.dart';
 import 'package:analyzer/file_system/overlay_file_system.dart';
 import 'package:analyzer/file_system/physical_file_system.dart';
@@ -15,6 +16,24 @@ import 'requirement_scopes.dart';
 import 'tooling/analyzer_sdk.dart';
 import 'tooling/inspection.dart';
 import 'tooling/source_files.dart';
+
+/// One scenario named by a managed test registration in resolved source.
+///
+/// Managed registrations (`zukeTest`, `zukeTestWidgets`, `zukeUnit`, and
+/// evidence-harness cases) are what make `zuke test` execute a scenario. A
+/// declared scenario that no registration names is never executed, which is the
+/// fact scenario-coverage diagnostics report.
+final class ManagedScenarioClaim {
+  final String scenarioId;
+  final String sourcePath;
+  final String? target;
+
+  const ManagedScenarioClaim({
+    required this.scenarioId,
+    required this.sourcePath,
+    this.target,
+  });
+}
 
 /// One resolved scan shared by implementation and verification projections.
 final class WorkspaceAnnotationScan {
@@ -29,12 +48,30 @@ final class WorkspaceAnnotationScan {
   /// affect constant resolution, excluding manifest-owned generated outputs.
   final List<String> inputPaths;
 
+  /// Scenarios named by managed test registrations.
+  final List<ManagedScenarioClaim> managedScenarios;
+
+  /// Managed registrations whose `scenario`/`scenarios` argument could not be
+  /// resolved to constant scenario IDs.
+  ///
+  /// Scenario coverage must not guess: an unresolved registration could be
+  /// exactly the one that covers a scenario, so a caller reporting gaps has to
+  /// treat a non-zero count as "unknown", not "uncovered".
+  final int unresolvedManagedRegistrations;
+
   const WorkspaceAnnotationScan({
     required this.root,
     required this.claims,
     required this.sourcePaths,
     required this.inputPaths,
+    this.managedScenarios = const [],
+    this.unresolvedManagedRegistrations = 0,
   });
+
+  /// Scenario IDs named by at least one managed registration.
+  Set<String> get managedScenarioIds => {
+    for (final claim in managedScenarios) claim.scenarioId,
+  };
 
   List<String> contributingPaths(Iterable<ImplementationClaim> selected) =>
       {for (final claim in selected) p.join(root, claim.sourcePath)}.toList()
@@ -65,6 +102,9 @@ Future<WorkspaceAnnotationScan> scanWorkspaceAnnotations(
   final sourcePaths = sources.map((file) => file.path).toList();
   final inputs = sourcePaths.toSet();
   final claims = <ImplementationClaim>[];
+  final managedScenarios = <ManagedScenarioClaim>[];
+  final seenManagedScenarios = <String>{};
+  final unresolved = _UnresolvedRegistrations();
   if (sources.isEmpty) {
     return WorkspaceAnnotationScan(
       root: root,
@@ -135,6 +175,9 @@ Future<WorkspaceAnnotationScan> scanWorkspaceAnnotations(
           sourcePath,
           targetForWorkspacePath(packageTargets, sourcePath),
           claims,
+          managedScenarios,
+          seenManagedScenarios,
+          unresolved,
         ),
       );
     }
@@ -146,7 +189,14 @@ Future<WorkspaceAnnotationScan> scanWorkspaceAnnotations(
     claims: List.unmodifiable(claims),
     sourcePaths: List.unmodifiable(sourcePaths),
     inputPaths: List.unmodifiable(inputs.toList()..sort()),
+    managedScenarios: List.unmodifiable(managedScenarios),
+    unresolvedManagedRegistrations: unresolved.count,
   );
+}
+
+/// Mutable counter shared by the per-file collectors of one scan.
+final class _UnresolvedRegistrations {
+  int count = 0;
 }
 
 /// The constant field a supported annotation fills, and the kind of claim it
@@ -175,7 +225,14 @@ final class _ClaimKey {
 }
 
 class _ClaimCollector extends RecursiveAstVisitor<void> {
-  _ClaimCollector(this.sourcePath, this.target, this.claims);
+  _ClaimCollector(
+    this.sourcePath,
+    this.target,
+    this.claims,
+    this.managedScenarios,
+    this.seenManagedScenarios,
+    this.unresolved,
+  );
 
   /// The constant field an annotation fills, paired with the kind of claim it
   /// makes.
@@ -207,7 +264,105 @@ class _ClaimCollector extends RecursiveAstVisitor<void> {
   final String sourcePath;
   final String? target;
   final List<ImplementationClaim> claims;
+  final List<ManagedScenarioClaim> managedScenarios;
+
+  /// Scenario IDs already collected in this scan, so one scenario registered
+  /// through several call sites or harness cases is one claim.
+  final Set<String> seenManagedScenarios;
+  final _UnresolvedRegistrations unresolved;
   final Set<_ClaimKey> _seen = {};
+
+  @override
+  void visitMethodInvocation(MethodInvocation node) {
+    if (zukeManagedEntrypointName(node.methodName.element) != null) {
+      _recordScenarioArgument(node.argumentList.arguments, 'scenario');
+    }
+    super.visitMethodInvocation(node);
+  }
+
+  @override
+  void visitInstanceCreationExpression(InstanceCreationExpression node) {
+    final scenarioArgument = flutterHarnessScenarioArgument(node);
+    if (scenarioArgument != null) {
+      _recordScenarioArgument(node.argumentList.arguments, scenarioArgument);
+    }
+    super.visitInstanceCreationExpression(node);
+  }
+
+  /// Records every constant scenario ID reachable from a named argument.
+  ///
+  /// The argument is either a single scenario contract (`scenario:`) or an
+  /// iterable of them (`scenarios:`). A list literal, an `X.all` constant, or an
+  /// enum `.values` list all evaluate to a constant list of objects carrying an
+  /// `id`; anything else is counted as unresolved rather than guessed at.
+  void _recordScenarioArgument(Iterable<AstNode> arguments, String name) {
+    final expression = namedArgumentValue(arguments, name);
+    if (expression == null || !_registerScenarioExpression(expression)) {
+      // A registration that names no scenario is unresolved, not coverage.
+      unresolved.count += 1;
+    }
+  }
+
+  bool _registerScenarioExpression(Expression expression) {
+    if (expression is ListLiteral) {
+      var any = false;
+      for (final element in expression.childEntities.whereType<Expression>()) {
+        if (_registerScenarioExpression(element)) any = true;
+      }
+      return any;
+    }
+    // A bare identifier is not a child of itself: `scenario: fake` is a
+    // `SimpleIdentifier` with no child entities, while `scenario: Foo.bar`
+    // exposes both names as children. Handle both shapes.
+    final Element? member;
+    if (expression is SimpleIdentifier) {
+      member = expression.element;
+    } else {
+      final identifiers = expression.childEntities
+          .whereType<SimpleIdentifier>()
+          .toList();
+      member = identifiers.isEmpty ? null : identifiers.last.element;
+    }
+    if (member == null) return false;
+    final value = _constantValueOf(member);
+    if (value == null) return false;
+    final items = value.toListValue();
+    if (items != null) {
+      var any = false;
+      for (final item in items) {
+        if (_registerScenarioId(_scenarioIdOf(item))) any = true;
+      }
+      return any;
+    }
+    return _registerScenarioId(_scenarioIdOf(value));
+  }
+
+  bool _registerScenarioId(String? scenarioId) {
+    if (scenarioId == null) return false;
+    if (!seenManagedScenarios.add(scenarioId)) return true;
+    managedScenarios.add(
+      ManagedScenarioClaim(
+        scenarioId: scenarioId,
+        sourcePath: sourcePath,
+        target: target,
+      ),
+    );
+    return true;
+  }
+
+  /// The generated contract carries the scenario ID as `id.value`.
+  String? _scenarioIdOf(DartObject? value) {
+    final id = value?.getField('id')?.getField('value')?.toStringValue();
+    return id == null || id.isEmpty ? null : id;
+  }
+
+  DartObject? _constantValueOf(Element? element) {
+    if (element is VariableElement) return element.computeConstantValue();
+    if (element is PropertyAccessorElement) {
+      return element.variable.computeConstantValue();
+    }
+    return null;
+  }
 
   @override
   void visitAnnotation(Annotation node) {

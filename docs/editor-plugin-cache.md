@@ -2,6 +2,20 @@
 
 `zuke doctor` audits local plugin caches. `zuke doctor --fix` resolves and
 recompiles affected synthetic plugin packages, then writes content receipts.
+Run `zuke doctor` first to see which entries need repair. For a large cache,
+`zuke doctor --fix --max-plugin-repairs 10` repairs at most ten stale entries in
+deterministic path order. The remaining entries are reported as **deferred** and
+the command still exits zero, because a bound the caller asked for is not a
+failure; the exit code reflects entries that are still broken. Repeat the
+command to work
+through the rest. An unbounded `--fix` still repairs every stale entry. Repairs
+use up to four workers and report progress as each entry finishes; one failed
+entry does not stop other entries in the batch.
+To repair known entries from the audit, pass `--plugin-cache-entry <path>` once
+per entry (optionally together with the count limit). Other stale entries are out
+of scope for that run and are not reported; a plain `zuke doctor` still lists
+them. The path must identify an entry owned by the local Zuke
+clone; the command will not repair an arbitrary directory.
 Restart the analysis server or reload the editor after repair: replacing an AOT
 file does not replace an isolate already running in the editor.
 
@@ -59,7 +73,7 @@ that would throw, not one that is covered.
 | Question | Decision |
 |---|---|
 | Diagnostic location | Prefer the configured barrel; otherwise choose a stable existing generated contract, indexed source, or source under `lib`, `bin`, or `test`. Callback order never selects the anchor. A workspace with no analyzable Dart file must use doctor for diagnosis. |
-| Repair scope | All synthetic cache entries resolving the same local `zuke_analyzer` or `zuke_cli` roots as the workspace package configuration or a direct analyzer-plugin path in its options. Unrelated clones and hosted-only installations are not rebuilt. |
+| Repair scope | All synthetic cache entries resolving the same local `zuke_analyzer` or `zuke_cli` roots as the workspace package configuration or a direct analyzer-plugin path in its options. Unrelated clones and hosted-only installations are not rebuilt. `--max-plugin-repairs` bounds one repair run, but the cache does not identify which workspace created an entry, so it cannot automatically prioritize the editor's active workspace. |
 | Severity | Error, enabled by default. All other Zuke rules are suppressed on a contract mismatch. Users can still explicitly disable rules through analyzer configuration. |
 | Version location | `contractVersion` in the analyzer index only; the constant lives in `zuke_cli/src/index_contract.dart` and is exported through `editor.dart`. |
 | Missing version | Ordinary stale-index behavior; regenerate. `doctor --fix` regenerates a missing, malformed, or incompatible header. |
@@ -85,9 +99,13 @@ Repair runs `dart pub get` using the selected SDK, fingerprints the resulting
 graph, compiles a temporary AOT with a depfile, replaces the snapshot, and records
 the receipt only if sources remained unchanged and the installed snapshot
 matches the compiler output. Compiler failures preserve the old snapshot.
-Concurrent doctor repairs are serialized. The analysis server does not honor
+Repairs of different entries can run concurrently; a per-entry lock serializes
+two doctor runs repairing the same entry. The analysis server does not honor
 that lock; a later external snapshot replacement invalidates the receipt on
 the next audit. Stop analysis and retry if a concurrent write is detected.
+Each repair hashes local sources both before and after compilation because an
+editor or checkout can change them during the compile. Removing the second hash
+would allow a mixed-source snapshot to receive a trusted receipt.
 
 Cache paths are `%LOCALAPPDATA%/.dartServer/.plugin_manager` on Windows and
 `~/.dartServer/.plugin_manager` elsewhere. Linked cache entries are not repaired.

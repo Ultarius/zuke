@@ -180,6 +180,12 @@ Legacy locks, legacy result markers, and old history paths are rejected rather
 than read as current data. Remove or archive them outside the active current
 paths before checking in regenerated output.
 
+Evidence is read only from `evidence.output`, or from
+`generated/evidence/records` when that key is unset. The CLI no longer falls
+back to `.zuke/evidence` when the current directory is missing. Rerun managed
+tests to publish current records at the configured path; set `evidence.output`
+explicitly if a workspace intentionally uses another directory.
+
 ### Non-portable artifacts
 
 Derived files from the previous release are not inputs to the current CLI.

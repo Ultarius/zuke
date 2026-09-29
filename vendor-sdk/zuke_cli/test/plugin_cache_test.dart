@@ -4,7 +4,9 @@ import 'dart:io';
 import 'package:crypto/crypto.dart';
 import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
+import 'package:zuke_cli/src/path_safety.dart';
 import 'package:zuke_cli/src/plugin_cache.dart';
+import 'package:zuke_cli/src/tooling/analyzer_sdk.dart';
 
 import 'support/temporary_directory.dart';
 
@@ -299,7 +301,10 @@ void main() {
     expect(verifications, 2, reason: 'each distinct fingerprint is built once');
     expect(
       _pathsWithStatus(result, 'stale'),
-      containsAll(<String>[p.normalize(entry.path), p.normalize(second.path)]),
+      containsAll(<String>[
+        _reportedPath(entry.path),
+        _reportedPath(second.path),
+      ]),
       reason: 'every entry gets its own finding, even when shared',
     );
     expect(second.existsSync(), isTrue);
@@ -320,7 +325,10 @@ void main() {
     expect(verifications, 1, reason: 'identical sources compile once');
     expect(
       _pathsWithStatus(result, 'stale'),
-      containsAll(<String>[p.normalize(entry.path), p.normalize(twin.path)]),
+      containsAll(<String>[
+        _reportedPath(entry.path),
+        _reportedPath(twin.path),
+      ]),
       reason: 'sharing a verdict must not hide an entry',
     );
   });
@@ -362,10 +370,10 @@ void main() {
         containsAll(<String>['entry', 'older-analyzer']),
         reason: 'a different analyzer must get its own build',
       );
-      final byPath = {for (final f in result) p.normalize(f.path): f.status};
-      expect(byPath[p.normalize(entry.path)], 'stale');
+      final byPath = {for (final f in result) _reportedPath(f.path): f.status};
+      expect(byPath[_reportedPath(entry.path)], 'stale');
       expect(
-        byPath[p.normalize(older.path)],
+        byPath[_reportedPath(older.path)],
         'failed',
         reason: 'the divergent entry reports its own failure',
       );
@@ -387,6 +395,216 @@ void main() {
     );
   });
 
+  test('repair limit leaves a visible, retryable plan', () async {
+    for (var i = 0; i < 4; i++) {
+      _copyTree(entry, Directory('${cache.path}/entry-$i')..createSync());
+    }
+    final progress = <String>[];
+    final result = await doctor().inspect(
+      fix: true,
+      maxRepairs: 2,
+      onProgress: (completed, total, finding) {
+        progress.add('$completed/$total:${finding?.status ?? 'plan'}');
+      },
+    );
+    expect(_pathsWithStatus(result, 'repaired'), hasLength(2));
+    expect(_pathsWithStatus(result, 'deferred'), hasLength(3));
+    expect(compilations, 2);
+    expect(progress.first, '0/2:plan');
+    expect(progress.last, '2/2:repaired');
+    final next = await doctor().inspect(fix: true, maxRepairs: 2);
+    expect(_pathsWithStatus(next, 'repaired'), hasLength(2));
+    expect(_pathsWithStatus(next, 'deferred'), hasLength(1));
+  });
+
+  test(
+    'a requested entry is reported canonically, not as the caller spelled it',
+    () async {
+      // A request may be made through any spelling -- an 8.3 alias on Windows, a
+      // junction, `/var` instead of `/private/var` on macOS -- and the answer has
+      // to name the real directory. Without this, a caller asking about one path
+      // is told about a differently spelled path that is the same place, and every
+      // test comparing reported paths to a literal breaks on the platform that
+      // happens to alias one.
+      final unrelated = Directory('${root.path}/aliased-out-of-scope')
+        ..createSync();
+      final alias = p.join(root.path, 'alias-to-cache');
+      expect(_linkDirectory(alias, cache), isTrue, reason: 'link not created');
+      addTearDown(() => _removeLink(alias));
+
+      final requested = p.join(alias, 'not-a-real-entry');
+      final result = await doctor().inspect(
+        fix: true,
+        onlyEntries: {requested},
+      );
+      expect(
+        p.normalize(result.single.path),
+        _reportedPath(p.join(p.normalize(cache.path), 'not-a-real-entry')),
+        reason:
+            'the miss names the real entry path, not the alias it was asked for. '
+            'Compared raw on purpose: _pathsWithStatus would canonicalise the '
+            'reported path and so agree with a non-canonical implementation, '
+            'hiding the very thing being asserted.',
+      );
+      expect(
+        _reportedPath(requested),
+        _reportedPath(p.join(p.normalize(cache.path), 'not-a-real-entry')),
+        reason: 'and the request did denote that same directory',
+      );
+      expect(_reportedPath(unrelated.path), isNot(_reportedPath(requested)));
+    },
+  );
+
+  test('exact-entry selection cannot repair an unrelated path', () async {
+    final chosen = Directory('${cache.path}/chosen')..createSync();
+    _copyTree(entry, chosen);
+    final result = await doctor().inspect(
+      fix: true,
+      onlyEntries: {chosen.path},
+    );
+    expect(_pathsWithStatus(result, 'repaired'), {_reportedPath(chosen.path)});
+    // An entry the user did not ask for is out of scope, not deferred. On a real
+    // cache that is the difference between one finding and one per entry.
+    expect(_pathsWithStatus(result, 'deferred'), isEmpty);
+    expect(compilations, 1);
+
+    final unrelated = Directory('${root.path}/unrelated')..createSync();
+    final missed = await doctor().inspect(
+      fix: true,
+      onlyEntries: {unrelated.path},
+    );
+    expect(_pathsWithStatus(missed, 'failed'), {_reportedPath(unrelated.path)});
+    expect(compilations, 1);
+  });
+
+  test('a bounded repair is not reported as a failure', () async {
+    // A limit the user asked for is not a broken entry. `deferred` used to
+    // satisfy `needsRepair`, so `doctor --fix --max-plugin-repairs N` exited
+    // non-zero after doing exactly what it was asked.
+    for (var i = 0; i < 3; i++) {
+      _copyTree(entry, Directory('${cache.path}/entry-$i')..createSync());
+    }
+    final result = await doctor().inspect(fix: true, maxRepairs: 1);
+    final deferred = result.where((f) => f.status == 'deferred').toList();
+    expect(deferred, hasLength(3));
+    for (final finding in deferred) {
+      expect(
+        finding.needsRepair,
+        isFalse,
+        reason: 'a deferred entry is not a broken entry',
+      );
+    }
+    expect(
+      result.where((f) => f.needsRepair).map((f) => f.status),
+      isEmpty,
+      reason: 'nothing in the run was left broken',
+    );
+    expect(result.where((f) => f.status == 'repaired'), hasLength(1));
+  });
+
+  test(
+    'a deferred finding is summarised once, not re-advised per entry',
+    () async {
+      for (var i = 0; i < 3; i++) {
+        _copyTree(entry, Directory('${cache.path}/entry-$i')..createSync());
+      }
+      final lines = <String>[];
+      printPluginCacheFindings(
+        await doctor().inspect(fix: true, maxRepairs: 1),
+        sink: lines.add,
+      );
+      expect(
+        lines.where((line) => line.contains('[deferred]')),
+        hasLength(3),
+        reason: 'one line per entry, so the remainder is addressable',
+      );
+      expect(
+        lines.where((line) => line.contains('left for a later run')),
+        hasLength(1),
+        reason: 'the advice to continue is stated once, not once per entry',
+      );
+      expect(
+        lines.where((line) => line.contains('doctor --fix to rebuild')),
+        isEmpty,
+        reason: 'and never advises re-running the command just run',
+      );
+    },
+  );
+
+  test('the repair worker count is bounded', () async {
+    for (final workers in [0, -1, maxRepairWorkers + 1]) {
+      await expectLater(
+        doctor().inspect(fix: true, repairWorkers: workers),
+        throwsA(isA<ArgumentError>()),
+        reason: 'workers=$workers must be rejected',
+      );
+    }
+    expect(defaultRepairWorkers, inInclusiveRange(1, maxRepairWorkers));
+    await doctor().inspect(fix: true, repairWorkers: maxRepairWorkers);
+  });
+
+  test('a successful repair is not downgraded by a lock release error', () async {
+    // The receipt is already flushed when the lock is released, so a close
+    // failure after a successful repair would make the entry fail once and pass
+    // on every audit afterwards.
+    final result = await doctor().inspect(fix: true, maxRepairs: 1);
+    final repaired = result.where((f) => f.status == 'repaired');
+    expect(repaired, hasLength(1));
+    expect(repaired.single.needsRepair, isFalse);
+    expect(
+      File('${entry.path}/.zuke-plugin-receipt.json').existsSync(),
+      isTrue,
+      reason: 'and the entry really is repaired on disk',
+    );
+  });
+
+  test('every entry is repaired exactly once under concurrency', () async {
+    for (var i = 0; i < 8; i++) {
+      _copyTree(entry, Directory('${cache.path}/entry-$i')..createSync());
+    }
+    final built = <String>[];
+    await doctor(
+      compiler: (directory) async {
+        await Future<void>.delayed(const Duration(milliseconds: 25));
+        built.add(p.basename(directory.path));
+        final snapshot = File('${directory.path}/bin/plugin.aot')
+          ..writeAsStringSync('compiled');
+        return sha256.convert(snapshot.readAsBytesSync()).toString();
+      },
+    ).inspect(fix: true, repairWorkers: 4);
+    expect(built, hasLength(9), reason: 'no entry may be dropped or repeated');
+    expect(built.toSet(), hasLength(9), reason: 'and none may run twice');
+  });
+
+  test('bounded repairs finish the batch and report each failure', () async {
+    for (var i = 0; i < 5; i++) {
+      _copyTree(entry, Directory('${cache.path}/entry-$i')..createSync());
+    }
+    var active = 0;
+    var peak = 0;
+    final result = await doctor(
+      compiler: (directory) async {
+        active++;
+        if (active > peak) peak = active;
+        await Future<void>.delayed(const Duration(milliseconds: 40));
+        active--;
+        if (p.basename(directory.path) == 'entry-0') {
+          throw StateError('fixture compiler failed');
+        }
+        final snapshot = File('${directory.path}/bin/plugin.aot')
+          ..writeAsStringSync('compiled');
+        return sha256.convert(snapshot.readAsBytesSync()).toString();
+      },
+    ).inspect(fix: true, repairWorkers: 4);
+    expect(peak, 4);
+    expect(_pathsWithStatus(result, 'repaired'), hasLength(5));
+    expect(_pathsWithStatus(result, 'failed'), hasLength(1));
+    expect(
+      File('${cache.path}/entry-0/.zuke-plugin-receipt.json').existsSync(),
+      isFalse,
+    );
+  });
+
   test(
     'sources changing during compilation cannot receive a receipt',
     () async {
@@ -400,6 +618,47 @@ void main() {
       expect(
         File('${entry.path}/.zuke-plugin-receipt.json').existsSync(),
         isFalse,
+      );
+    },
+  );
+
+  test(
+    'concurrent real repairs of several entries all succeed and validate',
+    () async {
+      // The pool is exercised here with the real resolver, the real compiler,
+      // real file locks and real receipts -- only the compiled program is
+      // trivial, because what the worker pool touches is the subprocess and the
+      // bookkeeping, not the size of the program. Six entries at four workers
+      // took well under the time budget for a single analyzer-plugin compile.
+      final real = await _realEntries(6);
+      addTearDown(() => deleteTemporaryDirectory(real.root));
+
+      final doctor = PluginCacheDoctor(
+        cacheRoot: real.cache,
+        localZukeRoots: {real.pluginPath},
+      );
+      final repaired = await doctor.inspect(fix: true, repairWorkers: 4);
+      expect(
+        repaired.where((f) => f.status == 'failed').map((f) => f.message),
+        isEmpty,
+        reason: 'a concurrent repair must not fail an entry',
+      );
+      expect(repaired.where((f) => f.status == 'repaired'), hasLength(6));
+      for (final entry in real.entries) {
+        expect(
+          File('${entry.path}/.zuke-plugin-receipt.json').existsSync(),
+          isTrue,
+          reason: 'each entry gets its own receipt',
+        );
+      }
+
+      // The strong assertion: every receipt must validate on a second pass, so
+      // an entry cannot be reported repaired and then disagree with itself.
+      final reaudited = await doctor.inspect();
+      expect(
+        reaudited.where((f) => f.status != 'current').map((f) => f.status),
+        isEmpty,
+        reason: 'a repaired entry must read back as current',
       );
     },
   );
@@ -539,14 +798,89 @@ void main() {
 /// Creates a link at [link] pointing at [target], returning false when the
 /// platform refuses. A directory junction is used on Windows because creating
 /// one needs no elevation.
+/// Cache entries that a real `dart pub get` and a real `dart compile
+/// aot-snapshot` can actually build, unlike the injected-compiler fixture above.
+///
+/// The local package is a stub named `zuke_analyzer` with a trivial `lib/`, which
+/// is all the audit needs to recognise the entry as this clone's, and keeps the
+/// compiled program small enough to repair six entries in the test budget.
+Future<_RealCache> _realEntries(int count) async {
+  final root = Directory.systemTemp.createTempSync('zuke-real-cache-');
+  final plugin = Directory(p.join(root.path, 'plugin'))..createSync();
+  File(p.join(plugin.path, 'pubspec.yaml')).writeAsStringSync(
+    'name: zuke_analyzer\nversion: 0.0.0\nenvironment:\n  sdk: ^3.6.0\n',
+  );
+  File(p.join(plugin.path, 'lib', 'source.dart'))
+    ..createSync(recursive: true)
+    ..writeAsStringSync('const value = 1;\n');
+
+  final cache = Directory(p.join(root.path, 'cache'))..createSync();
+  final entries = <Directory>[];
+  for (var i = 0; i < count; i++) {
+    final entry = Directory(p.join(cache.path, 'entry-$i'))..createSync();
+    File(p.join(entry.path, 'pubspec.yaml')).writeAsStringSync(
+      'name: plugin_entrypoint\nversion: 0.0.1\nenvironment:\n  sdk: ^3.6.0\n'
+      'dependencies:\n  zuke_analyzer:\n    path: ${p.normalize(plugin.path)}\n',
+    );
+    File(p.join(entry.path, 'bin', 'plugin.dart'))
+      ..createSync(recursive: true)
+      ..writeAsStringSync('void main() {}\n');
+    File(p.join(entry.path, 'bin', 'plugin.aot'))
+      ..createSync(recursive: true)
+      ..writeAsStringSync('a snapshot built from older sources');
+    // The audit needs a lock before it will select an entry, and the real
+    // resolver writes one; this is that same resolution, done once up front.
+    final resolved = await Process.run(resolveDartExecutable(), [
+      '--suppress-analytics',
+      'pub',
+      'get',
+    ], workingDirectory: entry.path);
+    if (resolved.exitCode != 0) {
+      throw StateError('pub get failed: ${resolved.stderr}');
+    }
+    entries.add(entry);
+  }
+  return _RealCache(
+    root: root,
+    cache: cache,
+    pluginPath: plugin.path,
+    entries: entries,
+  );
+}
+
+class _RealCache {
+  _RealCache({
+    required this.root,
+    required this.cache,
+    required this.pluginPath,
+    required this.entries,
+  });
+  final Directory root;
+  final Directory cache;
+  final String pluginPath;
+  final List<Directory> entries;
+}
+
 /// Cache paths come from `listSync` and the fixture builds its own with a
 /// forward slash, so both sides are normalized before comparing.
+/// The spelling a finding reports a path with.
+///
+/// A requested entry is matched and reported canonically, so the caller may pass
+/// either spelling and the answer names one directory. Comparisons here have to
+/// canonicalize too, or the suite fails only where the platform aliases a path:
+/// Windows resolves an 8.3 name such as `RUNNER~1` to its long form, and macOS
+/// resolves `/var` to `/private/var`.
+String _reportedPath(String path) {
+  final canonical = p.normalize(canonicalComparablePath(path));
+  return Platform.isWindows ? canonical.toLowerCase() : canonical;
+}
+
 Set<String> _pathsWithStatus(
   List<PluginCacheFinding> findings,
   String status,
 ) => findings
     .where((finding) => finding.status == status)
-    .map((finding) => p.normalize(finding.path))
+    .map((finding) => _reportedPath(finding.path))
     .toSet();
 
 void _copyTree(Directory from, Directory to) {

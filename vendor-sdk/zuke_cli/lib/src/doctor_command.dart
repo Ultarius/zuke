@@ -31,6 +31,25 @@ Future<int> runDoctor(ArgResults cmd, {PluginCacheAudit? pluginAudit}) async {
   final jsonMode = (cmd['format'] as String? ?? 'text') == 'json';
   final diagnostics = <Diagnostic>[];
   final fix = cmd.options.contains('fix') && cmd['fix'] == true;
+  final limitText = cmd.options.contains('max-plugin-repairs')
+      ? cmd['max-plugin-repairs'] as String?
+      : null;
+  final maxPluginRepairs = limitText == null ? null : int.tryParse(limitText);
+  final requestedEntries = cmd.options.contains('plugin-cache-entry')
+      ? (cmd['plugin-cache-entry'] as List<String>).toSet()
+      : <String>{};
+  if (limitText != null && (maxPluginRepairs == null || maxPluginRepairs < 0)) {
+    stderr.writeln('--max-plugin-repairs must be a non-negative integer.');
+    return 64;
+  }
+  if (limitText != null && !fix) {
+    stderr.writeln('--max-plugin-repairs requires --fix.');
+    return 64;
+  }
+  if (requestedEntries.isNotEmpty && !fix) {
+    stderr.writeln('--plugin-cache-entry requires --fix.');
+    return 64;
+  }
   final checkBuild =
       cmd.options.contains('check-build') && cmd['check-build'] == true;
   if (!jsonMode) {
@@ -45,7 +64,24 @@ Future<int> runDoctor(ArgResults cmd, {PluginCacheAudit? pluginAudit}) async {
   // `--fix` already compiles every entry it repairs, so verifying buildability
   // alongside it would compile the same entry twice for no new information.
   final pluginFindings = pluginAudit == null
-      ? await auditPluginCache(root, fix: fix, checkBuild: checkBuild && !fix)
+      ? await auditPluginCache(
+          root,
+          fix: fix,
+          checkBuild: checkBuild && !fix,
+          maxRepairs: maxPluginRepairs,
+          onlyEntries: requestedEntries.isEmpty ? null : requestedEntries,
+          onProgress: jsonMode || !fix
+              ? null
+              : (completed, total, finding) {
+                  if (finding == null) {
+                    print('Repairing $total plugin cache entries...');
+                  } else {
+                    print(
+                      'Plugin repairs: $completed/$total (${finding.status})',
+                    );
+                  }
+                },
+        )
       : await pluginAudit(root, fix);
   if (!jsonMode) printPluginCacheFindings(pluginFindings);
   for (final finding in pluginFindings.where((f) => f.needsRepair)) {
@@ -56,7 +92,18 @@ Future<int> runDoctor(ArgResults cmd, {PluginCacheAudit? pluginAudit}) async {
         severity: fix ? DiagnosticSeverity.error : DiagnosticSeverity.warning,
         owner: DiagnosticOwner.project,
         message: '${finding.path}: ${finding.message}',
-        remediation: 'Run zuke doctor --fix, then restart the analysis server.',
+        // Only a status a rebuild can resolve gets the rebuild advice. A plugin
+        // that does not compile, or a dependency checkout that has gone away,
+        // would be sent straight back to the command that already failed.
+        remediation: switch (finding.status) {
+          'stale' || 'unverified' =>
+            'Run zuke doctor --fix, then restart the analysis server.',
+          'orphaned' =>
+            'Restore the local dependency checkout the entry points at, then run '
+                'zuke doctor --fix.',
+          _ =>
+            'The entry could not be repaired automatically; see the message.',
+        },
       ),
     );
   }

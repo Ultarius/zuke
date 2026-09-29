@@ -570,15 +570,9 @@ class ExtractionService {
       _join(root, '.zuke/cache/$adapter/$key.json');
 
   _EvidenceLoad _loadEvidence(String root, ZukeConfig config) {
-    final primary = _join(root, config.resolvedEvidenceOutput);
-    // An explicitly configured path is authoritative. For an unconfigured
-    // workspace, use legacy evidence only if the current default does not
-    // exist; merging both can let an old record displace a newly published one.
-    final useLegacy =
-        (config.evidenceOutput?.trim().isEmpty ?? true) &&
-        !File(primary).existsSync() &&
-        !Directory(primary).existsSync();
-    final path = useLegacy ? _join(root, '.zuke/evidence') : primary;
+    // Read exactly where `zuke test` publishes. Falling back to an old path
+    // when this one is absent can silently resurrect stale evidence.
+    final path = _join(root, config.resolvedEvidenceOutput);
     final files = <File>[];
     final candidate = File(path);
     if (candidate.existsSync()) {

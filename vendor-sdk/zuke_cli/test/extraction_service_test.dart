@@ -523,28 +523,30 @@ void provideControl() {}
       );
     });
 
-    test('records under the legacy .zuke/evidence path are still read', () {
-      // A runner may declare its own `evidenceOutput`, and workspaces that
-      // published there before the default was unified must not lose evidence.
-      _writePackage(tempDir);
-      final workspace = evidenceWorkspace(tempDir);
-      final legacy = Directory('${tempDir.path}/.zuke/evidence')
-        ..createSync(recursive: true);
-      File('${legacy.path}/old.json').writeAsStringSync(
-        jsonEncode({
-          'record': buildRecord('RULE-LEGACY-001', 'run-legacy').toJson(),
-        }),
-      );
+    test(
+      'unconfigured workspace ignores legacy evidence when default is absent',
+      () {
+        _writePackage(tempDir);
+        final workspace = evidenceWorkspace(tempDir);
+        final legacy = Directory('${tempDir.path}/.zuke/evidence')
+          ..createSync(recursive: true);
+        File('${legacy.path}/old.json').writeAsStringSync(
+          jsonEncode({
+            'record': buildRecord('RULE-LEGACY-001', 'run-legacy').toJson(),
+          }),
+        );
 
-      expect(
-        ExtractionService()
-            .publishedEvidence(workspace)
-            .map((record) => record.requirementId),
-        contains('RULE-LEGACY-001'),
-      );
-    });
+        expect(
+          Directory(
+            '${tempDir.path}/${ZukeConfig.defaultEvidenceOutput}',
+          ).existsSync(),
+          isFalse,
+        );
+        expect(ExtractionService().publishedEvidence(workspace), isEmpty);
+      },
+    );
 
-    test('current default evidence takes priority over legacy records', () {
+    test('default evidence ignores records in the old location', () {
       _writePackage(tempDir);
       final workspace = evidenceWorkspace(tempDir);
       final current = Directory(
@@ -600,6 +602,31 @@ void provideControl() {}
         ['RULE-CUSTOM-001'],
       );
     });
+
+    test(
+      'legacy location remains available only when explicitly configured',
+      () {
+        _writePackage(tempDir);
+        final workspace = evidenceWorkspace(
+          tempDir,
+          evidenceOutput: '.zuke/evidence',
+        );
+        final legacy = Directory('${tempDir.path}/.zuke/evidence')
+          ..createSync(recursive: true);
+        File('${legacy.path}/old.json').writeAsStringSync(
+          jsonEncode({
+            'record': buildRecord('RULE-LEGACY-001', 'run-legacy').toJson(),
+          }),
+        );
+
+        expect(
+          ExtractionService()
+              .publishedEvidence(workspace)
+              .map((record) => record.requirementId),
+          ['RULE-LEGACY-001'],
+        );
+      },
+    );
 
     test(
       'feeds native Dart Frog topology into the proof extraction outputs',

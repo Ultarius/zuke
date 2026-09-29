@@ -381,6 +381,16 @@ ArgParser buildZukeArgParser() {
           help:
               'Rebuild stale local plugin snapshots and regenerate incompatible indexes',
         )
+        ..addOption(
+          'max-plugin-repairs',
+          help: 'Repair at most this many stale plugin cache entries per run',
+        )
+        ..addMultiOption(
+          'plugin-cache-entry',
+          help:
+              'Repair only this cache entry; repeat for multiple entries. '
+              'Other stale entries are left alone and not reported',
+        )
         ..addFlag(
           'check-build',
           negatable: false,

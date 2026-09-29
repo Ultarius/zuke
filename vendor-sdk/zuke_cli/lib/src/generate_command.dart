@@ -281,7 +281,19 @@ class GenerateCommand {
     );
     final verification = VerifiedRequirementScan.fromScan(scan);
     final implementations = ImplementationScan.fromScan(scan);
-    final specDiagnostics = scanSpecDiagnostics(workspace, root: root);
+    final specDiagnostics = [
+      ...scanSpecDiagnostics(workspace, root: root),
+      // Scenario coverage is only knowable when every managed registration
+      // resolved to its constant scenario. One unresolved registration could be
+      // exactly the one that covers a scenario, and reporting a covered
+      // scenario as unverified would train readers to ignore the finding.
+      if (scan.unresolvedManagedRegistrations == 0)
+        ...scanScenarioCoverage(
+          workspace,
+          root: root,
+          registeredScenarioIds: scan.managedScenarioIds,
+        ),
+    ];
     final inputs = <String>{
       ...workspace.inputContents.keys,
       // Everything the scans read, not only the files that contributed a
