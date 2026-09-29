@@ -418,6 +418,112 @@ void main() {
   });
 
   test(
+    'current-context audit ignores other workspaces and summarizes once',
+    () async {
+      final contextEntry = Directory(
+        p.join(cache.path, pluginCacheKeyForContextRoot(root.path)),
+      )..createSync();
+      _copyTree(entry, contextEntry);
+      final findings = await doctor().inspect(contextRoots: {root.path});
+      expect(findings, hasLength(1));
+      expect(findings.single.path, contextEntry.path);
+      expect(
+        await doctor().inspect(contextRoots: {root.path.toUpperCase()}),
+        isEmpty,
+        reason: 'the SDK cache key uses the context path spelling',
+      );
+      final summary = PluginCacheSummary.fromFindings(findings);
+      expect(summary.entries, 1);
+      expect(summary.statuses['unverified'], 1);
+      expect(summary.snapshotBytes, greaterThan(0));
+      final lines = <String>[];
+      printPluginCacheSummary(findings, sink: lines.add);
+      expect(lines, hasLength(1));
+      expect(lines.single, contains('Run zuke doctor for details'));
+      final current = await doctor().inspect(
+        fix: true,
+        onlyEntries: {contextEntry.path},
+      );
+      final quiet = <String>[];
+      printPluginCacheSummary(
+        current.where((finding) => finding.path == contextEntry.path),
+        sink: quiet.add,
+      );
+      expect(quiet, isEmpty);
+    },
+  );
+
+  test('prune previews and removes only an explicitly selected entry', () {
+    final otherContext = Directory(p.join(root.path, 'other-context'));
+    final selected = Directory(
+      p.join(cache.path, pluginCacheKeyForContextRoot(otherContext.path)),
+    )..createSync();
+    _copyTree(entry, selected);
+    File(p.join(selected.path, 'pubspec.yaml')).writeAsStringSync(
+      'dependencies:\n  zuke_analyzer:\n    path: ${jsonEncode(package.path)}\n',
+    );
+
+    final preview = doctor().pruneSelected({
+      selected.path,
+    }, currentContextRoot: root.path);
+    expect(preview.single.status, 'ready');
+    expect(preview.single.bytes, greaterThan(0));
+    expect(selected.existsSync(), isTrue);
+
+    final removed = doctor().pruneSelected(
+      {selected.path},
+      currentContextRoot: root.path,
+      dryRun: false,
+    );
+    expect(removed.single.status, 'pruned');
+    expect(selected.existsSync(), isFalse);
+    expect(entry.existsSync(), isTrue);
+  });
+
+  test('prune refuses current, shared, foreign, and outside entries', () {
+    final current = Directory(
+      p.join(cache.path, pluginCacheKeyForContextRoot(root.path)),
+    )..createSync();
+    _copyTree(entry, current);
+    final shared = Directory(
+      p.join(cache.path, md5.convert(utf8.encode('shared')).toString()),
+    )..createSync();
+    _copyTree(entry, shared);
+    final foreign = Directory(
+      p.join(cache.path, md5.convert(utf8.encode('foreign')).toString()),
+    )..createSync();
+    _copyTree(entry, foreign);
+    File(
+      p.join(foreign.path, '.dart_tool', 'package_config.json'),
+    ).writeAsStringSync(
+      jsonEncode({
+        'configVersion': 2,
+        'packages': [
+          {'name': 'zuke_analyzer', 'rootUri': root.uri.toString()},
+        ],
+      }),
+    );
+    File(
+      p.join(foreign.path, 'pubspec.yaml'),
+    ).writeAsStringSync('dependencies:\n  zuke_analyzer: any\n');
+    final outside = Directory(
+      p.join(root.path, md5.convert(utf8.encode('outside')).toString()),
+    )..createSync();
+    _copyTree(entry, outside);
+
+    final results = doctor().pruneSelected(
+      {current.path, shared.path, foreign.path, outside.path},
+      currentContextRoot: root.path,
+      dryRun: false,
+    );
+    expect(results, hasLength(4));
+    expect(results.every((result) => result.status == 'refused'), isTrue);
+    for (final directory in [current, shared, foreign, outside]) {
+      expect(directory.existsSync(), isTrue);
+    }
+  });
+
+  test(
     'a requested entry is reported canonically, not as the caller spelled it',
     () async {
       // A request may be made through any spelling -- an 8.3 alias on Windows, a
@@ -678,6 +784,25 @@ void main() {
       expect(
         File('${entry.path}/bin/plugin.zuke-repair.aot').existsSync(),
         isFalse,
+      );
+
+      final snapshot = File('${entry.path}/bin/plugin.aot');
+      final originalDigest = sha256.convert(snapshot.readAsBytesSync());
+      final marker = DateTime.utc(2020, 1, 1);
+      snapshot.setLastModifiedSync(marker);
+      final installedTimestamp = snapshot.lastModifiedSync();
+      File('${entry.path}/.zuke-plugin-receipt.json').deleteSync();
+      final repeated = await real.inspect(fix: true);
+      expect(
+        repeated.single.status,
+        'repaired',
+        reason: repeated.single.message,
+      );
+      expect(sha256.convert(snapshot.readAsBytesSync()), originalDigest);
+      expect(
+        snapshot.lastModifiedSync(),
+        installedTimestamp,
+        reason: 'an identical compiled AOT must not replace the live file',
       );
     },
   );

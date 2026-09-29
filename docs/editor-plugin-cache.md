@@ -11,6 +11,17 @@ command to work
 through the rest. An unbounded `--fix` still repairs every stale entry. Repairs
 use up to four workers and report progress as each entry finishes; one failed
 entry does not stop other entries in the batch.
+For the usual active-workspace repair, use
+`zuke doctor --fix --current-context --root <workspace-root>`. This scopes the
+audit and repair to the synthetic entry keyed by that analysis context root;
+the ordinary doctor command still sees all entries for the local clone. Pass
+the actual context root used by the editor. `--current-context` and
+`--plugin-cache-entry` are alternative scopes.
+If no entry matches that exact path spelling, doctor returns
+`ZUKE-PLUGIN-CACHE-CONTEXT` as an error, and `zuke analyze` stops before invoking
+`dart analyze`. Inspect the full `zuke doctor` inventory for the editor's path.
+On a workspace the analysis server has never opened, run `dart analyze` once to
+let Dart create its entry, then retry the scoped command.
 To repair known entries from the audit, pass `--plugin-cache-entry <path>` once
 per entry (optionally together with the count limit). Other stale entries are out
 of scope for that run and are not reported; a plain `zuke doctor` still lists
@@ -19,12 +30,49 @@ clone; the command will not repair an arbitrary directory.
 Restart the analysis server or reload the editor after repair: replacing an AOT
 file does not replace an isolate already running in the editor.
 
-`zuke analyze -- <dart analyze arguments>` performs repair before starting a
+`zuke analyze -- <dart analyze arguments>` repairs the current context before starting a
 fresh `dart analyze` process and returns its exit status. Run it at the workspace
 root, or pass `--root`. `zuke generate` audits without modifying the plugin cache
-(except that `--quiet` skips this optional audit).
+(except that `--quiet` skips this optional audit). Generate checks only the
+synthetic entry for its current analysis context and prints at most one cache
+advisory; `zuke doctor` gives the full inventory, including entry paths, states,
+and snapshot size.
 `zuke init --editor vscode` installs a folder-open Doctor Check task and a manual
 Doctor Fix task. VS Code still controls whether automatic tasks are permitted.
+
+## Cache lifecycle and selective cleanup
+
+Dart 3.12 names a synthetic plugin cache entry from the analysis **context root
+path**. Similar dependency resolutions do not establish that two entries are
+interchangeable: they may belong to different live workspaces, and one synthetic
+package may contain several plugins. Zuke therefore does not automatically
+delete entries during `doctor --fix` or infer unused entries from age or a build
+fingerprint. Repair continues to work per entry. If compilation produces the
+same AOT bytes as the installed snapshot, repair leaves that snapshot in place
+and writes the content receipt; this avoids needless replacement of a live file.
+
+To reclaim a known, unused entry, first inspect the full `zuke doctor` output.
+Stop **all analysis servers** using the selected entries, then preview:
+
+```sh
+zuke doctor --prune-cache --dry-run --plugin-cache-entry <absolute-entry-path>
+```
+
+If the preview says `ready`, remove only those same explicitly selected entries:
+
+```sh
+zuke doctor --prune-cache --analysis-server-stopped --plugin-cache-entry <absolute-entry-path>
+```
+
+Repeat `--plugin-cache-entry` to select several entries. The command refuses
+paths outside the cache, linked entries, the current context root, entries
+containing another plugin, and entries not resolving to this local Zuke clone.
+The preview reports reclaimable bytes; the removal reports reclaimed bytes.
+Restart the analysis servers afterward. This operation does not establish that
+an entry belongs to no other active context, so only select entries for which
+you know the corresponding workspaces are closed. If unsure, leave the entry in
+place; Dart can recreate a removed synthetic package when that workspace is
+analyzed again.
 
 ## What was verified
 
@@ -77,7 +125,7 @@ that would throw, not one that is covered.
 | Severity | Error, enabled by default. All other Zuke rules are suppressed on a contract mismatch. Users can still explicitly disable rules through analyzer configuration. |
 | Version location | `contractVersion` in the analyzer index only; the constant lives in `zuke_cli/src/index_contract.dart` and is exported through `editor.dart`. |
 | Missing version | Ordinary stale-index behavior; regenerate. `doctor --fix` regenerates a missing, malformed, or incompatible header. |
-| Deletion vs rebuilding | Rebuild the selected snapshot instead of deleting its directory. A synthetic package can contain other plugins, and a rebuild permits a trustworthy content receipt. |
+| Deletion vs rebuilding | `doctor --fix` rebuilds selected snapshots and never prunes automatically. Explicit `--prune-cache` removes only selected, Zuke-only entries after a preview and all relevant analysis servers have stopped. |
 
 The contract is checked before decoding the rest of the index. This handles
 both older and newer producer contracts even when their JSON shapes cannot be
@@ -94,6 +142,10 @@ not just edits to existing files. Each audit hashes content again. Touching a
 file alone does not invalidate the receipt; preserving timestamps cannot hide
 changed content. Hosted dependency identity comes from the lock/configuration;
 editing supposedly immutable hosted-cache sources is outside this audit.
+SDK identity stays in the receipt: the same package configuration can compile
+to a different AOT under a different Dart SDK, so removing it would let an old
+snapshot appear verified. A toolchain upgrade may make many receipts stale;
+`--current-context` limits the immediate repair to the entry being used.
 
 Repair runs `dart pub get` using the selected SDK, fingerprints the resulting
 graph, compiles a temporary AOT with a depfile, replaces the snapshot, and records

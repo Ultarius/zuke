@@ -17,6 +17,7 @@ Future<int> runAnalyze(
     '--root',
     root,
     '--fix',
+    '--current-context',
   ]).command!;
   final repaired = await doctor(repairCommand);
   if (repaired != 0) return repaired;

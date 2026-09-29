@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:args/args.dart';
+import 'package:path/path.dart' as p;
 import 'package:zuke_core/zuke_core.dart';
 
 import 'alignment_doctor.dart';
@@ -16,6 +17,74 @@ import 'test_host_doctor.dart';
 bool _isZukePackageName(String name) =>
     name == 'zuke' || name.startsWith('zuke_');
 
+bool _flag(ArgResults cmd, String name) =>
+    cmd.options.contains(name) && cmd[name] == true;
+
+int _runPluginCachePrune(
+  ArgResults cmd, {
+  required String root,
+  required Set<String> entries,
+  required bool dryRun,
+  required bool jsonMode,
+}) {
+  final List<PluginCachePruneResult> results;
+  try {
+    results = PluginCacheDoctor.forWorkspace(root).pruneSelected(
+      entries,
+      currentContextRoot: p.normalize(Directory(root).absolute.path),
+      dryRun: dryRun,
+    );
+  } on Object catch (error) {
+    stderr.writeln('Could not inspect analyzer plugin cache: $error');
+    return 1;
+  }
+  final failed = results.any((result) => result.failed);
+  final bytes = results
+      .where((result) => result.status == (dryRun ? 'ready' : 'pruned'))
+      .fold<int>(0, (total, result) => total + result.bytes);
+  final diagnostics = [
+    for (final result in results.where((result) => result.failed))
+      Diagnostic(
+        code: 'ZUKE-PLUGIN-CACHE',
+        stage: 'doctor',
+        severity: DiagnosticSeverity.error,
+        owner: DiagnosticOwner.project,
+        message: '${result.path}: ${result.message}',
+        remediation: 'Select only an unused Zuke-only synthetic cache entry.',
+      ),
+  ];
+  final code = failed ? 1 : 0;
+  final result = CommandResult(
+    command: 'doctor',
+    stage: 'doctor',
+    exitCode: code,
+    status: failed ? CommandStatus.failed : CommandStatus.passed,
+    eligible: !failed,
+    diagnostics: diagnostics,
+    details: {
+      'pluginCachePrune': results.map((entry) => entry.toJson()).toList(),
+      'bytes': bytes,
+      'dryRun': dryRun,
+    },
+  );
+  final encoded = encodeCommandResult(result);
+  if (jsonMode) {
+    stdout.write(encoded);
+  } else {
+    for (final entry in results) {
+      print(
+        'ZUKE-PLUGIN-CACHE [${entry.status}]: ${entry.path}: ${entry.message}',
+      );
+    }
+    print(
+      '${dryRun ? 'Would reclaim' : 'Reclaimed'} '
+      '${formatPluginCacheMiB(bytes)}.',
+    );
+  }
+  writeCommandSummaryBytes(cmd['summary-file'] as String?, encoded);
+  return code;
+}
+
 /// Audits a workspace's analyzer plugin caches.
 ///
 /// Injectable so a test can exercise the rest of [runDoctor] without reaching
@@ -24,13 +93,18 @@ bool _isZukePackageName(String name) =>
 /// package boundary walks all the way to the filesystem root -- which is how a
 /// `doctor --fix` test could otherwise recompile a real machine's plugin cache.
 typedef PluginCacheAudit =
-    Future<List<PluginCacheFinding>> Function(String root, bool fix);
+    Future<List<PluginCacheFinding>> Function(
+      String root,
+      bool fix,
+      Set<String>? contextRoots,
+    );
 
 Future<int> runDoctor(ArgResults cmd, {PluginCacheAudit? pluginAudit}) async {
   final root = cmd['root'] as String? ?? Directory.current.path;
+  final contextRoot = p.normalize(Directory(root).absolute.path);
   final jsonMode = (cmd['format'] as String? ?? 'text') == 'json';
   final diagnostics = <Diagnostic>[];
-  final fix = cmd.options.contains('fix') && cmd['fix'] == true;
+  final fix = _flag(cmd, 'fix');
   final limitText = cmd.options.contains('max-plugin-repairs')
       ? cmd['max-plugin-repairs'] as String?
       : null;
@@ -38,6 +112,39 @@ Future<int> runDoctor(ArgResults cmd, {PluginCacheAudit? pluginAudit}) async {
   final requestedEntries = cmd.options.contains('plugin-cache-entry')
       ? (cmd['plugin-cache-entry'] as List<String>).toSet()
       : <String>{};
+  final currentContext = _flag(cmd, 'current-context');
+  final pruneCache = _flag(cmd, 'prune-cache');
+  final dryRun = _flag(cmd, 'dry-run');
+  final serverStopped = _flag(cmd, 'analysis-server-stopped');
+  if (pruneCache) {
+    if (fix ||
+        _flag(cmd, 'check-build') ||
+        _flag(cmd, 'check-alignment') ||
+        _flag(cmd, 'check-overrides') ||
+        currentContext ||
+        limitText != null ||
+        requestedEntries.isEmpty ||
+        (!dryRun && !serverStopped)) {
+      stderr.writeln(
+        '--prune-cache requires --plugin-cache-entry and either --dry-run '
+        'or --analysis-server-stopped; it cannot be combined with other doctor checks or repair flags.',
+      );
+      return 64;
+    }
+    return _runPluginCachePrune(
+      cmd,
+      root: root,
+      entries: requestedEntries,
+      dryRun: dryRun,
+      jsonMode: jsonMode,
+    );
+  }
+  if (dryRun || serverStopped) {
+    stderr.writeln(
+      '--dry-run and --analysis-server-stopped require --prune-cache.',
+    );
+    return 64;
+  }
   if (limitText != null && (maxPluginRepairs == null || maxPluginRepairs < 0)) {
     stderr.writeln('--max-plugin-repairs must be a non-negative integer.');
     return 64;
@@ -50,8 +157,13 @@ Future<int> runDoctor(ArgResults cmd, {PluginCacheAudit? pluginAudit}) async {
     stderr.writeln('--plugin-cache-entry requires --fix.');
     return 64;
   }
-  final checkBuild =
-      cmd.options.contains('check-build') && cmd['check-build'] == true;
+  if (currentContext && requestedEntries.isNotEmpty) {
+    stderr.writeln(
+      '--current-context cannot be combined with --plugin-cache-entry.',
+    );
+    return 64;
+  }
+  final checkBuild = _flag(cmd, 'check-build');
   if (!jsonMode) {
     print(
       fix
@@ -70,6 +182,7 @@ Future<int> runDoctor(ArgResults cmd, {PluginCacheAudit? pluginAudit}) async {
           checkBuild: checkBuild && !fix,
           maxRepairs: maxPluginRepairs,
           onlyEntries: requestedEntries.isEmpty ? null : requestedEntries,
+          contextRoots: currentContext ? {contextRoot} : null,
           onProgress: jsonMode || !fix
               ? null
               : (completed, total, finding) {
@@ -82,8 +195,38 @@ Future<int> runDoctor(ArgResults cmd, {PluginCacheAudit? pluginAudit}) async {
                   }
                 },
         )
-      : await pluginAudit(root, fix);
+      : await pluginAudit(root, fix, currentContext ? {contextRoot} : null);
+  final unmatchedContext = currentContext && pluginFindings.isEmpty;
+  if (unmatchedContext) {
+    final message =
+        'No Zuke analyzer plugin cache entry matched the analysis '
+        'context root "$contextRoot". Check the exact path and case used by '
+        'the editor. If this workspace has never been analyzed, run dart analyze '
+        'once to create its cache entry, then retry.';
+    diagnostics.add(
+      Diagnostic(
+        code: 'ZUKE-PLUGIN-CACHE-CONTEXT',
+        stage: 'doctor',
+        severity: DiagnosticSeverity.error,
+        owner: DiagnosticOwner.project,
+        message: message,
+        remediation:
+            'Run zuke doctor without --current-context to inspect '
+            'available entries, or analyze a new workspace once to create one.',
+      ),
+    );
+    if (!jsonMode) {
+      stderr.writeln('  ERROR [ZUKE-PLUGIN-CACHE-CONTEXT]: $message');
+    }
+  }
   if (!jsonMode) printPluginCacheFindings(pluginFindings);
+  final pluginSummary = PluginCacheSummary.fromFindings(pluginFindings);
+  if (!jsonMode && pluginSummary.entries > 0) {
+    print(
+      'Plugin cache: ${pluginSummary.entries} entries, '
+      '${formatPluginCacheMiB(pluginSummary.snapshotBytes)} in snapshots.',
+    );
+  }
   for (final finding in pluginFindings.where((f) => f.needsRepair)) {
     diagnostics.add(
       Diagnostic(
@@ -107,7 +250,8 @@ Future<int> runDoctor(ArgResults cmd, {PluginCacheAudit? pluginAudit}) async {
       ),
     );
   }
-  var repairFailed = fix && pluginFindings.any((f) => f.needsRepair);
+  var repairFailed =
+      unmatchedContext || (fix && pluginFindings.any((f) => f.needsRepair));
   final releaseDetails = <String, Object?>{
     'publicPackageVersions': Map<String, String>.from(
       releasePublicPackageVersions,
@@ -117,12 +261,8 @@ Future<int> runDoctor(ArgResults cmd, {PluginCacheAudit? pluginAudit}) async {
     'compatibilityIds': Map<String, String>.from(releaseCompatibilityIds),
     'flutterCertification': releaseFlutterCertification,
   };
-  final checkAlignment =
-      cmd.options.contains('check-alignment') &&
-      (cmd['check-alignment'] as bool? ?? false);
-  final checkOverrides =
-      cmd.options.contains('check-overrides') &&
-      (cmd['check-overrides'] as bool? ?? false);
+  final checkAlignment = _flag(cmd, 'check-alignment');
+  final checkOverrides = _flag(cmd, 'check-overrides');
   if (checkOverrides && !checkAlignment) {
     // Override validation uses the same effective dependency inspection as
     // alignment; keep the two switches composable for release workflows.
@@ -138,6 +278,7 @@ Future<int> runDoctor(ArgResults cmd, {PluginCacheAudit? pluginAudit}) async {
       details: {
         'release': releaseDetails,
         'pluginCache': pluginFindings.map((f) => f.toJson()).toList(),
+        'pluginCacheSummary': pluginSummary.toJson(),
         if (checkAlignment) 'alignmentChecked': true,
         if (checkOverrides) 'overridesChecked': true,
       },

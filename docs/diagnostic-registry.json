@@ -746,6 +746,13 @@
       "summary": "The analyzer plugin snapshot no longer matches the local Zuke sources."
     },
     {
+      "code": "ZUKE-PLUGIN-CACHE-CONTEXT",
+      "severity": "error",
+      "summary": "A context-scoped plugin cache audit matched no entry, so the scope named a context root the editor has not used. The exact path and case must match the analysis context root.",
+      "owner": "project",
+      "remediation": "Run zuke doctor without --current-context to inspect available entries, or analyze the workspace once so Dart creates its entry."
+    },
+    {
       "code": "ZUKE-PLUGIN-STALE",
       "severity": "error",
       "summary": "The compiled analyzer plugin and the analyzer index were built for different index contract versions."

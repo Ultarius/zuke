@@ -37,13 +37,12 @@ class GenerateCommand {
     info('${checkOnly ? "Checking" : "Generating"} contracts...');
 
     final workspace = requireCurrentWorkspace(root);
-    // Advisory, and about the machine rather than the workspace, so it goes to
-    // stdout. Generate's own failures are the stderr channel, and anything
-    // capturing the two separately would otherwise read a stale-plugin hint as
-    // if generation had failed.
+    // This is an advisory about the current analysis context. A full audit
+    // belongs to doctor; walking every other workspace's AOT on each generate
+    // made routine generation slow and buried its own output in cache findings.
     if (!quiet) {
-      printPluginCacheFindings(
-        await auditPluginCache(root),
+      printPluginCacheSummary(
+        await auditPluginCache(root, contextRoots: {root}),
         sink: stdout.writeln,
       );
     }

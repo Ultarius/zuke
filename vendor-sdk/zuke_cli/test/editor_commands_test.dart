@@ -52,6 +52,46 @@ void main() {
   });
 
   test(
+    'doctor prune requires an explicit entry and stopped-server assertion',
+    () async {
+      final parser = buildZukeArgParser();
+      Future<int> code(List<String> args) =>
+          runDoctor(parser.parse(['doctor', ...args]).command!);
+      expect(await code(['--prune-cache', '--dry-run']), 64);
+      expect(
+        await code(['--prune-cache', '--plugin-cache-entry', 'cache/entry']),
+        64,
+      );
+      expect(
+        await code([
+          '--prune-cache',
+          '--dry-run',
+          '--fix',
+          '--plugin-cache-entry',
+          'cache/entry',
+        ]),
+        64,
+      );
+      expect(await code(['--analysis-server-stopped']), 64);
+      expect(
+        await code([
+          '--fix',
+          '--current-context',
+          '--plugin-cache-entry',
+          'cache/entry',
+        ]),
+        64,
+      );
+      final scoped = parser.parse([
+        'doctor',
+        '--fix',
+        '--current-context',
+      ]).command!;
+      expect(scoped['current-context'], isTrue);
+    },
+  );
+
+  test(
     'analyze repairs before forwarding arguments and preserves exit status',
     () async {
       final command = buildZukeArgParser().parse([
@@ -67,6 +107,7 @@ void main() {
         command,
         doctor: (args) async {
           expect(args['fix'], isTrue);
+          expect(args['current-context'], isTrue);
           expect(args['root'], 'workspace with spaces');
           events.add('repair');
           return 0;
@@ -93,6 +134,54 @@ void main() {
     );
     expect(result, 2);
   });
+
+  test(
+    'current-context with no matching cache entry reports an error',
+    () async {
+      final root = Directory.systemTemp.createTempSync('zuke-context-doctor-');
+      addTearDown(() => deleteTemporaryDirectory(root));
+      writeSchema3Workspace(
+        root,
+        name: 'doctor',
+        target: 'app',
+        packageId: 'app',
+        framework: 'dart',
+        roots: ['lib'],
+        contractOutput: 'lib/src/generated',
+      );
+      Directory('${root.path}/specs/features').createSync(recursive: true);
+      final output = StringBuffer();
+      late int code;
+      await IOOverrides.runZoned(() async {
+        code = await runDoctor(
+          buildZukeArgParser().parse([
+            'doctor',
+            '--root',
+            root.path,
+            '--current-context',
+            '--format',
+            'json',
+          ]).command!,
+          pluginAudit: (auditedRoot, fix, contextRoots) async {
+            expect(auditedRoot, root.path);
+            expect(fix, isFalse);
+            expect(contextRoots, {root.path});
+            return const <PluginCacheFinding>[];
+          },
+        );
+      }, stdout: () => TestStdout(output));
+      expect(code, 1);
+      final result = jsonDecode(output.toString()) as Map;
+      expect(result['pluginCache'], isEmpty);
+      expect(result['pluginCacheSummary']['entries'], 0);
+      expect(
+        (result['diagnostics'] as List).where(
+          (diagnostic) => diagnostic['code'] == 'ZUKE-PLUGIN-CACHE-CONTEXT',
+        ),
+        hasLength(1),
+      );
+    },
+  );
 
   test(
     'doctor --fix regenerates incompatible and unversioned indexes with JSON output',
@@ -135,11 +224,17 @@ void main() {
                 '--format',
                 'json',
               ]).command!,
-              pluginAudit: (String auditedRoot, bool fix) async {
-                expect(auditedRoot, root.path);
-                expect(fix, isTrue);
-                return const <PluginCacheFinding>[];
-              },
+              pluginAudit:
+                  (
+                    String auditedRoot,
+                    bool fix,
+                    Set<String>? contextRoots,
+                  ) async {
+                    expect(auditedRoot, root.path);
+                    expect(fix, isTrue);
+                    expect(contextRoots, isNull);
+                    return const <PluginCacheFinding>[];
+                  },
             );
           },
           stdout: () => TestStdout(stdout),

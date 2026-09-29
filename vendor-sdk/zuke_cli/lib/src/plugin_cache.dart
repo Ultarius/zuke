@@ -24,11 +24,31 @@ final int defaultRepairWorkers = Platform.numberOfProcessors < 4
 /// Ceiling for [PluginCacheDoctor.inspect]'s `repairWorkers`.
 const int maxRepairWorkers = 16;
 
-final class PluginCacheFinding {
+/// One cache entry's outcome, shared by the audit and the prune.
+///
+/// Both report the same three facts about a path, and both serialise the same
+/// way, so the fields and [toJson] live here. What differs is what each adds:
+/// an audit finding carries [PluginCacheFinding.needsRepair], and a prune result
+/// carries `bytes` and treats a refusal as a failure. `failed` is therefore left
+/// to the subclass rather than inherited, because the two do not agree on which
+/// statuses count.
+base class PluginCacheEntryResult {
   final String path;
   final String status;
   final String message;
-  const PluginCacheFinding(this.path, this.status, this.message);
+
+  const PluginCacheEntryResult(this.path, this.status, this.message);
+
+  Map<String, Object?> toJson() => {
+    'path': path,
+    'status': status,
+    'message': message,
+  };
+}
+
+final class PluginCacheFinding extends PluginCacheEntryResult {
+  const PluginCacheFinding(super.path, super.status, super.message);
+
   bool get failed => status == 'failed';
 
   /// Whether this finding describes something actually wrong with an entry.
@@ -41,12 +61,95 @@ final class PluginCacheFinding {
   static const repairing = {'stale', 'unverified', 'orphaned', 'failed'};
 
   bool get needsRepair => repairing.contains(status);
-  Map<String, Object?> toJson() => {
-    'path': path,
-    'status': status,
-    'message': message,
+}
+
+/// Small, machine-readable inventory of classified audit findings. Third-party
+/// and unattributable cache directories are excluded; an explicitly requested
+/// missing path may contribute a failed finding even though no entry exists.
+final class PluginCacheSummary {
+  final int entries;
+  final int snapshotBytes;
+  final Map<String, int> statuses;
+
+  const PluginCacheSummary(this.entries, this.snapshotBytes, this.statuses);
+
+  factory PluginCacheSummary.fromFindings(
+    Iterable<PluginCacheFinding> findings,
+  ) {
+    final counts = <String, int>{};
+    var entries = 0;
+    var bytes = 0;
+    for (final finding in findings) {
+      entries++;
+      counts.update(finding.status, (count) => count + 1, ifAbsent: () => 1);
+      // The cache can contain links. Never follow one merely to count bytes.
+      if (FileSystemEntity.typeSync(finding.path, followLinks: false) !=
+          FileSystemEntityType.directory) {
+        continue;
+      }
+      final snapshot = _snapshotFile(finding.path);
+      try {
+        if (FileSystemEntity.typeSync(snapshot.path, followLinks: false) ==
+            FileSystemEntityType.file) {
+          bytes += snapshot.lengthSync();
+        }
+      } on FileSystemException {
+        // A concurrent analysis server may replace the snapshot during an
+        // inventory. The diagnostic status remains useful without its size.
+      }
+    }
+    return PluginCacheSummary(entries, bytes, counts);
+  }
+
+  int get attention =>
+      entries -
+      (statuses['current'] ?? 0) -
+      (statuses['repaired'] ?? 0) -
+      (statuses['deferred'] ?? 0);
+
+  Map<String, Object> toJson() => {
+    'entries': entries,
+    'snapshotBytes': snapshotBytes,
+    'statuses': statuses,
   };
 }
+
+final class PluginCachePruneResult extends PluginCacheEntryResult {
+  final int bytes;
+
+  const PluginCachePruneResult(
+    super.path,
+    super.status,
+    this.bytes,
+    super.message,
+  );
+
+  bool get failed => status == 'refused' || status == 'failed';
+
+  @override
+  Map<String, Object?> toJson() => {...super.toJson(), 'bytes': bytes};
+}
+
+/// Generate's one-line advisory. Detailed entry paths remain in `doctor`.
+void printPluginCacheSummary(
+  Iterable<PluginCacheFinding> findings, {
+  void Function(String line)? sink,
+}) {
+  final summary = PluginCacheSummary.fromFindings(findings);
+  if (summary.attention == 0) return;
+  (sink ?? stdout.writeln)(
+    'ZUKE-PLUGIN-CACHE: ${summary.attention} of ${summary.entries} '
+    'local analyzer cache entries need attention '
+    '(${formatPluginCacheMiB(summary.snapshotBytes)} in snapshots). '
+    'Run zuke doctor for details.',
+  );
+}
+
+String formatPluginCacheMiB(int bytes) =>
+    '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MiB';
+
+File _snapshotFile(String directory) =>
+    File(p.join(directory, 'bin', 'plugin.aot'));
 
 /// Audits only synthetic packages resolving the workspace's local Zuke clone.
 /// A receipt is created only after compilation, never by assuming an existing
@@ -119,6 +222,7 @@ final class PluginCacheDoctor {
     bool checkBuild = false,
     int? maxRepairs,
     Set<String>? onlyEntries,
+    Set<String>? contextRoots,
     int? repairWorkers,
     PluginCacheProgress? onProgress,
   }) async {
@@ -144,6 +248,11 @@ final class PluginCacheDoctor {
     final findings = <PluginCacheFinding>[];
     final repairs = <Directory>[];
     final requested = onlyEntries?.map(_canonical).toSet();
+    // Dart 3.12 names a new-style synthetic package with MD5(context root
+    // path). This filter is advisory only: a future SDK may change the naming
+    // scheme, in which case generate simply finds no entry and doctor remains
+    // the complete audit.
+    final contextKeys = contextRoots?.map(pluginCacheKeyForContextRoot).toSet();
     final matched = <String>{};
     // Share hashes only during the sequential audit. Repair workers use their
     // own fresh hashes to detect sources changing during compilation.
@@ -156,6 +265,15 @@ final class PluginCacheDoctor {
       // testing for Directory alone would skip it and leave the user with a
       // cache entry that is never audited, repaired, or explained.
       if (entity is! Directory && entity is! Link) continue;
+      if (contextKeys != null &&
+          !contextKeys.contains(p.basename(entity.path))) {
+        continue;
+      }
+      if (fix &&
+          requested != null &&
+          !requested.contains(_canonical(entity.path))) {
+        continue;
+      }
       var selected = false;
       try {
         // A link is never written through: repairing one would act on a
@@ -198,13 +316,7 @@ final class PluginCacheDoctor {
           // guessing would make another checkout's entry our problem.
           continue;
         }
-        final belongsToThisClone = packages.entries.any(
-          (candidate) =>
-              (candidate.key == 'zuke_cli' ||
-                  candidate.key == 'zuke_analyzer') &&
-              localZukeRoots.contains(_canonical(candidate.value)),
-        );
-        if (!belongsToThisClone) continue;
+        if (!_ownsResolvedPackages(packages)) continue;
         // Ours, and attributable, so a later parse failure is a real finding
         // rather than an entry that quietly disappears from the audit.
         selected = true;
@@ -216,7 +328,7 @@ final class PluginCacheDoctor {
           );
         }
 
-        final snapshot = File(p.join(entity.path, 'bin', 'plugin.aot'));
+        final snapshot = _snapshotFile(entity.path);
         final receipt = File(p.join(entity.path, '.zuke-plugin-receipt.json'));
         String digest;
         try {
@@ -389,7 +501,7 @@ final class PluginCacheDoctor {
     final config = File(
       p.join(entity.path, '.dart_tool', 'package_config.json'),
     );
-    final snapshot = File(p.join(entity.path, 'bin', 'plugin.aot'));
+    final snapshot = _snapshotFile(entity.path);
     final receipt = File(p.join(entity.path, '.zuke-plugin-receipt.json'));
     final lock = File(p.join(entity.path, '.zuke-plugin-repair.lock'));
     RandomAccessFile? handle;
@@ -453,6 +565,121 @@ final class PluginCacheDoctor {
     }
     return finding;
   }
+
+  /// Removes only explicitly named, Zuke-only synthetic packages. No age or
+  /// build fingerprint can establish that another context root is unused.
+  /// Callers must stop the analysis server before applying a plan.
+  List<PluginCachePruneResult> pruneSelected(
+    Set<String> paths, {
+    required String currentContextRoot,
+    bool dryRun = true,
+  }) {
+    final results = <PluginCachePruneResult>[];
+    final protectedKey = pluginCacheKeyForContextRoot(currentContextRoot);
+    for (final requested in paths.toList()..sort()) {
+      final directory = Directory(p.absolute(requested));
+      final path = directory.path;
+      try {
+        if (!RegExp(r'^[0-9a-f]{32}$').hasMatch(p.basename(path)) ||
+            p.basename(path) == protectedKey ||
+            FileSystemEntity.typeSync(path, followLinks: false) !=
+                FileSystemEntityType.directory ||
+            !_safeEntry(directory)) {
+          results.add(
+            PluginCachePruneResult(
+              path,
+              'refused',
+              0,
+              'Not an eligible, direct cache entry, or it belongs to the current context root.',
+            ),
+          );
+          continue;
+        }
+        if (!_declaresZuke(path)) {
+          results.add(
+            PluginCachePruneResult(
+              path,
+              'refused',
+              0,
+              'Synthetic package does not declare zuke_analyzer.',
+            ),
+          );
+          continue;
+        }
+        final spec = loadYaml(
+          File(p.join(path, 'pubspec.yaml')).readAsStringSync(),
+        );
+        final dependencies = spec is Map ? spec['dependencies'] : null;
+        if (dependencies is! Map ||
+            dependencies.keys.any(
+              (name) =>
+                  name != 'zuke_analyzer' && name != 'analysis_server_plugin',
+            )) {
+          results.add(
+            PluginCachePruneResult(
+              path,
+              'refused',
+              0,
+              'Synthetic package also contains another plugin or dependency.',
+            ),
+          );
+          continue;
+        }
+        final config = File(p.join(path, '.dart_tool', 'package_config.json'));
+        if (!config.existsSync() ||
+            !_ownsResolvedPackages(_packageRoots(config))) {
+          results.add(
+            PluginCachePruneResult(
+              path,
+              'refused',
+              0,
+              'Entry does not resolve to this local Zuke clone.',
+            ),
+          );
+          continue;
+        }
+        final bytes = directory
+            .listSync(recursive: true, followLinks: false)
+            .whereType<File>()
+            .fold<int>(0, (total, file) => total + file.lengthSync());
+        if (!dryRun) {
+          // Re-check the absolute resolved target immediately before a
+          // recursive delete. Never traverse links or leave this cache root.
+          if (!_safeEntry(directory)) {
+            throw const FileSystemException('Cache entry changed before prune');
+          }
+          directory.deleteSync(recursive: true);
+        }
+        results.add(
+          PluginCachePruneResult(
+            path,
+            dryRun ? 'ready' : 'pruned',
+            bytes,
+            dryRun
+                ? 'Would remove this entry after the analysis server stops.'
+                : 'Entry removed. Restart the analysis server before analysis.',
+          ),
+        );
+      } on Object catch (error) {
+        results.add(
+          PluginCachePruneResult(
+            path,
+            'failed',
+            0,
+            'Could not inspect or prune cache entry: $error',
+          ),
+        );
+      }
+    }
+    return results;
+  }
+
+  bool _ownsResolvedPackages(Map<String, String> packages) =>
+      packages.entries.any(
+        (candidate) =>
+            (candidate.key == 'zuke_cli' || candidate.key == 'zuke_analyzer') &&
+            localZukeRoots.contains(_canonical(candidate.value)),
+      );
 
   bool _safeEntry(Directory directory) {
     // Compare canonical spellings rather than the literal one the caller passed
@@ -723,7 +950,12 @@ final class PluginCacheDoctor {
       );
     }
     final digest = _hash(temporary, {});
-    temporary.renameSync(p.join(directory.path, 'bin', 'plugin.aot'));
+    final installed = _snapshotFile(directory.path);
+    if (installed.existsSync() && _hash(installed, {}) == digest) {
+      temporary.deleteSync();
+      return digest;
+    }
+    temporary.renameSync(installed.path);
     return digest;
   }
 }
@@ -759,12 +991,18 @@ String _canonical(String path) {
   );
 }
 
+/// Dart 3.12's synthetic-package cache key for an analysis context root.
+/// The path spelling must match what the analysis server sees exactly.
+String pluginCacheKeyForContextRoot(String contextRoot) =>
+    md5.convert(contextRoot.codeUnits).toString();
+
 Future<List<PluginCacheFinding>> auditPluginCache(
   String root, {
   bool fix = false,
   bool checkBuild = false,
   int? maxRepairs,
   Set<String>? onlyEntries,
+  Set<String>? contextRoots,
   PluginCacheProgress? onProgress,
 }) async {
   try {
@@ -773,6 +1011,7 @@ Future<List<PluginCacheFinding>> auditPluginCache(
       checkBuild: checkBuild,
       maxRepairs: maxRepairs,
       onlyEntries: onlyEntries,
+      contextRoots: contextRoots,
       onProgress: onProgress,
     );
   } on Object catch (error) {

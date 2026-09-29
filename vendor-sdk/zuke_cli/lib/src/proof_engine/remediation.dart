@@ -72,6 +72,11 @@ String? defaultRemediation(String code) {
       'The analyzer plugin snapshot no longer matches the local Zuke sources. '
           'Run `zuke doctor --fix`, then restart the analysis server or reload the '
           'IDE window so it reloads the rebuilt snapshot.',
+    'ZUKE-PLUGIN-CACHE-CONTEXT' =>
+      'A context-scoped plugin cache audit matched no entry, so the scope named '
+          'an analysis context root the editor has not used. The path spelling must '
+          'match exactly. Run `zuke doctor` without `--current-context` to see the '
+          'available entries, or analyze the workspace once so Dart creates one.',
     'ZUKE-PLUGIN-STALE' =>
       'The compiled analyzer plugin and this analyzer index were built for '
           'different index contract versions, so the plugin cannot read the index '

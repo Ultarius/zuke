@@ -392,6 +392,26 @@ ArgParser buildZukeArgParser() {
               'Other stale entries are left alone and not reported',
         )
         ..addFlag(
+          'current-context',
+          negatable: false,
+          help: 'Audit or repair only the cache entry for --root',
+        )
+        ..addFlag(
+          'prune-cache',
+          negatable: false,
+          help: 'Inspect or remove explicitly selected Zuke-only cache entries',
+        )
+        ..addFlag(
+          'dry-run',
+          negatable: false,
+          help: 'Preview --prune-cache without removing entries',
+        )
+        ..addFlag(
+          'analysis-server-stopped',
+          negatable: false,
+          help: 'Assert the analysis server is stopped before pruning',
+        )
+        ..addFlag(
           'check-build',
           negatable: false,
           help:
