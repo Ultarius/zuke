@@ -12,9 +12,11 @@ class ZukeAnalyzer {
     }
     final workspaceRoot = Directory(placement.workspaceRoot);
     final indexFile = File('${workspaceRoot.path}/.zuke/analyzer-index.json');
+    ZukeIndexHeader? header;
+    FormatException? headerError;
     try {
       if (indexFile.existsSync()) {
-        final header = ZukeIndexHeader.read(indexFile);
+        header = ZukeIndexHeader.read(indexFile);
         if (header.isIncompatible) {
           return [
             ZukeDiagnostic(
@@ -24,8 +26,9 @@ class ZukeAnalyzer {
           ];
         }
       }
-    } on FormatException {
-      // The existing stale-index diagnostic covers a malformed header.
+    } on FormatException catch (error) {
+      // Keep the parse failure for the stale-index diagnostic below.
+      headerError = error;
     }
     final output = await DartExtractor().extract(
       packageRoot,
@@ -39,37 +42,85 @@ class ZukeAnalyzer {
         )
         .toList();
 
-    ZukeIndex index;
+    // Split by what the drift invalidates rather than stopping at the first
+    // problem. An index that is merely behind still answers questions about the
+    // specifications correctly, and returning early meant one edited file cost
+    // the workspace every diagnostic for the rest of the session.
+    ZukeIndex? index;
+    var unusable = false;
+    // Read once: `freshnessIssues` walks the workspace, and doing it twice per
+    // package doubled the cost of the check for no new information.
+    List<ZukeIndexFreshnessIssue> issues = const [];
     try {
-      if (!indexFile.existsSync()) {
+      if (headerError != null) throw headerError;
+      if (header == null) {
         throw const FormatException('analyzer index is missing');
       }
-      index = ZukeIndex.read(indexFile);
-      if (!index.isCurrent(root: workspaceRoot.path)) {
-        throw const FormatException('analyzer index is stale');
+      index = ZukeIndex.fromJson(header.json);
+      issues = index.freshnessIssues(root: workspaceRoot.path);
+      if (issues.any((issue) => issue.rendersIndexUnusable)) {
+        unusable = true;
+        final first = issues.firstWhere((issue) => issue.rendersIndexUnusable);
+        diagnostics.add(
+          ZukeDiagnostic(
+            code: 'ZUKE-INDEX-STALE',
+            message: 'Run "zuke generate" before analysis: ${first.message}',
+          ),
+        );
+      } else if (issues.isNotEmpty) {
+        final first = issues.first;
+        diagnostics.add(
+          ZukeDiagnostic(
+            code: 'ZUKE-INDEX-STALE',
+            message:
+                'The analyzer index is behind the sources. ${first.message} '
+                '(${issues.length} in total; run zuke doctor for the full list).',
+          ),
+        );
       }
     } on FormatException catch (error) {
+      // A missing, unparseable or incompatible index leaves nothing to consult,
+      // so no rule that depends on it can answer.
+      unusable = true;
       diagnostics.add(
         ZukeDiagnostic(
           code: 'ZUKE-INDEX-STALE',
           message: 'Run "zuke generate" before analysis: $error',
         ),
       );
-      return diagnostics;
     }
+    if (unusable) index = null;
+    // Which facts survive the drift, from the same classification the plugin
+    // uses. A source edit invalidates claims and implementation sets but cannot
+    // change what the specifications declare; a specification edit is the other
+    // way round.
+    //
+    // A check whose facts are unavailable must not run. Substituting an empty ID
+    // set and carrying on reports every annotation as unknown and every verified
+    // requirement as untested, which is worse than reporting nothing: the split
+    // would manufacture the very findings it was meant to avoid.
+    final facts = issues.consultableFacts(indexReadable: index != null);
+    final specificationFresh = facts.specification;
+    final sourcesFresh = facts.sources;
+    final ids = specificationFresh ? index!.requirementIds : const <String>{};
+    final controls = specificationFresh ? index!.controlIds : const <String>{};
+    final bindingsDefined = specificationFresh
+        ? index!.bindingIds
+        : const <String>{};
+    final claims = sourcesFresh
+        ? index!.verifiedClaims
+        : const <ZukeImplementationClaim>[];
 
     for (final symbol in output.symbols) {
       final isImplementation =
           symbol.kind == ExtractedSymbolKind.requirementBoundary ||
           symbol.kind == ExtractedSymbolKind.presentationBoundary;
-      if (isImplementation) {
+      // Claims are unavailable under a source drift, so "has no
+      // @VerifiesRequirement" cannot be answered and is not asked.
+      if (isImplementation && specificationFresh && sourcesFresh) {
         for (final requirementId in symbol.requirementIds) {
-          if (index.requirementIds.contains(requirementId) &&
-              !claimsSatisfyRequirement(
-                index.verifiedClaims,
-                requirementId,
-                symbol.target,
-              )) {
+          if (ids.contains(requirementId) &&
+              !claimsSatisfyRequirement(claims, requirementId, symbol.target)) {
             diagnostics.add(
               ZukeDiagnostic(
                 code: 'ZUKE-MISSING-TEST',
@@ -81,21 +132,26 @@ class ZukeAnalyzer {
           }
         }
       }
-      for (final requirementId in symbol.requirementIds) {
-        if (!index.requirementIds.contains(requirementId)) {
-          diagnostics.add(
-            _unknown('requirement', requirementId, symbol.symbolId),
-          );
+      // "Is this ID one the index knows?" is unanswerable while the ID sets are
+      // in doubt, so the unknown-ID checks are gated on the same facts. The
+      // duplicate-binding check below needs no index at all and keeps running.
+      if (specificationFresh) {
+        for (final requirementId in symbol.requirementIds) {
+          if (!ids.contains(requirementId)) {
+            diagnostics.add(
+              _unknown('requirement', requirementId, symbol.symbolId),
+            );
+          }
         }
-      }
-      for (final controlId in symbol.controlIds) {
-        if (!index.controlIds.contains(controlId)) {
-          diagnostics.add(_unknown('control', controlId, symbol.symbolId));
+        for (final controlId in symbol.controlIds) {
+          if (!controls.contains(controlId)) {
+            diagnostics.add(_unknown('control', controlId, symbol.symbolId));
+          }
         }
-      }
-      final bindingId = symbol.bindingId;
-      if (bindingId != null && !index.bindingIds.contains(bindingId)) {
-        diagnostics.add(_unknown('binding', bindingId, symbol.symbolId));
+        final bindingId = symbol.bindingId;
+        if (bindingId != null && !bindingsDefined.contains(bindingId)) {
+          diagnostics.add(_unknown('binding', bindingId, symbol.symbolId));
+        }
       }
     }
     final bindings = <String, List<String>>{};

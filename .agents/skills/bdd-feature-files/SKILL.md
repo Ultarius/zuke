@@ -1,116 +1,110 @@
 ---
 name: bdd-feature-files
-description: 'Write, review, and refactor Gherkin feature files and step definitions for behavior-driven development. Use when creating or changing scenarios, reviewing Given/When/Then wording, choosing API or UI coverage, or spotting anti-patterns such as UI scripting, vague outcomes, hidden state, over-promising steps, and misleading example tables.'
+description: 'BDD Gherkin feature files (Given/When/Then) and their step definitions. Use when writing, reviewing, or refactoring scenarios or step bindings, choosing API or UI coverage, auditing evidence declarations on rules, or deciding whether a scenario is done.'
+argument-hint: 'Feature file or folder to write or review'
 ---
 
-# Writing good feature files
+# BDD feature files
 
-A feature file is an executable specification: concrete examples of how the system behaves, written in the language of the domain, and automated through step definitions. Product owners, testers, and developers read it; the test runner executes it. Write for the reader first. The step definitions carry the automation.
+A feature file is an executable **specification**: concrete examples of business rules, in the domain's language, automated by step definitions. People read it; the runner executes it. Every step is a **promise**: the product must be able to keep it, and the binding must check it. A green run proves only what the bindings executed.
 
-## When to use
+The parser keywords, natural language, binding syntax, tags, and test command come from the project in front of you. This skill holds the discipline, not the framework.
 
-- Writing a new `.feature` file or adding scenarios
-- Reviewing or refactoring existing feature files
-- Writing or changing the step definitions behind scenarios
-- Answering "is this good BDD?" questions
+## The scenario
 
-## Core model
-
-Every scenario is one example of one business rule.
-
-| Part | Keyword | Describes | Must not contain |
+| Part | Keyword | Holds | Lives in the step definition |
 |---|---|---|---|
-| Context | `Given` | The state before the event | User interaction, navigation, clicks |
-| Event | `When` | One action by a person **or** a system | Several unrelated actions, UI mechanics |
-| Outcome | `Then` | A result the actor can observe | Internal state, vague adjectives |
+| Context | `Given` | State before the event | How the state is reached: sign-in, navigation, setup data |
+| Event | `When` | One action by one actor, or one system event | Gestures, selectors, HTTP calls, tokens |
+| Outcome | `Then` | What the observer sees or receives, with a criterion | How it is read: locators, response parsing |
 
-**The actor is not always a person.** BDD does not require every scenario to be a user clicking through a screen.
-
-- **UI feature**: the actor is the user; the outcome is what the user sees or can do.
-- **API feature**: the actor is the consuming client or system; the outcome is what it receives, such as data, a refusal, or a status.
-- **Security or audit behavior**: the outcome may be an event or log entry **if** an external party relies on it (audit, monitoring). Name that party.
+- **Actor**: who performs the `When`. A user in a UI feature, a consuming client in an API feature, or the system itself (startup, a timer).
+- **Observer**: who sees the `Then`. The user sees a screen; a client receives data, a refusal, a status code. A log or event is an outcome only when a named party relies on it (audit, security monitoring).
+- **`And` / `But`** continue the previous keyword; runners give `But` no logic. Keep `But` for contrast of the same kind (`Then the user sees the save button` / `But the user does not see the delete button`). A condition that contradicts the state or changes the outcome is a second scenario.
 
 ## Rules
 
-1. **Describe what, not how.** Ask: *would this wording change if the UI or implementation changed?* If yes, rewrite it. "The customer views the order" survives a redesign; "the customer swipes down and taps the Order button" does not. Exception: the interaction itself is the requirement (gesture support, keyboard-only operation, screen-reader labels).
-2. **`Given` is state, not activity.** "Given a signed-in customer with an existing order" is state. How that state is reached (authentication, navigation, or test setup) belongs in the step definition.
-3. **One behavior per scenario.** One `When` block, ideally 3–5 steps. A `Then` → `When` → `Then` chain is two scenarios.
-4. **Every `Then` is verifiable and actually verified.** Step text is a promise; the step definition must assert exactly that promise. Read the binding before trusting a scenario.
-5. **Scenarios are independent.** Each sets up its own state and passes when run alone or in any order. If a scenario depends on data another test produced, say so in its `Given`, or let it fetch its own data.
-6. **Use the domain's language consistently.** Use one term per concept across all features, and use the term the business uses. Match the language the feature files already use. This repository's parser accepts English Gherkin keywords only; domain wording may still be localized where the bindings support it.
-7. **Examples must be meaningful.** Each row in `Examples` is a different case (equivalence class, boundary, persona). Name the table after what distinguishes the rows. One row → plain `Scenario`. A column that never changes → inline it.
-8. **Cover the rule, not just the happy path.** For each rule consider: success, rejection, boundary, missing or empty input, unauthorized access.
-9. **Group by business rule.** Use `Rule:` to group the examples of one rule. Titles state the behavior, not the test: "The customer receives no order data without a valid session", not "Test 401".
-10. **Keep steps atomic and reusable.** No conjunction steps (two facts joined by "and" in one step); use `And`. Reuse the exact wording of existing steps instead of writing near-duplicates.
+Apply every rule to every scenario.
 
-## Procedure
+**Writing**
 
-1. **Understand the behavior.** Find the user story, rule, or acceptance criteria. List the rules and at least one concrete example per rule. If the expected outcome is unknown, ask. Never invent business rules or expected values.
-2. **Choose the layer and the observer.** API (the consuming app observes responses) or UI (the user observes the screen). Test a rule at the lowest layer where it is observable; use UI scenarios for what only the UI shows (presentation, navigation, accessibility).
-3. **Search existing steps first.** Find the repository's step definitions, follow their framework's binding syntax, and reuse matching step text verbatim. Do not assume a directory layout or binding format. Check whether the runner treats the same step text as one shared binding across keywords.
-4. **Draft rules and scenarios.** Write the `Feature` description (who benefits and why), then `Rule` blocks with success, negative, and boundary examples.
-5. **Write the steps** following the rules, then run the [review checklist](#review-checklist).
-6. **Implement or verify the step definitions.**
-   - Hide mechanics (selectors, gestures, HTTP calls, tokens) in step definitions and helpers.
-   - Make each `Then` step assert precisely what it promises and report expected versus actual values when it fails.
-   - Wait for a condition instead of fixed sleeps where possible.
-   - If the framework generates files from feature files, edit the source `.feature` file and let the normal generation process update derived files.
-7. **Run the scenario** using the repository's documented test command and, where practical, confirm it fails for the right reason when the behavior is broken.
-8. **Self-review** against the [anti-pattern catalog](./references/anti-patterns.md).
+1. **What, not how.** Test: would the wording change if the UI or implementation changed? Then rewrite it. "The customer views the order" survives a redesign; "the customer swipes down and taps Order" does not. The interaction appears in step text only when it is the requirement: gesture support, keyboard-only operation, screen-reader labels.
+2. **`Given` is state.** "Given a signed-in customer with an existing order". Reaching that state is the binding's job.
+3. **One behavior per scenario.** Exactly one `When`, ideally 3 to 5 steps. `Then` → `When` → `Then` is two scenarios: the first outcome becomes the second's `Given`.
+4. **Every outcome carries a criterion.** "the order has status 'confirmed'", not "the order is processed correctly".
+5. **Scenarios are independent.** Each passes alone and in any order. A data dependency on another test is stated in its `Given`.
+6. **One term per concept**: the business's term, in the natural language and keyword set the parser accepts. Reuse existing step text verbatim.
+7. **Atomic steps.** Two facts joined by "and" become two steps.
+8. **Honest examples.** Each `Examples` row is a distinct case (equivalence class, boundary, persona), and the table label names what distinguishes the rows. One row becomes a plain `Scenario`; a constant column is inlined; commented-out rows are deleted or enabled.
+9. **Cover the rule.** Per rule: success, rejection, boundary, missing input, unauthorized.
+10. **Group by `Rule:`.** Titles state behavior: "The customer receives no order data without a valid session", not "Test 401".
 
-## Review checklist
+**Promises.** These separate a green suite from a working product. Failure modes and the audit ledger: [reachability](./references/reachability.md).
 
-- [ ] The feature description says who benefits and why
-- [ ] Each scenario illustrates one rule and has one event
-- [ ] No clicks, taps, swipes, field names, selectors, URLs, or JSON in steps, unless the interaction is the requirement — framework binding ids or their declared display labels are syntax, not leakage
-- [ ] `Given` steps describe state, not actions
-- [ ] Every `Then` describes an outcome observable by the stated actor (user sees / app receives)
-- [ ] Every `Then` is asserted by its step definition; the wording does not over-promise
-- [ ] No vague outcomes ("correct", "successful", "as expected", "works") without a criterion
-- [ ] The scenario passes on its own; any cross-test data dependency is explicit
-- [ ] Example tables: each row is a distinct case, the label matches the rows, no commented-out rows, no constant columns
-- [ ] Negative and boundary cases exist for each rule
-- [ ] Vocabulary matches other features and existing step definitions
-- [ ] Tags are correct, including tags that activate hooks
+11. **Every `When` has an actor path**: a screen, command, or API the product exposes to that actor. A system event is raised by production code: the startup path, the scheduler.
+12. **Every user-configurable `Given` state has a scenario where the actor sets it**, or is marked **fixture-only** with the reason.
+13. **Every surface named in a `Then` exists and is asserted**: panel, list, dialog, banner, notice.
+14. **Advice names a mechanism.** An explanation, warning, or instruction, whether in a `Then` or in product copy, names a step the product provides, and a scenario makes that step possible.
+15. **"Applies to" names a consumer.** A setting said to drive behavior is asserted where the behavior changes, not where the value is stored.
+16. **The binding keeps the promise.** It drives the actor's **entry point** (or the real trigger of a system event), asserts exactly what the step text says, and reports expected versus actual. A binding that calls a service directly while the step names a user is **borrowed coverage**.
+17. **Evidence slots match observed layers.** When the project declares per rule which kinds of evidence may prove it (`requiredEvidence` or an equivalent), a user-operated `When` needs a UI slot, and a `Then` about an **artifact** (saved file, render, log payload, external response: anything that can be wrong while the screen looks right) needs a domain or integration slot. A **mirrored state** the screen already shows (playing, selected, a marked range) needs only the UI slot. Audit: [evidence](./references/evidence.md).
 
-## Example: before and after
+## Writing a feature
 
-Before: UI scripting, a vague outcome, and a one-row outline.
+Each step ends on its completion criterion. Move to the next step only when it holds.
 
-```gherkin
-Scenario Outline: A customer opens the details of an order
-  Given a signed-in customer with customer number '<customer number>'
-  And the customer views the order overview
-  When the customer swipes down to see more details
-  And the customer clicks the Order button
-  Then the customer is successfully navigated to the order details
+### Step 1: Read the project
 
-  Examples: Customers
-    | customer number |
-    | K-104           |
-```
+Find the parser's natural language and keyword set (and its language header, if it needs one), the step definitions and their binding syntax, whether the runner shares one binding across `Given`/`When`/`Then` for identical text, every tag consumed by hooks or runner configuration, the metadata format (requirement ids, evidence types), files generated from `.feature` sources, and the documented test command. Where the framework lets steps name abstract binding ids, the id is the contract and the selector stays in the binding.
 
-After:
+Done when you can name the step-definition location, the test command, and every tag that changes execution.
 
-```gherkin
-Scenario: The customer views the details of an order
-  Given a signed-in customer with an existing order
-  When the customer views the order
-  Then the customer sees the order details
-```
+### Step 2: Pin the behavior
 
-The swipe and the button tap move into the step definition for "the customer views the order". The single-row outline becomes a plain scenario.
+From the story or acceptance criteria, list the rules and at least one concrete example per rule. Expected values come from a source: the story, a domain expert, the product. When an outcome is unknown, ask.
 
-- Full good examples (API and UI): [examples](./references/examples.md)
-- Bad practices and how to detect them: [anti-patterns](./references/anti-patterns.md)
+Done when every rule has an example whose expected value you can cite.
 
-## Repository conventions
+### Step 3: Choose the layer
 
-This repository's parser accepts these English keywords: `Feature`, `Rule`, `Background`, `Scenario`, `Scenario Outline`, `Examples`, `Given`, `When`, `Then`, `And`, and `But`. Localized Gherkin keywords and `# language:` declarations are not supported by the parser; keep the keywords in English even when domain wording is localized.
+Test each rule at the lowest layer where it is observable: API when a client observes a response; UI for what only the screen shows (presentation, navigation, accessibility).
 
-- **Bindings:** locate the existing step definitions and follow their syntax, naming, and organization.
-- **Binding references in step text:** a feature that declares a binding `label` may name the binding by that label instead of its id (`"promo code field"` rather than `"shopping.promoInput"`); both resolve through the generated `fromId`. The id stays canonical, the label is an optional readability alias, and a feature may use either consistently.
-- **Tags and hooks:** check runner configuration and hook registrations before changing tags; a tag may affect setup or test selection.
-- **Test data:** make each scenario's setup explicit. Avoid relying on data created by another test unless the dependency is documented and intentional.
-- **Generated output:** edit source feature files rather than generated artifacts, when the framework generates them.
-- **Execution:** use the repository's documented test command and prerequisites for the selected scenario or tag.
+Done when every rule has a layer, and its observer matches what bindings at that layer can verify.
+
+### Step 4: Draft
+
+Write the `Feature` description (who benefits and why), then `Rule:` blocks with success, rejection, and boundary scenarios, reusing existing step text. Complete API and UI features to model on: [examples](./references/examples.md).
+
+Done when every hit of the [quick scan](./references/anti-patterns.md#quick-scan) is fixed or justified.
+
+### Step 5: Audit the promises
+
+Fill the reachability ledger: one row per distinct `When`, user-configurable `Given`, named surface, and instruction in product copy. When rules carry evidence metadata, run the evidence audit.
+
+Done when every ledger row reads reachable, fixture-only, product gap with an action, or unverified with the observation that would settle it, and every rule's slots cover the layers its scenarios observe.
+
+### Step 6: Bind
+
+Mechanics (selectors, gestures, HTTP calls, tokens) live in step definitions and helpers. Drive the real entry point; wait on conditions rather than fixed sleeps. When the product cannot perform a step, that is a finding: fix the product or the scenario. Edit the source `.feature` and let generation update derived files. Record the entry point each binding drives next to its coverage claim.
+
+Done when you have read every binding the scenario uses, and each one's assertions match its step text.
+
+### Step 7: Run
+
+Run the project's test command filtered to the scenario or tag. Where practical, break the behavior and watch the scenario go red for the right reason.
+
+Done when you have shown the command and its output, and the scenario passes when run alone.
+
+## Reviewing
+
+Run steps 1, 3, 5, and 6 of writing a feature against the existing files, then apply every rule to every scenario. Name each finding after its [anti-pattern](./references/anti-patterns.md) or [reachability](./references/reachability.md) entry, which carries the rule number (or by the rule alone when no entry fits), quote the step, and give the fix. Report promise findings (rules 11 to 17) before wording findings (rules 1 to 10): a readable scenario the product cannot keep is the worse defect.
+
+Label every finding with where the fix lands, so the reader can route it without re-deriving it:
+
+- **feature file** — the step, scenario, or rule metadata can be corrected in place (fixture-only markers, evidence slots, wording, splits).
+- **binding** — the step definition or test must change (borrowed coverage, over- or under-assertions).
+- **product** — the actor path, trigger, surface, or consumer must be built (unreachable capability, orphaned event, named surface, inert configuration).
+
+A finding whose fix spans layers gets the smallest label that unblocks it, plus the follow-up. Never downgrade a product gap to a feature-file edit by weakening a promise the product is supposed to keep.
+
+Done when every scenario has been checked against all 17 rules and every finding carries an entry or rule number, a quoted step, a fix, and a fix location.

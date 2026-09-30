@@ -584,7 +584,7 @@ final class PluginCacheDoctor {
             p.basename(path) == protectedKey ||
             FileSystemEntity.typeSync(path, followLinks: false) !=
                 FileSystemEntityType.directory ||
-            !_safeEntry(directory)) {
+            !_isDirectCacheEntry(directory)) {
           results.add(
             PluginCachePruneResult(
               path,
@@ -595,7 +595,23 @@ final class PluginCacheDoctor {
           );
           continue;
         }
-        if (!_declaresZuke(path)) {
+        // One walk answers the link question and sizes the entry. `_safeEntry`
+        // takes the link answer rather than walking again to rediscover it.
+        final scan = _scanEntry(directory);
+        if (!_safeEntry(directory, hasLink: scan.hasLink)) {
+          results.add(
+            PluginCachePruneResult(
+              path,
+              'refused',
+              0,
+              'Not an eligible, direct cache entry, or it belongs to the current context root.',
+            ),
+          );
+          continue;
+        }
+        final dependencies = _zukeDependenciesOf(path);
+        if (dependencies == null ||
+            !dependencies.containsKey('zuke_analyzer')) {
           results.add(
             PluginCachePruneResult(
               path,
@@ -606,15 +622,9 @@ final class PluginCacheDoctor {
           );
           continue;
         }
-        final spec = loadYaml(
-          File(p.join(path, 'pubspec.yaml')).readAsStringSync(),
-        );
-        final dependencies = spec is Map ? spec['dependencies'] : null;
-        if (dependencies is! Map ||
-            dependencies.keys.any(
-              (name) =>
-                  name != 'zuke_analyzer' && name != 'analysis_server_plugin',
-            )) {
+        if (dependencies.keys.any(
+          (name) => name != 'zuke_analyzer' && name != 'analysis_server_plugin',
+        )) {
           results.add(
             PluginCachePruneResult(
               path,
@@ -638,13 +648,10 @@ final class PluginCacheDoctor {
           );
           continue;
         }
-        final bytes = directory
-            .listSync(recursive: true, followLinks: false)
-            .whereType<File>()
-            .fold<int>(0, (total, file) => total + file.lengthSync());
+        final bytes = scan.bytes;
         if (!dryRun) {
-          // Re-check the absolute resolved target immediately before a
-          // recursive delete. Never traverse links or leave this cache root.
+          // Re-check immediately before a recursive delete. Never traverse links
+          // or leave this cache root.
           if (!_safeEntry(directory)) {
             throw const FileSystemException('Cache entry changed before prune');
           }
@@ -681,7 +688,30 @@ final class PluginCacheDoctor {
             localZukeRoots.contains(_canonical(candidate.value)),
       );
 
-  bool _safeEntry(Directory directory) {
+  /// One recursive pass over an entry, answering both questions the prune needs:
+  /// whether it contains a link, and how large it is.
+  ///
+  /// The link check and the size count used to be two separate walks, so pruning
+  /// walked a 13 MB entry three times over. One pass covers both; the walk is
+  /// repeated only immediately before a delete, which is a safety requirement
+  /// rather than a duplicate.
+  static _CacheEntryScan _scanEntry(Directory directory) {
+    var hasLink = false;
+    var bytes = 0;
+    for (final entity in directory.listSync(
+      recursive: true,
+      followLinks: false,
+    )) {
+      if (entity is Link) {
+        hasLink = true;
+        continue;
+      }
+      if (entity is File) bytes += entity.lengthSync();
+    }
+    return _CacheEntryScan(hasLink: hasLink, bytes: bytes);
+  }
+
+  bool _isDirectCacheEntry(Directory directory) {
     // Compare canonical spellings rather than the literal one the caller passed
     // in. Windows hands callers an 8.3 alias for a path whose ancestor resolves
     // to its long form, and a junctioned cache root is the same shape. Testing
@@ -695,12 +725,15 @@ final class PluginCacheDoctor {
     final entryItselfIsALink =
         FileSystemEntity.typeSync(directory.path, followLinks: false) ==
         FileSystemEntityType.link;
-    return isDirectChildOfCache &&
-        !entryItselfIsALink &&
-        !directory
-            .listSync(recursive: true, followLinks: false)
-            .any((e) => e is Link);
+    return isDirectChildOfCache && !entryItselfIsALink;
   }
+
+  bool _safeEntry(Directory directory, {bool? hasLink}) =>
+      _isDirectCacheEntry(directory) &&
+      !(hasLink ??
+          directory
+              .listSync(recursive: true, followLinks: false)
+              .any((entity) => entity is Link));
 
   /// The plugin root whose sources decide whether [entity] builds.
   ///
@@ -708,18 +741,28 @@ final class PluginCacheDoctor {
   /// ownership test: the plugin cache is shared with every other Dart plugin,
   /// so entries belonging to someone else are none of our business.
   static bool _declaresZuke(String path) {
+    final dependencies = _zukeDependenciesOf(path);
+    return dependencies != null && dependencies.containsKey('zuke_analyzer');
+  }
+
+  /// The entry's declared dependencies, or null when the pubspec is missing,
+  /// unparseable, or has no dependency map.
+  ///
+  /// Parsed once and reused: the prune check reads this to prove the entry holds
+  /// nothing but Zuke, having already asked whether it declares Zuke at all.
+  static Map<Object?, Object?>? _zukeDependenciesOf(String path) {
     final spec = File(p.join(path, 'pubspec.yaml'));
-    if (!spec.existsSync()) return false;
+    if (!spec.existsSync()) return null;
     final Object? yaml;
     try {
       yaml = loadYaml(spec.readAsStringSync());
     } on YamlException {
       // An unreadable pubspec means the entry cannot be shown to be ours.
-      return false;
+      return null;
     }
-    if (yaml is! Map) return false;
+    if (yaml is! Map) return null;
     final dependencies = yaml['dependencies'];
-    return dependencies is Map && dependencies.containsKey('zuke_analyzer');
+    return dependencies is Map ? dependencies : null;
   }
 
   static Map<String, String> _localPackages(
@@ -982,6 +1025,14 @@ class _BuildVerdict {
   const _BuildVerdict(this.status, this.message);
   final String status;
   final String message;
+}
+
+/// What a single pruning walk observed about a cache entry.
+final class _CacheEntryScan {
+  const _CacheEntryScan({required this.hasLink, required this.bytes});
+
+  final bool hasLink;
+  final int bytes;
 }
 
 String _canonical(String path) {

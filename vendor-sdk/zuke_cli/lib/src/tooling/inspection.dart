@@ -7,6 +7,12 @@ import 'package:analyzer/dart/element/element.dart';
 
 export '../implementation_claims.dart';
 export '../index_contract.dart';
+export '../path_safety.dart'
+    show
+        isSameWorkspacePath,
+        normalizeRelativePath,
+        pathComparisonKey,
+        pathEqualsOrWithin;
 export 'dart_extractor/zuke_index.dart';
 
 const zukeAnnotationLibrary = 'package:zuke_annotations/zuke_annotations.dart';

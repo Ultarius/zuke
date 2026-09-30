@@ -21,6 +21,139 @@ enum ZukeIndexFreshnessIssueKind {
   inputSetDigestMismatch,
 }
 
+/// Which family of index facts a freshness issue invalidates.
+///
+/// An index holds two kinds of fact that drift independently. Requirement,
+/// control and binding IDs come from the specifications, so editing Dart cannot
+/// change them; verified claims and implementation sets come from source and
+/// tests, so editing Dart invalidates exactly those. Reporting them separately is
+/// what lets the rules that only consult specification facts keep running while
+/// a workspace is being edited.
+enum ZukeIndexFreshnessFacet {
+  /// The index cannot answer correctly at all. No rule may consult it.
+  everything,
+
+  /// Only the specification-derived ID sets and spec findings are in question.
+  specification,
+
+  /// Only source-derived claims and implementation sets are in question.
+  sources,
+
+  /// The workspace still matches the index.
+  none,
+}
+
+extension ZukeIndexFreshnessFacetOf on ZukeIndexFreshnessIssueKind {
+  /// The facts this kind puts in question, for [path] within the workspace.
+  ///
+  /// [path] matters because a content change to an indexed input is a source
+  /// drift when the input is Dart and a specification drift otherwise.
+  ZukeIndexFreshnessFacet facetFor(String path) {
+    if (rendersIndexUnusable) return ZukeIndexFreshnessFacet.everything;
+    final isDart = path.toLowerCase().endsWith('.dart');
+    return switch (this) {
+      // The set of configured Dart sources moved.
+      ZukeIndexFreshnessIssueKind.sourceInventoryMismatch =>
+        ZukeIndexFreshnessFacet.sources,
+      // The set of specification inputs moved: definitions, not source.
+      ZukeIndexFreshnessIssueKind.inputInventoryMismatch =>
+        ZukeIndexFreshnessFacet.specification,
+      // Content of one input changed. Which family it belongs to decides.
+      ZukeIndexFreshnessIssueKind.inputDigestMismatch ||
+      ZukeIndexFreshnessIssueKind.inputMissing =>
+        isDart
+            ? ZukeIndexFreshnessFacet.sources
+            : ZukeIndexFreshnessFacet.specification,
+      _ => ZukeIndexFreshnessFacet.everything,
+    };
+  }
+}
+
+/// The freshness issues of one index, with the facts they collectively invalidate.
+extension ZukeIndexFreshnessIssues on List<ZukeIndexFreshnessIssue> {
+  /// The widest facet any issue here puts in question.
+  ///
+  /// A summary for display and for the coarse "is the index behind at all"
+  /// question. Do not decide whether a particular fact may be consulted from
+  /// this: the two facets drift independently, so a workspace with both a source
+  /// and a specification edit is not described by any single value. Ask
+  /// [specificationFresh] or [sourcesFresh], which are tracked separately.
+  ZukeIndexFreshnessFacet get invalidates {
+    var widest = ZukeIndexFreshnessFacet.none;
+    for (final issue in this) {
+      final facet = issue.kind.facetFor(issue.path);
+      if (facet == ZukeIndexFreshnessFacet.everything) {
+        return ZukeIndexFreshnessFacet.everything;
+      }
+      if (facet == ZukeIndexFreshnessFacet.specification) {
+        widest = ZukeIndexFreshnessFacet.specification;
+      } else if (facet == ZukeIndexFreshnessFacet.sources &&
+          widest == ZukeIndexFreshnessFacet.none) {
+        widest = ZukeIndexFreshnessFacet.sources;
+      }
+    }
+    return widest;
+  }
+
+  /// Whether specification-derived facts are still safe to consult.
+  ///
+  /// False as soon as *any* issue touches the specification facet. Collapsing
+  /// the two facets into one value made a source edit mask a simultaneous
+  /// specification edit, so a stale ID set was still trusted.
+  bool get specificationFresh {
+    for (final issue in this) {
+      final facet = issue.kind.facetFor(issue.path);
+      if (facet == ZukeIndexFreshnessFacet.everything ||
+          facet == ZukeIndexFreshnessFacet.specification) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  /// Whether source-derived facts are still safe to consult.
+  bool get sourcesFresh {
+    for (final issue in this) {
+      final facet = issue.kind.facetFor(issue.path);
+      if (facet == ZukeIndexFreshnessFacet.everything ||
+          facet == ZukeIndexFreshnessFacet.sources) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  /// Which facts a consumer may consult right now.
+  ///
+  /// The one place this policy is expressed, shared by the analysis-server plugin
+  /// and the standalone analyzer. They once derived it separately and drifted:
+  /// the standalone path substituted empty ID sets and kept running the checks
+  /// that read them, so a specification drift reported every annotation as
+  /// unknown. [indexReadable] answers the separate question of whether the index
+  /// could be parsed at all.
+  ZukeIndexConsultableFacts consultableFacts({required bool indexReadable}) =>
+      indexReadable
+      ? ZukeIndexConsultableFacts(
+          specification: specificationFresh,
+          sources: sourcesFresh,
+        )
+      : const ZukeIndexConsultableFacts(specification: false, sources: false);
+}
+
+/// Which of the index's two independent fact families a check may read.
+final class ZukeIndexConsultableFacts {
+  const ZukeIndexConsultableFacts({
+    required this.specification,
+    required this.sources,
+  });
+
+  /// IDs and requirement targets, derived from the `.feature` files.
+  final bool specification;
+
+  /// Source claims and target scopes, derived from the Dart extractor.
+  final bool sources;
+}
+
 final class ZukeIndexFreshnessIssue {
   final ZukeIndexFreshnessIssueKind kind;
   final String path;
@@ -31,6 +164,38 @@ final class ZukeIndexFreshnessIssue {
     required this.path,
     required this.message,
   });
+
+  /// Whether this issue leaves the index unusable, rather than merely behind.
+  ///
+  /// The distinction is the difference between "you have not regenerated yet"
+  /// and "this index cannot answer correctly". Drift is the ordinary state of a
+  /// project being edited, so treating it as an error put a red squiggle on
+  /// every open file for the whole of a normal editing session. An unusable
+  /// index is different in kind: the plugin is being asked about facts it does
+  /// not have, and no amount of editing fixes it.
+  bool get rendersIndexUnusable => kind.rendersIndexUnusable;
+}
+
+/// Whether a freshness issue of this kind leaves the index unable to answer
+/// correctly, as opposed to merely describing sources that moved on.
+extension ZukeIndexFreshnessUsability on ZukeIndexFreshnessIssueKind {
+  bool get rendersIndexUnusable => switch (this) {
+    // The index itself cannot be trusted: wrong contract, missing or edited
+    // manifest, a generated file that vanished or was tampered with, or a
+    // digest that disagrees with the contents it claims to describe.
+    ZukeIndexFreshnessIssueKind.contractMismatch ||
+    ZukeIndexFreshnessIssueKind.generatedManifestMissing ||
+    ZukeIndexFreshnessIssueKind.generatedManifestDigestMismatch ||
+    ZukeIndexFreshnessIssueKind.generatedManifestMalformed ||
+    ZukeIndexFreshnessIssueKind.generatedOutputMissing ||
+    ZukeIndexFreshnessIssueKind.generatedOutputDigestMismatch ||
+    ZukeIndexFreshnessIssueKind.inputSetDigestMismatch => true,
+    // The index is a faithful snapshot; the workspace has simply moved past it.
+    ZukeIndexFreshnessIssueKind.inputMissing ||
+    ZukeIndexFreshnessIssueKind.inputDigestMismatch ||
+    ZukeIndexFreshnessIssueKind.inputInventoryMismatch ||
+    ZukeIndexFreshnessIssueKind.sourceInventoryMismatch => false,
+  };
 }
 
 /// One specification finding, carried in the index so an editor can show it.

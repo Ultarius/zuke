@@ -1,40 +1,38 @@
 # Examples of good feature files
 
-These examples use English Gherkin keywords and an imaginary order domain only to demonstrate structure. Treat names, rules, tags, and data as placeholders; confirm real behavior with domain experts before using them.
-
-Step wording should match existing bindings where possible. New wording needs a corresponding step definition.
+Complete features to model a draft on. The order domain, tags, and data are placeholders; real rules and expected values come from the project. Write step text in the project's natural language and keyword set, and reuse existing step wording where a binding already exists.
 
 ## API feature: the consuming app is the observer
 
 ```gherkin
 @api @authentication @orders
-Feature: Ordergegevens opvragen
-  Een client kan gegevens van een bestelling opvragen zodat de klant de actuele status en inhoud kan zien.
+Feature: Retrieve order data
+  A client can retrieve the data of an order so the customer sees the current status and contents.
 
-  Rule: Een geauthenticeerde client ontvangt de gegevens van een bestaande bestelling
+  Rule: An authenticated client receives the data of an existing order
 
-    Scenario Outline: De client ontvangt een samenvatting van een bestelling
-      Given een geauthenticeerde klant met een bestaande bestelling in status '<status>'
-      When de client de bestelgegevens opvraagt
-      Then ontvangt de client een samenvatting van de bestelling
-      And heeft de bestelling de status '<status>'
-      And bevat de samenvatting:
-        | veld          |
-        | bestelnummer  |
+    Scenario Outline: The client receives a summary of an order
+      Given an authenticated customer with an existing order in status '<status>'
+      When the client requests the order data
+      Then the client receives a summary of the order
+      And the order has status '<status>'
+      And the summary contains:
+        | field         |
+        | order number  |
         | status        |
-        | totaalbedrag  |
+        | total amount  |
 
-      Examples: Bestellingen per status
-        | status     |
-        | ontvangen  |
-        | verzonden  |
+      Examples: Orders per status
+        | status    |
+        | received  |
+        | shipped   |
 
-  Rule: Zonder geldige authenticatie zijn beschermde bestelgegevens niet beschikbaar
+  Rule: Without valid authentication, protected order data is unavailable
 
-    Scenario: Een client zonder geldige authenticatie kan geen bestelgegevens opvragen
-      Given de client heeft geen geldige authenticatie
-      When de client gegevens van een beschermde bestelling opvraagt
-      Then wordt het verzoek afgewezen wegens ontbrekende authenticatie (401)
+    Scenario: A client without valid authentication cannot retrieve order data
+      Given the client has no valid authentication
+      When the client requests data of a protected order
+      Then the request is refused because authentication is missing (401)
 ```
 
 Why this works:
@@ -48,98 +46,82 @@ Why this works:
 
 ```gherkin
 @ui @orders @order-details
-Feature: Bestelling bekijken
-  Een klant kan de inhoud en status van een bestelling bekijken, zodat die weet wat er geleverd wordt.
+Feature: View an order
+  A customer can view the contents and status of an order so they know what will be delivered.
 
   Background:
-    Given een ingelogde klant met een bestaande bestelling
+    Given a signed-in customer with an existing order
 
-  Rule: De klant ziet welke artikelen zijn besteld
+  Rule: The customer sees which items were ordered
 
-    Scenario: De klant bekijkt de artikelen in een bestelling
-      When de klant de bestelling bekijkt
-      Then ziet de klant de bestelde artikelen:
-        | artikel       |
-        | product       |
-        | hoeveelheid   |
+    Scenario: The customer views the items in an order
+      When the customer views the order
+      Then the customer sees the ordered items:
+        | item     |
+        | product  |
+        | quantity |
 
-  Rule: De klant ziet het totaalbedrag van de bestelling
+  Rule: The customer sees the total amount of the order
 
-    Scenario: De klant bekijkt het totaalbedrag
-      When de klant het besteloverzicht bekijkt
-      Then ziet de klant het totaalbedrag van de bestelling
+    Scenario: The customer views the total amount
+      When the customer views the order summary
+      Then the customer sees the order total
 
-  Rule: De klant kan de bestelbevestiging openen
+  Rule: The customer can open the order confirmation
 
-    Scenario: De klant opent de bevestiging vanuit de bestelgegevens
-      Given de klant bekijkt de bestelgegevens
-      When de klant de bestelbevestiging opent
-      Then ziet de klant de bestelbevestiging
+    Scenario: The customer opens the confirmation from the order details
+      Given the customer views the order details
+      When the customer opens the order confirmation
+      Then the customer sees the order confirmation
 ```
 
 Why this works:
-- No swipes, taps, or buttons: "de klant bekijkt de bestelling" hides navigation; "de klant opent de bestelbevestiging" hides the button.
-- The login context is short and shared, so it belongs in `Achtergrond`.
-- Data tables replace long chains of near-identical `En ziet de gebruiker …` steps.
+- No swipes, taps, or buttons: "the customer views the order" hides navigation; "the customer opens the order confirmation" hides the button.
+- The login context is short and shared, so it belongs in `Background`.
+- Data tables replace long chains of near-identical `And the user sees …` steps.
 - One-row outlines became plain scenarios.
 
 ## Boundary examples in an outline
 
 ```gherkin
-  Rule: Een bestelling kan niet vragen om meer artikelen dan er op voorraad zijn
+  Rule: An order cannot request more items than are in stock
 
-    Scenario Outline: De gevraagde hoeveelheid wordt vergeleken met de beschikbare voorraad
-      Given er zijn <beschikbaar> exemplaren van een artikel beschikbaar
-      When de klant <gevraagd> exemplaren bestelt
-      Then wordt de bestelling <resultaat>
+    Scenario Outline: The requested quantity is compared with available stock
+      Given <available> units of an item are available
+      When the customer orders <requested> units
+      Then the order is <result>
 
-      Examples: Onder, op en boven de voorraadgrens
-        | beschikbaar | gevraagd | resultaat |
-        | 5           | 4        | geaccepteerd |
-        | 5           | 5        | geaccepteerd |
-        | 5           | 6        | afgewezen    |
+      Examples: Below, at, and above the stock boundary
+        | available | requested | result    |
+        | 5         | 4         | accepted  |
+        | 5         | 5         | accepted  |
+        | 5         | 6         | rejected  |
 ```
 
 Why this works: the rows sit on both sides of the boundary, the table label says so, and each row can only pass if the rule is implemented correctly.
 
-## Before and after: rewrites of repository steps
-
-**Vague outcome → criterion.** The binding can assert a specific, observable result.
+## Rewrite: a scripted outline becomes a specification
 
 ```gherkin
-# Before
-Then wordt de bestelling correct verwerkt
+# Before: UI scripting (1), a vague outcome (6), a one-row outline (10)
+Scenario Outline: A customer opens the details of an order
+  Given a signed-in customer with customer number '<customer number>'
+  And the customer views the order overview
+  When the customer swipes down to see more details
+  And the customer clicks the Order button
+  Then the customer is successfully navigated to the order details
+
+  Examples: Customers
+    | customer number |
+    | K-104           |
+```
+
+```gherkin
 # After
-Then heeft de bestelling de status 'bevestigd'
+Scenario: The customer views the details of an order
+  Given a signed-in customer with an existing order
+  When the customer views the order
+  Then the customer sees the order details
 ```
 
-**Wrong observer → real observer.** An API feature whose binding checks the response.
-
-```gherkin
-# Before
-Then ziet de klant de bestelbevestiging
-# After
-Then ontvangt de client de bestelbevestiging
-```
-
-**Misleading table → honest scenario.** One active row, a constant column, and a label claiming "all".
-
-```gherkin
-# Before
-Then ontvangt de client de bestelgegevens binnen <maxSeconden> seconden
-
-Examples: Alle bestellingen
-  | bestelnummer | maxSeconden |
-  | ORD-104      | 3           |
-  # | ORD-205      | 3           |
-
-# After (one case)
-Scenario: De client ontvangt bestelgegevens binnen 3 seconden
-  Given een geauthenticeerde klant met een bestaande bestelling
-  When de client de bestelgegevens opvraagt
-  Then ontvangt de client de bestelgegevens binnen 3 seconden
-
-# After (several cases): include meaningful rows and name the table after what distinguishes them
-```
-
-**Duplicate phrasing → one phrase.** `Given de klant is op de bestelpagina` and `When de klant de bestelling bekijkt` may perform the same navigation. Keep one phrase per behavior, and use state wording for context and event wording for the action.
+The swipe and the tap move into the binding for "the customer views the order". The customer number moves into the binding's test data. The one-row outline becomes a plain scenario, and "successfully navigated" becomes the thing the customer sees.

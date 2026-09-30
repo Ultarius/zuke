@@ -37,6 +37,27 @@ bool pathEqualsOrWithin(String parent, String child) {
       p.isWithin(resolvedParent, resolvedChild);
 }
 
+/// Whether [analyzedPath] is the workspace-relative path [relative].
+///
+/// [relative] is compared as both a forward-slashed workspace-relative path and
+/// a full path, because callers differ on which they hold: an index records the
+/// former, while an analysis server reports an absolute path.
+bool isSameWorkspacePath(
+  String? workspaceRoot,
+  String relative,
+  String analyzedPath,
+) {
+  final candidate = pathComparisonKey(normalizeRelativePath(relative));
+  if (candidate == pathComparisonKey(normalizeRelativePath(analyzedPath))) {
+    return true;
+  }
+  if (workspaceRoot == null) return false;
+  return candidate ==
+      pathComparisonKey(
+        normalizeRelativePath(p.relative(analyzedPath, from: workspaceRoot)),
+      );
+}
+
 /// Documentation fixtures under `test/guide_snippets/` intentionally restate
 /// production annotations for the integration guide. They are not
 /// implementation sources and must not contribute binding identities.

@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:test/test.dart';
@@ -127,6 +128,148 @@ class Service {
         reason: 'editing it must invalidate the index',
       );
     });
+
+    test('source drift is separated from an unusable index', () async {
+      // The editor reports these two very differently: drift is the ordinary
+      // state of a project being edited and must not be an error, while an index
+      // that cannot answer correctly has to stay prominent. Both used to be one
+      // ERROR, which meant a red squiggle on every open file while typing.
+      await writeWorkspace();
+      expect(_generate(root.path), 0);
+      expect(readIndex().isCurrent(root: root.path), isTrue);
+
+      File(
+        '${root.path}/lib/src/ids.dart',
+      ).writeAsStringSync('const ruleIds = [1];\n');
+      final drift = readIndex().freshnessIssues(root: root.path);
+      expect(drift, isNotEmpty);
+      expect(
+        drift.every((issue) => !issue.rendersIndexUnusable),
+        isTrue,
+        reason:
+            'sources moving on must not render the index unusable: '
+            '${drift.map((issue) => issue.kind.name).toList()}',
+      );
+
+      // Deleting a generated contract leaves the index describing files that no
+      // longer exist, which no edit resolves.
+      final manifest = File(
+        '${root.path}/${readIndex().generatedManifestPath}',
+      );
+      expect(
+        manifest.existsSync(),
+        isTrue,
+        reason: 'sanity: manifest is present',
+      );
+      final decoded = jsonDecode(manifest.readAsStringSync()) as Map;
+      final generated = [
+        for (final value in decoded['files'] as List)
+          (value as Map)['path'] as String,
+      ];
+      expect(generated, isNotEmpty, reason: 'sanity: something was generated');
+      File('${root.path}/${generated.first}').deleteSync();
+      final broken = readIndex().freshnessIssues(root: root.path);
+      expect(
+        broken.any((issue) => issue.rendersIndexUnusable),
+        isTrue,
+        reason: 'a missing generated output must render the index unusable',
+      );
+    });
+
+    test(
+      'editing Dart keeps specification facts but drops source facts',
+      () async {
+        // The split that stops a source edit costing a workspace its
+        // diagnostics. Requirement, control and binding IDs come from the
+        // specifications and editing Dart cannot change them; verified claims and
+        // implementation sets come from the Dart that was just edited.
+        await writeWorkspace();
+        expect(_generate(root.path), 0);
+        expect(readIndex().isCurrent(root: root.path), isTrue);
+
+        File('${root.path}/lib/src/service.dart').writeAsStringSync('''
+import 'package:zuke_annotations/zuke_annotations.dart';
+import 'generated/feat_fresh_001_contracts.g.dart';
+
+class Service {
+  @ImplementsRequirement([FeatFresh001RequirementIds.one])
+  void run() {}
+  void added() {}
+}
+''');
+        final issues = readIndex().freshnessIssues(root: root.path);
+        expect(issues, isNotEmpty, reason: 'editing Dart is drift');
+        expect(issues.invalidates, ZukeIndexFreshnessFacet.sources);
+        expect(
+          issues.specificationFresh,
+          isTrue,
+          reason: 'the specifications did not change',
+        );
+        expect(
+          issues.sourcesFresh,
+          isFalse,
+          reason: 'claims are computed from the Dart that changed',
+        );
+      },
+    );
+
+    test(
+      'editing a specification keeps source facts but drops spec facts',
+      () async {
+        await writeWorkspace();
+        expect(_generate(root.path), 0);
+
+        File('${root.path}/specs/features/f.feature').writeAsStringSync('''
+# spec-begin
+# schemaVersion: 1
+# id: FEAT-FRESH-001
+# spec-end
+@FEAT-FRESH-001
+Feature: Freshness
+  # rule-spec-begin
+  # id: RULE-FRESH-ONE
+  # rule-spec-end
+  @RULE-FRESH-ONE
+  Rule: One
+    @SCN-FRESH-001
+    Scenario: Works
+      Given a step
+      And another step
+''');
+        final issues = readIndex().freshnessIssues(root: root.path);
+        expect(issues, isNotEmpty, reason: 'editing a spec is drift');
+        expect(issues.invalidates, ZukeIndexFreshnessFacet.specification);
+        expect(
+          issues.sourcesFresh,
+          isTrue,
+          reason: 'the Dart that produced the claims did not change',
+        );
+        expect(issues.specificationFresh, isFalse);
+      },
+    );
+
+    test(
+      'simultaneous source and specification edits invalidate both',
+      () async {
+        await writeWorkspace();
+        expect(_generate(root.path), 0);
+        final specification = File('${root.path}/specs/features/f.feature');
+        specification.writeAsStringSync(
+          '${specification.readAsStringSync()}\n# specification edit\n',
+        );
+        File(
+          '${root.path}/lib/src/added.dart',
+        ).writeAsStringSync('const added = true;\n');
+        final issues = readIndex().freshnessIssues(root: root.path);
+        for (final order in [issues, issues.reversed.toList()]) {
+          expect(order.specificationFresh, isFalse);
+          expect(order.sourcesFresh, isFalse);
+          final facts = order.consultableFacts(indexReadable: true);
+          expect(facts.specification, isFalse);
+          expect(facts.sources, isFalse);
+        }
+      },
+    );
 
     test('a root that is an alias of the real path is not stale', () {
       // The specification inventory is matched by walking the root as it was

@@ -183,9 +183,16 @@ class Service {
       );
     });
 
-    test('stale severity is error and missing test is warning', () {
+    test('drift is a warning and an unusable index is an error', () {
+      // Split by cause, not by convenience: ordinary editing invalidates the
+      // index every time, so reporting that as an error put a red squiggle on
+      // every open file for the whole of a normal editing session.
       expect(
         analyzer_plugin.ZukeIndexStaleRule.code.severity,
+        DiagnosticSeverity.WARNING,
+      );
+      expect(
+        analyzer_plugin.ZukeIndexUnusableRule.code.severity,
         DiagnosticSeverity.ERROR,
       );
       expect(

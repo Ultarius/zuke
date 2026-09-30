@@ -24,7 +24,11 @@ class ZukePlugin extends Plugin {
     // Warning-rule registration enables it by default; the code severity is ERROR.
     registry.registerWarningRule(ZukePluginStaleRule());
     registry.registerLintRule(ZukeAnnotationRule());
-    registry.registerLintRule(ZukeIndexStaleRule());
+    // Warning-registered so a workspace that has never regenerated is told about
+    // it by default. The severity lives on the code: drift is a warning because
+    // ordinary editing causes it, an unusable index is an error.
+    registry.registerWarningRule(ZukeIndexStaleRule());
+    registry.registerWarningRule(ZukeIndexUnusableRule());
     registry.registerLintRule(ZukeUnknownIndexIdRule());
     registry.registerLintRule(ZukeMissingTestRule());
     registry.registerLintRule(ZukeMissingEvidenceTypesRule());
@@ -87,43 +91,145 @@ String? _pluginStaleMessageFor(String path) {
   return state.header!.mismatchMessage;
 }
 
-class ZukeIndexStaleRule extends AnalysisRule {
-  static const code = LintCode(
-    'zuke_index_stale',
-    'ZUKE-INDEX-STALE: Run zuke generate before analysis.',
-    uniqueName: 'LintCode.zuke_index_stale',
-    severity: DiagnosticSeverity.ERROR,
-  );
+/// Shared placement logic for the two index-freshness notices.
+///
+/// One rule can only carry one [DiagnosticCode], so drift and an unusable index
+/// are reported by separate rules over this base.
+abstract class _ZukeIndexFreshnessRule extends AnalysisRule {
+  _ZukeIndexFreshnessRule({required super.name, required super.description});
 
-  ZukeIndexStaleRule()
-    : super(
-        name: 'zuke_index_stale',
-        description: 'Rejects missing, malformed, or stale Zuke indexes',
-      );
+  /// Whether this rule reports [state], which decides both whether a notice is
+  /// warranted and which single file carries it.
+  bool appliesTo(ZukePluginIndexState state);
 
-  @override
-  DiagnosticCode get diagnosticCode => code;
+  /// The wording for [state], distinguishing the cause from the effect.
+  String messageFor(ZukePluginIndexState state);
 
   @override
   void registerNodeProcessors(
     RuleVisitorRegistry registry,
     RuleContext context,
   ) {
-    final state = _indexStateFor(context.definingUnit.file.path);
+    final path = context.definingUnit.file.path;
+    final state = _indexStateFor(path);
     // Only Zuke workspaces (zuke.yaml present) own index freshness. Files
     // outside a workspace are not stale—they are not governed by Zuke.
     if (!state.hasWorkspace || state.isCurrent || state.incompatible) return;
-    registry.addCompilationUnit(this, _StaleIndexVisitor(this));
+    if (!appliesTo(state)) return;
+    if (_ownsStalenessNotice(state, path)) {
+      registry.addCompilationUnit(this, _FreshnessVisitor(this, state));
+    }
+  }
+
+  /// Whether the file being analyzed is the one that should carry this notice.
+  ///
+  /// Staleness belongs to the workspace, but a plugin can only report on a
+  /// compilation unit it is analyzing. Reporting on every one put an identical
+  /// diagnostic at line 1 of every open file, which is how a single stale index
+  /// became a wall of red on startup. Prefer the Dart file whose drift caused
+  /// it, so the notice stays attached to something actionable and appears once.
+  ///
+  /// The owner is selected once when loading the workspace state: an existing
+  /// Dart issue path, then the recorded anchor, then a workspace source file.
+  /// Comparing against that one owner prevents the anchor, changed sources and
+  /// fallback from each reporting the same workspace problem.
+  static bool _ownsStalenessNotice(
+    ZukePluginIndexState state,
+    String analyzedPath,
+  ) {
+    final root = state.workspaceRoot;
+    if (root == null) return true;
+    final owner = state.noticeOwner;
+    return owner != null && isSameWorkspacePath(root, owner, analyzedPath);
+  }
+
+  /// One sentence naming the cause, folding in how many others there were.
+  static String describe(List<ZukeIndexFreshnessIssue> issues, String cause) {
+    final first = issues.first.message;
+    final extra = issues.length - 1;
+    return extra > 0
+        ? '$cause. $first (+$extra more; run zuke doctor for the full list)'
+        : '$cause. $first';
   }
 }
 
-class _StaleIndexVisitor extends SimpleAstVisitor<void> {
-  final ZukeIndexStaleRule rule;
-  _StaleIndexVisitor(this.rule);
+/// The index is a faithful snapshot and the workspace has simply moved past it.
+///
+/// Ordinary editing produces exactly this, so it is a warning rather than an
+/// error. An error here put a red squiggle on every open file for the whole of a
+/// normal editing session, which is a cost with no corresponding signal.
+class ZukeIndexStaleRule extends _ZukeIndexFreshnessRule {
+  static const code = LintCode(
+    'zuke_index_stale',
+    '{0}',
+    uniqueName: 'LintCode.zuke_index_stale',
+    severity: DiagnosticSeverity.WARNING,
+  );
+
+  ZukeIndexStaleRule()
+    : super(
+        name: 'zuke_index_stale',
+        description: 'Warns that the Zuke index is behind the sources.',
+      );
+
+  @override
+  DiagnosticCode get diagnosticCode => code;
+
+  @override
+  bool appliesTo(ZukePluginIndexState state) => !state.unusable;
+
+  @override
+  String messageFor(ZukePluginIndexState state) =>
+      _ZukeIndexFreshnessRule.describe(
+        state.issues,
+        'The Zuke analyzer index is behind the sources',
+      );
+}
+
+/// The index cannot answer correctly at all: an incompatible contract, or
+/// missing or edited generated output.
+///
+/// Kept an error because no edit resolves it. The plugin is being asked about
+/// facts it does not have, and only regenerating supplies them.
+class ZukeIndexUnusableRule extends _ZukeIndexFreshnessRule {
+  static const code = LintCode(
+    'zuke_index_unusable',
+    '{0}',
+    uniqueName: 'LintCode.zuke_index_unusable',
+    severity: DiagnosticSeverity.ERROR,
+  );
+
+  ZukeIndexUnusableRule()
+    : super(
+        name: 'zuke_index_unusable',
+        description: 'Reports a Zuke index that cannot answer correctly.',
+      );
+
+  @override
+  DiagnosticCode get diagnosticCode => code;
+
+  @override
+  bool appliesTo(ZukePluginIndexState state) => state.unusable;
+
+  @override
+  String messageFor(ZukePluginIndexState state) =>
+      _ZukeIndexFreshnessRule.describe(
+        state.issues,
+        'The Zuke analyzer index cannot answer correctly',
+      );
+}
+
+class _FreshnessVisitor extends SimpleAstVisitor<void> {
+  final _ZukeIndexFreshnessRule rule;
+  final ZukePluginIndexState state;
+  _FreshnessVisitor(this.rule, this.state);
 
   @override
   void visitCompilationUnit(CompilationUnit node) {
-    rule.reportAtNode(_diagnosticAnchor(node));
+    rule.reportAtNode(
+      _diagnosticAnchor(node),
+      arguments: [rule.messageFor(state)],
+    );
   }
 }
 
@@ -156,7 +262,12 @@ class ZukeUnknownIndexIdRule extends AnalysisRule {
     RuleVisitorRegistry registry,
     RuleContext context,
   ) {
-    final index = _indexStateFor(context.definingUnit.file.path).index;
+    // Only reads requirement, control and binding IDs, all of which come from
+    // the specifications. Editing Dart cannot change them, so this rule keeps
+    // working while a workspace is edited.
+    final index = _indexStateFor(
+      context.definingUnit.file.path,
+    ).indexFor(_needsSpecificationFacts);
     if (index != null) {
       registry.addAnnotation(this, ZukeUnknownIdVisitor(index, reportAtNode));
     }
@@ -246,7 +357,9 @@ class ZukeMissingTestRule extends AnalysisRule {
   ) {
     final path = context.definingUnit.file.path;
     final state = _indexStateFor(path);
-    final index = state.index;
+    // Reconciles source-derived verification claims against specification IDs,
+    // so either kind of drift leaves this check unable to answer.
+    final index = state.indexFor(_needsSpecificationAndSourceFacts);
     if (index != null) {
       // Verification is target-scoped, so the rule has to know which target
       // owns the implementation being judged. An unattributable file resolves
@@ -268,23 +381,80 @@ class ZukeMissingTestRule extends AnalysisRule {
   }
 }
 
-class _IndexState {
+/// The Zuke index state for the workspace owning a file, as resolved by the
+/// plugin. Public because the freshness rules expose it in their signatures.
+class ZukePluginIndexState {
   final ZukeIndex? index;
   final bool hasWorkspace;
   final ZukeIndexHeader? header;
+
+  /// Why the index is not usable, empty when it is current or when the file
+  /// belongs to no Zuke workspace.
+  final List<ZukeIndexFreshnessIssue> issues;
+
+  /// A workspace-relative Dart file the index nominated for reporting, or null.
+  /// Recorded when the index was generated so every analysis session picks the
+  /// same anchor rather than whichever file happened to be visited first.
+  final String? anchor;
+
+  /// The single workspace-relative file carrying the freshness notice, or null
+  /// when the index is current or the workspace has no existing Dart source.
+  final String? noticeOwner;
+
   bool get incompatible => header?.isIncompatible ?? false;
+
+  /// Whether the index cannot answer correctly, as opposed to merely describing
+  /// sources that have moved on. Ordinary editing produces drift and must not be
+  /// reported as an error.
+  bool get unusable => issues.any((issue) => issue.rendersIndexUnusable);
+
+  /// Whether the index may be used at all. Only an unusable index refuses this.
+  ///
+  /// Which *facts* survive a drift is answered by
+  /// `issues.consultableFacts`, shared with the standalone analyzer so the two
+  /// cannot drift apart on this policy.
+  bool get consultable => index != null && !incompatible && !unusable;
+
+  /// The index for a rule that needs [fresh], or null when it is not.
+  ///
+  /// Each rule states which facts it depends on rather than demanding a wholly
+  /// current index. That is the whole point of the split: a rule reading
+  /// specification IDs keeps working while a workspace is edited, and only a
+  /// rule reading claims or implementation sets waits for regeneration.
+  ZukeIndex? indexFor(bool Function(ZukePluginIndexState state) fresh) =>
+      fresh(this) ? index : null;
 
   /// The directory holding the `zuke.yaml` this index came from, so a caller
   /// can express an analyzed path relative to the workspace without walking the
   /// tree a second time.
   final String? workspaceRoot;
-  const _IndexState(
+  const ZukePluginIndexState(
     this.index, {
     required this.hasWorkspace,
     this.workspaceRoot,
     this.header,
+    this.issues = const [],
+    this.anchor,
+    this.noticeOwner,
   });
-  bool get isCurrent => index != null;
+  bool get isCurrent => index != null && issues.isEmpty;
+}
+
+/// Whether a rule needs specification-derived facts only: IDs and spec findings,
+/// which editing Dart cannot change.
+bool _needsSpecificationFacts(ZukePluginIndexState state) => state.issues
+    .consultableFacts(indexReadable: state.consultable)
+    .specification;
+
+/// Whether a rule needs source-derived facts: verified claims and implementation
+/// sets, which are computed from the Dart that editing has just changed.
+bool _needsSourceFacts(ZukePluginIndexState state) =>
+    state.issues.consultableFacts(indexReadable: state.consultable).sources;
+
+/// Checks that reconcile claims against declared requirements need both.
+bool _needsSpecificationAndSourceFacts(ZukePluginIndexState state) {
+  final facts = state.issues.consultableFacts(indexReadable: state.consultable);
+  return facts.specification && facts.sources;
 }
 
 /// Reports requirement IDs that a generated contract declares but no configured
@@ -330,7 +500,9 @@ class ZukeUnimplementedRequirementRule extends AnalysisRule {
   ) {
     final path = context.definingUnit.file.path;
     final state = _indexStateFor(path);
-    final index = state.index;
+    // Reconciles source-derived implementation claims against specification
+    // requirements and target scopes, so both families must be current.
+    final index = state.indexFor(_needsSpecificationAndSourceFacts);
     if (index == null) return;
     // Only generated contracts declare requirement IDs. Hand-written code is
     // free to declare its own constants, and a specification that has not been
@@ -414,7 +586,10 @@ class ZukeSpecLintRule extends AnalysisRule {
   ) {
     final path = context.definingUnit.file.path;
     final state = _indexStateFor(path);
-    final index = state.index;
+    // Reads spec findings, which come from the specifications. Editing Dart
+    // cannot invalidate them, so spec-lint keeps reporting while a workspace is
+    // edited — which is most of its value, since that is when it is read.
+    final index = state.indexFor(_needsSpecificationFacts);
     if (index == null) return;
     if (index.specDiagnostics.isEmpty) return;
     final root = state.workspaceRoot;
@@ -462,6 +637,25 @@ bool zukeIndexStaleAppliesForTesting(String? sourcePath) {
   return state.hasWorkspace && !state.isCurrent && !state.incompatible;
 }
 
+/// Whether a rule needing specification-derived facts would run for [sourcePath].
+bool zukeSpecificationFactsAvailableForTesting(String? sourcePath) =>
+    _indexStateFor(sourcePath).indexFor(_needsSpecificationFacts) != null;
+
+/// Whether a rule needing source-derived facts would run for [sourcePath].
+bool zukeSourceFactsAvailableForTesting(String? sourcePath) =>
+    _indexStateFor(sourcePath).indexFor(_needsSourceFacts) != null;
+
+/// Whether [ZukeIndexUnusableRule] would register a visitor for [sourcePath]:
+/// the index cannot answer correctly, and this file owns the notice.
+bool zukeIndexUnusableAppliesForTesting(String? sourcePath) {
+  final state = _indexStateFor(sourcePath);
+  if (!state.hasWorkspace || state.isCurrent || state.incompatible) {
+    return false;
+  }
+  return state.unusable &&
+      _ZukeIndexFreshnessRule._ownsStalenessNotice(state, sourcePath ?? '');
+}
+
 /// Whether [ZukeMissingEvidenceTypesRule] would register a visitor for
 /// [sourcePath]: the file is inside a Zuke workspace.
 ///
@@ -484,15 +678,15 @@ void zukeClearIndexCacheForTesting() => _indexCache.clear();
 class _IndexCacheEntry {
   final DateTime lastChecked;
   final DateTime? fileModified;
-  final _IndexState state;
+  final ZukePluginIndexState state;
   const _IndexCacheEntry(this.lastChecked, this.fileModified, this.state);
 }
 
 final _indexCache = <String, _IndexCacheEntry>{};
 
-_IndexState _indexStateFor(String? sourcePath) {
+ZukePluginIndexState _indexStateFor(String? sourcePath) {
   if (sourcePath == null) {
-    return const _IndexState(null, hasWorkspace: false);
+    return const ZukePluginIndexState(null, hasWorkspace: false);
   }
   var directory = File(sourcePath).parent.absolute;
   while (true) {
@@ -518,7 +712,7 @@ _IndexState _indexStateFor(String? sourcePath) {
       try {
         final header = ZukeIndexHeader.read(indexFile);
         if (header.isIncompatible) {
-          final state = _IndexState(
+          final state = ZukePluginIndexState(
             null,
             hasWorkspace: true,
             workspaceRoot: directory.path,
@@ -528,20 +722,39 @@ _IndexState _indexStateFor(String? sourcePath) {
           return state;
         }
         final index = ZukeIndex.fromJson(header.json);
-        final state = index.isCurrent(root: directory.path)
-            ? _IndexState(
-                index,
-                hasWorkspace: true,
-                workspaceRoot: directory.path,
-              )
-            : _IndexState(null, hasWorkspace: true);
+        // Read the issues rather than only asking whether there are any. The
+        // plugin has to tell drift from an unusable index to choose a severity,
+        // and it needs the recorded anchor to report once instead of once per
+        // analyzed file. `workspaceRoot` was dropped on the stale branch, so a
+        // stale state could not even name its own workspace.
+        final issues = index.freshnessIssues(root: directory.path);
+        // The parsed index is kept even when stale. A drift leaves most of it
+        // true, and discarding it wholesale is what suppressed every rule for a
+        // whole editing session. `isCurrent` stays false, so anything requiring
+        // a wholly current index still waits.
+        final state = ZukePluginIndexState(
+          index,
+          hasWorkspace: true,
+          workspaceRoot: directory.path,
+          issues: List.unmodifiable(issues),
+          anchor: index.diagnosticAnchor,
+          noticeOwner: _freshnessOwnerFor(directory.path, issues, header),
+        );
         _indexCache[key] = _IndexCacheEntry(now, modified, state);
         return state;
-      } catch (_) {
-        final state = _IndexState(
+      } catch (error) {
+        final state = ZukePluginIndexState(
           null,
           hasWorkspace: true,
           workspaceRoot: directory.path,
+          issues: [
+            ZukeIndexFreshnessIssue(
+              kind: ZukeIndexFreshnessIssueKind.contractMismatch,
+              path: '.zuke/analyzer-index.json',
+              message: 'Analyzer index could not be read: $error',
+            ),
+          ],
+          noticeOwner: _freshnessOwnerFor(directory.path, const [], null),
         );
         _indexCache[key] = _IndexCacheEntry(now, modified, state);
         return state;
@@ -549,10 +762,33 @@ _IndexState _indexStateFor(String? sourcePath) {
     }
     final parent = directory.parent;
     if (parent.path == directory.path) {
-      return const _IndexState(null, hasWorkspace: false);
+      return const ZukePluginIndexState(null, hasWorkspace: false);
     }
     directory = parent;
   }
+}
+
+/// Prefer a changed Dart source; otherwise reuse the header's stable anchor
+/// discovery, which also works when the index is missing or unparseable.
+String? _freshnessOwnerFor(
+  String root,
+  List<ZukeIndexFreshnessIssue> issues,
+  ZukeIndexHeader? header,
+) {
+  if (header != null && issues.isEmpty) return null;
+  final candidates =
+      issues
+          .where((issue) => issue.path.toLowerCase().endsWith('.dart'))
+          .map((issue) => issue.path)
+          .toSet()
+          .toList()
+        ..sort();
+  for (final candidate in candidates) {
+    final path = '$root${Platform.pathSeparator}$candidate';
+    if (File(path).existsSync()) return candidate;
+  }
+  final owner = (header ?? ZukeIndexHeader(const {})).diagnosticAnchor(root);
+  return owner == null ? null : ZukeIndex.relativeToRoot(root, owner);
 }
 
 class ZukeAnnotationRule extends AnalysisRule {

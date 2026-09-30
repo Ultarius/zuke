@@ -5,7 +5,12 @@ import 'package:zuke_test_support/src/temporary_directory.dart';
 import 'package:analyzer/dart/analysis/analysis_context_collection.dart';
 import 'package:analyzer/dart/analysis/results.dart';
 import 'package:analyzer/dart/ast/ast.dart';
+import 'package:analyzer/analysis_rule/analysis_rule.dart';
+import 'package:analyzer/analysis_rule/rule_context.dart';
+import 'package:analyzer/analysis_rule/rule_visitor_registry.dart';
 import 'package:analyzer/error/error.dart';
+import 'package:analyzer/file_system/file_system.dart' as analyzer_fs;
+import 'package:analyzer/file_system/physical_file_system.dart';
 import 'package:analysis_server_plugin/registry.dart';
 import 'package:test/test.dart';
 import 'package:zuke_cli/tooling.dart';
@@ -24,6 +29,33 @@ void main() {
     });
 
     tearDown(() => deleteTemporaryDirectory(tempDir));
+
+    test('no index leaves every fact unavailable, whichever a rule needs', () {
+      // The split must fail closed. A workspace with no index at all has no
+      // specification facts and no source facts, so no rule may consult it —
+      // otherwise the split would let a rule run on a missing index.
+      _writeCurrentConfig(tempDir);
+      final source = File('${tempDir.path}/lib/app.dart')
+        ..createSync(recursive: true)
+        ..writeAsStringSync('void main() {}');
+      expect(
+        analyzer_plugin.zukeSpecificationFactsAvailableForTesting(
+          source.absolute.path,
+        ),
+        isFalse,
+      );
+      expect(
+        analyzer_plugin.zukeSourceFactsAvailableForTesting(
+          source.absolute.path,
+        ),
+        isFalse,
+      );
+      expect(
+        analyzer_plugin.zukeIndexStaleAppliesForTesting(source.absolute.path),
+        isTrue,
+        reason: 'and the workspace is reported as behind',
+      );
+    });
 
     for (final version in [zukeIndexContract - 1, zukeIndexContract + 1]) {
       test(
@@ -240,18 +272,209 @@ class Service {
       );
     });
 
+    test(
+      'an unreadable index still registers the diagnostic that explains why',
+      () async {
+        // A missing or unparseable index carries no recorded anchor and names
+        // the index rather than a Dart file, so requiring one of those silently
+        // swallowed the only notice explaining why nothing else reports.
+        _writeCurrentConfig(tempDir);
+        File('${tempDir.path}/pubspec.yaml').writeAsStringSync(
+          'name: test_pkg\nenvironment:\n  sdk: ">=3.10.0 <4.0.0"\n',
+        );
+        final main = File('${tempDir.path}/lib/main.dart')
+          ..createSync(recursive: true)
+          ..writeAsStringSync('void main() {}');
+        File(
+          '${tempDir.path}/lib/other.dart',
+        ).writeAsStringSync('void other() {}');
+        File('${tempDir.path}/.zuke/analyzer-index.json')
+          ..createSync(recursive: true)
+          ..writeAsStringSync('{ not json');
+
+        expect(
+          analyzer_plugin.zukeIndexUnusableAppliesForTesting(
+            main.absolute.path,
+          ),
+          isTrue,
+          reason: 'the owner is the entrypoint the fallback picks',
+        );
+        expect(
+          analyzer_plugin.zukeIndexUnusableAppliesForTesting(
+            '${tempDir.path}/lib/other.dart',
+          ),
+          isFalse,
+          reason: 'and only that one file carries the notice',
+        );
+        expect(
+          await ZukeAnalyzer().analyzePackage(tempDir.path),
+          isNotEmpty,
+          reason: 'and the standalone analyzer reports it too',
+        );
+      },
+    );
+
+    for (final payload in [null, '{ not json', '[]']) {
+      test('unreadable index $payload registers on one source', () {
+        _writeCurrentConfig(tempDir);
+        final source = File('${tempDir.path}/lib/main.dart')
+          ..createSync(recursive: true)
+          ..writeAsStringSync('void main() {}');
+        final other = File('${tempDir.path}/lib/other.dart')
+          ..writeAsStringSync('void other() {}');
+        if (payload != null) {
+          File('${tempDir.path}/.zuke/analyzer-index.json')
+            ..createSync(recursive: true)
+            ..writeAsStringSync(payload);
+        }
+        expect(_registeredFreshnessRules(source.path), ['zuke_index_unusable']);
+        expect(_registeredFreshnessRules(other.path), isEmpty);
+      });
+    }
+
+    test('missing index registers in a workspace with nested packages', () {
+      _writeCurrentConfig(tempDir);
+      final config = File('${tempDir.path}/zuke.yaml');
+      config.writeAsStringSync(
+        config.readAsStringSync().replaceFirst('path: .', 'path: apps/api'),
+      );
+      final source = File('${tempDir.path}/apps/api/lib/main.dart')
+        ..createSync(recursive: true)
+        ..writeAsStringSync('void main() {}');
+      expect(_registeredFreshnessRules(source.path), ['zuke_index_unusable']);
+    });
+
+    test('source drift registers once instead of on each owner candidate', () {
+      _writeCurrentConfig(tempDir);
+      final anchor = File('${tempDir.path}/lib/zuke_contracts.dart')
+        ..createSync(recursive: true)
+        ..writeAsStringSync('library;');
+      final sources = [
+        for (final name in ['app', 'other'])
+          File('${tempDir.path}/lib/$name.dart')
+            ..writeAsStringSync('void $name() {}'),
+      ];
+      final manifest = File('${tempDir.path}/manifest.json')
+        ..writeAsStringSync('{"files":[]}');
+      final index = ZukeIndex.create(
+        root: tempDir.path,
+        diagnosticAnchor: 'lib/zuke_contracts.dart',
+        inputPaths: sources.map((source) => source.path),
+        generatedManifestContent: manifest.readAsStringSync(),
+        generatedManifestPath: 'manifest.json',
+        requirementIds: const [],
+        controlIds: const [],
+        bindingIds: const [],
+      );
+      File('${tempDir.path}/.zuke/analyzer-index.json')
+        ..createSync(recursive: true)
+        ..writeAsStringSync(jsonEncode(index.toJson()));
+      expect(_registeredFreshnessRules(sources.first.path), isEmpty);
+      for (final source in sources) {
+        source.writeAsStringSync('${source.readAsStringSync()}\n// edit');
+      }
+      analyzer_plugin.zukeClearIndexCacheForTesting();
+      expect(_registeredFreshnessRules(sources.first.path), [
+        'zuke_index_stale',
+      ]);
+      expect(_registeredFreshnessRules(sources.last.path), isEmpty);
+      expect(_registeredFreshnessRules(anchor.path), isEmpty);
+    });
+
+    for (final drift in ['source', 'specification', 'both', 'missing', '[]']) {
+      test(
+        'standalone analyzer suppresses unavailable facts for $drift',
+        () async {
+          final config = _writeCurrentConfig(tempDir);
+          File('${tempDir.path}/pubspec.yaml').writeAsStringSync(
+            'name: test_pkg\nenvironment:\n  sdk: ">=3.10.0 <4.0.0"\n',
+          );
+          final source = File('${tempDir.path}/lib/app.dart')
+            ..createSync(recursive: true)
+            ..writeAsStringSync('''
+import 'package:zuke_annotations/zuke_annotations.dart';
+@ImplementsRequirement(['RULE-KNOWN'])
+void implemented() {}
+@ImplementsRequirement(['RULE-UNKNOWN'])
+void unknown() {}
+class Bindings {
+  @ZukeBinding('binding.known')
+  String get first => 'first';
+  @ZukeBinding('binding.known')
+  String get second => 'second';
+}
+''');
+          final manifest = File('${tempDir.path}/manifest.json')
+            ..writeAsStringSync('{"files":[]}');
+          final index = ZukeIndex.create(
+            root: tempDir.path,
+            inputPaths: [config.path, source.path],
+            generatedManifestContent: manifest.readAsStringSync(),
+            generatedManifestPath: 'manifest.json',
+            requirementIds: const ['RULE-KNOWN'],
+            controlIds: const [],
+            bindingIds: const ['binding.known'],
+            verifiedClaims: const [
+              ZukeImplementationClaim(id: 'RULE-KNOWN', target: 'backend'),
+            ],
+          );
+          final indexFile = File('${tempDir.path}/.zuke/analyzer-index.json')
+            ..createSync(recursive: true)
+            ..writeAsStringSync(jsonEncode(index.toJson()));
+          final before = await ZukeAnalyzer().analyzePackage(tempDir.path);
+          expect(
+            before.where((d) => d.code == 'ZUKE-INDEX-UNKNOWN-ID'),
+            hasLength(1),
+          );
+          expect(before.where((d) => d.code == 'ZUKE-MISSING-TEST'), isEmpty);
+          expect(_registeredIndexRules(source.path), [
+            'zuke_missing_test',
+            'zuke_unknown_index_id',
+          ]);
+          if (drift == 'source' || drift == 'both') {
+            source.writeAsStringSync('${source.readAsStringSync()}\n// edit');
+          }
+          if (drift == 'specification' || drift == 'both') {
+            config.writeAsStringSync('${config.readAsStringSync()}\n# edit');
+          }
+          if (drift == 'missing') indexFile.deleteSync();
+          if (drift == '[]') indexFile.writeAsStringSync('[]');
+          analyzer_plugin.zukeClearIndexCacheForTesting();
+          expect(
+            _registeredIndexRules(source.path),
+            drift == 'source' ? ['zuke_unknown_index_id'] : isEmpty,
+          );
+          final after = await ZukeAnalyzer().analyzePackage(tempDir.path);
+          expect(
+            after.where((d) => d.code == 'ZUKE-INDEX-STALE'),
+            hasLength(1),
+          );
+          expect(after.where((d) => d.code == 'ZUKE-MISSING-TEST'), isEmpty);
+          expect(
+            after.where((d) => d.code == 'ZUKE-INDEX-UNKNOWN-ID'),
+            hasLength(drift == 'source' ? 1 : 0),
+          );
+          expect(
+            after.where((d) => d.code == 'ZUKE-INDEX-DUPLICATE-BINDING'),
+            hasLength(1),
+          );
+        },
+      );
+    }
+
     test('plugin registers all rules with stable names and diagnostics', () {
       final registry = _RecordingRegistry();
 
       analyzer_plugin.plugin.register(registry);
 
-      expect(registry.rules, hasLength(8));
+      expect(registry.rules, hasLength(9));
       expect(
         registry.rules.map((rule) => rule.name),
         containsAll([
           'zuke_annotation',
           'zuke_plugin_stale',
           'zuke_index_stale',
+          'zuke_index_unusable',
           'zuke_unknown_index_id',
           'zuke_missing_test',
           'zuke_missing_evidence_types',
@@ -266,6 +489,10 @@ class Service {
       expect(
         analyzer_plugin.ZukeIndexStaleRule().diagnosticCode.lowerCaseName,
         'zuke_index_stale',
+      );
+      expect(
+        analyzer_plugin.ZukeIndexUnusableRule().diagnosticCode.lowerCaseName,
+        'zuke_index_unusable',
       );
       expect(
         analyzer_plugin.ZukeUnknownIndexIdRule().diagnosticCode.lowerCaseName,
@@ -1116,4 +1343,69 @@ class _RecordingRegistry implements PluginRegistry {
     }
     return super.noSuchMethod(invocation);
   }
+}
+
+List<String> _registeredFreshnessRules(String path) {
+  final registry = _RecordingVisitorRegistry();
+  final context = _FileRuleContext(path);
+  analyzer_plugin.ZukeIndexStaleRule().registerNodeProcessors(
+    registry,
+    context,
+  );
+  analyzer_plugin.ZukeIndexUnusableRule().registerNodeProcessors(
+    registry,
+    context,
+  );
+  return registry.rules;
+}
+
+class _RecordingVisitorRegistry implements RuleVisitorRegistry {
+  final rules = <String>[];
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) {
+    if (invocation.memberName == #addCompilationUnit ||
+        invocation.memberName == #addAnnotation) {
+      rules.add(
+        (invocation.positionalArguments.first as AbstractAnalysisRule).name,
+      );
+      return null;
+    }
+    return super.noSuchMethod(invocation);
+  }
+}
+
+List<String> _registeredIndexRules(String path) {
+  final registry = _RecordingVisitorRegistry();
+  final context = _FileRuleContext(path);
+  analyzer_plugin.ZukeMissingTestRule().registerNodeProcessors(
+    registry,
+    context,
+  );
+  analyzer_plugin.ZukeUnknownIndexIdRule().registerNodeProcessors(
+    registry,
+    context,
+  );
+  return registry.rules;
+}
+
+class _FileRuleContext implements RuleContext {
+  @override
+  final RuleContextUnit definingUnit;
+  _FileRuleContext(String path) : definingUnit = _FileRuleContextUnit(path);
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+class _FileRuleContextUnit implements RuleContextUnit {
+  @override
+  final analyzer_fs.File file;
+  _FileRuleContextUnit(String path)
+    : file = PhysicalResourceProvider.INSTANCE.getFile(
+        PhysicalResourceProvider.INSTANCE.pathContext.normalize(path),
+      );
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
