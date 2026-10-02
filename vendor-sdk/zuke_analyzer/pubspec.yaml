@@ -1,6 +1,6 @@
 name: zuke_analyzer
 description: Zuke resolved annotation diagnostics for Dart analysis.
-version: 0.1.1
+version: 0.1.2
 environment:
   sdk: '>=3.10.0 <4.0.0'
 resolution: workspace

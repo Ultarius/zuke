@@ -277,3 +277,67 @@ class ZukeSpecLintVisitor extends SimpleAstVisitor<void> {
     }
   }
 }
+
+/// Reports rule/slot obligations that no managed registration satisfies.
+///
+/// **Why this needs the index rather than the file being analyzed.** A slot is
+/// unbound only if *no* registration anywhere satisfies it, so the question is
+/// about the whole workspace and cannot be answered by looking at one file. The
+/// index carries the registrations for exactly this reason, and the verdict comes
+/// from the same `BindingVerdictEngine` `zuke validate` uses, so the two cannot
+/// disagree about whether a slot is bound.
+///
+/// **Why it must not run on a stale index.** A gap is a claim about absence, and
+/// an absence read from a snapshot that predates an edit is not a fact. The
+/// freshness gate on the rule means findings vanish while the index is behind
+/// rather than accusing the workspace of a gap it has already closed — but the
+/// consequence is that findings also *appear* only after `zuke generate`. This
+/// rule never refreshes the index itself: doing that from an analysis callback
+/// would mean a save writing to the workspace, which is not something a
+/// diagnostic may do.
+///
+/// **What it does not decide.** A registration it credits as satisfying a slot
+/// may call a service directly and never perform the user's action. So this
+/// reports that a matching test *exists*, never that the promised behaviour ran.
+/// Deciding that needs the entry point observed at runtime.
+///
+/// **One owner per finding.** Each finding is anchored on the generated constant
+/// for its own rule, and only in the contract generated from that rule's feature.
+/// A contract that aliases the same rule ID must not produce a second copy.
+class ZukeBindingCoverageVisitor extends SimpleAstVisitor<void> {
+  /// Unbound findings, already restricted to the features this file owns.
+  final List<BindingCoverageFinding> findings;
+
+  /// Emits one diagnostic for one finding.
+  final void Function(AstNode anchor, BindingCoverageFinding finding) report;
+
+  /// Findings already emitted, keyed by rule and slot.
+  ///
+  /// A generated contract can spell the same rule more than once, so without this
+  /// a rule with two unbound slots would report each at every occurrence.
+  final Set<String> _reported = {};
+
+  ZukeBindingCoverageVisitor({required this.findings, required this.report});
+
+  @override
+  void visitFieldDeclaration(FieldDeclaration node) {
+    if (!node.isStatic || !node.fields.isConst) return;
+    for (final variable in node.fields.variables) {
+      final initializer = variable.initializer;
+      // Only a plain `static const name = 'RULE-…';` is an anchor. The
+      // generator's `nameId = RuleId('RULE-…')` companion is a constructor call,
+      // so it cannot match here.
+      if (initializer is! StringLiteral) continue;
+      final ruleId = initializer.stringValue;
+      if (ruleId == null || ruleId.isEmpty) continue;
+      for (final finding in findings) {
+        if (finding.ruleId != ruleId) continue;
+        // The slot is part of the key: a rule may leave two slots unbound, and
+        // they are two separate obligations.
+        if (!_reported.add('${finding.ruleId}|${finding.slotKey}')) continue;
+        report(variable, finding);
+      }
+    }
+    super.visitFieldDeclaration(node);
+  }
+}

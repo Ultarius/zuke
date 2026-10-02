@@ -22,6 +22,20 @@ jobs:
       - name: Run the full zuke_cli test suite
         working-directory: vendor-sdk/zuke_cli
         run: dart --suppress-analytics test
+      # Run from the package root rather than as `dart test <dir>`: the directory
+      # form globs the whole tree, and lib/src/zuke_test.dart is a library whose
+      # name ends in _test.dart, so it was loaded as an entrypoint and reported as
+      # having no main. Both runner packages were previously untested in CI
+      # because of exactly that shape of failure being mistaken for a real one.
+      - name: Run the zuke_runner suite
+        working-directory: vendor-sdk/zuke_runner
+        run: dart --suppress-analytics test
+      # Flutter, not dart: these are widget tests, so they cannot load on the VM.
+      # setup-zuke has already installed the pinned SDK and resolved the
+      # workspace, so this costs test time only.
+      - name: Run the zuke_runner_flutter suite
+        working-directory: vendor-sdk/zuke_runner_flutter
+        run: flutter --suppress-analytics test
 
   dependency-firewall:
     name: test-host dependency firewall

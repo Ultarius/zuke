@@ -9,6 +9,7 @@ import 'plugin_cache.dart';
 import 'configuration_preflight.dart';
 import 'generated_manifest_path.dart';
 import 'implementation_scan.dart';
+import 'proof_engine/binding_coverage_check.dart';
 import 'requirement_scopes.dart';
 import 'spec_lint_scan.dart';
 import 'tooling/source_files.dart';
@@ -298,6 +299,14 @@ class GenerateCommand {
       // Everything the scans read, not only the files that contributed a
       // resolved annotation: a file that merely defines a constant can change
       // which requirement an annotation resolves to, and freshness must notice.
+      //
+      // `zuke.yaml` is already among `inputContents`, which is what makes a
+      // configuration edit invalidate the index: the configuration decides which
+      // packages a target owns, and so decides requirement scoping and the runner
+      // scopes a slot's adapter is attributed through. Naming it again here
+      // looked harmless because `inputs` is a set, but the set holds raw paths
+      // and the index writer normalizes them afterwards, so a differently spelled
+      // duplicate survived and every index recorded `zuke.yaml` twice.
       ...scan.inputPaths,
     };
     final requirements = <String>{};
@@ -327,6 +336,10 @@ class GenerateCommand {
       packageTargets: workspacePackageTargets(workspace),
       specDiagnostics: specDiagnostics,
       featureFiles: featureFiles,
+      managedRegistrations: managedRegistrationFacts(scan),
+      unresolvedManagedRegistrations: scan.unresolvedManagedRegistrations,
+      evidenceObligations: workspaceEvidenceObligations(workspace, root: root),
+      runnerScopes: workspaceRunnerScopes(workspace),
       implementationClaims: implementations.claims
           .map((claim) => claim.toIndexClaim())
           .toList(growable: false),

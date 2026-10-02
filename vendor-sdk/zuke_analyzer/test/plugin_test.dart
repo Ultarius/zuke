@@ -467,7 +467,7 @@ class Bindings {
 
       analyzer_plugin.plugin.register(registry);
 
-      expect(registry.rules, hasLength(9));
+      expect(registry.rules, hasLength(10));
       expect(
         registry.rules.map((rule) => rule.name),
         containsAll([
@@ -480,6 +480,7 @@ class Bindings {
           'zuke_missing_evidence_types',
           'zuke_unimplemented_requirement',
           'zuke_spec_lint',
+          'zuke_binding_unbound',
         ]),
       );
       expect(

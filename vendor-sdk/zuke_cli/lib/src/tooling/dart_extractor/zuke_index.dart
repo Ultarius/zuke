@@ -6,6 +6,7 @@ import 'package:crypto/crypto.dart';
 import '../../implementation_claims.dart';
 import '../../index_contract.dart';
 import '../../path_safety.dart';
+import '../../proof_engine/binding_coverage_engine.dart';
 
 enum ZukeIndexFreshnessIssueKind {
   contractMismatch,
@@ -459,6 +460,39 @@ class ZukeIndex {
   /// collides after normalization.
   final Map<String, String> featureFiles;
 
+  /// Every managed test registration found under the configured roots.
+  ///
+  /// Recorded so the editor can answer the binding-coverage question without
+  /// re-scanning the workspace: absence of a registration is a claim about the
+  /// *whole* set, so a per-file analysis could not make it.
+  ///
+  /// The nullable fields are unknown, not absent, and are serialized as explicit
+  /// nulls for that reason. A registration whose kinds could not be read may be
+  /// exactly the one satisfying a declared slot, so an index that dropped or
+  /// emptied it would convert `unverified` into a false `unbound`.
+  final List<ManagedRegistrationFact> managedRegistrations;
+
+  /// Managed registrations whose scenario argument resolved to no constant ID.
+  ///
+  /// Carried because a non-zero count makes *every* slot undecidable: any one of
+  /// them may be the registration a slot needs. Omitting this count would let the
+  /// editor report a confident gap that the CLI correctly refuses to decide.
+  final int unresolvedManagedRegistrations;
+
+  /// Every rule that declares evidence slots, with its scenarios and its real
+  /// location in the `.feature` file.
+  ///
+  /// Specification-derived, and read here rather than from the features so the
+  /// editor never has to hold a parsed specification.
+  final List<EvidenceObligation> evidenceObligations;
+
+  /// The runner scopes an adapter can be attributed through.
+  ///
+  /// Configuration-derived. A registration records no adapter, so which adapter
+  /// runs it — and therefore whether a slot naming one can be decided at all —
+  /// depends on these.
+  final List<RunnerScopeFact> runnerScopes;
+
   final int? contractVersion;
   final String? diagnosticAnchor;
 
@@ -487,6 +521,10 @@ class ZukeIndex {
     this.specDiagnostics = const [],
     this.implementationClaims = const [],
     this.featureFiles = const {},
+    this.managedRegistrations = const [],
+    this.unresolvedManagedRegistrations = 0,
+    this.evidenceObligations = const [],
+    this.runnerScopes = const [],
   });
 
   factory ZukeIndex.create({
@@ -509,6 +547,10 @@ class ZukeIndex {
     Iterable<ZukeSpecDiagnostic> specDiagnostics = const [],
     Iterable<ZukeImplementationClaim> implementationClaims = const {},
     Map<String, String> featureFiles = const {},
+    Iterable<ManagedRegistrationFact> managedRegistrations = const [],
+    int unresolvedManagedRegistrations = 0,
+    Iterable<EvidenceObligation> evidenceObligations = const [],
+    Iterable<RunnerScopeFact> runnerScopes = const [],
     Iterable<String> inputPatterns = const [],
     Iterable<String> patternInputPaths = const [],
     Iterable<String> sourceRoots = const [],
@@ -536,33 +578,44 @@ class ZukeIndex {
       for (final entry in pendingContents.entries)
         _normalizedFsPath(entry.key): entry.value,
     };
-    final inputs =
-        inputPaths
-            .map((path) {
-              try {
-                return File(path).resolveSymbolicLinksSync();
-              } catch (_) {
-                return File(path).absolute.path;
-              }
-            })
-            .where(
-              (path) =>
-                  inputContents?.containsKey(path) == true ||
-                  suppliedContents.containsKey(_normalizedFsPath(path)) ||
-                  File(path).existsSync(),
-            )
-            .map((path) {
-              final cached = suppliedContents[_normalizedFsPath(path)];
-              final bytes = cached != null
-                  ? utf8.encode(cached)
-                  : File(path).readAsBytesSync();
-              return ZukeIndexInput(
-                path: _relative(rootPath, path),
-                digest: _sha256(bytes),
-              );
-            })
-            .toList()
-          ..sort((left, right) => left.path.compareTo(right.path));
+    // Keyed by the *recorded* path, because that is where two spellings of one
+    // file collide. `inputPaths` is deduplicated as raw strings, so a caller
+    // reaching the same file by two routes - an absolute path from discovery and
+    // relative one built locally, say - contributes two entries that only become
+    // equal once normalized here. Recording both put a duplicate in `inputs`, and
+    // `inputDigest` hashes the list as given, so the committed index described an
+    // input set the generator could not reliably reproduce. `zuke.yaml` reached
+    // this way: it was already an input, and was named a second time.
+    //
+    // First occurrence wins. Two paths are equal here only after symlinks and the
+    // root have been resolved, so they name the same file and cannot disagree
+    // about its content.
+    final inputsByPath = <String, ZukeIndexInput>{};
+    for (final path in inputPaths) {
+      String resolved;
+      try {
+        resolved = File(path).resolveSymbolicLinksSync();
+      } catch (_) {
+        resolved = File(path).absolute.path;
+      }
+      final exists =
+          inputContents?.containsKey(resolved) == true ||
+          suppliedContents.containsKey(_normalizedFsPath(resolved)) ||
+          File(resolved).existsSync();
+      if (!exists) continue;
+      final relative = _relative(rootPath, resolved);
+      if (inputsByPath.containsKey(relative)) continue;
+      final cached = suppliedContents[_normalizedFsPath(resolved)];
+      final bytes = cached != null
+          ? utf8.encode(cached)
+          : File(resolved).readAsBytesSync();
+      inputsByPath[relative] = ZukeIndexInput(
+        path: relative,
+        digest: _sha256(bytes),
+      );
+    }
+    final inputs = inputsByPath.values.toList()
+      ..sort((left, right) => left.path.compareTo(right.path));
     final normalizedPatterns =
         inputPatterns.map(_validatedPattern).toSet().toList()..sort();
     final normalizedPatternInputs = patternInputPaths
@@ -607,6 +660,28 @@ class ZukeIndex {
     final specs = _normalizedSpecDiagnostics(specDiagnostics);
     final featurePaths = _normalizedFeatureFiles(featureFiles);
     final claims = normalizedImplementationClaims(implementationClaims);
+    // Sorted so the digest is a function of the workspace's contents rather than
+    // of the order a directory walk happened to produce. Two runs over an
+    // unchanged workspace must agree byte for byte.
+    final normalizedRegistrations = managedRegistrations.toList()
+      ..sort((left, right) {
+        final byPath = left.sourcePath.compareTo(right.sourcePath);
+        return byPath != 0
+            ? byPath
+            : left.scenarioId.compareTo(right.scenarioId);
+      });
+    final normalizedObligations = evidenceObligations.toList()
+      ..sort((left, right) {
+        final byFeature = left.featureId.compareTo(right.featureId);
+        return byFeature != 0 ? byFeature : left.ruleId.compareTo(right.ruleId);
+      });
+    final normalizedScopes = runnerScopes.toList()
+      ..sort((left, right) {
+        final byTarget = left.target.compareTo(right.target);
+        return byTarget != 0
+            ? byTarget
+            : left.sourcePackage.compareTo(right.sourcePackage);
+      });
     final reconciled = reconcileClaims(
       claims: claims,
       implementedRequirements: implemented,
@@ -647,6 +722,10 @@ class ZukeIndex {
         sourcePaths: normalizedSourcePaths,
         patterns: normalizedPatterns,
         matchedInputs: normalizedPatternInputs,
+        managedRegistrations: normalizedRegistrations,
+        unresolvedManagedRegistrations: unresolvedManagedRegistrations,
+        evidenceObligations: normalizedObligations,
+        runnerScopes: normalizedScopes,
       ),
 
       generatedManifestDigest: _sha256(utf8.encode(generatedManifestContent)),
@@ -670,6 +749,12 @@ class ZukeIndex {
       specDiagnostics: List.unmodifiable(specs),
       featureFiles: Map.unmodifiable(featurePaths),
       implementationClaims: List.unmodifiable(reconciled),
+      managedRegistrations: List.unmodifiable(normalizedRegistrations),
+      unresolvedManagedRegistrations: unresolvedManagedRegistrations < 0
+          ? 0
+          : unresolvedManagedRegistrations,
+      evidenceObligations: List.unmodifiable(normalizedObligations),
+      runnerScopes: List.unmodifiable(normalizedScopes),
     );
   }
 
@@ -714,6 +799,44 @@ class ZukeIndex {
         patternInputs.any((value) => value is! String)) {
       throw const FormatException('Analyzer index patternInputs missing');
     }
+    // Read strictly, and required. A lenient read here would be the worst possible
+    // failure for this check: defaulting an absent or unreadable registration to
+    // "no registrations" would report a workspace as having a coverage gap it may
+    // not have. Better to reject the index outright and let it regenerate.
+    int requiredCount(String field) {
+      final value = json[field];
+      if (value is! int || value < 0) {
+        throw FormatException(
+          'Analyzer index $field must be a non-negative integer',
+        );
+      }
+      return value;
+    }
+
+    List<T> requiredFacts<T>(
+      String field,
+      T? Function(Map<Object?, Object?> entry) parse,
+    ) {
+      final value = json[field];
+      if (value is! List) {
+        throw FormatException('Analyzer index $field must be a list');
+      }
+      final parsed = <T>[];
+      for (final entry in value) {
+        if (entry is! Map) {
+          throw FormatException('Analyzer index $field has a malformed entry');
+        }
+        final fact = parse(entry);
+        if (fact == null) {
+          throw FormatException(
+            'Analyzer index $field has an entry this version cannot read',
+          );
+        }
+        parsed.add(fact);
+      }
+      return List.unmodifiable(parsed);
+    }
+
     return ZukeIndex(
       contractVersion: ZukeIndexHeader(json).contractVersion,
       diagnosticAnchor: json['diagnosticAnchor'] is String
@@ -770,6 +893,18 @@ class ZukeIndex {
         providedControls: optionalIds('providedControlIds'),
         implementedBindings: optionalIds('implementedBindingIds'),
       ),
+      managedRegistrations: requiredFacts(
+        'managedRegistrations',
+        ManagedRegistrationFact.fromJson,
+      ),
+      unresolvedManagedRegistrations: requiredCount(
+        'unresolvedManagedRegistrations',
+      ),
+      evidenceObligations: requiredFacts(
+        'evidenceObligations',
+        EvidenceObligation.fromJson,
+      ),
+      runnerScopes: requiredFacts('runnerScopes', RunnerScopeFact.fromJson),
     );
   }
 
@@ -894,6 +1029,17 @@ class ZukeIndex {
         for (final id in featureFiles.keys.toList()..sort())
           id: featureFiles[id]!,
       },
+    // Always written, even when empty. `managedRegistrations: []` and a missing
+    // key mean the same thing to this producer, but only the explicit form lets
+    // the reader insist it is looking at a complete set rather than guessing.
+    'managedRegistrations': [
+      for (final registration in managedRegistrations) registration.toJson(),
+    ],
+    'unresolvedManagedRegistrations': unresolvedManagedRegistrations,
+    'evidenceObligations': [
+      for (final obligation in evidenceObligations) obligation.toJson(),
+    ],
+    'runnerScopes': [for (final scope in runnerScopes) scope.toJson()],
   };
 
   bool isCurrent({required String root}) => freshnessIssues(root: root).isEmpty;
@@ -1037,6 +1183,13 @@ class ZukeIndex {
               sourcePaths: sourcePaths,
               patterns: inputPatterns,
               matchedInputs: patternInputs,
+              // Recomputed from the stored facts, so an index whose
+              // registrations were edited by hand no longer matches its own
+              // digest and is reported unusable rather than believed.
+              managedRegistrations: managedRegistrations,
+              unresolvedManagedRegistrations: unresolvedManagedRegistrations,
+              evidenceObligations: evidenceObligations,
+              runnerScopes: runnerScopes,
             ) !=
             inputDigest) {
       issues.add(
@@ -1295,6 +1448,10 @@ class ZukeIndex {
     required Set<String> sourcePaths,
     required List<String> patterns,
     required Set<String> matchedInputs,
+    required List<ManagedRegistrationFact> managedRegistrations,
+    required int unresolvedManagedRegistrations,
+    required List<EvidenceObligation> evidenceObligations,
+    required List<RunnerScopeFact> runnerScopes,
   }) => _sha256(
     utf8.encode(
       _canonicalJson({
@@ -1337,6 +1494,19 @@ class ZukeIndex {
         ],
         'sourceRoots': sourceRoots,
         'sourcePaths': sourcePaths.toList()..sort(),
+        // The binding-coverage facts participate in the digest for the same
+        // reason the implementation sets do: adding or removing a registration,
+        // or changing the obligations it is matched against, has to invalidate
+        // the index, or the editor keeps reporting a gap that was just closed.
+        'managedRegistrations': [
+          for (final registration in managedRegistrations)
+            registration.toJson(),
+        ],
+        'unresolvedManagedRegistrations': unresolvedManagedRegistrations,
+        'evidenceObligations': [
+          for (final obligation in evidenceObligations) obligation.toJson(),
+        ],
+        'runnerScopes': [for (final scope in runnerScopes) scope.toJson()],
       }),
     ),
   );
@@ -1390,11 +1560,20 @@ bool requirementAppliesTo(
 /// [ZukeIndexInput.path] is, so a caller can compare a relative path directly.
 Map<String, String> _normalizedPackageTargets(Map<String, String> targets) {
   final result = <String, String>{};
+  final owners = <String, String>{};
   for (final entry in targets.entries) {
     final path = normalizePackagePath(entry.key);
     if (path.isEmpty) continue;
     final target = entry.value.trim();
     if (target.isEmpty) continue;
+    final key = pathComparisonKey(path);
+    final previous = owners[key];
+    if (previous != null && previous != target) {
+      throw FormatException(
+        'Conflicting package owners for path "$path": "$previous" and "$target"',
+      );
+    }
+    owners[key] = target;
     result[path] = target;
   }
   return result;

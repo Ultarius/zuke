@@ -76,8 +76,15 @@ bool isGuideSnippetFixture(String path) {
 /// Windows only, so differently cased spellings of the same path collide there
 /// while remaining distinct on a case-sensitive filesystem.
 ///
-/// Distinct from a plain slash conversion: use that where the spelling has to be
-/// preserved, such as keying content the caller supplied.
+/// **Duplicated in `zuke_frontend` on purpose.** The frontend reads the
+/// configuration and so has to normalize a package path before a claim on it can
+/// be checked, which means it needs this too. They cannot share one definition
+/// yet: `zuke_cli` depends on `zuke_frontend` by published version, and a fresh
+/// resolution — which is what the analysis-server plugin fixture performs —
+/// would fetch whichever frontend is on pub.dev. Importing a symbol that only
+/// exists in an unreleased frontend fails to compile there, which is a worse
+/// outcome than two copies that a test keeps in step. See
+/// `test/path_agreement_test.dart` for the test that holds them together.
 String pathComparisonKey(String path) => Platform.isWindows
     ? path.replaceAll('\\', '/').toLowerCase()
     : path.replaceAll('\\', '/');

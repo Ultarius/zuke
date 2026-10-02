@@ -75,26 +75,8 @@ String? targetForWorkspacePath(
   Map<String, String> packageTargets,
   String relativePath,
 ) {
-  final normalized = pathComparisonKey(relativePath);
-  String? best;
-  String? bestTarget;
-  for (final entry in packageTargets.entries) {
-    final path = pathComparisonKey(normalizePackagePath(entry.key));
-    // A package declared at the workspace root owns every path in the
-    // workspace, so it matches anything. It still loses to a longer nested
-    // package path, which is what keeps a multi-package workspace resolving
-    // `apps/api` to `backend` instead of the root's target.
-    final matches =
-        isWorkspaceRootPackage(path) ||
-        normalized == path ||
-        normalized.startsWith(path.endsWith('/') ? path : '$path/');
-    if (!matches) continue;
-    if (best == null || path.length > best.length) {
-      best = path;
-      bestTarget = entry.value;
-    }
-  }
-  return bestTarget;
+  final owner = _owningPackageKey(packageTargets, relativePath);
+  return owner == null ? null : packageTargets[owner];
 }
 
 /// Whether [normalizedPath] denotes the workspace root rather than a directory
@@ -107,6 +89,56 @@ String? targetForWorkspacePath(
 /// miss, it looks like every requirement applying everywhere. That is how
 /// `backend` requirements ended up reported in a Flutter app.
 bool isWorkspaceRootPackage(String normalizedPath) => normalizedPath == '.';
+
+/// The configured package containing [relativePath] under [packageIds], or null
+/// when no configured package contains it.
+///
+/// The longest-match rule is [targetForWorkspacePath]'s, resolved by the same
+/// helper rather than a second copy of it. A slot names a `sourcePackage` as
+/// well as a target, and a target alone cannot tell two packages of one target
+/// apart. If the two lookups were ever to disagree, the same file would be
+/// judged against one package while its target came from another, and the editor
+/// would call a slot unattributable where `zuke validate` called it decided —
+/// which is precisely the drift one shared verdict engine exists to prevent.
+String? packageIdForWorkspacePath(
+  Map<String, String> packageIds,
+  String relativePath,
+) {
+  final owner = _owningPackageKey(packageIds, relativePath);
+  return owner == null ? null : packageIds[owner];
+}
+
+/// The key of the configured package path owning [relativePath], or null when
+/// none does.
+///
+/// One implementation of the longest-match rule, because two callers depend on
+/// it agreeing exactly. A package declared at the workspace root owns every path
+/// in the workspace, so it matches anything, but it still loses to a longer
+/// nested path; that is what keeps a multi-package workspace resolving
+/// `apps/api` to its own target rather than the root's.
+String? _owningPackageKey(Map<String, String> byPath, String relativePath) {
+  final normalized = pathComparisonKey(relativePath);
+  String? best;
+  var bestLength = -1;
+  for (final key in byPath.keys) {
+    final path = pathComparisonKey(normalizePackagePath(key));
+    final matches =
+        isWorkspaceRootPackage(path) ||
+        normalized == path ||
+        normalized.startsWith(path.endsWith('/') ? path : '$path/');
+    if (!matches) continue;
+    // The root is a fallback, not a one-character directory prefix.
+    final specificity = isWorkspaceRootPackage(path) ? 0 : path.length;
+    if (specificity == bestLength && byPath[best] != byPath[key]) {
+      throw FormatException('Conflicting package owners for "$path"');
+    }
+    if (specificity > bestLength) {
+      best = key;
+      bestLength = specificity;
+    }
+  }
+  return best;
+}
 
 /// Claims deduplicated and ordered deterministically, so regenerating an
 /// unchanged workspace produces an identical index.

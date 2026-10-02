@@ -150,10 +150,16 @@ void register() {
       expect(claim.sourcePath, 'lib/registrations.dart');
       expect(claim.target, 'app');
     },
+    // These fixtures need the real Flutter registration to prove library
+    // identity. Loading its SDK graph under coverage can exceed the
+    // default 30s on a busy Windows runner; keep a finite per-test budget.
+    timeout: const Timeout(Duration(minutes: 2)),
   );
 
-  test('a non-constant scenario makes coverage unknown, not empty', () async {
-    source('lib/fake_contract.dart', '''
+  test(
+    'a non-constant scenario makes coverage unknown, not empty',
+    () async {
+      source('lib/fake_contract.dart', '''
 import 'package:zuke_annotations/zuke_annotations.dart';
 
 const fake = _Fake(
@@ -176,7 +182,7 @@ class _Fake implements ZukeScenarioContract {
   final Set<ControlId> controlIds;
 }
 ''');
-    source('lib/registrations.dart', '''
+      source('lib/registrations.dart', '''
 import 'package:zuke_annotations/zuke_annotations.dart';
 import 'package:zuke_runner_flutter/zuke_runner_flutter.dart';
 
@@ -185,9 +191,11 @@ void register(ZukeScenarioContract scenario) {
 }
 ''');
 
-    final scan = await scanWorkspaceAnnotations(root.path, workspace());
+      final scan = await scanWorkspaceAnnotations(root.path, workspace());
 
-    expect(scan.managedScenarioIds, isEmpty);
-    expect(scan.unresolvedManagedRegistrations, 1);
-  });
+      expect(scan.managedScenarioIds, isEmpty);
+      expect(scan.unresolvedManagedRegistrations, 1);
+    },
+    timeout: const Timeout(Duration(minutes: 2)),
+  );
 }

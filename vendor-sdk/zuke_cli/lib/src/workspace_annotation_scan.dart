@@ -23,16 +23,45 @@ import 'tooling/source_files.dart';
 /// evidence-harness cases) are what make `zuke test` execute a scenario. A
 /// declared scenario that no registration names is never executed, which is the
 /// fact scenario-coverage diagnostics report.
+///
+/// One claim per registration site. Two registrations naming the same scenario
+/// stay separate claims, because merging them would attribute one file's
+/// evidence kinds to another file's target: an app unit registration plus a
+/// backend widget registration merge into one app claim publishing
+/// `flutter-widget`, which then satisfies a slot the app never registered.
 final class ManagedScenarioClaim {
   final String scenarioId;
   final String sourcePath;
   final String? target;
 
+  /// The configured package containing [sourcePath], or null when no package
+  /// does. Carried because a slot names a package and a target alone cannot tell
+  /// two packages of one target apart.
+  final String? packageId;
+
+  /// The evidence kinds this registration declares it publishes, resolved from
+  /// the `evidenceTypes`/`evidenceType` argument or inherited from a harness, or
+  /// null when the argument is absent-and-inherited-nowhere, or unreadable.
+  ///
+  /// Null means "unknown", not "none". A registration whose kinds cannot be
+  /// resolved may be exactly the one satisfying a declared slot, so a caller
+  /// reporting gaps has to treat a null here as blocking the question rather
+  /// than as evidence of a gap. This is why the field is not defaulted to an
+  /// empty list.
+  final List<String>? evidenceTypes;
+
   const ManagedScenarioClaim({
     required this.scenarioId,
     required this.sourcePath,
     this.target,
+    this.packageId,
+    this.evidenceTypes,
   });
+
+  @override
+  String toString() =>
+      'ManagedScenarioClaim($scenarioId @ $sourcePath -> $target/$packageId, '
+      '${evidenceTypes ?? '<unknown>'})';
 }
 
 /// One resolved scan shared by implementation and verification projections.
@@ -102,9 +131,16 @@ Future<WorkspaceAnnotationScan> scanWorkspaceAnnotations(
   final sourcePaths = sources.map((file) => file.path).toList();
   final inputs = sourcePaths.toSet();
   final claims = <ImplementationClaim>[];
+  // One entry per registration site. Two registrations naming the same scenario
+  // stay separate claims: merging them would attribute one file's evidence kinds
+  // to another file's target and satisfy a slot that was never registered. A
+  // consumer that needs them grouped by scenario groups them itself.
   final managedScenarios = <ManagedScenarioClaim>[];
-  final seenManagedScenarios = <String>{};
-  final unresolved = _UnresolvedRegistrations();
+  // Summed from each file's collector. A plain local int rather than a shared
+  // mutable holder: the total is only read once the walk is over, so there is
+  // nothing to share, and a wrapper class around a single counter only added an
+  // indirection between an increment and the field it wrote.
+  var unresolvedRegistrations = 0;
   if (sources.isEmpty) {
     return WorkspaceAnnotationScan(
       root: root,
@@ -131,6 +167,7 @@ Future<WorkspaceAnnotationScan> scanWorkspaceAnnotations(
     sdkPath: resolveAnalyzerSdkPath(),
   );
   final packageTargets = workspacePackageTargets(workspace);
+  final packageIds = workspacePackageIds(workspace);
   final visitedLibraries = <LibraryElement>{};
   void recordDependencies(LibraryElement library) {
     if (library.isInSdk || !visitedLibraries.add(library)) return;
@@ -170,16 +207,21 @@ Future<WorkspaceAnnotationScan> scanWorkspaceAnnotations(
       final sourcePath = p
           .relative(file.path, from: root)
           .replaceAll('\\', '/');
-      result.unit.accept(
-        _ClaimCollector(
-          sourcePath,
-          targetForWorkspacePath(packageTargets, sourcePath),
-          claims,
-          managedScenarios,
-          seenManagedScenarios,
-          unresolved,
-        ),
+      // One traversal collects the managed registrations and, separately, the
+      // harness and case declarations a `registerAll` call has to resolve
+      // against. Ownership cannot be read during the walk: a harness may be
+      // declared anywhere in the library, including after the call that uses it,
+      // so the walk only records and `resolve` decides.
+      final collector = _ClaimCollector(
+        sourcePath,
+        targetForWorkspacePath(packageTargets, sourcePath),
+        packageIdForWorkspacePath(packageIds, sourcePath),
+        claims,
+        managedScenarios,
       );
+      result.unit.accept(collector);
+      collector.resolve();
+      unresolvedRegistrations += collector.unresolvedRegistrations;
     }
   } finally {
     await collection.dispose();
@@ -190,13 +232,65 @@ Future<WorkspaceAnnotationScan> scanWorkspaceAnnotations(
     sourcePaths: List.unmodifiable(sourcePaths),
     inputPaths: List.unmodifiable(inputs.toList()..sort()),
     managedScenarios: List.unmodifiable(managedScenarios),
-    unresolvedManagedRegistrations: unresolved.count,
+    unresolvedManagedRegistrations: unresolvedRegistrations,
   );
 }
 
-/// Mutable counter shared by the per-file collectors of one scan.
-final class _UnresolvedRegistrations {
-  int count = 0;
+/// A `ZukeFlutterHarness` construction, and the kinds it publishes.
+///
+/// The step harness names its own scenarios and a single `evidenceType`, so it
+/// is self-describing. Ownership still has to be established: a construction
+/// that no `registerAll` call reaches is not a test.
+final class _StepHarnessDeclaration {
+  _StepHarnessDeclaration({
+    required this.node,
+    required this.scenariosArgument,
+    required this.evidenceType,
+  });
+
+  final InstanceCreationExpression node;
+  final Expression? scenariosArgument;
+  final ConstantStringsArgument evidenceType;
+}
+
+/// A `ZukeFlutterEvidenceHarness` construction, and the defaults its cases
+/// inherit.
+///
+/// Only constructions from the harness library count. Any other constructor
+/// that happens to take a `defaultEvidenceTypes` argument is not a harness this
+/// scan knows how to attribute.
+final class _EvidenceHarnessDeclaration {
+  _EvidenceHarnessDeclaration({required this.node, required this.defaults});
+
+  final InstanceCreationExpression node;
+  final ConstantStringsArgument defaults;
+}
+
+/// A `FlutterEvidenceCase` construction.
+///
+/// Records the case, not a registration: a case only becomes a test when some
+/// `registerAll` call reaches it.
+final class _EvidenceCaseDeclaration {
+  _EvidenceCaseDeclaration({
+    required this.node,
+    required this.scenarioArgument,
+    required this.explicitKinds,
+  });
+
+  final InstanceCreationExpression node;
+  final Expression? scenarioArgument;
+  final ConstantStringsArgument explicitKinds;
+}
+
+/// A `registerAll` call: the harness it reaches and the cases handed to it.
+final class _RegisterAllCall {
+  _RegisterAllCall({required this.receiver, required this.arguments});
+
+  /// The expression `registerAll` is called on.
+  final Expression receiver;
+
+  /// Arguments are interpreted after all local declarations have been collected.
+  final List<AstNode> arguments;
 }
 
 /// The constant field a supported annotation fills, and the kind of claim it
@@ -228,10 +322,9 @@ class _ClaimCollector extends RecursiveAstVisitor<void> {
   _ClaimCollector(
     this.sourcePath,
     this.target,
+    this.packageId,
     this.claims,
     this.managedScenarios,
-    this.seenManagedScenarios,
-    this.unresolved,
   );
 
   /// The constant field an annotation fills, paired with the kind of claim it
@@ -263,53 +356,305 @@ class _ClaimCollector extends RecursiveAstVisitor<void> {
 
   final String sourcePath;
   final String? target;
+
+  /// The configured package this file belongs to, so a slot naming a package
+  /// can be matched and an unattributable file stays unattributable.
+  final String? packageId;
   final List<ImplementationClaim> claims;
+
+  /// Registrations collected so far, one per call site.
   final List<ManagedScenarioClaim> managedScenarios;
 
-  /// Scenario IDs already collected in this scan, so one scenario registered
-  /// through several call sites or harness cases is one claim.
-  final Set<String> seenManagedScenarios;
-  final _UnresolvedRegistrations unresolved;
+  /// Registrations this file could not resolve to a scenario, counted here and
+  /// summed across the scan.
+  ///
+  /// Any one of them could be the registration satisfying some other rule's
+  /// slot, so the total is workspace-wide on purpose: one unreadable
+  /// registration makes every slot undecidable rather than only the rules in this
+  /// file.
+  int unresolvedRegistrations = 0;
+
   final Set<_ClaimKey> _seen = {};
+
+  /// Harness and case declarations, keyed by construction site. Local variable
+  /// aliases resolve to those sites through their collected initializers.
+  final _stepHarnesses = <Object, _StepHarnessDeclaration>{};
+  final _evidenceHarnesses = <Object, _EvidenceHarnessDeclaration>{};
+  final _cases = <Object, _EvidenceCaseDeclaration>{};
+  final _registerAlls = <_RegisterAllCall>[];
+  final _initializers = <Object, Expression>{};
+  final _assigned = <Object>{};
 
   @override
   void visitMethodInvocation(MethodInvocation node) {
-    if (zukeManagedEntrypointName(node.methodName.element) != null) {
-      _recordScenarioArgument(node.argumentList.arguments, 'scenario');
+    final entrypoint = zukeManagedEntrypointName(node.methodName.element);
+    if (entrypoint != null) {
+      final arguments = node.argumentList.arguments;
+      _recordScenarioArgument(
+        namedArgumentValue(arguments, 'scenario'),
+        entrypointEvidenceTypes(entrypoint, arguments),
+      );
+    } else if (isZukeHarnessRegisterAll(node.methodName.element)) {
+      // Recorded, not acted on: the receiver says which harness owns the cases,
+      // and that cannot be read until the walk has seen every declaration.
+      final receiver = node.realTarget;
+      if (receiver == null) {
+        unresolvedRegistrations += 1;
+      } else {
+        _registerAlls.add(
+          _RegisterAllCall(
+            receiver: receiver,
+            arguments: node.argumentList.arguments.toList(),
+          ),
+        );
+      }
     }
     super.visitMethodInvocation(node);
   }
 
   @override
   void visitInstanceCreationExpression(InstanceCreationExpression node) {
-    final scenarioArgument = flutterHarnessScenarioArgument(node);
-    if (scenarioArgument != null) {
-      _recordScenarioArgument(node.argumentList.arguments, scenarioArgument);
-    }
+    _recordHarnessConstruction(node);
     super.visitInstanceCreationExpression(node);
   }
 
-  /// Records every constant scenario ID reachable from a named argument.
-  ///
-  /// The argument is either a single scenario contract (`scenario:`) or an
-  /// iterable of them (`scenarios:`). A list literal, an `X.all` constant, or an
-  /// enum `.values` list all evaluate to a constant list of objects carrying an
-  /// `id`; anything else is counted as unresolved rather than guessed at.
-  void _recordScenarioArgument(Iterable<AstNode> arguments, String name) {
-    final expression = namedArgumentValue(arguments, name);
-    if (expression == null || !_registerScenarioExpression(expression)) {
-      // A registration that names no scenario is unresolved, not coverage.
-      unresolved.count += 1;
+  @override
+  void visitVariableDeclaration(VariableDeclaration node) {
+    final initializer = node.initializer;
+    final element = _declarationElementOf(node.declaredFragment?.element);
+    if (initializer != null && element != null) {
+      _initializers[element] = initializer;
+    }
+    super.visitVariableDeclaration(node);
+  }
+
+  @override
+  void visitAssignmentExpression(AssignmentExpression node) {
+    final element = _referenceElementOf(node.leftHandSide);
+    if (element != null) _assigned.add(element);
+    super.visitAssignmentExpression(node);
+  }
+
+  /// Records each construction once; aliases resolve through their initializers.
+  void _recordHarnessConstruction(InstanceCreationExpression node) {
+    switch (zukeFlutterHarnessTypeName(node)) {
+      case 'ZukeFlutterHarness':
+        _stepHarnesses[node] = _StepHarnessDeclaration(
+          node: node,
+          scenariosArgument: namedArgumentValue(
+            node.argumentList.arguments,
+            'scenarios',
+          ),
+          evidenceType: constantStringsArgument(
+            node.argumentList.arguments,
+            'evidenceType',
+          ),
+        );
+      case 'ZukeFlutterEvidenceHarness':
+        _evidenceHarnesses[node] = _EvidenceHarnessDeclaration(
+          node: node,
+          defaults: constantStringsArgument(
+            node.argumentList.arguments,
+            'defaultEvidenceTypes',
+          ),
+        );
+      case 'FlutterEvidenceCase':
+        _cases[node] = _EvidenceCaseDeclaration(
+          node: node,
+          scenarioArgument: namedArgumentValue(
+            node.argumentList.arguments,
+            'scenario',
+          ),
+          explicitKinds: constantStringsArgument(
+            node.argumentList.arguments,
+            'evidenceTypes',
+          ),
+        );
+      case _:
+        break;
     }
   }
 
-  bool _registerScenarioExpression(Expression expression) {
-    if (expression is ListLiteral) {
-      var any = false;
-      for (final element in expression.childEntities.whereType<Expression>()) {
-        if (_registerScenarioExpression(element)) any = true;
+  /// Turns the collected declarations into registrations.
+  ///
+  /// Ownership is decided here rather than during the walk because a harness may
+  /// be declared anywhere in the library, including after the `registerAll` that
+  /// reaches it. Attribution is per harness: a case inherits the defaults of the
+  /// harness that registers it, so an unreadable default on one harness leaves a
+  /// case registered by a different, readable one decidable.
+  void resolve() {
+    for (final call in _registerAlls) {
+      final receiver = _receiverKeyOf(call.receiver);
+      final step = receiver == null ? null : _stepHarnesses[receiver];
+      if (step != null) {
+        // The step harness names its own scenarios and kind; it inherits
+        // nothing from a sibling.
+        final List<String>? kinds = switch (step.evidenceType.state) {
+          ConstantArgumentState.readable => step.evidenceType.values,
+          ConstantArgumentState.absent => const [
+            zukeHarnessDefaultEvidenceType,
+          ],
+          ConstantArgumentState.unreadable => null,
+        };
+        _recordScenarioArgument(step.scenariosArgument, kinds);
+        continue;
       }
-      return any;
+      final harness = receiver == null ? null : _evidenceHarnesses[receiver];
+      if (harness == null) {
+        // A `registerAll` on a receiver this walk cannot attribute. The method
+        // is a harness one, so a harness exists and its cases are unknown rather
+        // than absent.
+        unresolvedRegistrations += 1;
+        continue;
+      }
+      final List<String>? inherited = switch (harness.defaults.state) {
+        ConstantArgumentState.readable =>
+          harness.defaults.values!.toSet().toList()..sort(),
+        // An absent default declares none, and an unreadable one cannot be seen.
+        // Either way this harness does not determine its cases' kinds.
+        _ => null,
+      };
+      final caseExpressions = _argumentListElements(call.arguments);
+      if (caseExpressions == null) {
+        unresolvedRegistrations += 1;
+        continue;
+      }
+      for (final caseExpression in caseExpressions) {
+        final key = _receiverKeyOf(caseExpression);
+        final declaration = key == null ? null : _cases[key];
+        if (declaration == null) {
+          unresolvedRegistrations += 1;
+          continue;
+        }
+        // An explicit override wins; one that cannot be read is unknown, never
+        // the default it replaces.
+        final List<String>? kinds = switch (declaration.explicitKinds.state) {
+          ConstantArgumentState.readable => declaration.explicitKinds.values,
+          ConstantArgumentState.unreadable => null,
+          ConstantArgumentState.absent => inherited,
+        };
+        _recordScenarioArgument(declaration.scenarioArgument, kinds);
+      }
+    }
+  }
+
+  /// Resolves a receiver or case expression to its recorded construction site.
+  Object? _receiverKeyOf(Expression expression) {
+    final resolved = _resolveExpression(expression);
+    return resolved is InstanceCreationExpression ? resolved : null;
+  }
+
+  /// Follows local aliases only. Cycles, assignments and dynamic factories are
+  /// unknown rather than guessed from a variable's original value.
+  Expression? _resolveExpression(Expression expression) {
+    final seen = <Object>{};
+    while (true) {
+      if (expression is ParenthesizedExpression) {
+        expression = expression.expression;
+      } else if (expression is CascadeExpression) {
+        expression = expression.target;
+      } else {
+        final element = _referenceElementOf(expression);
+        if (element == null) return expression;
+        if (_assigned.contains(element) || !seen.add(element)) return null;
+        final initializer = _initializers[element];
+        if (initializer == null) return null;
+        expression = initializer;
+      }
+    }
+  }
+
+  static Object? _referenceElementOf(Expression expression) =>
+      _declarationElementOf(switch (expression) {
+        SimpleIdentifier() => expression.element,
+        PrefixedIdentifier() => expression.identifier.element,
+        PropertyAccess() => expression.propertyName.element,
+        _ => null,
+      });
+
+  /// The declaration an expression reference names.
+  ///
+  /// A reference to a top-level or static variable resolves to the synthesized
+  /// getter the language adds for it, while the declaration itself reports the
+  /// variable. Normalising through [PropertyAccessorElement.variable] puts both
+  /// sides on one key, which is what lets `harness.registerAll()` find the
+  /// declaration the walk recorded.
+  static Object? _declarationElementOf(Element? element) =>
+      element is PropertyAccessorElement ? element.variable : element;
+
+  /// The elements of the positional list argument, or null when an argument is
+  /// present but is not a literal list this scan can read.
+  ///
+  /// Null rather than an empty list for the unreadable shapes: an empty list
+  /// reads as "this harness registers nothing", which is a claim about the
+  /// workspace. A spread or collection-if among the cases is one of those.
+  ///
+  /// No argument at all yields empty, because the step harness's `registerAll()`
+  /// takes none: its scenarios live on its own declaration.
+  ///
+  /// The `ListLiteral` is tested directly because a positional argument *is* the
+  /// expression, so its `childEntities` are the list's elements, not the list.
+  List<Expression>? _argumentListElements(Iterable<AstNode> arguments) {
+    for (final argument in arguments) {
+      final raw = argument is Expression
+          ? argument
+          : _argumentExpressionOf(argument);
+      final value = raw == null ? null : _resolveExpression(raw);
+      if (value is! ListLiteral) return null;
+      final elements = <Expression>[];
+      for (final element in value.elements) {
+        if (element is! Expression) return null;
+        elements.add(element);
+      }
+      return elements;
+    }
+    return const [];
+  }
+
+  /// The value expression of a positional or named argument.
+  ///
+  /// Reads the shared token shape rather than the node type, because analyzer 12
+  /// models a named argument as `NamedExpression` and analyzer 14 as
+  /// `NamedArgument`.
+  static Expression? _argumentExpressionOf(AstNode argument) {
+    final expressions = argument.childEntities.whereType<Expression>();
+    return expressions.isEmpty ? null : expressions.last;
+  }
+
+  /// Records every constant scenario ID reachable from [expression].
+  ///
+  /// [expression] is either a single scenario contract (`scenario:`) or an
+  /// iterable of them (`scenarios:`). A list literal, an `X.all` constant, or an
+  /// enum `.values` list all evaluate to a constant list of objects carrying an
+  /// `id`; anything else is counted as unresolved rather than guessed at.
+  ///
+  /// Takes the resolved value rather than the argument list, because the callers
+  /// get it differently: a managed entry point looks it up by name, while a
+  /// harness declaration already carries it from the walk.
+  void _recordScenarioArgument(
+    Expression? expression,
+    List<String>? evidenceTypes,
+  ) {
+    if (expression == null ||
+        !_registerScenarioExpression(expression, evidenceTypes)) {
+      // A registration that names no scenario is unresolved, not coverage.
+      unresolvedRegistrations += 1;
+    }
+  }
+
+  bool _registerScenarioExpression(
+    Expression expression,
+    List<String>? evidenceTypes,
+  ) {
+    if (expression is ListLiteral) {
+      var complete = expression.elements.isNotEmpty;
+      for (final element in expression.elements) {
+        if (element is! Expression ||
+            !_registerScenarioExpression(element, evidenceTypes)) {
+          complete = false;
+        }
+      }
+      return complete;
     }
     // A bare identifier is not a child of itself: `scenario: fake` is a
     // `SimpleIdentifier` with no child entities, while `scenario: Foo.bar`
@@ -328,23 +673,32 @@ class _ClaimCollector extends RecursiveAstVisitor<void> {
     if (value == null) return false;
     final items = value.toListValue();
     if (items != null) {
-      var any = false;
+      var complete = items.isNotEmpty;
       for (final item in items) {
-        if (_registerScenarioId(_scenarioIdOf(item))) any = true;
+        if (!_registerScenarioId(_scenarioIdOf(item), evidenceTypes)) {
+          complete = false;
+        }
       }
-      return any;
+      return complete;
     }
-    return _registerScenarioId(_scenarioIdOf(value));
+    return _registerScenarioId(_scenarioIdOf(value), evidenceTypes);
   }
 
-  bool _registerScenarioId(String? scenarioId) {
+  bool _registerScenarioId(String? scenarioId, List<String>? evidenceTypes) {
     if (scenarioId == null) return false;
-    if (!seenManagedScenarios.add(scenarioId)) return true;
+    // Appended, never merged. Deduplicating by scenario here would combine two
+    // registrations into one claim and attribute one's kinds to the other's
+    // target, which satisfies a slot that was never registered. Coverage
+    // grouping happens at the consumer, where both claims are still visible.
     managedScenarios.add(
       ManagedScenarioClaim(
         scenarioId: scenarioId,
         sourcePath: sourcePath,
         target: target,
+        packageId: packageId,
+        evidenceTypes: evidenceTypes == null
+            ? null
+            : List.unmodifiable(evidenceTypes.toSet().toList()..sort()),
       ),
     );
     return true;

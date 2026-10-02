@@ -7,6 +7,7 @@ export 'proof_engine/reference_resolver.dart';
 export 'proof_engine/cardinality_validator.dart';
 export 'proof_engine/implementation_coverage_validator.dart';
 export 'proof_engine/evidence_validator.dart';
+export 'proof_engine/binding_coverage_check.dart';
 export 'proof_engine/source_mapping_validator.dart';
 export 'proof_engine/dominance_validator.dart';
 export 'proof_engine/verification_backed_validator.dart';

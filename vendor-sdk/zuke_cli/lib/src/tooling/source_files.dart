@@ -1,7 +1,10 @@
 import 'dart:io';
 
 import 'package:path/path.dart' as p;
-import 'package:zuke_frontend/zuke_frontend.dart';
+// The path helpers arrive via `../path_safety.dart`, which re-exports them from
+// here. Importing them directly as well would make every use ambiguous.
+import 'package:zuke_frontend/zuke_frontend.dart'
+    hide normalizePackagePath, normalizeRelativePath, pathComparisonKey;
 
 import '../path_safety.dart';
 

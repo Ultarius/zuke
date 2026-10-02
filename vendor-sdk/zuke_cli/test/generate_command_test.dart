@@ -23,6 +23,39 @@ void main() {
       if (root.existsSync()) root.deleteSync(recursive: true);
     });
 
+    test('the analyzer index is byte-identical across regenerations', () async {
+      // The four example workspaces commit their analyzer indexes, and a
+      // `zuke generate` that rewrites them differently on an unchanged tree makes
+      // every one of those diffs unreviewable noise. It also means the editor is
+      // handed a different artifact than the one a reviewer approved.
+      //
+      // The second run is in a separate isolate on purpose. Dart seeds string
+      // hashing per isolate, so a set or map whose iteration order leaks into the
+      // serialized index is stable within one isolate and unstable across two.
+      // Running both in the same isolate would pass against exactly the bug that
+      // makes committed indexes churn.
+      final index = File(
+        '${root.path}${Platform.pathSeparator}.zuke'
+        '${Platform.pathSeparator}analyzer-index.json',
+      );
+
+      expect(await _run(root), 0);
+      final first = index.readAsBytesSync();
+
+      final secondExit = await Isolate.run(() => _run(root));
+      expect(secondExit, 0);
+      final second = index.readAsBytesSync();
+
+      expect(
+        second,
+        equals(first),
+        reason:
+            'regenerating an unchanged workspace must not rewrite its index; an '
+            'unstable ordering here makes every committed example index churn, '
+            'and is the kind of difference no reviewer catches by eye',
+      );
+    });
+
     for (final output in [
       'lib/contracts',
       'packages/contracts/lib/contracts',

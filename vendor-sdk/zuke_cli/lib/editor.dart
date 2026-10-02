@@ -6,4 +6,6 @@ library;
 
 export 'src/index_contract.dart';
 
+export 'src/proof_engine/binding_coverage_engine.dart';
+
 export 'src/tooling/inspection.dart';

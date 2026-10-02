@@ -226,18 +226,7 @@ class Holder {
 }
 ''');
 
-        final result = await Process.run(
-          Platform.resolvedExecutable,
-          [
-            '--disable-dart-dev',
-            '--suppress-analytics',
-            'analyze',
-            source.path,
-          ],
-          workingDirectory: fixture.path,
-          stdoutEncoding: utf8,
-          stderrEncoding: utf8,
-        );
+        final result = await _analyzeSource(fixture, source);
         final output = '${result.stdout}\n${result.stderr}'.replaceAll(
           '\\',
           '/',
@@ -279,18 +268,7 @@ void register() {
 }
 ''');
 
-        final result = await Process.run(
-          Platform.resolvedExecutable,
-          [
-            '--disable-dart-dev',
-            '--suppress-analytics',
-            'analyze',
-            source.path,
-          ],
-          workingDirectory: fixture.path,
-          stdoutEncoding: utf8,
-          stderrEncoding: utf8,
-        );
+        final result = await _analyzeSource(fixture, source);
         final output = '${result.stdout}\n${result.stderr}';
         expect(
           output,
@@ -301,6 +279,111 @@ void register() {
       },
       timeout: const Timeout(Duration(minutes: 3)),
     );
+
+    test('dart analyze reports an unbound evidence slot on its rule, through the '
+        'real plugin', () async {
+      // The only link the rest of the suite does not cover: that
+      // `registerNodeProcessors` actually registers the visitor and emits a
+      // diagnostic, with the workspace-relative feature location in the
+      // message. The other binding tests drive the shared decision function
+      // and the visitor directly, so a broken registration or a mis-substituted
+      // {0} would pass all of them and show nothing in an editor.
+      final fixture = await _writeAnalyzeFixture();
+      addTearDown(() => deleteTemporaryDirectory(fixture));
+      _writeWorkspaceConfig(fixture);
+
+      const contractPath = 'lib/src/generated/feat_gap_001_contracts.g.dart';
+      _writeCurrentIndex(
+        fixture,
+        requirementIds: const ['RULE-E2E-GAP'],
+        controlIds: const [],
+        bindingIds: const [],
+        // Implemented, so the unimplemented-requirement rule stays quiet and
+        // this test asserts one rule's behaviour rather than two.
+        implementedRequirementIds: const ['RULE-E2E-GAP'],
+        // No managed registration, so the slot is a decided gap rather than an
+        // unknown: the absence here is real, not unreadable.
+        evidenceObligations: const [
+          EvidenceObligation(
+            featureId: 'FEAT-E2E-GAP-001',
+            ruleId: 'RULE-E2E-GAP',
+            scenarioIds: ['SCN-E2E-GAP-001'],
+            slots: [
+              {
+                'type': 'flutter-widget',
+                'target': 'backend',
+                'sourcePackage': 'backend',
+                'sourceAdapter': 'dart-source',
+                'variant': 'default',
+              },
+            ],
+            location: FeatureLocation(
+              file: 'specs/features/gap.feature',
+              line: 12,
+              column: 3,
+            ),
+          ),
+        ],
+        runnerScopes: const [
+          RunnerScopeFact(
+            target: 'backend',
+            sourcePackage: 'backend',
+            adapters: ['dart-source'],
+          ),
+        ],
+        featureFiles: const {'FEAT-E2E-GAP-001': contractPath},
+      );
+
+      final contract = File('${fixture.path}/$contractPath')
+        ..parent.createSync(recursive: true)
+        ..writeAsStringSync('''
+class FeatGap001RuleIds {
+  static const gap = 'RULE-E2E-GAP';
+}
+''');
+
+      final result = await _analyzeSource(fixture, contract);
+      final output = '${result.stdout}\n${result.stderr}'.replaceAll('\\', '/');
+
+      expect(
+        output,
+        contains('zuke_binding_unbound'),
+        reason: 'the rule must fire in a real plugin build:\n$output',
+      );
+      // The code travels in the message, which is what the editor shows.
+      expect(output, contains('ZUKE-EVIDENCE-BINDING-UNBOUND'));
+      // The scenarios identify the affected work; the rule itself is identified
+      // by the anchor, so it is deliberately not repeated in the text.
+      expect(output, contains('SCN-E2E-GAP-001'));
+      // The slot identity, so the reader can see which of several slots is
+      // missing rather than only that one of them is.
+      expect(output, contains('flutter-widget/backend/backend/dart-source'));
+      // And the real location, relative to the workspace, as the CLI reports
+      // it. An absolute path here would read differently from `zuke validate`
+      // describing the same finding.
+      expect(output, contains('specs/features/gap.feature:12:3'));
+      // Anchored on the rule's own constant, not the top of the file. Column 16
+      // is where `gap` starts in `  static const gap = ...`; anchoring on the
+      // string literal instead would point at the value rather than the
+      // declaration the reader has to edit.
+      expect(
+        output,
+        contains(
+          RegExp(
+            r'warning\s+-\s+(?:.*[/\\])?feat_gap_001_contracts\.g\.dart:2:16',
+          ),
+        ),
+        reason: 'expected the rule constant as the anchor in:\n$output',
+      );
+      // A warning, not an error: a workspace mid-authoring has unbound slots by
+      // definition, and an error would train people to ignore the rule.
+      expect(result.exitCode, 2, reason: output);
+      expect(
+        RegExp(r' - zuke_binding_unbound\b').allMatches(output),
+        hasLength(1),
+        reason: 'one rule/slot must produce exactly one diagnostic:\n$output',
+      );
+    }, timeout: const Timeout(Duration(minutes: 3)));
 
     test(
       'dart analyze names the unimplemented requirement in the message',
@@ -329,18 +412,7 @@ class FeatDemo001RequirementIds {
 }
 ''');
 
-        final result = await Process.run(
-          Platform.resolvedExecutable,
-          [
-            '--disable-dart-dev',
-            '--suppress-analytics',
-            'analyze',
-            contract.path,
-          ],
-          workingDirectory: fixture.path,
-          stdoutEncoding: utf8,
-          stderrEncoding: utf8,
-        );
+        final result = await _analyzeSource(fixture, contract);
         final output = '${result.stdout}\n${result.stderr}'.replaceAll(
           '\\',
           '/',
@@ -423,18 +495,7 @@ class FeatDemo001RequirementIds {
   }
   ''');
 
-        final result = await Process.run(
-          Platform.resolvedExecutable,
-          [
-            '--disable-dart-dev',
-            '--suppress-analytics',
-            'analyze',
-            contract.path,
-          ],
-          workingDirectory: fixture.path,
-          stdoutEncoding: utf8,
-          stderrEncoding: utf8,
-        );
+        final result = await _analyzeSource(fixture, contract);
         final output = '${result.stdout}\n${result.stderr}';
 
         expect(
@@ -497,18 +558,7 @@ class FeatDemo001RequirementIds {
               'run `zuke generate --root examples/calculator-product`.',
         );
 
-        final result = await Process.run(
-          Platform.resolvedExecutable,
-          [
-            '--disable-dart-dev',
-            '--suppress-analytics',
-            'analyze',
-            contract.path,
-          ],
-          workingDirectory: workspaceRoot.path,
-          stdoutEncoding: utf8,
-          stderrEncoding: utf8,
-        );
+        final result = await _analyzeSource(workspaceRoot, contract);
         final output = '${result.stdout}\n${result.stderr}';
 
         expect(result.exitCode, 0, reason: output);
@@ -580,7 +630,12 @@ void _writeCurrentIndex(
   required Iterable<String> controlIds,
   required Iterable<String> bindingIds,
   Iterable<String> verifiedRequirementIds = const [],
+  Iterable<String> implementedRequirementIds = const [],
   Map<String, String> packageTargets = const {},
+  List<EvidenceObligation> evidenceObligations = const [],
+  List<ManagedRegistrationFact> managedRegistrations = const [],
+  List<RunnerScopeFact> runnerScopes = const [],
+  Map<String, String> featureFiles = const {},
 }) {
   final config = File('${root.path}/zuke.yaml');
   final manifest = File('${root.path}/generated-manifest.json')
@@ -594,7 +649,12 @@ void _writeCurrentIndex(
     controlIds: controlIds,
     bindingIds: bindingIds,
     verifiedRequirementIds: verifiedRequirementIds,
+    implementedRequirementIds: implementedRequirementIds,
     packageTargets: packageTargets,
+    evidenceObligations: evidenceObligations,
+    managedRegistrations: managedRegistrations,
+    runnerScopes: runnerScopes,
+    featureFiles: featureFiles,
   );
   final indexFile = File('${root.path}/.zuke/analyzer-index.json');
   indexFile.parent.createSync(recursive: true);
@@ -641,6 +701,7 @@ plugins:
       zuke_missing_test: true
       zuke_missing_evidence_types: true
       zuke_unimplemented_requirement: true
+      zuke_binding_unbound: true
 ''');
   final pubGet = await Process.run(
     Platform.resolvedExecutable,
@@ -656,6 +717,15 @@ plugins:
   );
   return fixture;
 }
+
+Future<ProcessResult> _analyzeSource(Directory root, File source) =>
+    Process.run(
+      Platform.resolvedExecutable,
+      ['--disable-dart-dev', '--suppress-analytics', 'analyze', source.path],
+      workingDirectory: root.path,
+      stdoutEncoding: utf8,
+      stderrEncoding: utf8,
+    );
 
 String _norm(String path) => path.replaceAll(r'\', '/');
 

@@ -1,7 +1,7 @@
 {
   "kind": "zuke.analyzer-index",
-  "contractVersion": 1,
-  "inputDigest": "sha256:363b5aa1e732941eb5f2e4f945085fbcfe9032808007a004fc7aedd66dbe3686",
+  "contractVersion": 2,
+  "inputDigest": "sha256:ad6646a7a2a6a572d40d0a912e6908c4521442bea58b68cb27fd64bbf3b9f822",
   "generatedManifestDigest": "sha256:ef26c0cf81111c3a96a2e0dcfe1a5e23f62c4e72d115eec37d3b674a5a741f17",
   "generatedManifestPath": "lib/src/.zuke-generated.json",
   "inputs": [
@@ -317,5 +317,209 @@
   ],
   "featureFiles": {
     "FEAT-CART-001": "lib/src/generated/feat_cart_001_contracts.g.dart"
-  }
+  },
+  "managedRegistrations": [
+    {
+      "scenarioId": "SCN-CART-ACCESSIBLE",
+      "sourcePath": "test/shopping_cart_widget_test.dart",
+      "target": "flutter",
+      "packageId": "shopping-cart",
+      "evidenceTypes": [
+        "gherkin-ui"
+      ]
+    },
+    {
+      "scenarioId": "SCN-CART-ADD-ITEM",
+      "sourcePath": "test/shopping_cart_widget_test.dart",
+      "target": "flutter",
+      "packageId": "shopping-cart",
+      "evidenceTypes": [
+        "gherkin-ui"
+      ]
+    },
+    {
+      "scenarioId": "SCN-CART-ADD-SECOND-ITEM",
+      "sourcePath": "test/shopping_cart_widget_test.dart",
+      "target": "flutter",
+      "packageId": "shopping-cart",
+      "evidenceTypes": [
+        "gherkin-ui"
+      ]
+    },
+    {
+      "scenarioId": "SCN-CART-APPLY-PROMO",
+      "sourcePath": "test/shopping_cart_widget_test.dart",
+      "target": "flutter",
+      "packageId": "shopping-cart",
+      "evidenceTypes": [
+        "gherkin-ui"
+      ]
+    },
+    {
+      "scenarioId": "SCN-CART-EMPTY-CHECKOUT",
+      "sourcePath": "test/shopping_cart_widget_test.dart",
+      "target": "flutter",
+      "packageId": "shopping-cart",
+      "evidenceTypes": [
+        "gherkin-ui"
+      ]
+    },
+    {
+      "scenarioId": "SCN-CART-EMPTY-PROMO",
+      "sourcePath": "test/shopping_cart_widget_test.dart",
+      "target": "flutter",
+      "packageId": "shopping-cart",
+      "evidenceTypes": [
+        "gherkin-ui"
+      ]
+    },
+    {
+      "scenarioId": "SCN-CART-INVALID-PROMO",
+      "sourcePath": "test/shopping_cart_widget_test.dart",
+      "target": "flutter",
+      "packageId": "shopping-cart",
+      "evidenceTypes": [
+        "gherkin-ui"
+      ]
+    },
+    {
+      "scenarioId": "SCN-CART-PROMO-EMPTY-CART",
+      "sourcePath": "test/shopping_cart_widget_test.dart",
+      "target": "flutter",
+      "packageId": "shopping-cart",
+      "evidenceTypes": [
+        "gherkin-ui"
+      ]
+    },
+    {
+      "scenarioId": "SCN-CART-SUCCESS-CHECKOUT",
+      "sourcePath": "test/shopping_cart_widget_test.dart",
+      "target": "flutter",
+      "packageId": "shopping-cart",
+      "evidenceTypes": [
+        "gherkin-ui"
+      ]
+    }
+  ],
+  "unresolvedManagedRegistrations": 0,
+  "evidenceObligations": [
+    {
+      "featureId": "FEAT-CART-001",
+      "ruleId": "RULE-CART-ACCESSIBILITY",
+      "scenarioIds": [
+        "SCN-CART-ACCESSIBLE"
+      ],
+      "slots": [
+        {
+          "type": "gherkin-ui",
+          "target": "flutter",
+          "sourcePackage": "shopping-cart",
+          "sourceAdapter": "dart-source",
+          "variant": "default"
+        }
+      ],
+      "location": {
+        "file": "specs/features/shopping_cart.feature",
+        "line": 180,
+        "column": 3
+      }
+    },
+    {
+      "featureId": "FEAT-CART-001",
+      "ruleId": "RULE-CART-EMPTY-CHECKOUT",
+      "scenarioIds": [
+        "SCN-CART-EMPTY-CHECKOUT"
+      ],
+      "slots": [
+        {
+          "type": "gherkin-ui",
+          "target": "flutter",
+          "sourcePackage": "shopping-cart",
+          "sourceAdapter": "dart-source",
+          "variant": "default"
+        }
+      ],
+      "location": {
+        "file": "specs/features/shopping_cart.feature",
+        "line": 146,
+        "column": 3
+      }
+    },
+    {
+      "featureId": "FEAT-CART-001",
+      "ruleId": "RULE-CART-ITEM-MANAGEMENT",
+      "scenarioIds": [
+        "SCN-CART-ADD-ITEM",
+        "SCN-CART-ADD-SECOND-ITEM"
+      ],
+      "slots": [
+        {
+          "type": "gherkin-ui",
+          "target": "flutter",
+          "sourcePackage": "shopping-cart",
+          "sourceAdapter": "dart-source",
+          "variant": "default"
+        }
+      ],
+      "location": {
+        "file": "specs/features/shopping_cart.feature",
+        "line": 78,
+        "column": 3
+      }
+    },
+    {
+      "featureId": "FEAT-CART-001",
+      "ruleId": "RULE-CART-PROMO-DISCOUNT",
+      "scenarioIds": [
+        "SCN-CART-APPLY-PROMO",
+        "SCN-CART-EMPTY-PROMO",
+        "SCN-CART-INVALID-PROMO",
+        "SCN-CART-PROMO-EMPTY-CART"
+      ],
+      "slots": [
+        {
+          "type": "gherkin-ui",
+          "target": "flutter",
+          "sourcePackage": "shopping-cart",
+          "sourceAdapter": "dart-source",
+          "variant": "default"
+        }
+      ],
+      "location": {
+        "file": "specs/features/shopping_cart.feature",
+        "line": 101,
+        "column": 3
+      }
+    },
+    {
+      "featureId": "FEAT-CART-001",
+      "ruleId": "RULE-CART-SUCCESSFUL-CHECKOUT",
+      "scenarioIds": [
+        "SCN-CART-SUCCESS-CHECKOUT"
+      ],
+      "slots": [
+        {
+          "type": "gherkin-ui",
+          "target": "flutter",
+          "sourcePackage": "shopping-cart",
+          "sourceAdapter": "dart-source",
+          "variant": "default"
+        }
+      ],
+      "location": {
+        "file": "specs/features/shopping_cart.feature",
+        "line": 160,
+        "column": 3
+      }
+    }
+  ],
+  "runnerScopes": [
+    {
+      "target": "flutter",
+      "sourcePackage": "shopping-cart",
+      "adapters": [
+        "dart-source"
+      ]
+    }
+  ]
 }

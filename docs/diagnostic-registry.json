@@ -768,6 +768,23 @@
       "summary": "A managed test registration omits or empties evidenceTypes, which prevents the managed-run ArgumentError. It does not report a requirement left unevidenced; that is a workspace-wide check."
     },
     {
+      "code": "ZUKE-EVIDENCE-BINDING-UNBOUND",
+      "severity": "warning",
+      "summary": "A rule declares an evidence slot and no managed registration satisfying that slot's full identity (type, target, sourcePackage, sourceAdapter, variant) exists among the rule's scenarios. The obligation is the rule's: the rule's scenarios collectively satisfy its slots, so one scenario carrying the binding satisfies it, and the finding names which scenarios do and do not carry it. Establishes only that no satisfying registration was found, not that the behavior is untested in any other sense: a configured runner means the project can execute the kind, and a registration may still not exercise the promised behavior. Severity is the workspace's declared policies.protectedSeverities value; the check is off until one is declared.",
+      "owner": "project",
+      "remediation": "Register a managed test for the named scenarios whose evidenceTypes include the required kind and whose package and target match the slot, or remove the slot from the rule if those scenarios are not meant to be evidenced that way."
+    },
+    {
+      "code": "ZUKE-EVIDENCE-BINDING-UNVERIFIED",
+      "severity": "info",
+      "summary": "A rule's evidence slot could not be decided from source: a registration's kinds or attribution were unreadable, a registration named no resolvable scenario, the slot requires a non-default variant that registrations do not record, or the slot's adapter cannot be attributed to exactly one configured runner. Reported instead of a gap so an incomplete analysis never reads as a confident absence."
+    },
+    {
+      "code": "ZUKE-EVIDENCE-BINDING-SUMMARY",
+      "severity": "info",
+      "summary": "Per-feature roll-up of bound, unbound and unverified rule/slot obligations. Planning information only: feature-level counts are too coarse to decide acceptance, so they are never a gate input."
+    },
+    {
       "code": "ZUKE-SCENARIO-UNVERIFIED",
       "severity": "warning",
       "summary": "A declared scenario is named by no managed test registration, so zuke test never executes it. Reported only when every managed registration resolved to its constant scenario.",

@@ -11,6 +11,11 @@ Map<String, List<String>> indexSerializerKeys(Directory cli) {
   for (final path in [
     'lib/src/tooling/dart_extractor/zuke_index.dart',
     'lib/src/implementation_claims.dart',
+    // The binding-coverage facts are part of the contract in exactly the same
+    // way: an editor and a plugin compiled against different versions must not
+    // disagree about whether an absent field meant "no registrations" or
+    // "unknown".
+    'lib/src/proof_engine/binding_coverage_engine.dart',
   ]) {
     final unit = parseString(
       content: File('${cli.path}/$path').readAsStringSync(),

@@ -5,6 +5,8 @@ import 'reference_resolver.dart';
 import 'cardinality_validator.dart';
 import 'implementation_coverage_validator.dart';
 import 'evidence_validator.dart';
+import 'binding_coverage_check.dart';
+import '../workspace_annotation_scan.dart';
 import 'source_mapping_validator.dart';
 import 'dominance_validator.dart';
 import 'verification_backed_validator.dart';
@@ -390,6 +392,7 @@ class ValidatorEngine {
     List<ControlProofResult> verifiedAttestationProofs = const [],
     String profile = 'pullRequest',
     List<String>? selectedScenarioIds,
+    WorkspaceAnnotationScan? managedScenarioScan,
   }) {
     final allErrors = <ValidationMessage>[];
     final allWarnings = <ValidationMessage>[];
@@ -577,6 +580,42 @@ class ValidatorEngine {
         selectedScenarioIds: selectedScenarioIds,
       ),
     );
+
+    // Opt-in. Answering "is a matching scenario test registered?" needs the
+    // resolved registration scan, which is a full resolver pass, so a workspace
+    // that has not asked for the answer does not pay for it. Declaring a
+    // severity for the code is also how the workspace says whether a gap is
+    // planned (warning) or an unmet acceptance obligation (error).
+    //
+    // The opt-in and its value come from one accessor, because the command that
+    // decides whether to run the scan asks the same question and would otherwise
+    // be a second copy of it.
+    final bindingSeverity = declaredBindingCoverageSeverity(workspace);
+    if (managedScenarioScan != null && bindingSeverity != null) {
+      const check = BindingCoverageCheck();
+      final coverage = check.run(
+        workspace,
+        managedScenarioScan,
+        selectedScenarioIds: selectedScenarioIds,
+      );
+      final declared = switch (bindingSeverity) {
+        'error' => ir.IrDiagnosticSeverity.error,
+        'warning' => ir.IrDiagnosticSeverity.warning,
+        _ => ir.IrDiagnosticSeverity.info,
+      };
+      // Every message, including the per-feature roll-up, is rendered by the
+      // check so the wording for one finding cannot end up split in two files.
+      for (final message in check.toMessages(coverage, severity: declared)) {
+        switch (message.severity) {
+          case ir.IrDiagnosticSeverity.error:
+            allErrors.add(message);
+          case ir.IrDiagnosticSeverity.warning:
+            allWarnings.add(message);
+          case ir.IrDiagnosticSeverity.info:
+            allInfos.add(message);
+        }
+      }
+    }
 
     _addDuplicateProfileWarnings(workspace, allWarnings);
     final expectedProofs = _expectedProofs(

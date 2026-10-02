@@ -88,6 +88,9 @@ void main() {
         'ZUKE-DISCOVERY-001',
         'ZUKE-REF-CYCLE',
         'ZUKE-TRUST-001',
+        'ZUKE-EVIDENCE-BINDING-UNBOUND',
+        'ZUKE-EVIDENCE-BINDING-UNVERIFIED',
+        'ZUKE-EVIDENCE-BINDING-SUMMARY',
       ];
       for (final code in explicit) {
         expect(

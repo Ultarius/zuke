@@ -10,6 +10,14 @@ Future<Directory> createEligibleWorkspace(
   DateTime? attestationExpiresAt,
   String? pullRequestTagExpression,
   List<String> scenarioTags = const [],
+
+  /// When set, the rule declares one `flutter-widget` slot and the workspace
+  /// declares a severity for the binding-coverage code, which is what makes the
+  /// check run at all. The workspace has no managed test registration, so the
+  /// slot is unbound. The runner's own `evidenceTypes` are what make the slot
+  /// *decidable*: they give the slot an adapter to be attributed to, which is a
+  /// different thing from a test existing to satisfy it.
+  bool bindingCoverage = false,
 }) async {
   if (!tempDir.existsSync()) {
     tempDir.createSync(recursive: true);
@@ -83,6 +91,17 @@ Future<Directory> createEligibleWorkspace(
     ..writeln("      executable: '$runnerExec'")
     ..writeln('      args:$yamlArgs')
     ..writeln('      timeoutSeconds: 30');
+  if (bindingCoverage) {
+    // The runner has to be able to publish the kind the slot names, and its
+    // (target, package) is where the check attributes the slot's adapter from.
+    execution.writeln('      evidenceTypes: [flutter-widget]');
+  }
+  // Opting in is what makes the binding-coverage check run at all: it is off
+  // until the workspace declares a severity for its code.
+  final bindingPolicy = bindingCoverage
+      ? '  protectedSeverities:\n'
+            '    ZUKE-EVIDENCE-BINDING-UNBOUND: warning\n'
+      : '';
 
   File('${tempDir.path}/zuke.yaml').writeAsStringSync('''schemaVersion: 3
 workspace:
@@ -105,7 +124,11 @@ lock:
   profiles: [pullRequest, merge, release, nightly]
 policies:
   project: specs/policies/project.yaml
-$execution''');
+$bindingPolicy${bindingCoverage ? '''evidence:
+  types:
+    flutter-widget:
+      mode: record
+''' : ''}$execution''');
   final packageConfig = _workspacePackageConfig();
   final repositoryRoot = packageConfig.parent.parent.path.replaceAll('\\', '/');
   File('${tempDir.path}/pubspec.yaml').writeAsStringSync('''
@@ -152,7 +175,12 @@ dependency_overrides:
 Feature: Gateway
   # rule-spec-begin
   # id: RULE-GATEWAY-RATE-LIMIT
-  # requiredEvidence: []
+${bindingCoverage ? '''  # requiredEvidence:
+  #   - type: flutter-widget
+  #     target: backend
+  #     sourcePackage: backend
+  #     sourceAdapter: dart-source
+  #     variant: default''' : '  # requiredEvidence: []'}
   # rule-spec-end
   @RULE-GATEWAY-RATE-LIMIT
   Rule: Gateway rate-limit

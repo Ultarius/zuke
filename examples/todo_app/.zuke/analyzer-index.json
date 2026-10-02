@@ -1,7 +1,7 @@
 {
   "kind": "zuke.analyzer-index",
-  "contractVersion": 1,
-  "inputDigest": "sha256:aef8660a543864368c2abc52a94423133bb864d6ea9b9292cf03debc0d1e13c5",
+  "contractVersion": 2,
+  "inputDigest": "sha256:1054347cdbcdcc9516c8e4add83161a49fad9334c456494880017d87c88e9a1a",
   "generatedManifestDigest": "sha256:5282d1e887a3b5186d2fe75d9b4ba8ddf4c3697ba551746ccbfd9503c9e081b2",
   "generatedManifestPath": "lib/src/.zuke-generated.json",
   "inputs": [
@@ -227,5 +227,149 @@
   ],
   "featureFiles": {
     "FEAT-TODO-001": "lib/src/generated/feat_todo_001_contracts.g.dart"
-  }
+  },
+  "managedRegistrations": [
+    {
+      "scenarioId": "SCN-TODO-ADD-EMPTY",
+      "sourcePath": "test/todo_widget_test.dart",
+      "target": "flutter",
+      "packageId": "todo-app",
+      "evidenceTypes": [
+        "gherkin-ui"
+      ]
+    },
+    {
+      "scenarioId": "SCN-TODO-ADD-ITEM",
+      "sourcePath": "test/todo_widget_test.dart",
+      "target": "flutter",
+      "packageId": "todo-app",
+      "evidenceTypes": [
+        "gherkin-ui"
+      ]
+    },
+    {
+      "scenarioId": "SCN-TODO-ADD-WHITESPACE",
+      "sourcePath": "test/todo_widget_test.dart",
+      "target": "flutter",
+      "packageId": "todo-app",
+      "evidenceTypes": [
+        "gherkin-ui"
+      ]
+    },
+    {
+      "scenarioId": "SCN-TODO-CLEAR-COMPLETED",
+      "sourcePath": "test/todo_widget_test.dart",
+      "target": "flutter",
+      "packageId": "todo-app",
+      "evidenceTypes": [
+        "gherkin-ui"
+      ]
+    },
+    {
+      "scenarioId": "SCN-TODO-CLEAR-KEEPS-INCOMPLETE",
+      "sourcePath": "test/todo_widget_test.dart",
+      "target": "flutter",
+      "packageId": "todo-app",
+      "evidenceTypes": [
+        "gherkin-ui"
+      ]
+    },
+    {
+      "scenarioId": "SCN-TODO-COMPLETE-COUNT",
+      "sourcePath": "test/todo_widget_test.dart",
+      "target": "flutter",
+      "packageId": "todo-app",
+      "evidenceTypes": [
+        "gherkin-ui"
+      ]
+    },
+    {
+      "scenarioId": "SCN-TODO-COMPLETE-ITEM",
+      "sourcePath": "test/todo_widget_test.dart",
+      "target": "flutter",
+      "packageId": "todo-app",
+      "evidenceTypes": [
+        "gherkin-ui"
+      ]
+    },
+    {
+      "scenarioId": "SCN-TODO-MULTI-TASKS",
+      "sourcePath": "test/todo_widget_test.dart",
+      "target": "flutter",
+      "packageId": "todo-app",
+      "evidenceTypes": [
+        "gherkin-ui"
+      ]
+    },
+    {
+      "scenarioId": "SCN-TODO-TOGGLE-BACK",
+      "sourcePath": "test/todo_widget_test.dart",
+      "target": "flutter",
+      "packageId": "todo-app",
+      "evidenceTypes": [
+        "gherkin-ui"
+      ]
+    }
+  ],
+  "unresolvedManagedRegistrations": 0,
+  "evidenceObligations": [
+    {
+      "featureId": "FEAT-TODO-001",
+      "ruleId": "RULE-TODO-ADD-ITEM",
+      "scenarioIds": [
+        "SCN-TODO-ADD-EMPTY",
+        "SCN-TODO-ADD-ITEM",
+        "SCN-TODO-ADD-WHITESPACE",
+        "SCN-TODO-MULTI-TASKS"
+      ],
+      "slots": [
+        {
+          "type": "gherkin-ui",
+          "target": "flutter",
+          "sourcePackage": "todo-app",
+          "sourceAdapter": "dart-source",
+          "variant": "default"
+        }
+      ],
+      "location": {
+        "file": "specs/features/todo.feature",
+        "line": 81,
+        "column": 3
+      }
+    },
+    {
+      "featureId": "FEAT-TODO-001",
+      "ruleId": "RULE-TODO-COMPLETE-ITEM",
+      "scenarioIds": [
+        "SCN-TODO-CLEAR-COMPLETED",
+        "SCN-TODO-CLEAR-KEEPS-INCOMPLETE",
+        "SCN-TODO-COMPLETE-COUNT",
+        "SCN-TODO-COMPLETE-ITEM",
+        "SCN-TODO-TOGGLE-BACK"
+      ],
+      "slots": [
+        {
+          "type": "gherkin-ui",
+          "target": "flutter",
+          "sourcePackage": "todo-app",
+          "sourceAdapter": "dart-source",
+          "variant": "default"
+        }
+      ],
+      "location": {
+        "file": "specs/features/todo.feature",
+        "line": 120,
+        "column": 3
+      }
+    }
+  ],
+  "runnerScopes": [
+    {
+      "target": "flutter",
+      "sourcePackage": "todo-app",
+      "adapters": [
+        "dart-source"
+      ]
+    }
+  ]
 }

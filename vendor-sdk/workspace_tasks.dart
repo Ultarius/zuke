@@ -78,7 +78,8 @@ Future<void> main(List<String> arguments) async {
   final streamOutput = Platform.environment['CI']?.toLowerCase() == 'true';
   stdout.writeln(
     'Dart $task worker budget: ${budget.budget} '
-    '(packages=$jobs, workers/package=$workers).',
+    '(processors=${Platform.numberOfProcessors}, '
+    'packages=$jobs, workers/package=$workers).',
   );
   final results = await _runBounded(
     selected,

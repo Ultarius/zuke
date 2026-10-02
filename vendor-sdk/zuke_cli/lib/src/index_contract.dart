@@ -6,7 +6,14 @@ import 'package:yaml/yaml.dart';
 
 /// Bump for JSON shape or editor-visible semantic changes. See the schema
 /// golden and docs/editor-plugin-cache.md for the release guard.
-const zukeIndexContract = 1;
+///
+/// v2 added the binding-coverage facts: `managedRegistrations`,
+/// `unresolvedManagedRegistrations`, `evidenceObligations` and `runnerScopes`.
+/// They are read as required keys, so a v1 index cannot be interpreted as
+/// "this workspace registered nothing" — which would turn every slot in it into a
+/// false gap. An older index is therefore incompatible rather than readable, and
+/// `zuke doctor --fix` regenerates it.
+const zukeIndexContract = 2;
 
 const _fallbackDirectoryLimit = 256;
 const _fallbackExcludedDirectories = {

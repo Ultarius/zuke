@@ -68,6 +68,21 @@ String? defaultRemediation(String code) {
           'never executes it. Add a zukeTest(...) or zukeTestWidgets(...) '
           'registration naming the scenario, or retire the scenario if the '
           'behavior is no longer required.',
+    'ZUKE-EVIDENCE-BINDING-UNBOUND' =>
+      'The scenario inherits an evidence slot from its rule and no managed '
+          'registration publishes that kind for it. Add a registration naming '
+          'the scenario whose `evidenceTypes` include the required kind, or drop '
+          'the slot from the rule if this scenario is not meant to be evidenced '
+          'that way. A configured runner only means the project can execute the '
+          'kind.',
+    'ZUKE-EVIDENCE-BINDING-UNVERIFIED' =>
+      'The scan could not decide whether this slot is bound, so absence is not '
+          'claimed. This resolves once the named registrations use constant '
+          'scenario IDs and literal evidence kinds, or once the slot names the '
+          'default variant that registrations actually record.',
+    'ZUKE-EVIDENCE-BINDING-SUMMARY' =>
+      'Per-feature roll-up of scenario/slot obligations. Planning information; '
+          'read the per-scenario findings to decide acceptance.',
     'ZUKE-PLUGIN-CACHE' =>
       'The analyzer plugin snapshot no longer matches the local Zuke sources. '
           'Run `zuke doctor --fix`, then restart the analysis server or reload the '

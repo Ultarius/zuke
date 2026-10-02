@@ -121,7 +121,13 @@ void main() {
     framework: flutter
     packages:
       - id: fake-supervisor-flutter
-        path: .
+        # Its own directory, not `.`. Two packages cannot share one path -
+        # nothing could then say which one a file belongs to - and declaring one
+        # package under both targets instead is multi-target membership, which
+        # needs an explicit target to disambiguate the source identity. Neither
+        # shape fits a fixture whose subject is runner selection, so this one gets
+        # its own package.
+        path: packages/flutter
         roots: [lib, test]
 ''',
           featureTargets: '''
@@ -135,6 +141,21 @@ void main() {
 ''',
         );
         addTearDown(() => root.delete(recursive: true));
+        // The flutter package has its own directory, so it has to exist and be a
+        // package: extraction rejects a configured path it cannot find, and a
+        // directory without a pubspec. Nothing is written inside it, which is the
+        // point of this fixture - the flutter runner has no scenarios to run.
+        final flutterPackage = Directory(
+          '${root.path}${Platform.pathSeparator}packages'
+          '${Platform.pathSeparator}flutter',
+        )..createSync(recursive: true);
+        File(
+          '${flutterPackage.path}${Platform.pathSeparator}pubspec.yaml',
+        ).writeAsStringSync('''
+name: fake_supervisor_flutter
+environment:
+  sdk: ">=3.10.0 <4.0.0"
+''');
         final supervisor = _ResultSupervisor([
           ScenarioResult(
             executionId: 'backend-execution',

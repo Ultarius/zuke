@@ -8,6 +8,7 @@ import 'extraction_service.dart';
 import 'attestation_verification.dart';
 import 'cli_parser.dart';
 import 'scenario_selection.dart';
+import 'workspace_annotation_scan.dart';
 import 'diagnostic_text.dart';
 import 'proof_engine.dart';
 import 'configuration_preflight.dart';
@@ -65,6 +66,23 @@ class ValidateCommand {
       workspace,
     );
     final selection = const ScenarioSelector().resolve(workspace, profile);
+    // Only resolved when the workspace opted in: the scan is a full resolver
+    // pass, and a workspace that has not asked whether a scenario test exists
+    // should not pay to find out that it does not. The opt-in is read through
+    // the same accessor the validator uses, so the two cannot disagree about
+    // whether this pass was worth taking.
+    final bindingCoverageEnabled =
+        declaredBindingCoverageSeverity(workspace) != null;
+    final managedScenarioScan = bindingCoverageEnabled
+        ? await scanWorkspaceAnnotations(root, workspace)
+        : null;
+    if (managedScenarioScan != null) {
+      info(
+        '  Scenario bindings: ${managedScenarioScan.managedScenarios.length} '
+        'registered, '
+        '${managedScenarioScan.unresolvedManagedRegistrations} unresolved',
+      );
+    }
     final result = ValidatorEngine().validate(
       workspace,
       outputs: extraction.outputs,
@@ -74,6 +92,7 @@ class ValidateCommand {
       selectedScenarioIds: selection.tagExpression == null
           ? null
           : selection.scenarioIds,
+      managedScenarioScan: managedScenarioScan,
     );
     for (final line in renderValidationMessages(
       result.errors,
@@ -95,6 +114,23 @@ class ValidateCommand {
     for (final msg in result.warnings) {
       collectedDiagnostics.add(
         _validationDiagnostic(msg, severity: DiagnosticSeverity.warning),
+      );
+    }
+    // Informational findings are findings, not progress. They render through
+    // the same channel as warnings so `--quiet`, which suppresses progress,
+    // still shows them, and `--silent`, which suppresses findings, still
+    // suppresses them. A finding that only reached the JSON report would be
+    // invisible in the mode most people run.
+    for (final line in renderValidationMessages(
+      result.infos,
+      label: 'INFO',
+      bindingNames: bindingNames,
+    ).lines) {
+      finding(line);
+    }
+    for (final msg in result.infos) {
+      collectedDiagnostics.add(
+        _validationDiagnostic(msg, severity: DiagnosticSeverity.info),
       );
     }
 
@@ -183,6 +219,7 @@ class ValidateCommand {
               },
           ],
           'warnings': result.warnings.map((e) => e.toJson()).toList(),
+          'infos': result.infos.map((e) => e.toJson()).toList(),
         }),
       );
       if (extraction.errors.any((error) => error.startsWith('ZUKE-EXTRACT-'))) {
@@ -197,6 +234,9 @@ class ValidateCommand {
         '${result.errors.length + extraction.errors.length + (missingEvidence ? 1 : 0)}',
       );
       stdout.writeln('  Warnings: ${result.warnings.length}');
+      if (result.infos.isNotEmpty) {
+        stdout.writeln('  Info: ${result.infos.length}');
+      }
     }
     if (extraction.errors.any((error) => error.startsWith('ZUKE-EXTRACT-'))) {
       return 3;

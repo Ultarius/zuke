@@ -1,8 +1,8 @@
 {
   "kind": "zuke.analyzer-index",
-  "contractVersion": 1,
+  "contractVersion": 2,
   "diagnosticAnchor": "lib/zuke_contracts.dart",
-  "inputDigest": "sha256:66866454ecdd5ee3d02acf3660307d10915cc9395f1768bdb8b55c088a1c0c6d",
+  "inputDigest": "sha256:eeb8f78dd8d195fd8b610fe1c7cdfd5d79a0065bc7e40ec7139450683935c838",
   "generatedManifestDigest": "sha256:8336f0f6e268574768ca81bf98c37b6527fe5eb6dcd87b88c520b1e98005dc30",
   "generatedManifestPath": "lib/src/.zuke-generated.json",
   "inputs": [
@@ -221,5 +221,149 @@
   ],
   "featureFiles": {
     "FEAT-LIBRARY-001": "lib/src/generated/feat_library_001_contracts.g.dart"
-  }
+  },
+  "managedRegistrations": [
+    {
+      "scenarioId": "SCN-LIBRARY-CHECKOUT-BAD-ISBN",
+      "sourcePath": "test/checkout_controller_test.dart",
+      "target": "catalog",
+      "packageId": "library-catalog",
+      "evidenceTypes": [
+        "domain-unit"
+      ]
+    },
+    {
+      "scenarioId": "SCN-LIBRARY-CHECKOUT-EMPTY",
+      "sourcePath": "test/checkout_controller_test.dart",
+      "target": "catalog",
+      "packageId": "library-catalog",
+      "evidenceTypes": [
+        "domain-unit"
+      ]
+    },
+    {
+      "scenarioId": "SCN-LIBRARY-CHECKOUT-LIMIT",
+      "sourcePath": "test/checkout_controller_test.dart",
+      "target": "catalog",
+      "packageId": "library-catalog",
+      "evidenceTypes": [
+        "domain-unit"
+      ]
+    },
+    {
+      "scenarioId": "SCN-LIBRARY-CHECKOUT-VALID",
+      "sourcePath": "test/checkout_controller_test.dart",
+      "target": "catalog",
+      "packageId": "library-catalog",
+      "evidenceTypes": [
+        "domain-unit"
+      ]
+    },
+    {
+      "scenarioId": "SCN-LIBRARY-PEER-CONNECT",
+      "sourcePath": "test/checkout_controller_test.dart",
+      "target": "catalog",
+      "packageId": "library-catalog",
+      "evidenceTypes": [
+        "domain-unit"
+      ]
+    },
+    {
+      "scenarioId": "SCN-LIBRARY-PEER-SYNC",
+      "sourcePath": "test/checkout_controller_test.dart",
+      "target": "catalog",
+      "packageId": "library-catalog",
+      "evidenceTypes": [
+        "domain-unit"
+      ]
+    },
+    {
+      "scenarioId": "SCN-LIBRARY-RETURN",
+      "sourcePath": "test/checkout_controller_test.dart",
+      "target": "catalog",
+      "packageId": "library-catalog",
+      "evidenceTypes": [
+        "domain-unit"
+      ]
+    }
+  ],
+  "unresolvedManagedRegistrations": 0,
+  "evidenceObligations": [
+    {
+      "featureId": "FEAT-LIBRARY-001",
+      "ruleId": "RULE-LIBRARY-BOOK-RETURN",
+      "scenarioIds": [
+        "SCN-LIBRARY-RETURN"
+      ],
+      "slots": [
+        {
+          "type": "domain-unit",
+          "target": "catalog",
+          "sourcePackage": "library-catalog",
+          "sourceAdapter": "dart-source",
+          "variant": "default"
+        }
+      ],
+      "location": {
+        "file": "specs/features/library_catalog.feature",
+        "line": 95,
+        "column": 3
+      }
+    },
+    {
+      "featureId": "FEAT-LIBRARY-001",
+      "ruleId": "RULE-LIBRARY-BRANCH-PEER",
+      "scenarioIds": [
+        "SCN-LIBRARY-PEER-CONNECT",
+        "SCN-LIBRARY-PEER-SYNC"
+      ],
+      "slots": [
+        {
+          "type": "domain-unit",
+          "target": "catalog",
+          "sourcePackage": "library-catalog",
+          "sourceAdapter": "dart-source",
+          "variant": "default"
+        }
+      ],
+      "location": {
+        "file": "specs/features/library_catalog.feature",
+        "line": 109,
+        "column": 3
+      }
+    },
+    {
+      "featureId": "FEAT-LIBRARY-001",
+      "ruleId": "RULE-LIBRARY-CHECKOUT",
+      "scenarioIds": [
+        "SCN-LIBRARY-CHECKOUT-BAD-ISBN",
+        "SCN-LIBRARY-CHECKOUT-EMPTY",
+        "SCN-LIBRARY-CHECKOUT-LIMIT",
+        "SCN-LIBRARY-CHECKOUT-VALID"
+      ],
+      "slots": [
+        {
+          "type": "domain-unit",
+          "target": "catalog",
+          "sourcePackage": "library-catalog",
+          "sourceAdapter": "dart-source",
+          "variant": "default"
+        }
+      ],
+      "location": {
+        "file": "specs/features/library_catalog.feature",
+        "line": 61,
+        "column": 3
+      }
+    }
+  ],
+  "runnerScopes": [
+    {
+      "target": "catalog",
+      "sourcePackage": "library-catalog",
+      "adapters": [
+        "dart-source"
+      ]
+    }
+  ]
 }

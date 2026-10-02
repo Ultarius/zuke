@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:test/test.dart';
 import 'package:zuke_cli/src/implementation_scan.dart';
+import 'package:zuke_cli/src/proof_engine/binding_coverage_engine.dart';
 import 'package:zuke_cli/src/requirement_scopes.dart';
 import 'package:zuke_cli/tooling.dart';
 import 'package:zuke_frontend/zuke_frontend.dart';
@@ -11,6 +12,16 @@ import 'support/temporary_directory.dart';
 import 'support/resolved_workspace.dart';
 
 void main() {
+  test('one-character packages outrank the workspace root in either order', () {
+    for (final packages in [
+      {'.': 'root', 'a': 'nested'},
+      {'a': 'nested', '.': 'root'},
+    ]) {
+      expect(targetForWorkspacePath(packages, 'a/test/main.dart'), 'nested');
+      expect(packageIdForWorkspacePath(packages, 'a/test/main.dart'), 'nested');
+      expect(targetForWorkspacePath(packages, 'ab/main.dart'), 'root');
+    }
+  });
   group('Target-aware implementation claims', () {
     late Directory root;
 
@@ -571,6 +582,65 @@ Feature: Scoping
       );
     });
 
+    test('two spellings of one file are recorded once', () {
+      // Regression. `zuke.yaml` was already contributed by the discovery input
+      // set and was also named explicitly, and because the caller's set
+      // deduplicates *raw* paths while the index records normalized ones, the
+      // duplicate survived into every committed example index. It looked harmless
+      // — same file, same digest — but `inputDigest` hashes the list as given, so
+      // the committed index described an input set the generator could not
+      // reliably reproduce, and CI reported it stale against unchanged sources.
+      final config = File('${root.path}/zuke.yaml')
+        ..writeAsStringSync('schemaVersion: 3\n');
+      final manifest = File('${root.path}/generated-manifest.json')
+        ..writeAsStringSync('{"files":[]}');
+
+      ZukeIndex create(List<String> inputPaths) => ZukeIndex.create(
+        root: root.path,
+        inputPaths: inputPaths,
+        generatedManifestContent: manifest.readAsStringSync(),
+        generatedManifestPath: 'generated-manifest.json',
+        requirementIds: const [],
+        controlIds: const [],
+        bindingIds: const [],
+      );
+
+      final byAbsolute = create([config.path]);
+      final byBothRoutes = create([
+        config.path,
+        // A different spelling of the same file, which is what a caller reaching
+        // it by two routes produces.
+        '${root.path}${Platform.pathSeparator}zuke.yaml',
+        'zuke.yaml',
+      ]);
+
+      expect(byAbsolute.inputs.map((input) => input.path).toList(), [
+        'zuke.yaml',
+      ]);
+      expect(
+        byBothRoutes.inputs.map((input) => input.path).toList(),
+        ['zuke.yaml'],
+        reason:
+            'one file must occupy one slot in `inputs` however many routes '
+            'reached it; a duplicate changes inputDigest and makes a committed '
+            'index report itself stale',
+      );
+      // Same recorded input set, so the same digest. This is the property that
+      // actually broke: not a cosmetic duplicate, an unreproducible fingerprint.
+      expect(
+        byBothRoutes.inputDigest,
+        byAbsolute.inputDigest,
+        reason:
+            'spelling the same file twice must not change what the index claims '
+            'to have read, or `--check` fails on an unchanged workspace',
+      );
+      expect(
+        byBothRoutes.freshnessIssues(root: root.path),
+        isEmpty,
+        reason: 'the deduplicated index must still verify against its inputs',
+      );
+    });
+
     test('re-targeting a requirement invalidates the index', () {
       final before = buildIndex(
         requirementTargets: const {
@@ -585,24 +655,102 @@ Feature: Scoping
       expect(after, isNot(before));
     });
 
-    test('an index without the new keys still reads', () {
-      final legacy = ZukeIndex.fromJson({
-        'kind': ZukeIndex.kind,
-        'inputDigest': 'sha256:${'0' * 64}',
-        'generatedManifestDigest': 'sha256:${'0' * 64}',
-        'generatedManifestPath': 'manifest.json',
-        'inputs': <Object?>[],
-        'inputPatterns': <Object?>[],
-        'patternInputs': <Object?>[],
-        'requirementIds': ['RULE-ONE'],
-        'controlIds': <Object?>[],
-        'bindingIds': <Object?>[],
-      });
-      expect(legacy.implementedRequirementIds, isEmpty);
-      expect(legacy.requirementTargets, isEmpty);
-      expect(legacy.packageTargets, isEmpty);
-      // An unrecorded ID is unscoped, so it still applies everywhere.
-      expect(legacy.appliesToTarget('RULE-ONE', 'flutter'), isTrue);
+    test('an index without the binding-coverage facts is refused', () {
+      // Deliberately strict. The ID sets above stayed lenient because an
+      // unrecorded ID is genuinely ambiguous — "declared nothing" and "recorded
+      // nothing" mean the same thing downstream. The binding-coverage facts are
+      // the opposite: an absent registration list cannot stand in for an empty
+      // one, because "this workspace registered nothing" is a claim about
+      // absence, and reading a pre-contract index as if it had made that claim
+      // would report every slot as a gap.
+      expect(
+        () => ZukeIndex.fromJson({
+          'kind': ZukeIndex.kind,
+          'inputDigest': 'sha256:${'0' * 64}',
+          'generatedManifestDigest': 'sha256:${'0' * 64}',
+          'generatedManifestPath': 'manifest.json',
+          'inputs': <Object?>[],
+          'inputPatterns': <Object?>[],
+          'patternInputs': <Object?>[],
+          'requirementIds': ['RULE-ONE'],
+          'controlIds': <Object?>[],
+          'bindingIds': <Object?>[],
+        }),
+        throwsFormatException,
+      );
+    });
+
+    test('an empty registration list is not the same as an unreadable one', () {
+      // The distinction the strict read exists to keep: an explicit empty list is
+      // a complete answer, while an entry missing its unknown-marking keys is
+      // rejected rather than defaulted.
+      final complete = buildIndex();
+      expect(complete.managedRegistrations, isEmpty);
+      expect(
+        complete.unresolvedManagedRegistrations,
+        0,
+        reason: 'a scan that resolved everything records no unknowns',
+      );
+
+      final json = complete.toJson();
+      json['managedRegistrations'] = [
+        {
+          'scenarioId': 'SCN-ONE',
+          'sourcePath': 'test/one_test.dart',
+          // target, packageId and evidenceTypes all absent.
+        },
+      ];
+      expect(
+        () => ZukeIndex.fromJson(json),
+        throwsFormatException,
+        reason:
+            'a registration without its unknown-marking keys must be refused, '
+            'not read as publishing nothing',
+      );
+    });
+
+    test('a registration keeps its unknowns across a round trip', () {
+      final written = ZukeIndex(
+        inputDigest: 'sha256:${'0' * 64}',
+        generatedManifestDigest: 'sha256:${'0' * 64}',
+        generatedManifestPath: 'manifest.json',
+        inputs: const [],
+        requirementIds: const {},
+        controlIds: const {},
+        bindingIds: const {},
+        managedRegistrations: const [
+          ManagedRegistrationFact(
+            scenarioId: 'SCN-ONE',
+            sourcePath: 'test/one_test.dart',
+          ),
+          ManagedRegistrationFact(
+            scenarioId: 'SCN-TWO',
+            sourcePath: 'test/two_test.dart',
+            target: 'app',
+            packageId: 'app',
+            evidenceTypes: ['unit'],
+          ),
+        ],
+        unresolvedManagedRegistrations: 1,
+      ).toJson();
+
+      // The keys are present with null values, not omitted: that is the encoding
+      // for "unknown", and the reader requires them.
+      expect(
+        (written['managedRegistrations'] as List).first,
+        containsPair('evidenceTypes', isNull),
+      );
+      final reread = ZukeIndex.fromJson(written);
+      expect(reread.managedRegistrations.first.evidenceTypes, isNull);
+      expect(reread.managedRegistrations.first.target, isNull);
+      expect(reread.managedRegistrations.last.evidenceTypes, ['unit']);
+      expect(
+        reread.unresolvedManagedRegistrations,
+        1,
+        reason:
+            'the unresolved count is what makes a slot undecidable; dropping it '
+            'would let the editor report a gap the CLI refuses to decide',
+      );
     });
 
     test('targetForPath resolves the longest matching package', () {

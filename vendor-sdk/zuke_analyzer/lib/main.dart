@@ -34,8 +34,134 @@ class ZukePlugin extends Plugin {
     registry.registerLintRule(ZukeMissingEvidenceTypesRule());
     registry.registerLintRule(ZukeUnimplementedRequirementRule());
     registry.registerLintRule(ZukeSpecLintRule());
+    registry.registerWarningRule(ZukeBindingUnboundRule());
   }
 }
+
+/// Reports declared evidence slots that no managed test registration satisfies.
+///
+/// This is the second of the four evidence questions, in the editor. `zuke
+/// validate` answers it through the same `BindingVerdictEngine`; the difference is
+/// when and where the answer appears, not what it is. Getting coverage gaps while
+/// writing the feature is worth more than getting them on a CI run.
+///
+/// **Gated on both fact families, deliberately.** The verdict compares declared
+/// slots — which come from the specifications — against registrations, which come
+/// from the Dart sources. A drift on either side makes the comparison unsound, so
+/// `_needsSourceFacts` alone would be wrong: against a stale specification the
+/// rule would compare today's registrations with a requirement set from before
+/// the edit, and confidently report a gap that no longer exists. Suppressing is
+/// the safe answer in both directions.
+///
+/// **Warning, not error.** A workspace mid-authoring has unbound slots by
+/// definition. An error would put red squiggles on generated contracts before a
+/// line of test exists, which is how people learn to ignore a rule. A project
+/// wanting the stricter gate sets the severity in `analysis_options.yaml`, where
+/// it composes with `--fatal-infos`.
+///
+/// **Whole-workspace scope.** An editor has no profile, so this passes no
+/// scenario selection and names every affected scenario. A profile-scoped `zuke
+/// validate` run can therefore legitimately name fewer. That is scope, not
+/// disagreement; the underlying verdicts are identical.
+///
+/// Findings reflect the last `zuke generate`. This rule does not refresh the
+/// index: writing to the workspace from a diagnostic callback is not something it
+/// may do, and a debounced refresh belongs in the editor, outside analysis.
+///
+/// As with the other plugin diagnostics, `// ignore:` does not suppress this and
+/// neither does `// ignore_for_file:`. The only supported relief is the
+/// `diagnostics:` map in `analysis_options.yaml`, which is per workspace.
+class ZukeBindingUnboundRule extends AnalysisRule {
+  static const code = LintCode(
+    'zuke_binding_unbound',
+    'ZUKE-EVIDENCE-BINDING-UNBOUND: {0}',
+    uniqueName: 'LintCode.zuke_binding_unbound',
+    severity: DiagnosticSeverity.WARNING,
+  );
+
+  ZukeBindingUnboundRule()
+    : super(
+        name: 'zuke_binding_unbound',
+        description:
+            'Requires a managed test registration for each declared evidence slot',
+      );
+
+  @override
+  DiagnosticCode get diagnosticCode => code;
+
+  @override
+  void registerNodeProcessors(
+    RuleVisitorRegistry registry,
+    RuleContext context,
+  ) {
+    final path = context.definingUnit.file.path;
+    final findings = _bindingCoverageFindingsFor(path);
+    if (findings.isEmpty) return;
+    registry.addFieldDeclaration(
+      this,
+      ZukeBindingCoverageVisitor(
+        findings: findings,
+        report: (AstNode anchor, BindingCoverageFinding finding) =>
+            reportAtNode(anchor, arguments: [bindingUnboundMessage(finding)]),
+      ),
+    );
+  }
+}
+
+/// The unbound findings this rule would report for the file at [path], or empty.
+///
+/// Every precondition lives here rather than in the rule, so the test seam and
+/// the rule cannot drift apart: the seam asks the same question the rule does.
+///
+/// The order is deliberate. Freshness first, because a gap read from a stale
+/// snapshot is an accusation rather than a fact. Then the generated-contract
+/// shape, since only a generated contract carries a constant per rule to anchor
+/// on and hand-written code may legitimately use those ID strings. Then feature
+/// ownership, which is what gives each finding exactly one owner.
+List<BindingCoverageFinding> _bindingCoverageFindingsFor(String? path) {
+  final filePath = path ?? '';
+  if (!filePath.replaceAll('\\', '/').endsWith('_contracts.g.dart')) {
+    return const [];
+  }
+  final state = _indexStateFor(path);
+  // Both families, not just the sources: see the rule's docs.
+  final index = state.indexFor(_needsSpecificationAndSourceFacts);
+  if (index == null) return const [];
+  final root = state.workspaceRoot;
+  if (root == null) return const [];
+  final relative = ZukeIndex.relativeToRoot(root, filePath);
+  if (relative == null) return const [];
+  final ownedFeatures = index.featuresAtPath(relative);
+  if (ownedFeatures.isEmpty) return const [];
+  return const BindingVerdictEngine()
+      .compute(
+        obligations: [
+          for (final obligation in index.evidenceObligations)
+            if (ownedFeatures.contains(obligation.featureId)) obligation,
+        ],
+        registrations: index.managedRegistrations,
+        runnerScopes: index.runnerScopes,
+        unresolvedRegistrations: index.unresolvedManagedRegistrations,
+      )
+      .unbound
+      .where((finding) => ownedFeatures.contains(finding.featureId))
+      .toList(growable: false);
+}
+
+/// Whether [ZukeBindingUnboundRule] would report anything for [sourcePath].
+///
+/// The same question the rule asks, so a passing test here means the rule would
+/// actually produce a diagnostic rather than merely being registered.
+bool zukeBindingUnboundAppliesForTesting(String? sourcePath) =>
+    _bindingCoverageFindingsFor(sourcePath).isNotEmpty;
+
+/// The unbound findings [ZukeBindingUnboundRule] would report for [sourcePath].
+///
+/// Exposed so the anchoring and ownership behaviour can be asserted directly
+/// rather than inferred from whether a visitor was registered.
+List<BindingCoverageFinding> zukeBindingUnboundFindingsForTesting(
+  String? sourcePath,
+) => _bindingCoverageFindingsFor(sourcePath);
 
 class ZukePluginStaleRule extends AnalysisRule {
   static const code = LintCode(

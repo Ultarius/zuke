@@ -1,7 +1,31 @@
 {
-  "contractVersion": 1,
-  "pluginVersion": "0.1.1",
+  "contractVersion": 2,
+  "pluginVersion": "0.1.2",
   "serializers": {
+    "EvidenceObligation": [
+      "featureId",
+      "location",
+      "ruleId",
+      "scenarioIds",
+      "slots"
+    ],
+    "FeatureLocation": [
+      "column",
+      "file",
+      "line"
+    ],
+    "ManagedRegistrationFact": [
+      "evidenceTypes",
+      "packageId",
+      "scenarioId",
+      "sourcePath",
+      "target"
+    ],
+    "RunnerScopeFact": [
+      "adapters",
+      "sourcePackage",
+      "target"
+    ],
     "ZukeImplementationClaim": [
       "id",
       "target"
@@ -11,6 +35,7 @@
       "contractVersion",
       "controlIds",
       "diagnosticAnchor",
+      "evidenceObligations",
       "featureFiles",
       "generatedManifestDigest",
       "generatedManifestPath",
@@ -21,15 +46,18 @@
       "inputPatterns",
       "inputs",
       "kind",
+      "managedRegistrations",
       "packageTargets",
       "patternInputs",
       "presentedRequirementIds",
       "providedControlIds",
       "requirementIds",
       "requirementTargets",
+      "runnerScopes",
       "sourcePaths",
       "sourceRoots",
       "specDiagnostics",
+      "unresolvedManagedRegistrations",
       "verifiedClaims",
       "verifiedRequirementIds"
     ],

@@ -1,20 +1,28 @@
 import 'package:zuke_frontend/zuke_frontend.dart';
 
-import 'path_safety.dart';
-
 /// Package path to target ID for every configured package.
 ///
 /// The single source of that mapping, so the implementation scan and the index
 /// cannot disagree about which target owns a file.
 Map<String, String> workspacePackageTargets(
   WorkspaceDiscoveryResult workspace,
+) => _workspacePackageValues(workspace, (target, package) => target);
+
+/// Package identities use the same ownership validation as target scoping.
+Map<String, String> workspacePackageIds(WorkspaceDiscoveryResult workspace) =>
+    _workspacePackageValues(workspace, (target, package) => package.id);
+
+Map<String, String> _workspacePackageValues(
+  WorkspaceDiscoveryResult workspace,
+  String Function(String target, WorkspacePackage package) valueFor,
 ) {
+  final ownership = WorkspacePackageOwnership();
   final result = <String, String>{};
   for (final entry in workspace.config.workspaceTargets.entries) {
     for (final package in entry.value.packages) {
-      final path = normalizePackagePath(package.path);
+      final path = ownership.claim(package.path, entry.key, package.id);
       if (path.isEmpty) continue;
-      result[path] = entry.key;
+      result[path] = valueFor(entry.key, package);
     }
   }
   return result;

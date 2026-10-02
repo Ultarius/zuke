@@ -6,6 +6,7 @@ import 'types.dart';
 import 'gherkin_parser.dart';
 import 'metadata_extractor.dart';
 import 'config_models.dart';
+import 'workspace_paths.dart';
 
 /// The workspace root as a canonical absolute path, with symlinks resolved.
 ///
@@ -616,6 +617,7 @@ class ZukeConfig {
     Map<String, String> targetFrameworks,
     List<String> lockProfiles,
   ) {
+    final ownership = WorkspacePackageOwnership();
     for (final entry in targets.entries) {
       final targetId = entry.key.toString();
       final target = entry.value;
@@ -662,6 +664,7 @@ class ZukeConfig {
             'target $targetId package $id requires a non-empty path',
           );
         }
+        ownership.claim(path, targetId, id);
         if (roots is! List ||
             roots.any((root) => root is! String || root.isEmpty)) {
           throw FormatException(

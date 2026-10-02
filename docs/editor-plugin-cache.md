@@ -132,6 +132,106 @@ both older and newer producer contracts even when their JSON shapes cannot be
 read by the compiled plugin. The message describes a generator/plugin mismatch
 rather than assuming which side is old.
 
+## Binding coverage in the editor: `zuke_binding_unbound`
+
+`zuke_binding_unbound` is a **warning** rule reporting evidence slots a rule
+declares for which no managed test registration exists. It answers the same
+question as the CLI check, through the same `BindingVerdictEngine`, so the two
+cannot disagree about whether a slot is bound. It is a different surface, not a
+different verdict.
+
+Enable it like any other plugin diagnostic, in `analysis_options.yaml`:
+
+```yaml
+plugins:
+  zuke_analyzer:
+    diagnostics:
+      zuke_binding_unbound: true
+```
+
+**What it establishes.** That a matching registration exists. Nothing more. A
+registration it credits may call a service directly and never perform the user's
+action, so `bound` means "a test exists", not "the promised behaviour ran".
+Deciding that needs the entry point that actually ran, observed at runtime.
+
+**Why it needs the index.** A slot is unbound only if *no* registration anywhere
+satisfies it, so the question is about the whole workspace and a per-file
+analysis cannot answer it. `zuke generate` records the registrations, the declared
+slots, the runner scopes and the count of registrations it could not resolve.
+Because "unresolved" is workspace-wide, one unreadable registration makes every
+slot `unverified` rather than `unbound`.
+
+**Findings appear and disappear with `zuke generate`.** The rule reads a
+snapshot. Freshness gating stops it from reporting a gap the workspace has
+already closed, but the index is not refreshed by a diagnostic callback: writing
+to the workspace from analysis is not something a rule may do, and a debounced
+refresh belongs to the editor. The sequence is therefore:
+
+1. Add the widget test that closes the gap.
+2. Run `zuke generate`.
+3. The squiggle disappears.
+
+While the index is stale the rule says nothing at all, in either direction.
+
+**Gate.** It requires *both* fact families current. The slots come from the
+specifications and the registrations from the Dart sources, so a drift on either
+side makes the comparison unsound; a stale specification would otherwise be
+compared against today's registrations and report a gap that no longer exists.
+This is the same `_needsSpecificationAndSourceFacts` decision
+`zuke_unimplemented_requirement` uses.
+
+**Scope differs from the CLI, deliberately.** An editor has no profile, so the
+rule names every affected scenario in the workspace. A `zuke validate` run with a
+tag filter, or with a profile lock that selects scenarios, names fewer. The
+underlying verdicts are identical; only the named set differs. Compare an
+unfiltered `zuke validate` run when reconciling counts.
+
+**One owner per finding.** Each finding is anchored on the generated constant for
+its own rule (`static const someRule = 'RULE-…';`), only in the contract
+generated from that rule's feature, and at most once per rule/slot even when the
+contract spells the same rule again as an alias or a `RuleId('…')` companion. The
+`.feature` file and line are carried in the message.
+
+**Suppression.** `// ignore:` and `// ignore_for_file:` do not suppress this — the
+same limitation as the other plugin diagnostics. The only supported relief is the
+`diagnostics:` map above, which is per workspace.
+
+**Known-facts are strict by design.** `managedRegistrations`,
+`unresolvedManagedRegistrations`, `evidenceObligations` and `runnerScopes` are
+required keys, and an unknown field is written as an explicit `null` rather than
+omitted. A registration whose evidence kinds could not be read may be exactly the
+one satisfying a slot, so an index that dropped it, or coerced it to an empty
+list, would turn `unverified` into a false `unbound`. An index from an earlier
+contract is therefore *incompatible* rather than leniently read, and
+`zuke doctor --fix` regenerates it. All four fact families participate in
+`inputDigest`, so a hand-edited index fails its own digest check.
+
+### Reconciling the two front ends' numbers
+
+Three things make an editor count and a CLI count disagree without either being
+wrong. All three have cost time on this repository, so they are written down.
+
+**A finding appears twice in the JSON report.** `zuke validate --format json`
+emits a combined `diagnostics` list *and* per-severity `errors`, `warnings` and
+`infos` arrays. Every finding is in both, so counting `"code":` occurrences over
+the whole document counts each one twice. A workspace with nine findings
+produces eighteen. Count one array, or the `diagnostics` list, never the document.
+This has silently halved and doubled real numbers before.
+
+**Findings are on stderr; progress is on stdout.** A text-mode run prints
+`Scenario bindings: N registered` to stdout and every finding line to stderr.
+Parsing stdout alone therefore reports zero findings on a run that found plenty.
+
+**Scope differs by design, and the CLI is always narrower.** The editor has no
+profile and reports the whole workspace. `zuke validate` resolves a
+`ScenarioSelector` first, and a profile must declare a non-empty
+`tagExpression` — there is no unfiltered CLI mode to compare against. A
+profile-scoped run can name fewer features and fewer affected scenarios while
+reaching the same verdicts on everything it evaluates. Compare an editor total
+with an editor total; compare CLI against CLI across two runs. Where they must be
+compared directly, compare the verdict counts (`unbound`, `unverified`), which
+are scope-independent, rather than the per-feature summaries, which are not.
+
 ## Content validation
 
 A receipt binds the snapshot's SHA-256 to a deterministic digest of the synthetic
@@ -169,7 +269,10 @@ longer needs a cache, and unrelated plugins may share an entry.
 
 `zuke_analyzer` remains repository-only (`publish_to: none`). The guide must not
 advertise a nonexistent hosted release. Its first contract-aware version is
-`0.1.1`; the initial versioned index contract is `1`.
+`0.1.1`; the initial versioned index contract is `1`. Contract `2` and
+`zuke_analyzer` `0.1.2` add the binding-coverage facts described above; the
+strictness of that read is the reason a contract bump was required rather than an
+optional field.
 
 For each JSON shape **or editor-visible semantic** change:
 

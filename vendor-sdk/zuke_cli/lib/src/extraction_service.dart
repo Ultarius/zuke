@@ -5,7 +5,12 @@ import 'package:crypto/crypto.dart';
 
 import 'dart_extractor.dart';
 import 'package:zuke_core/zuke_core.dart';
-import 'package:zuke_frontend/zuke_frontend.dart';
+// The path helpers arrive via `path_safety.dart`, which re-exports them from
+// here. Importing them directly as well would make every use ambiguous, and the
+// point of the single origin is that there is only one spelling to disagree
+// about.
+import 'package:zuke_frontend/zuke_frontend.dart'
+    hide normalizePackagePath, normalizeRelativePath, pathComparisonKey;
 import 'dart_frog_adapter.dart';
 import 'generated_manifest_path.dart';
 import 'ir.dart';
