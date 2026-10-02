@@ -26,6 +26,7 @@ final class EvidenceRequirement extends EvidenceSlot {
     this.controlId,
   });
 
+  @override
   Map<String, Object?> toJson() => {
     ...super.toJson(),
     if (controlId != null) 'controlId': controlId,

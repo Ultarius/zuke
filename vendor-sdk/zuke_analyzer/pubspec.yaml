@@ -1,18 +1,24 @@
 name: zuke_analyzer
 description: Zuke resolved annotation diagnostics for Dart analysis.
-version: 0.1.0
+version: 0.1.2
 environment:
   sdk: '>=3.10.0 <4.0.0'
 resolution: workspace
 publish_to: none
 dependencies:
-  analysis_server_plugin: ^0.3.0
-  analyzer: ^8.2.0
-  zuke_core: ^0.4.0
-  zuke_cli: ^0.5.0
+  analysis_server_plugin: ^0.3.8
+  # The workspace and analysis server can resolve different analyzer majors.
+  # Keep this range aligned with zuke_cli and test both the workspace resolution
+  # and a fresh plugin AOT resolution. See docs/editor-plugin-cache.md.
+  analyzer: '>=12.1.0 <15.0.0'
+  # Path so the isolated analysis-server plugin package sees workspace
+  # ZukeIndex (verifiedRequirementIds), not a stale pub.dev release.
+  zuke_cli:
+    path: ../zuke_cli
 
 dev_dependencies:
   test: ^1.24.0
+  zuke_test_support: any
 repository: https://github.com/Ultarius/zuke
 issue_tracker: https://github.com/Ultarius/zuke/issues
 documentation: https://github.com/Ultarius/zuke/blob/main/docs/integration-guide.md

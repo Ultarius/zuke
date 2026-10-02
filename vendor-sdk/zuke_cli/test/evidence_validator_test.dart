@@ -101,7 +101,7 @@ void main() {
         );
         final symbols = [
           ExtractedSymbol(
-            kind: 'binding',
+            kind: ExtractedSymbolKind.binding,
             role: 'flutter',
             symbolId: 'a.dart#Provider1',
             bindingId: 'BIND-CALC-MATH',
@@ -116,7 +116,7 @@ void main() {
             ),
           ),
           ExtractedSymbol(
-            kind: 'binding',
+            kind: ExtractedSymbolKind.binding,
             role: 'flutter',
             symbolId: 'a.dart#Provider2',
             bindingId: 'BIND-CALC-MATH',
@@ -171,7 +171,7 @@ void main() {
       );
       final symbols = [
         ExtractedSymbol(
-          kind: 'binding',
+          kind: ExtractedSymbolKind.binding,
           role: 'flutter',
           symbolId: 'a.dart#Provider1',
           bindingId: 'BIND-CALC-MATH',
@@ -186,7 +186,7 @@ void main() {
           ),
         ),
         ExtractedSymbol(
-          kind: 'binding',
+          kind: ExtractedSymbolKind.binding,
           role: 'flutter',
           symbolId: 'a.dart#Provider2',
           bindingId: 'BIND-CALC-MATH',
@@ -889,7 +889,7 @@ void main() {
           completeness: const IrAdapterCompleteness(),
           symbols: [
             ExtractedSymbol(
-              kind: 'binding',
+              kind: ExtractedSymbolKind.binding,
               role: 'backend',
               symbolId: 'test.dart#Provider',
               bindingId: 'RULE-1',

@@ -4,7 +4,7 @@ import 'dart:io';
 import 'package:test/test.dart';
 
 import 'helpers/eligible_workspace.dart';
-import '../lib/src/openapi_contract.dart';
+import 'package:zuke_cli/src/openapi_contract.dart';
 import 'support/temporary_directory.dart';
 
 void main() {

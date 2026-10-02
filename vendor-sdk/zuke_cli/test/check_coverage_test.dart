@@ -2,7 +2,7 @@ import 'dart:io';
 
 import 'package:test/test.dart';
 
-import '../../check_coverage.dart';
+import 'support/check_coverage.dart';
 
 void main() {
   group('CoverageChecker', () {
@@ -41,8 +41,7 @@ void main() {
     test('excludes files marked as declaration-only from source inventory', () {
       final package = _package(root, 'coverage_fixture');
       File('${package.path}/lib/api.dart').writeAsStringSync(
-        '// coverage:ignore-file\n' +
-            List<String>.filled(201, 'int value = 1;').join('\n'),
+        '// coverage:ignore-file\n${List<String>.filled(201, 'int value = 1;').join('\n')}',
       );
       _writeLines(File('${package.path}/lib/reported.dart'), 201);
       final coverage = Directory('${package.path}/coverage')..createSync();

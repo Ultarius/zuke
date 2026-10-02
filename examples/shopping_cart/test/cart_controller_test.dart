@@ -1,6 +1,17 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shopping_cart/shopping_cart.dart';
+import 'package:zuke_annotations/zuke_annotations.dart';
 
+@VerifiesRequirement(
+  [
+    FeatCart001RequirementIds.itemManagement,
+    FeatCart001RequirementIds.promoDiscount,
+    FeatCart001RequirementIds.emptyCheckout,
+    FeatCart001RequirementIds.successfulCheckout,
+  ],
+  evidenceType: 'domain-unit',
+  variant: 'default',
+)
 void main() {
   group('CartController', () {
     test('rejects blank identifiers and invalid prices', () {

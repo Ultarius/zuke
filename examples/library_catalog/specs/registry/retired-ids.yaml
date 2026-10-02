@@ -1,0 +1,4 @@
+schemaVersion: 1
+# IDs listed here were previously governed and must never be reused
+# (validation Pass 4). Keep entries forever; move, never delete.
+retiredIds: []

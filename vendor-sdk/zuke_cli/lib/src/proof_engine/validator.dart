@@ -1,12 +1,12 @@
-import 'dart:convert';
-
-import 'package:crypto/crypto.dart';
-import 'package:zuke_core/zuke_core.dart' show BindingIdentity;
+import 'package:zuke_core/zuke_core.dart' show BindingIdentity, sha256Text;
 import 'package:zuke_frontend/zuke_frontend.dart';
 import 'identity_validator.dart';
 import 'reference_resolver.dart';
 import 'cardinality_validator.dart';
+import 'implementation_coverage_validator.dart';
 import 'evidence_validator.dart';
+import 'binding_coverage_check.dart';
+import '../workspace_annotation_scan.dart';
 import 'source_mapping_validator.dart';
 import 'dominance_validator.dart';
 import 'verification_backed_validator.dart';
@@ -358,6 +358,7 @@ class ValidatorEngine {
   final IdentityValidator identity;
   final ReferenceResolver references;
   final CardinalityValidator cardinality;
+  final ImplementationCoverageValidator unimplementedRequirements;
   final EvidenceValidator evidence;
   final SourceMappingValidator sourceMappings;
   final DominanceValidator dominance;
@@ -367,6 +368,7 @@ class ValidatorEngine {
     IdentityValidator? identity,
     ReferenceResolver? references,
     CardinalityValidator? cardinality,
+    ImplementationCoverageValidator? unimplementedRequirements,
     EvidenceValidator? evidence,
     SourceMappingValidator? sourceMappings,
     DominanceValidator? dominance,
@@ -374,6 +376,8 @@ class ValidatorEngine {
   }) : identity = identity ?? IdentityValidator(),
        references = references ?? ReferenceResolver(),
        cardinality = cardinality ?? CardinalityValidator(),
+       unimplementedRequirements =
+           unimplementedRequirements ?? ImplementationCoverageValidator(),
        evidence = evidence ?? EvidenceValidator(),
        sourceMappings = sourceMappings ?? SourceMappingValidator(),
        dominance = dominance ?? DominanceValidator(),
@@ -388,6 +392,7 @@ class ValidatorEngine {
     List<ControlProofResult> verifiedAttestationProofs = const [],
     String profile = 'pullRequest',
     List<String>? selectedScenarioIds,
+    WorkspaceAnnotationScan? managedScenarioScan,
   }) {
     final allErrors = <ValidationMessage>[];
     final allWarnings = <ValidationMessage>[];
@@ -436,6 +441,16 @@ class ValidatorEngine {
       allInfos,
       allControlProofs,
       cardinality.validate(
+        workspace,
+        extractedSymbols: effectiveOutputs.expand((o) => o.symbols).toList(),
+      ),
+    );
+    _add(
+      allErrors,
+      allWarnings,
+      allInfos,
+      allControlProofs,
+      unimplementedRequirements.validate(
         workspace,
         extractedSymbols: effectiveOutputs.expand((o) => o.symbols).toList(),
       ),
@@ -565,6 +580,42 @@ class ValidatorEngine {
         selectedScenarioIds: selectedScenarioIds,
       ),
     );
+
+    // Opt-in. Answering "is a matching scenario test registered?" needs the
+    // resolved registration scan, which is a full resolver pass, so a workspace
+    // that has not asked for the answer does not pay for it. Declaring a
+    // severity for the code is also how the workspace says whether a gap is
+    // planned (warning) or an unmet acceptance obligation (error).
+    //
+    // The opt-in and its value come from one accessor, because the command that
+    // decides whether to run the scan asks the same question and would otherwise
+    // be a second copy of it.
+    final bindingSeverity = declaredBindingCoverageSeverity(workspace);
+    if (managedScenarioScan != null && bindingSeverity != null) {
+      const check = BindingCoverageCheck();
+      final coverage = check.run(
+        workspace,
+        managedScenarioScan,
+        selectedScenarioIds: selectedScenarioIds,
+      );
+      final declared = switch (bindingSeverity) {
+        'error' => ir.IrDiagnosticSeverity.error,
+        'warning' => ir.IrDiagnosticSeverity.warning,
+        _ => ir.IrDiagnosticSeverity.info,
+      };
+      // Every message, including the per-feature roll-up, is rendered by the
+      // check so the wording for one finding cannot end up split in two files.
+      for (final message in check.toMessages(coverage, severity: declared)) {
+        switch (message.severity) {
+          case ir.IrDiagnosticSeverity.error:
+            allErrors.add(message);
+          case ir.IrDiagnosticSeverity.warning:
+            allWarnings.add(message);
+          case ir.IrDiagnosticSeverity.info:
+            allInfos.add(message);
+        }
+      }
+    }
 
     _addDuplicateProfileWarnings(workspace, allWarnings);
     final expectedProofs = _expectedProofs(
@@ -793,7 +844,7 @@ class ValidatorEngine {
             final definition = profiles is Map ? profiles[profile] : null;
             final requires = definition is Map ? definition['requires'] : null;
             if (requires is! List) continue;
-            for (final raw in requires.whereType<Map>()) {
+            for (final raw in requires.whereType<Map<Object?, Object?>>()) {
               final controlId = raw['id']?.toString();
               if (controlId == null || controlId.isEmpty) continue;
               final target = raw['target']?.toString();
@@ -838,7 +889,7 @@ class ValidatorEngine {
           final profile = profiles is Map ? profiles[profileName] : null;
           final requires = profile is Map ? profile['requires'] : null;
           if (requires is! List) continue;
-          for (final raw in requires.whereType<Map>()) {
+          for (final raw in requires.whereType<Map<Object?, Object?>>()) {
             if (raw['kind']?.toString() != 'control') continue;
             final id = raw['id']?.toString();
             if (id == null || id.isEmpty) continue;
@@ -967,4 +1018,4 @@ final class _ImplementationCoverageEvaluation {
 }
 
 String _coverageGraphHash(IrGraph graph) =>
-    'sha256:${sha256.convert(utf8.encode(canonicalJson(graph.toJson())))}';
+    sha256Text(canonicalJson(graph.toJson()));

@@ -446,11 +446,6 @@ final class _RegistrationVisitor extends RecursiveAstVisitor<void> {
   final _flutterHarnessAliases = <String, _FlutterHarnessKind>{};
 
   @override
-  void visitCompilationUnit(CompilationUnit node) {
-    super.visitCompilationUnit(node);
-  }
-
-  @override
   void visitFunctionDeclaration(FunctionDeclaration node) {
     _functionStack.add(node.name.lexeme);
     super.visitFunctionDeclaration(node);
@@ -847,8 +842,7 @@ final class _RegistrationVisitor extends RecursiveAstVisitor<void> {
     // arbitrary variable named `all`.
     final collectionName = parts[parts.length - 2];
     if (!collectionName.endsWith('Scenarios')) return null;
-    final enumName =
-        '${collectionName.substring(0, collectionName.length - 1)}';
+    final enumName = collectionName.substring(0, collectionName.length - 1);
     final ids = _generatedScenarioIds.entries
         .where((entry) => entry.key.startsWith('$enumName.'))
         .map((entry) => entry.value)
@@ -934,9 +928,9 @@ final class _GeneratedScenarioCollector {
   void collect(CompilationUnit node) {
     for (final declaration in node.declarations) {
       if (declaration is! EnumDeclaration) continue;
-      final enumName = declaration.name.lexeme;
+      final enumName = declaration.namePart.typeName.lexeme;
       if (!enumName.endsWith('Scenario')) continue;
-      for (final constant in declaration.constants) {
+      for (final constant in declaration.body.constants) {
         final visitor = _ScenarioIdVisitor();
         constant.arguments?.accept(visitor);
         if (visitor.ids.length == 1) {
@@ -961,7 +955,7 @@ final class _GeneratedScenarioAliasCollector extends RecursiveAstVisitor<void> {
   @override
   void visitClassDeclaration(ClassDeclaration node) {
     final previous = _className;
-    _className = node.name.lexeme;
+    _className = node.namePart.typeName.lexeme;
     super.visitClassDeclaration(node);
     _className = previous;
   }

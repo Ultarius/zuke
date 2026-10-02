@@ -1,0 +1,369 @@
+{
+  "kind": "zuke.analyzer-index",
+  "contractVersion": 2,
+  "diagnosticAnchor": "lib/zuke_contracts.dart",
+  "inputDigest": "sha256:eeb8f78dd8d195fd8b610fe1c7cdfd5d79a0065bc7e40ec7139450683935c838",
+  "generatedManifestDigest": "sha256:8336f0f6e268574768ca81bf98c37b6527fe5eb6dcd87b88c520b1e98005dc30",
+  "generatedManifestPath": "lib/src/.zuke-generated.json",
+  "inputs": [
+    {
+      "path": "lib/library_catalog.dart",
+      "digest": "sha256:d5800229a6857cc37e8a549e9c80b1fe514099e9e91c6f1334259cd06da4464c"
+    },
+    {
+      "path": "lib/src/branch_peer_link.dart",
+      "digest": "sha256:c1b78a0864466a5c8dd59e59ef59a43d4087748c7f96f06bdd62013540b7a322"
+    },
+    {
+      "path": "lib/src/catalog_bindings.dart",
+      "digest": "sha256:690834ae011a1f7dac7df897ebd5b759af3736a71a772b73634686039476b214"
+    },
+    {
+      "path": "lib/src/checkout_controller.dart",
+      "digest": "sha256:cdb67d1afcd2b0443818dfe16077c5ece89e294d915f748e97d8fe7d02a1f7da"
+    },
+    {
+      "path": "policies/project-policy.yaml",
+      "digest": "sha256:685f6c0e20a2723f159c879c7813d141af1bc2897aacea053544821376b023b9"
+    },
+    {
+      "path": "policies/security-profiles.yaml",
+      "digest": "sha256:e766292dff563abbc767072c7aad4e3347c39fba819fd14f92e80eaf118ce7ad"
+    },
+    {
+      "path": "specs/controls/library-controls.yaml",
+      "digest": "sha256:52781fbd62b940457d1e0d7f74bc85653a43499404c374c55f0baf9f9da492b8"
+    },
+    {
+      "path": "specs/epics/EPIC-LIBRARY-001.yaml",
+      "digest": "sha256:3c69f94ebe4163be292f33ef3f5c580b645298d5d4482c1a361cbbaa1b219e0f"
+    },
+    {
+      "path": "specs/features/library_catalog.feature",
+      "digest": "sha256:8591fbbea9f0244ec9e701a9fe411e7fb7dabf10633b6345f54ebadb45082ef3"
+    },
+    {
+      "path": "specs/registry/pbis.yaml",
+      "digest": "sha256:446203f3095bdcc5273c3538391c5cb3ecde9bda43263a34eb556fb9c804f0fa"
+    },
+    {
+      "path": "specs/registry/retired-ids.yaml",
+      "digest": "sha256:12236cee08854945126b2490d0670c0909d0900c5a335480302aa35f5915b264"
+    },
+    {
+      "path": "test/checkout_controller_test.dart",
+      "digest": "sha256:df7d44baffd91eb7941e72c151856bf913a8a6446649d3c9625aa398e89dc0ee"
+    },
+    {
+      "path": "test/library_gherkin_test.dart",
+      "digest": "sha256:724a2388d5acc6646099661aaff27ccde89669688af594be096db1c89e63dae6"
+    },
+    {
+      "path": "test/support/library_fixtures.dart",
+      "digest": "sha256:491aa3ac9edf36cbcc561200d19b1ddbe9508585bff2140cd7e0b98459368201"
+    },
+    {
+      "path": "test/support/library_gherkin_steps.dart",
+      "digest": "sha256:af35317bf80e878a5c05697c817dd40f317e0eea99129dcc8fabb0144c5ec78f"
+    },
+    {
+      "path": "test/support/library_world.dart",
+      "digest": "sha256:2d22037c53ab729a03c9225381c5b13c8ecf72b3311a0fbd75973cb99ede7bed"
+    },
+    {
+      "path": "zuke.yaml",
+      "digest": "sha256:8bfd3db7f50549b65df93800dae4b5b72fdf8273ffe29d83c618f44940ebe316"
+    }
+  ],
+  "inputPatterns": [
+    "policies/project-policy.yaml",
+    "policies/security-profiles.yaml",
+    "specs/controls/**/*.yaml",
+    "specs/epics/**/*.yaml",
+    "specs/features/**/*.feature",
+    "specs/registry/**/*.yaml"
+  ],
+  "patternInputs": [
+    "policies/project-policy.yaml",
+    "policies/security-profiles.yaml",
+    "specs/controls/library-controls.yaml",
+    "specs/epics/EPIC-LIBRARY-001.yaml",
+    "specs/features/library_catalog.feature",
+    "specs/registry/pbis.yaml",
+    "specs/registry/retired-ids.yaml"
+  ],
+  "sourceRoots": [
+    "lib",
+    "test"
+  ],
+  "sourcePaths": [
+    "lib/library_catalog.dart",
+    "lib/src/branch_peer_link.dart",
+    "lib/src/catalog_bindings.dart",
+    "lib/src/checkout_controller.dart",
+    "test/checkout_controller_test.dart",
+    "test/library_gherkin_test.dart",
+    "test/support/library_fixtures.dart",
+    "test/support/library_gherkin_steps.dart",
+    "test/support/library_world.dart"
+  ],
+  "requirementIds": [
+    "FEAT-LIBRARY-001",
+    "RULE-LIBRARY-BOOK-RETURN",
+    "RULE-LIBRARY-BRANCH-PEER",
+    "RULE-LIBRARY-CHECKOUT"
+  ],
+  "controlIds": [
+    "CTRL-LIBRARY-ISBN-VALIDATION"
+  ],
+  "bindingIds": [
+    "library.checkoutButton",
+    "library.errorMessage",
+    "library.isbnInput",
+    "library.loanCountDisplay",
+    "library.loanList",
+    "library.statusMessage"
+  ],
+  "verifiedRequirementIds": [
+    "RULE-LIBRARY-BOOK-RETURN",
+    "RULE-LIBRARY-BRANCH-PEER",
+    "RULE-LIBRARY-CHECKOUT"
+  ],
+  "implementedRequirementIds": [
+    "RULE-LIBRARY-BOOK-RETURN",
+    "RULE-LIBRARY-BRANCH-PEER",
+    "RULE-LIBRARY-CHECKOUT"
+  ],
+  "presentedRequirementIds": [],
+  "providedControlIds": [
+    "CTRL-LIBRARY-ISBN-VALIDATION"
+  ],
+  "implementedBindingIds": [
+    "library.checkoutButton",
+    "library.errorMessage",
+    "library.isbnInput",
+    "library.loanCountDisplay",
+    "library.loanList",
+    "library.statusMessage"
+  ],
+  "requirementTargets": {
+    "FEAT-LIBRARY-001": [
+      "catalog"
+    ],
+    "RULE-LIBRARY-BOOK-RETURN": [
+      "catalog"
+    ],
+    "RULE-LIBRARY-BRANCH-PEER": [
+      "catalog"
+    ],
+    "RULE-LIBRARY-CHECKOUT": [
+      "catalog"
+    ]
+  },
+  "packageTargets": {
+    ".": "catalog"
+  },
+  "implementationClaims": [
+    {
+      "id": "CTRL-LIBRARY-ISBN-VALIDATION",
+      "target": "catalog"
+    },
+    {
+      "id": "RULE-LIBRARY-BOOK-RETURN",
+      "target": "catalog"
+    },
+    {
+      "id": "RULE-LIBRARY-BRANCH-PEER",
+      "target": "catalog"
+    },
+    {
+      "id": "RULE-LIBRARY-CHECKOUT",
+      "target": "catalog"
+    },
+    {
+      "id": "library.checkoutButton",
+      "target": "catalog"
+    },
+    {
+      "id": "library.errorMessage",
+      "target": "catalog"
+    },
+    {
+      "id": "library.isbnInput",
+      "target": "catalog"
+    },
+    {
+      "id": "library.loanCountDisplay",
+      "target": "catalog"
+    },
+    {
+      "id": "library.loanList",
+      "target": "catalog"
+    },
+    {
+      "id": "library.statusMessage",
+      "target": "catalog"
+    }
+  ],
+  "verifiedClaims": [
+    {
+      "id": "RULE-LIBRARY-BOOK-RETURN",
+      "target": "catalog"
+    },
+    {
+      "id": "RULE-LIBRARY-BRANCH-PEER",
+      "target": "catalog"
+    },
+    {
+      "id": "RULE-LIBRARY-CHECKOUT",
+      "target": "catalog"
+    }
+  ],
+  "featureFiles": {
+    "FEAT-LIBRARY-001": "lib/src/generated/feat_library_001_contracts.g.dart"
+  },
+  "managedRegistrations": [
+    {
+      "scenarioId": "SCN-LIBRARY-CHECKOUT-BAD-ISBN",
+      "sourcePath": "test/checkout_controller_test.dart",
+      "target": "catalog",
+      "packageId": "library-catalog",
+      "evidenceTypes": [
+        "domain-unit"
+      ]
+    },
+    {
+      "scenarioId": "SCN-LIBRARY-CHECKOUT-EMPTY",
+      "sourcePath": "test/checkout_controller_test.dart",
+      "target": "catalog",
+      "packageId": "library-catalog",
+      "evidenceTypes": [
+        "domain-unit"
+      ]
+    },
+    {
+      "scenarioId": "SCN-LIBRARY-CHECKOUT-LIMIT",
+      "sourcePath": "test/checkout_controller_test.dart",
+      "target": "catalog",
+      "packageId": "library-catalog",
+      "evidenceTypes": [
+        "domain-unit"
+      ]
+    },
+    {
+      "scenarioId": "SCN-LIBRARY-CHECKOUT-VALID",
+      "sourcePath": "test/checkout_controller_test.dart",
+      "target": "catalog",
+      "packageId": "library-catalog",
+      "evidenceTypes": [
+        "domain-unit"
+      ]
+    },
+    {
+      "scenarioId": "SCN-LIBRARY-PEER-CONNECT",
+      "sourcePath": "test/checkout_controller_test.dart",
+      "target": "catalog",
+      "packageId": "library-catalog",
+      "evidenceTypes": [
+        "domain-unit"
+      ]
+    },
+    {
+      "scenarioId": "SCN-LIBRARY-PEER-SYNC",
+      "sourcePath": "test/checkout_controller_test.dart",
+      "target": "catalog",
+      "packageId": "library-catalog",
+      "evidenceTypes": [
+        "domain-unit"
+      ]
+    },
+    {
+      "scenarioId": "SCN-LIBRARY-RETURN",
+      "sourcePath": "test/checkout_controller_test.dart",
+      "target": "catalog",
+      "packageId": "library-catalog",
+      "evidenceTypes": [
+        "domain-unit"
+      ]
+    }
+  ],
+  "unresolvedManagedRegistrations": 0,
+  "evidenceObligations": [
+    {
+      "featureId": "FEAT-LIBRARY-001",
+      "ruleId": "RULE-LIBRARY-BOOK-RETURN",
+      "scenarioIds": [
+        "SCN-LIBRARY-RETURN"
+      ],
+      "slots": [
+        {
+          "type": "domain-unit",
+          "target": "catalog",
+          "sourcePackage": "library-catalog",
+          "sourceAdapter": "dart-source",
+          "variant": "default"
+        }
+      ],
+      "location": {
+        "file": "specs/features/library_catalog.feature",
+        "line": 95,
+        "column": 3
+      }
+    },
+    {
+      "featureId": "FEAT-LIBRARY-001",
+      "ruleId": "RULE-LIBRARY-BRANCH-PEER",
+      "scenarioIds": [
+        "SCN-LIBRARY-PEER-CONNECT",
+        "SCN-LIBRARY-PEER-SYNC"
+      ],
+      "slots": [
+        {
+          "type": "domain-unit",
+          "target": "catalog",
+          "sourcePackage": "library-catalog",
+          "sourceAdapter": "dart-source",
+          "variant": "default"
+        }
+      ],
+      "location": {
+        "file": "specs/features/library_catalog.feature",
+        "line": 109,
+        "column": 3
+      }
+    },
+    {
+      "featureId": "FEAT-LIBRARY-001",
+      "ruleId": "RULE-LIBRARY-CHECKOUT",
+      "scenarioIds": [
+        "SCN-LIBRARY-CHECKOUT-BAD-ISBN",
+        "SCN-LIBRARY-CHECKOUT-EMPTY",
+        "SCN-LIBRARY-CHECKOUT-LIMIT",
+        "SCN-LIBRARY-CHECKOUT-VALID"
+      ],
+      "slots": [
+        {
+          "type": "domain-unit",
+          "target": "catalog",
+          "sourcePackage": "library-catalog",
+          "sourceAdapter": "dart-source",
+          "variant": "default"
+        }
+      ],
+      "location": {
+        "file": "specs/features/library_catalog.feature",
+        "line": 61,
+        "column": 3
+      }
+    }
+  ],
+  "runnerScopes": [
+    {
+      "target": "catalog",
+      "sourcePackage": "library-catalog",
+      "adapters": [
+        "dart-source"
+      ]
+    }
+  ]
+}

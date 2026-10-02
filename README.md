@@ -31,15 +31,17 @@ drivers, static control attestation graphs, and automated CI/CD release gates.
 
 Explore runnable example applications in the [**`examples/`**](examples/README.md) directory:
 
-- 🟢 [**`examples/todo_app`**](examples/todo_app/README.md) — **Recommended Starting Point**. Beginner Flutter BDD setup with generated contracts, `@ZukeBinding` UI keys, and widget scenario execution.
-- 🟡 [**`examples/shopping_cart`**](examples/shopping_cart/README.md) — Intermediate reference with `CartController` state management, promo logic, accessibility rules, and evidence locking.
-- 🔴 [**`examples/calculator-product`**](examples/calculator-product/README.md) — Advanced multi-package reference featuring backend API drivers, mobile UI drivers, security attestation, and signed release records.
+- 🟢 [**`examples/library_catalog`**](examples/library_catalog/README.md) — **Step 1: Recommended Starting Point**. Specs-first pure Dart flow with analyzer-plugin feedback, manual `StepRegistry` Gherkin, loopback TCP peer sync, and a CLI desk TUI.
+- 🟢 [**`examples/todo_app`**](examples/todo_app/README.md) — **Flutter starting point**. Beginner Flutter BDD setup with generated contracts, `@ZukeBinding` UI keys, and widget scenario execution.
+- 🟡 [**`examples/shopping_cart`**](examples/shopping_cart/README.md) — Intermediate single-package Flutter reference: `CartController` state, promo codes, accessibility semantics, and richer security profiles.
+- 🔴 [**`examples/calculator-product`**](examples/calculator-product/README.md) — Advanced multi-package workspace: backend API + mobile UI drivers, security controls, performance tags, and dedicated assurance CI.
 
 ---
 
 ## Documentation & Guides
 
 - 📖 **[Integration & Implementation Guide](docs/integration-guide.md)** — Integration, release signing, verification, and CI/CD gate guidance.
+- 🚀 **[Release Runbook](docs/release-runbook.md)** — End-to-end SDK package and signed example release procedure for maintainers.
 - 📂 **[Examples Directory Index](examples/README.md)** — Complete guide to all example projects and learning paths.
 
 ---

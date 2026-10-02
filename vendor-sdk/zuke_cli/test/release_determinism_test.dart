@@ -89,8 +89,8 @@ void main() {
       expect(first.exitCode, 0, reason: '${first.stdout}\n${first.stderr}');
       expect(second.exitCode, 0, reason: '${second.stdout}\n${second.stderr}');
 
-      final firstPath = _lastNonEmptyLine(first.stdout);
-      final secondPath = _lastNonEmptyLine(second.stdout);
+      final firstPath = _lastNonEmptyLine(first.stdout.toString());
+      final secondPath = _lastNonEmptyLine(second.stdout.toString());
       final firstRecord = File(firstPath).readAsStringSync();
       final secondRecord = File(secondPath).readAsStringSync();
       expect(secondRecord, equals(firstRecord));

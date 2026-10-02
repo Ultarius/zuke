@@ -2,6 +2,7 @@
 library;
 
 export 'src/canonical_json.dart';
+export 'src/atomic_file_writer.dart';
 export 'src/control_id.dart';
 export 'src/release_signing.dart';
 export 'src/rule_id.dart';

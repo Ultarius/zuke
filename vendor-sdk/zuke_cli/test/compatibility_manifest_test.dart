@@ -1,7 +1,7 @@
 import 'package:test/test.dart';
 import 'package:yaml/yaml.dart';
 
-import '../../../tool/build_compatibility_manifest.dart';
+import 'support/build_compatibility_manifest.dart';
 
 void main() {
   Map<String, Object?> report({

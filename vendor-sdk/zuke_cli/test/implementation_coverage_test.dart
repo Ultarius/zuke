@@ -10,7 +10,7 @@ void main() {
       final output = _output(
         symbols: const [
           ExtractedSymbol(
-            kind: 'requirementBoundary',
+            kind: ExtractedSymbolKind.requirementBoundary,
             role: 'domain',
             symbolId: 'package:fixture/use_case.dart#CreateLobbyUseCase',
             requirementIds: ['RULE-ACCESS-NORMALIZATION'],
@@ -60,7 +60,7 @@ void main() {
       final output = _output(
         symbols: const [
           ExtractedSymbol(
-            kind: 'requirementBoundary',
+            kind: ExtractedSymbolKind.requirementBoundary,
             role: 'domain',
             symbolId: 'package:fixture/use_case.dart#CreateLobbyUseCase',
             requirementIds: ['RULE-ACCESS-NORMALIZATION'],
@@ -121,7 +121,7 @@ void main() {
 
   test('duplicate semantic bindings fail before proof routing', () {
     const symbol = ExtractedSymbol(
-      kind: 'requirementBoundary',
+      kind: ExtractedSymbolKind.requirementBoundary,
       role: 'domain',
       symbolId: 'package:fixture/use_case.dart#CreateLobbyUseCase',
       requirementIds: ['RULE-ACCESS-NORMALIZATION'],
@@ -151,7 +151,7 @@ void main() {
     final output = _output(
       symbols: const [
         ExtractedSymbol(
-          kind: 'requirementBoundary',
+          kind: ExtractedSymbolKind.requirementBoundary,
           role: 'domain',
           symbolId: 'package:fixture/use_case.dart#CreateLobbyUseCase',
           requirementIds: ['RULE-ACCESS-NORMALIZATION'],
@@ -206,7 +206,7 @@ void main() {
 
   test('topology reachability cannot cross a package boundary', () {
     const requirement = ExtractedSymbol(
-      kind: 'requirementBoundary',
+      kind: ExtractedSymbolKind.requirementBoundary,
       role: 'domain',
       symbolId: 'package:package_a/use_case.dart#CreateLobbyUseCase',
       requirementIds: ['RULE-ACCESS-NORMALIZATION'],
@@ -275,7 +275,7 @@ void main() {
     final symbols = [
       for (final slot in ['create', 'join'])
         ExtractedSymbol(
-          kind: 'requirementBoundary',
+          kind: ExtractedSymbolKind.requirementBoundary,
           role: 'domain',
           symbolId: 'package:fixture/use_case.dart#${slot}UseCase',
           requirementIds: const ['RULE-ACCESS-NORMALIZATION'],

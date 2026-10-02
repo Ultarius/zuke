@@ -1,9 +1,30 @@
 {
   "kind": "zuke.analyzer-index",
-  "inputDigest": "sha256:ac9be231783ef00086015772d7dbb2bf941f198b2761743e1b11380a63fff126",
-  "generatedManifestDigest": "sha256:0d35e5961f9422d3df46451d7cc361bd69907c051c20da98c4a98a59243b2712",
+  "contractVersion": 2,
+  "inputDigest": "sha256:1054347cdbcdcc9516c8e4add83161a49fad9334c456494880017d87c88e9a1a",
+  "generatedManifestDigest": "sha256:5282d1e887a3b5186d2fe75d9b4ba8ddf4c3697ba551746ccbfd9503c9e081b2",
   "generatedManifestPath": "lib/src/.zuke-generated.json",
   "inputs": [
+    {
+      "path": "lib/main.dart",
+      "digest": "sha256:f7fa373e86e104a084d599d51aa0de5b175e5f2dd2cb31e81fca45b48d6afee1"
+    },
+    {
+      "path": "lib/src/todo_bindings.dart",
+      "digest": "sha256:95559388c25137124df4bc6d0ff01b971d0d524737612b716163b8ed246351ff"
+    },
+    {
+      "path": "lib/src/todo_controller.dart",
+      "digest": "sha256:ee988e4bfd3814973b9a4a56b1c8bc272369f51c719fc1ac7857855e2f836398"
+    },
+    {
+      "path": "lib/src/todo_screen.dart",
+      "digest": "sha256:3f25b7fda2aeec6128dfab02e99c6edd787473a11b3da6317378bb26b534fd0a"
+    },
+    {
+      "path": "lib/todo_app.dart",
+      "digest": "sha256:625a18dde3a74c61e8f8785bda50cae8e3c8a3b7674570a9df6f46aba729d6e9"
+    },
     {
       "path": "policies/project-policy.yaml",
       "digest": "sha256:ba60974aec64984a23a821fffcbfaa8587c19a8fa69592f37a19a8e31a570508"
@@ -22,7 +43,7 @@
     },
     {
       "path": "specs/features/todo.feature",
-      "digest": "sha256:855c6a45b269144ed99942329344ab358a0661a70947798e1373267039cc33eb"
+      "digest": "sha256:eb63410b449860809b441bdc7807e88f1a239e14e74b9118cbfe46e7ba89e58f"
     },
     {
       "path": "specs/registry/pbis.yaml",
@@ -31,6 +52,18 @@
     {
       "path": "specs/registry/retired-ids.yaml",
       "digest": "sha256:12236cee08854945126b2490d0670c0909d0900c5a335480302aa35f5915b264"
+    },
+    {
+      "path": "test/support/todo_driver.dart",
+      "digest": "sha256:26cf75da960694321a01b8166597f9e4c9e4b89fea08651019454a395c7b7730"
+    },
+    {
+      "path": "test/todo_controller_test.dart",
+      "digest": "sha256:61a4acc86c94aa0b219bfea9816ab795a2db5f4263790208db530ef63a80c5e3"
+    },
+    {
+      "path": "test/todo_widget_test.dart",
+      "digest": "sha256:c46e2164c1d4a4637e65e1a580bae89d704b2f00b687db09a4bd1c1a328510cc"
     },
     {
       "path": "zuke.yaml",
@@ -54,6 +87,20 @@
     "specs/registry/pbis.yaml",
     "specs/registry/retired-ids.yaml"
   ],
+  "sourceRoots": [
+    "lib",
+    "test"
+  ],
+  "sourcePaths": [
+    "lib/main.dart",
+    "lib/src/todo_bindings.dart",
+    "lib/src/todo_controller.dart",
+    "lib/src/todo_screen.dart",
+    "lib/todo_app.dart",
+    "test/support/todo_driver.dart",
+    "test/todo_controller_test.dart",
+    "test/todo_widget_test.dart"
+  ],
   "requirementIds": [
     "FEAT-TODO-001",
     "RULE-TODO-ADD-ITEM",
@@ -73,5 +120,256 @@
     "todo.taskItemCheckbox",
     "todo.taskItemText",
     "todo.taskList"
+  ],
+  "verifiedRequirementIds": [
+    "RULE-TODO-ADD-ITEM",
+    "RULE-TODO-COMPLETE-ITEM"
+  ],
+  "implementedRequirementIds": [
+    "RULE-TODO-ADD-ITEM",
+    "RULE-TODO-COMPLETE-ITEM"
+  ],
+  "presentedRequirementIds": [
+    "RULE-TODO-COMPLETE-ITEM"
+  ],
+  "providedControlIds": [
+    "CTRL-TODO-ACCESSIBLE",
+    "CTRL-TODO-VALIDATION"
+  ],
+  "implementedBindingIds": [
+    "todo.addTaskButton",
+    "todo.clearCompletedButton",
+    "todo.emptyStateMessage",
+    "todo.errorMessage",
+    "todo.taskCountDisplay",
+    "todo.taskInput",
+    "todo.taskItemCheckbox",
+    "todo.taskItemText",
+    "todo.taskList"
+  ],
+  "requirementTargets": {
+    "FEAT-TODO-001": [
+      "flutter"
+    ],
+    "RULE-TODO-ADD-ITEM": [
+      "flutter"
+    ],
+    "RULE-TODO-COMPLETE-ITEM": [
+      "flutter"
+    ]
+  },
+  "packageTargets": {
+    ".": "flutter"
+  },
+  "implementationClaims": [
+    {
+      "id": "CTRL-TODO-ACCESSIBLE",
+      "target": "flutter"
+    },
+    {
+      "id": "CTRL-TODO-VALIDATION",
+      "target": "flutter"
+    },
+    {
+      "id": "RULE-TODO-ADD-ITEM",
+      "target": "flutter"
+    },
+    {
+      "id": "RULE-TODO-COMPLETE-ITEM",
+      "target": "flutter"
+    },
+    {
+      "id": "todo.addTaskButton",
+      "target": "flutter"
+    },
+    {
+      "id": "todo.clearCompletedButton",
+      "target": "flutter"
+    },
+    {
+      "id": "todo.emptyStateMessage",
+      "target": "flutter"
+    },
+    {
+      "id": "todo.errorMessage",
+      "target": "flutter"
+    },
+    {
+      "id": "todo.taskCountDisplay",
+      "target": "flutter"
+    },
+    {
+      "id": "todo.taskInput",
+      "target": "flutter"
+    },
+    {
+      "id": "todo.taskItemCheckbox",
+      "target": "flutter"
+    },
+    {
+      "id": "todo.taskItemText",
+      "target": "flutter"
+    },
+    {
+      "id": "todo.taskList",
+      "target": "flutter"
+    }
+  ],
+  "verifiedClaims": [
+    {
+      "id": "RULE-TODO-ADD-ITEM",
+      "target": "flutter"
+    },
+    {
+      "id": "RULE-TODO-COMPLETE-ITEM",
+      "target": "flutter"
+    }
+  ],
+  "featureFiles": {
+    "FEAT-TODO-001": "lib/src/generated/feat_todo_001_contracts.g.dart"
+  },
+  "managedRegistrations": [
+    {
+      "scenarioId": "SCN-TODO-ADD-EMPTY",
+      "sourcePath": "test/todo_widget_test.dart",
+      "target": "flutter",
+      "packageId": "todo-app",
+      "evidenceTypes": [
+        "gherkin-ui"
+      ]
+    },
+    {
+      "scenarioId": "SCN-TODO-ADD-ITEM",
+      "sourcePath": "test/todo_widget_test.dart",
+      "target": "flutter",
+      "packageId": "todo-app",
+      "evidenceTypes": [
+        "gherkin-ui"
+      ]
+    },
+    {
+      "scenarioId": "SCN-TODO-ADD-WHITESPACE",
+      "sourcePath": "test/todo_widget_test.dart",
+      "target": "flutter",
+      "packageId": "todo-app",
+      "evidenceTypes": [
+        "gherkin-ui"
+      ]
+    },
+    {
+      "scenarioId": "SCN-TODO-CLEAR-COMPLETED",
+      "sourcePath": "test/todo_widget_test.dart",
+      "target": "flutter",
+      "packageId": "todo-app",
+      "evidenceTypes": [
+        "gherkin-ui"
+      ]
+    },
+    {
+      "scenarioId": "SCN-TODO-CLEAR-KEEPS-INCOMPLETE",
+      "sourcePath": "test/todo_widget_test.dart",
+      "target": "flutter",
+      "packageId": "todo-app",
+      "evidenceTypes": [
+        "gherkin-ui"
+      ]
+    },
+    {
+      "scenarioId": "SCN-TODO-COMPLETE-COUNT",
+      "sourcePath": "test/todo_widget_test.dart",
+      "target": "flutter",
+      "packageId": "todo-app",
+      "evidenceTypes": [
+        "gherkin-ui"
+      ]
+    },
+    {
+      "scenarioId": "SCN-TODO-COMPLETE-ITEM",
+      "sourcePath": "test/todo_widget_test.dart",
+      "target": "flutter",
+      "packageId": "todo-app",
+      "evidenceTypes": [
+        "gherkin-ui"
+      ]
+    },
+    {
+      "scenarioId": "SCN-TODO-MULTI-TASKS",
+      "sourcePath": "test/todo_widget_test.dart",
+      "target": "flutter",
+      "packageId": "todo-app",
+      "evidenceTypes": [
+        "gherkin-ui"
+      ]
+    },
+    {
+      "scenarioId": "SCN-TODO-TOGGLE-BACK",
+      "sourcePath": "test/todo_widget_test.dart",
+      "target": "flutter",
+      "packageId": "todo-app",
+      "evidenceTypes": [
+        "gherkin-ui"
+      ]
+    }
+  ],
+  "unresolvedManagedRegistrations": 0,
+  "evidenceObligations": [
+    {
+      "featureId": "FEAT-TODO-001",
+      "ruleId": "RULE-TODO-ADD-ITEM",
+      "scenarioIds": [
+        "SCN-TODO-ADD-EMPTY",
+        "SCN-TODO-ADD-ITEM",
+        "SCN-TODO-ADD-WHITESPACE",
+        "SCN-TODO-MULTI-TASKS"
+      ],
+      "slots": [
+        {
+          "type": "gherkin-ui",
+          "target": "flutter",
+          "sourcePackage": "todo-app",
+          "sourceAdapter": "dart-source",
+          "variant": "default"
+        }
+      ],
+      "location": {
+        "file": "specs/features/todo.feature",
+        "line": 81,
+        "column": 3
+      }
+    },
+    {
+      "featureId": "FEAT-TODO-001",
+      "ruleId": "RULE-TODO-COMPLETE-ITEM",
+      "scenarioIds": [
+        "SCN-TODO-CLEAR-COMPLETED",
+        "SCN-TODO-CLEAR-KEEPS-INCOMPLETE",
+        "SCN-TODO-COMPLETE-COUNT",
+        "SCN-TODO-COMPLETE-ITEM",
+        "SCN-TODO-TOGGLE-BACK"
+      ],
+      "slots": [
+        {
+          "type": "gherkin-ui",
+          "target": "flutter",
+          "sourcePackage": "todo-app",
+          "sourceAdapter": "dart-source",
+          "variant": "default"
+        }
+      ],
+      "location": {
+        "file": "specs/features/todo.feature",
+        "line": 120,
+        "column": 3
+      }
+    }
+  ],
+  "runnerScopes": [
+    {
+      "target": "flutter",
+      "sourcePackage": "todo-app",
+      "adapters": [
+        "dart-source"
+      ]
+    }
   ]
 }

@@ -190,7 +190,8 @@
       "options": [
         "examples/todo_app",
         "examples/shopping_cart",
-        "examples/calculator-product"
+        "examples/calculator-product",
+        "examples/library_catalog"
       ],
       "default": "examples/todo_app"
     }

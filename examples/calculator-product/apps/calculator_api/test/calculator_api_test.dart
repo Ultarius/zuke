@@ -160,6 +160,11 @@ Future<void> _runRateLimit() async {
   expect(server.application.events.length, completedBeforeBlocked + 1);
 }
 
+@VerifiesRequirement(
+  [FeatCalc001RequirementIds.performance],
+  evidenceType: 'performance',
+  variant: 'default',
+)
 Future<void> _runPerformanceBudget() async {
   final server = await _server();
   final samples = <int>[];
@@ -199,6 +204,20 @@ Future<void> _runUnexpectedFailure() async {
   expect(application.logEvents.single['first'], '[REDACTED]');
 }
 
+@VerifiesRequirement(
+  [
+    FeatCalc001RequirementIds.addition,
+    FeatCalc001RequirementIds.subtraction,
+    FeatCalc001RequirementIds.multiplication,
+    FeatCalc001RequirementIds.division,
+    FeatCalc001RequirementIds.validation,
+    FeatCalc002RequirementIds.bodySize,
+    FeatCalc002RequirementIds.rateLimit,
+    FeatCalc002RequirementIds.errorRedaction,
+  ],
+  evidenceType: 'api-contract',
+  variant: 'default',
+)
 void main() {
   final selectedScenarios = scenarioFilterFromEnvironment(Platform.environment);
   bool skipScenario(ZukeScenarioContract scenario) =>

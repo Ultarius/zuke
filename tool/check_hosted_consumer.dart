@@ -22,7 +22,7 @@ Future<void> runHostedConsumerCertification(List<String> args) async {
   final matrix = readReleaseMatrix(frameworkRoot);
   if (!matrix.operatingSystems.contains(options.platform)) {
     throw FormatException(
-      'Platform ' + options.platform + ' is not declared in the release matrix',
+      'Platform ${options.platform} is not declared in the release matrix',
     );
   }
 
@@ -79,15 +79,7 @@ Future<void> runHostedConsumerCertification(List<String> args) async {
     }
     HostedConsumerFixture(
       templateRoot: Directory(
-        frameworkRoot.path +
-            Platform.pathSeparator +
-            'tool' +
-            Platform.pathSeparator +
-            'fixtures' +
-            Platform.pathSeparator +
-            'hosted_consumer' +
-            Platform.pathSeparator +
-            'template',
+        '${frameworkRoot.path}${Platform.pathSeparator}tool${Platform.pathSeparator}fixtures${Platform.pathSeparator}hosted_consumer${Platform.pathSeparator}template',
       ),
       destination: fixture,
       matrix: matrix,
@@ -141,18 +133,10 @@ Future<void> runHostedConsumerCertification(List<String> args) async {
     CommandResult? gateResult;
     if (pubGet.exitCode == 0) {
       final summaryPath = File(
-        fixture.path +
-            Platform.pathSeparator +
-            'generated' +
-            Platform.pathSeparator +
-            'gate-summary.json',
+        '${fixture.path}${Platform.pathSeparator}generated${Platform.pathSeparator}gate-summary.json',
       );
       final artifactDirectory = Directory(
-        fixture.path +
-            Platform.pathSeparator +
-            'generated' +
-            Platform.pathSeparator +
-            'safe-artifacts',
+        '${fixture.path}${Platform.pathSeparator}generated${Platform.pathSeparator}safe-artifacts',
       );
       final commands = <List<String>>[
         _zukeCommand(['doctor', '--format', 'json']),
@@ -204,9 +188,7 @@ Future<void> runHostedConsumerCertification(List<String> args) async {
       gateResult = _readCommandResult(summaryPath);
       final artifactResult = _readCommandResult(
         File(
-          artifactDirectory.path +
-              Platform.pathSeparator +
-              'command-result.json',
+          '${artifactDirectory.path}${Platform.pathSeparator}command-result.json',
         ),
       );
       if (gateResult == null || artifactResult == null) {
@@ -216,9 +198,7 @@ Future<void> runHostedConsumerCertification(List<String> args) async {
       } else {
         final summaryBytes = summaryPath.readAsBytesSync();
         final artifactBytes = File(
-          artifactDirectory.path +
-              Platform.pathSeparator +
-              'command-result.json',
+          '${artifactDirectory.path}${Platform.pathSeparator}command-result.json',
         ).readAsBytesSync();
         if (!_sameBytesAllowingTrailingNewline(summaryBytes, artifactBytes)) {
           violations.add('Gate summary and safe artifact bytes differ.');
@@ -260,10 +240,7 @@ Future<void> runHostedConsumerCertification(List<String> args) async {
       'platform': options.platform,
       'host': options.host,
       'passed': passed,
-      'sdk': {
-        'dart': Platform.version,
-        if (flutterVersion != null) 'flutter': flutterVersion,
-      },
+      'sdk': {'dart': Platform.version, 'flutter': ?flutterVersion},
       'packageVersions': matrix.publicPackageVersions,
       'compatibilityIds': matrix.compatibilityIds,
       'resolvedPackages': _resolvedTuple(fixture),
@@ -271,7 +248,7 @@ Future<void> runHostedConsumerCertification(List<String> args) async {
       'violations': violations,
       'commands': results,
     };
-    final encoded = const JsonEncoder.withIndent('  ').convert(report) + '\n';
+    final encoded = '${const JsonEncoder.withIndent('  ').convert(report)}\n';
     if (options.output != null) {
       final output = File(options.output!);
       output.parent.createSync(recursive: true);
@@ -397,7 +374,7 @@ bool isInsidePubWorkspace(Directory child) {
   var current = child.absolute.parent;
   while (true) {
     final pubspec = File(
-      current.path + Platform.pathSeparator + 'pubspec.yaml',
+      '${current.path}${Platform.pathSeparator}pubspec.yaml',
     );
     if (pubspec.existsSync()) {
       final decoded = loadYaml(pubspec.readAsStringSync());
@@ -420,7 +397,7 @@ void _assertCleanResolution(
   String host,
 ) {
   final pubspecText = File(
-    root.path + Platform.pathSeparator + 'pubspec.yaml',
+    '${root.path}${Platform.pathSeparator}pubspec.yaml',
   ).readAsStringSync();
   final pubspec = loadYaml(pubspecText);
   if (pubspec is! Map ||
@@ -440,7 +417,7 @@ void _assertCleanResolution(
       'Flutter hosted capsule must not declare a direct package:test dependency',
     );
   }
-  final lock = File(root.path + Platform.pathSeparator + 'pubspec.lock');
+  final lock = File('${root.path}${Platform.pathSeparator}pubspec.lock');
   if (!lock.existsSync()) {
     throw const FormatException('Hosted consumer did not produce pubspec.lock');
   }
@@ -454,9 +431,7 @@ void _assertCleanResolution(
     if (package is! Map ||
         (package['source'] != 'hosted' && package['source'] != 'sdk')) {
       throw FormatException(
-        'Resolved package ' +
-            entry.key.toString() +
-            ' is not hosted or SDK-provided',
+        'Resolved package ${entry.key} is not hosted or SDK-provided',
       );
     }
   }
@@ -475,10 +450,7 @@ void _assertCleanResolution(
         entry['source'] != 'hosted' ||
         entry['version'] != expected) {
       throw FormatException(
-        'Resolved ' +
-            name +
-            ' does not equal hosted matrix version ' +
-            expected,
+        'Resolved $name does not equal hosted matrix version $expected',
       );
     }
   }
@@ -517,7 +489,7 @@ bool _containsForbiddenSource(Object? value) {
 }
 
 Map<String, String> _resolvedTuple(Directory root) {
-  final lock = File(root.path + Platform.pathSeparator + 'pubspec.lock');
+  final lock = File('${root.path}${Platform.pathSeparator}pubspec.lock');
   if (!lock.existsSync()) return {};
   final decoded = loadYaml(lock.readAsStringSync());
   final packages = decoded is Map ? decoded['packages'] : null;
@@ -526,9 +498,7 @@ Map<String, String> _resolvedTuple(Directory root) {
     for (final entry in packages.entries)
       if (entry.key is String && entry.value is Map)
         entry.key as String:
-            entry.value['source'].toString() +
-            ':' +
-            entry.value['version'].toString(),
+            '${entry.value['source']}:${entry.value['version']}',
   };
 }
 
@@ -536,14 +506,7 @@ Map<String, String> _lockDigests(Directory root) {
   final result = <String, String>{};
   for (final profile in const ['pullRequest', 'merge', 'release', 'nightly']) {
     final file = File(
-      root.path +
-          Platform.pathSeparator +
-          'assurance' +
-          Platform.pathSeparator +
-          'locks' +
-          Platform.pathSeparator +
-          profile +
-          '.lock.json',
+      '${root.path}${Platform.pathSeparator}assurance${Platform.pathSeparator}locks${Platform.pathSeparator}$profile.lock.json',
     );
     if (file.existsSync()) {
       result[profile] = sha256.convert(file.readAsBytesSync()).toString();
@@ -555,16 +518,9 @@ Map<String, String> _lockDigests(Directory root) {
 void _assertLocks(Directory root) {
   for (final profile in const ['pullRequest', 'merge', 'release', 'nightly']) {
     final path =
-        root.path +
-        Platform.pathSeparator +
-        'assurance' +
-        Platform.pathSeparator +
-        'locks' +
-        Platform.pathSeparator +
-        profile +
-        '.lock.json';
+        '${root.path}${Platform.pathSeparator}assurance${Platform.pathSeparator}locks${Platform.pathSeparator}$profile.lock.json';
     if (!File(path).existsSync()) {
-      throw StateError('Missing generated profile lock: ' + path);
+      throw StateError('Missing generated profile lock: $path');
     }
   }
 }
@@ -684,7 +640,7 @@ final class _Options {
         case '--keep-fixture':
           keepFixture = true;
         default:
-          throw FormatException('Unknown option: ' + args[index]);
+          throw FormatException('Unknown option: ${args[index]}');
       }
     }
     if (platform == null || !const {'linux', 'windows'}.contains(platform)) {

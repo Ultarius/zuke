@@ -26,7 +26,7 @@ void main(List<String> arguments) {
     }
     exit(report.passed ? 0 : 1);
   } on FormatException catch (error) {
-    stderr.writeln('ZUKE-COV-002: ${error.message}');
+    stderr.writeln('ZK-COVERAGE-BELOW-THRESHOLD: ${error.message}');
     exit(2);
   }
 }
@@ -426,7 +426,7 @@ class CoverageChecker {
 
 class CoverageReport {
   final Map<String, int> behaviorLines;
-  final List<_PackageCoverage> packages;
+  final List<PackageCoverage> packages;
 
   const CoverageReport(this.behaviorLines, this.packages);
 
@@ -437,7 +437,7 @@ class CoverageReport {
     final names = behaviorBearing.toList()..sort();
     return CoverageReport(
       behaviorLines,
-      names.map(_PackageCoverage.missing).toList(),
+      names.map(PackageCoverage.missing).toList(),
     );
   }
 
@@ -447,7 +447,7 @@ class CoverageReport {
     required Map<String, Set<String>> expected,
     required Map<String, Map<String, Map<int, int>>> hits,
   }) {
-    final report = <_PackageCoverage>[];
+    final report = <PackageCoverage>[];
     for (final name in behaviorBearing.toList()..sort()) {
       final expectedSources = expected[name]!;
       final actual = hits[name] ?? const <String, Map<int, int>>{};
@@ -473,7 +473,7 @@ class CoverageReport {
         if (missing.isNotEmpty) uncovered[source] = missing..sort();
       }
       report.add(
-        _PackageCoverage(
+        PackageCoverage(
           name: name,
           covered: covered,
           total: total,
@@ -521,20 +521,22 @@ class CoverageReport {
         '(${package.covered}/${package.total}) [${package.passed ? 'PASS' : 'FAIL'}]',
       );
       for (final source in package.missingSources) {
-        print('    ZUKE-COV-003: missing coverage for $source');
+        print(
+          '    ZK-COVERAGE-EVIDENCE-INCOMPLETE: missing coverage for $source',
+        );
       }
     }
   }
 }
 
-class _PackageCoverage {
+class PackageCoverage {
   final String name;
   final int covered;
   final int total;
   final List<String> missingSources;
   final Map<String, List<int>> uncoveredLines;
 
-  const _PackageCoverage({
+  const PackageCoverage({
     required this.name,
     required this.covered,
     required this.total,
@@ -542,7 +544,7 @@ class _PackageCoverage {
     required this.uncoveredLines,
   });
 
-  factory _PackageCoverage.missing(String name) => _PackageCoverage(
+  factory PackageCoverage.missing(String name) => PackageCoverage(
     name: name,
     covered: 0,
     total: 0,

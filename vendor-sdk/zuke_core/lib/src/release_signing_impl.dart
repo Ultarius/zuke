@@ -2,8 +2,9 @@
 library;
 
 import 'dart:convert';
-import 'package:crypto/crypto.dart';
 import 'package:cryptography/cryptography.dart';
+
+import 'digest.dart';
 import 'signing_domains.dart';
 
 /// Deterministic Ed25519 release-record signer. Private key material is
@@ -50,7 +51,7 @@ class Ed25519ReleaseSigner {
       'body': body,
     };
     final bytes = releaseSigningPayload(unsigned);
-    final digest = sha256.convert(bytes).toString();
+    final digest = sha256DigestHex(bytes);
     final keyPair = await algorithm.newKeyPairFromSeed(seed);
     final signature = await algorithm.sign(bytes, keyPair: keyPair);
     return {
@@ -78,7 +79,7 @@ class Ed25519ReleaseSigner {
       'body': record['body'],
     };
     final bytes = releaseSigningPayload(unsigned);
-    if (sha256.convert(bytes).toString() != expectedDigest) return false;
+    if (sha256DigestHex(bytes) != expectedDigest) return false;
     if (trustedPublicKey == null) return false;
     final signature = Signature(
       base64Decode(signatureText),
@@ -109,7 +110,7 @@ class TrustKey {
 
   bool get active => status == 'active' && algorithm == 'Ed25519';
 
-  factory TrustKey.fromJson(Map value) {
+  factory TrustKey.fromJson(Map<Object?, Object?> value) {
     final encoded = value['publicKey'];
     if (encoded is! String) {
       throw const FormatException('Trust key publicKey missing');
@@ -118,7 +119,7 @@ class TrustKey {
     if (bytes.length != 32 || value['algorithm'] != 'Ed25519') {
       throw const FormatException('Invalid Ed25519 trust key');
     }
-    final expected = 'sha256:${sha256.convert(bytes)}';
+    final expected = sha256Hex(bytes);
     if (value['fingerprint'] != expected) {
       throw const FormatException('Trust key fingerprint mismatch');
     }
@@ -144,14 +145,14 @@ class TrustBundle {
   final List<TrustKey> keys;
   const TrustBundle(this.keys);
 
-  factory TrustBundle.fromJson(Map value) {
+  factory TrustBundle.fromJson(Map<Object?, Object?> value) {
     if (value['kind'] != 'zuke.ed25519-trust') {
       throw const FormatException(
         'Invalid Ed25519 trust bundle format; regenerate it for the current Zuke release',
       );
     }
     final keys = (value['keys'] as List? ?? const [])
-        .whereType<Map>()
+        .whereType<Map<Object?, Object?>>()
         .map(TrustKey.fromJson)
         .toList();
     final identities = <String>{};

@@ -212,7 +212,7 @@ Feature: Dummy
         final trustDir = Directory('${tempDir.path}/assurance-history/trust')
           ..createSync(recursive: true);
         File('${trustDir.path}/ed25519.json').writeAsStringSync(
-          jsonEncode({'kind': 'zuke.ed25519-trust', 'keys': []}),
+          jsonEncode({'kind': 'zuke.ed25519-trust', 'keys': <Object?>[]}),
         );
 
         final result = await runInProcessCli([
@@ -226,7 +226,8 @@ Feature: Dummy
         ]);
 
         final summary = jsonDecode(result.stdout) as Map;
-        final diagnostics = (summary['diagnostics'] as List).cast<Map>();
+        final diagnostics = (summary['diagnostics'] as List)
+            .cast<Map<Object?, Object?>>();
         final trust = diagnostics.singleWhere(
           (item) => item['code'] == 'ZUKE-TRUST-001',
         );
@@ -272,7 +273,7 @@ Feature: Dummy
       expect(decoded['status'], equals('passed'));
       expect(decoded['exitCode'], equals(0));
       expect(decoded['eligible'], isTrue);
-      expect(decoded['diagnostics'], isA<List>());
+      expect(decoded['diagnostics'], isA<List<Object?>>());
     });
   });
 }

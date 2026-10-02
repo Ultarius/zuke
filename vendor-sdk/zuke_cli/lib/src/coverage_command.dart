@@ -619,6 +619,10 @@ String _resolve(String root, String path) =>
     ? path
     : '$root${Platform.pathSeparator}$path';
 
+/// LCOV path comparison form: forward slashes without a leading `./`.
+///
+/// LCOV reports its own path spelling; see
+/// `path_safety.normalizeRelativePath` for workspace-relative paths.
 String _normalize(String value) =>
     value.replaceAll('\\', '/').replaceFirst(RegExp(r'^\./'), '');
 

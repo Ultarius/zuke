@@ -74,8 +74,8 @@ void main() {
         document.writeAsStringSync(
           jsonEncode({
             'schemaVersion': 'unknown',
-            'signer': {},
-            'body': {},
+            'signer': <String, Object?>{},
+            'body': <String, Object?>{},
             'signature': '',
           }),
         );

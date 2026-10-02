@@ -5,16 +5,22 @@ import 'package:crypto/crypto.dart';
 
 import 'dart_extractor.dart';
 import 'package:zuke_core/zuke_core.dart';
-import 'package:zuke_frontend/zuke_frontend.dart';
+// The path helpers arrive via `path_safety.dart`, which re-exports them from
+// here. Importing them directly as well would make every use ambiguous, and the
+// point of the single origin is that there is only one spelling to disagree
+// about.
+import 'package:zuke_frontend/zuke_frontend.dart'
+    hide normalizePackagePath, normalizeRelativePath, pathComparisonKey;
 import 'dart_frog_adapter.dart';
+import 'generated_manifest_path.dart';
 import 'ir.dart';
+import 'path_safety.dart';
 
 class WorkspaceExtraction {
   final List<IrAdapterOutput> outputs;
   final List<AdapterOutput> topologyOutputs;
   final List<EvidenceRecord> evidenceRecords;
   final List<String> errors;
-
   const WorkspaceExtraction({
     this.outputs = const [],
     this.topologyOutputs = const [],
@@ -23,11 +29,25 @@ class WorkspaceExtraction {
   });
 }
 
+SourceSnapshotDigest? _provenanceFromJson(Object? value) {
+  if (value is! String) return null;
+  try {
+    return SourceSnapshotDigest.parse(value);
+  } on FormatException {
+    return null;
+  }
+}
+
 class ExtractionService {
   // The public adapter compatibility ID describes the extracted contract. It
   // must not change for an internal cache-shape correction, so keep a separate
   // cache revision to invalidate fragments produced by older implementations.
-  static const _cacheRevision = '3';
+  // Revision 5 keyed the cache on the extraction inputs (including generated
+  // contracts) while recording the prose-free provenance digest.
+  // Revision 6 stores that provenance digest as its own payload field rather
+  // than overwriting the adapter's, so a cache hit no longer has to be
+  // re-stamped and cannot republish a generated-file-sensitive value.
+  static const _cacheRevision = '6';
 
   CompletenessValue _completeness(Object? value) => switch (value) {
     'complete' => CompletenessValue.complete,
@@ -35,6 +55,17 @@ class ExtractionService {
     'notVisible' => CompletenessValue.notVisible,
     _ => CompletenessValue.notApplicable,
   };
+
+  /// The evidence records already published for [workspace].
+  ///
+  /// Reads the effective evidence location: no analyzer run, no cache lookup.
+  /// Callers that must decide *whether* to extract (the `lock --refresh`
+  /// skip probe) can use this to rule a profile out cheaply.
+  List<EvidenceRecord> publishedEvidence(WorkspaceDiscoveryResult workspace) {
+    final root = workspace.config.root;
+    if (root == null) return const [];
+    return _loadEvidence(root, workspace.config).records;
+  }
 
   /// Extracts configured Dart targets and their framework topology.
   ///
@@ -51,6 +82,14 @@ class ExtractionService {
     final outputs = <IrAdapterOutput>[];
     final topologyOutputs = <AdapterOutput>[];
     final errors = <String>[];
+    // One manifest read per extraction. The manifest is workspace-level: it
+    // records the files generation wrote for the configured contract output,
+    // so a package that does not own that directory simply has nothing to
+    // exclude.
+    final generated = _GeneratedManifests.load(
+      root: root,
+      contractOutput: workspace.config.contractOutput,
+    );
     for (final targetEntry in workspace.config.workspaceTargets.entries) {
       final target = targetEntry.value;
       if (targetId != null && target.id != targetId) continue;
@@ -66,22 +105,6 @@ class ExtractionService {
         }
         final packageRoot = packageDirectory.resolveSymbolicLinksSync();
         final roots = package.roots;
-        // The source digest is also the identity of the source snapshot
-        // used by the projected topology output.  Keep it in the same
-        // digest format as the analyzer output; publication normalizes the
-        // value to the canonical sha256:<hex> wire form.
-        // Topology-only extraction never projects an IR output, so the
-        // source digest is intentionally omitted from this fast path.
-        final inputDigest = topologyOnly
-            ? ''
-            : _sourceDigest(
-                packageRoot,
-                roots,
-                framework == 'dart-frog' ? 'dart-frog' : 'dart-http-v3',
-                framework == 'dart-frog'
-                    ? dartFrogCompatibilityId
-                    : DartExtractor.compatibilityId,
-              );
         AdapterOutput? topology;
         if (framework == 'dart-frog') {
           topology = await const DartFrogAdapter().extract(
@@ -108,14 +131,32 @@ class ExtractionService {
             continue;
           }
         }
+        // Everything below produces an IR output, so topology-only extraction
+        // never pays for a source listing.
+        final digests = _sourceDigests(
+          packageRoot,
+          roots,
+          framework == 'dart-frog' ? 'dart-frog' : 'dart-http-v3',
+          framework == 'dart-frog'
+              ? dartFrogCompatibilityId
+              : DartExtractor.compatibilityId,
+          isGenerated: generated.predicateFor(package.path),
+        );
+        // The published identity of the source snapshot: manifest-declared
+        // generated files are skipped, so a rewording that only changes
+        // generated bytes cannot invalidate evidence or move a lock. The cache
+        // key below keys on `digests.cache` instead, so regenerating a contract
+        // still misses the cache even though this value does not move.
+        final provenance = digests.provenance;
         // A package can be inspected under different configured targets.
         // Cache identity must include that namespace; otherwise an output
         // extracted as backend can be reused for the same package under
-        // flutter (or vice versa).
+        // flutter (or vice versa). It keys on the cache digest, not the
+        // provenance digest, so regeneration still invalidates it.
         final cacheKey = sha256
             .convert(
               utf8.encode(
-                '$_cacheRevision|${target.id}|${package.id}|$inputDigest',
+                '$_cacheRevision|${target.id}|${package.id}|${digests.cache}',
               ),
             )
             .toString();
@@ -144,11 +185,14 @@ class ExtractionService {
         // The configured package id is the stable assurance identity. The
         // analyzer may report the pubspec name, which may differ from that
         // identity, so bind the output to the configured namespace before
-        // it enters the shared source catalog.
-        output = _withConfiguredPackageIdentity(
+        // it enters the shared source catalog. The adapter's own `inputDigest`
+        // is deliberately left intact — it answers "what did the adapter read",
+        // which is a different question from the published identity.
+        output = _bindToConfiguredPackage(
           output,
           package.id,
           packageRoot,
+          provenance: provenance,
         );
         if (output.graph != null) {
           errors.addAll(output.graph!.validate());
@@ -167,7 +211,7 @@ class ExtractionService {
             _topologyAdapterOutput(
               topology,
               packageRoot,
-              inputDigest,
+              provenance,
               symbols: output.symbols,
               existingNodeIds: output.graph?.nodes
                   .map((node) => node.id)
@@ -178,7 +222,7 @@ class ExtractionService {
       }
     }
     final evidenceLoad = includeEvidence && !topologyOnly
-        ? _loadEvidence(root, workspace.config.evidenceOutput)
+        ? _loadEvidence(root, workspace.config)
         : const _EvidenceLoad([], []);
     errors.addAll(evidenceLoad.errors);
     final evidence = evidenceLoad.records;
@@ -195,15 +239,25 @@ class ExtractionService {
           .replaceAll('/', Platform.pathSeparator)
           .replaceAll('\\', Platform.pathSeparator);
 
-  IrAdapterOutput _withConfiguredPackageIdentity(
+  /// Rebinds an extracted output to the configured package identity and stamps
+  /// the published snapshot identity.
+  ///
+  /// The adapter's own `inputDigest` is preserved rather than replaced: it
+  /// covers the generated contracts this service deliberately ignores, and the
+  /// adapter's own tests assert that behaviour. Stamping the provenance
+  /// alongside it keeps the two quantities distinguishable on the output, so
+  /// nothing has to reconcile them later by overwriting one with the other.
+  IrAdapterOutput _bindToConfiguredPackage(
     IrAdapterOutput output,
     String packageId,
-    String packageRoot,
-  ) => IrAdapterOutput(
+    String packageRoot, {
+    required SourceSnapshotDigest provenance,
+  }) => IrAdapterOutput(
     adapter: output.adapter,
     completeness: output.completeness,
     symbols: output.symbols,
     inputDigest: output.inputDigest,
+    provenanceDigest: provenance,
     diagnostics: output.diagnostics,
     packageName: packageId,
     packageRoot: packageRoot,
@@ -211,12 +265,25 @@ class ExtractionService {
     evidenceRecords: output.evidenceRecords,
   );
 
-  String _sourceDigest(
+  /// Computes both source digests from one listing and one read per file.
+  ///
+  /// `provenance` is the published snapshot identity: manifest-declared
+  /// generated files are skipped, so regenerating a contract cannot invalidate
+  /// evidence or move a lock. `cache` covers every file extraction reads, so a
+  /// regenerated contract always misses the extraction cache.
+  ///
+  /// Both accumulators are fed from the same bytes in the same order, which
+  /// makes it structurally impossible for the recorded digest to describe a
+  /// different tree state than the symbols extracted beside it — an important
+  /// property for long-running `zuke watch`, where a formatter or build_runner
+  /// can write mid-extraction.
+  _SourceDigests _sourceDigests(
     String root,
     List<String> roots,
     String adapter,
-    String compatibilityId,
-  ) {
+    String compatibilityId, {
+    required bool Function(String relative) isGenerated,
+  }) {
     final files = <File>[];
     for (final relative in [
       ...roots,
@@ -232,11 +299,18 @@ class ExtractionService {
     for (final relative in roots) {
       final dir = Directory(_join(root, relative));
       if (dir.existsSync()) {
-        files.addAll(dir.listSync(recursive: true).whereType<File>());
+        files.addAll(
+          dir
+              .listSync(recursive: true)
+              .whereType<File>()
+              .where((file) => !isGuideSnippetFixture(file.path)),
+        );
       }
     }
     files.sort((a, b) => a.path.compareTo(b.path));
-    final bytes = <int>[]..addAll(utf8.encode('$adapter|$compatibilityId|'));
+    final header = utf8.encode('$adapter|$compatibilityId|');
+    final provenanceBytes = <int>[...header];
+    final cacheBytes = <int>[...header];
     final normalizedRoot = Directory(
       root,
     ).absolute.path.replaceAll('\\', '/').replaceFirst(RegExp(r'/$'), '');
@@ -245,18 +319,29 @@ class ExtractionService {
       final relative = normalized.startsWith('$normalizedRoot/')
           ? normalized.substring(normalizedRoot.length + 1)
           : normalized;
-      bytes.addAll(utf8.encode(relative));
-      bytes.add(0);
-      bytes.addAll(canonicalDigestBytes(relative, file.readAsBytesSync()));
-      bytes.add(0);
+      final bytes = canonicalDigestBytes(relative, file.readAsBytesSync());
+      cacheBytes
+        ..addAll(utf8.encode(relative))
+        ..add(0)
+        ..addAll(bytes)
+        ..add(0);
+      if (isGenerated(relative)) continue;
+      provenanceBytes
+        ..addAll(utf8.encode(relative))
+        ..add(0)
+        ..addAll(bytes)
+        ..add(0);
     }
-    return sha256.convert(bytes).toString();
+    return _SourceDigests(
+      provenance: SourceSnapshotDigest.parse(sha256DigestHex(provenanceBytes)),
+      cache: sha256DigestHex(cacheBytes),
+    );
   }
 
   IrAdapterOutput _topologyAdapterOutput(
     AdapterOutput output,
     String packageRoot,
-    String inputDigest, {
+    SourceSnapshotDigest inputDigest, {
     List<ExtractedSymbol> symbols = const [],
     Set<String>? existingNodeIds,
   }) {
@@ -290,7 +375,9 @@ class ExtractionService {
       );
     }
     final requirementSymbols = symbols
-        .where((symbol) => symbol.kind == 'requirementBoundary')
+        .where(
+          (symbol) => symbol.kind == ExtractedSymbolKind.requirementBoundary,
+        )
         .toList(growable: false);
     final routeNodes = output.nodes
         .where((node) => node.kind == 'route' || node.kind == 'websocket-route')
@@ -446,7 +533,8 @@ class ExtractionService {
         ),
       ),
       symbols: const [],
-      inputDigest: inputDigest,
+      inputDigest: inputDigest.value,
+      provenanceDigest: inputDigest,
       diagnostics: output.diagnostics
           .map(
             (diagnostic) => IrDiagnostic(
@@ -486,10 +574,10 @@ class ExtractionService {
   String _cachePath(String root, String adapter, String key) =>
       _join(root, '.zuke/cache/$adapter/$key.json');
 
-  _EvidenceLoad _loadEvidence(String root, String? configuredPath) {
-    final path = configuredPath == null || configuredPath.isEmpty
-        ? _join(root, '.zuke/evidence')
-        : _join(root, configuredPath);
+  _EvidenceLoad _loadEvidence(String root, ZukeConfig config) {
+    // Read exactly where `zuke test` publishes. Falling back to an old path
+    // when this one is absent can silently resurrect stale evidence.
+    final path = _join(root, config.resolvedEvidenceOutput);
     final files = <File>[];
     final candidate = File(path);
     if (candidate.existsSync()) {
@@ -517,13 +605,13 @@ class ExtractionService {
             ? decoded
             : decoded is Map
             ? [decoded]
-            : const [];
+            : const <Object?>[];
         if (values.isEmpty) {
           errors.add(
             'Evidence file is not a record or record list: ${file.path}',
           );
         }
-        for (final value in values.whereType<Map>()) {
+        for (final value in values.whereType<Map<Object?, Object?>>()) {
           final record = Map<String, Object?>.from(value);
           final executionId = record['executionId'];
           if (executionId is! String || executionId.isEmpty) {
@@ -562,7 +650,7 @@ class ExtractionService {
       }
       final package = value['package'];
       final symbols = (value['symbols'] as List? ?? const [])
-          .whereType<Map>()
+          .whereType<Map<Object?, Object?>>()
           .map(_symbolFromJson)
           .toList();
       final completeness = value['completeness'] as Map? ?? const {};
@@ -590,6 +678,10 @@ class ExtractionService {
         ),
         symbols: symbols,
         inputDigest: value['inputDigest'] as String? ?? key,
+        // A cached entry must carry the published identity explicitly. Falling
+        // back to the adapter digest would silently republish a
+        // generated-file-sensitive value on every cache hit.
+        provenanceDigest: _provenanceFromJson(value['provenanceDigest']),
         packageName: package['name'] as String?,
         packageRoot: package['root'] as String?,
         diagnostics: (value['errors'] as List? ?? const [])
@@ -613,10 +705,12 @@ class ExtractionService {
     }
   }
 
-  ExtractedSymbol _symbolFromJson(Map value) {
+  ExtractedSymbol _symbolFromJson(Map<Object?, Object?> value) {
     final source = value['source'] as Map? ?? const {};
     return ExtractedSymbol(
-      kind: value['kind'] as String? ?? 'unknown',
+      kind:
+          ExtractedSymbolKind.values.asNameMap()[value['kind'] as String?] ??
+          (throw FormatException('unknown symbol kind: ${value['kind']}')),
       role: value['role'] as String? ?? 'unknown',
       symbolId: value['symbolId'] as String? ?? 'unknown',
       requirementIds: (value['requirementIds'] as List? ?? const [])
@@ -647,38 +741,40 @@ class ExtractionService {
 
   IrGraph? _graphFromJson(Object? raw) {
     if (raw is! Map) return null;
-    final nodes = (raw['nodes'] as List? ?? const []).whereType<Map>().map((
-      node,
-    ) {
-      return IrNode(
-        id: node['id'] as String,
-        kind: NodeKind.values.firstWhere((k) => k.name == node['kind']),
-        target: node['target'] as String?,
-        role: node['role'] as String?,
-        variant: node['variant'] as String?,
-        slot: node['slot'] as String?,
-        properties: Map<String, Object?>.from(
-          node['properties'] as Map? ?? const {},
-        ),
-      );
-    }).toList();
-    final edges = (raw['edges'] as List? ?? const []).whereType<Map>().map((
-      edge,
-    ) {
-      return IrEdge(
-        sourceId: edge['source'] as String,
-        targetId: edge['target'] as String,
-        kind: EdgeKind.values.firstWhere((k) => k.name == edge['kind']),
-        properties: Map<String, Object?>.from(
-          edge['properties'] as Map? ?? const {},
-        ),
-        source: edge['location'] is Map
-            ? SourceSpan.fromJson(
-                Map<String, Object?>.from(edge['location'] as Map),
-              )
-            : null,
-      );
-    }).toList();
+    final nodes = (raw['nodes'] as List? ?? const [])
+        .whereType<Map<Object?, Object?>>()
+        .map((node) {
+          return IrNode(
+            id: node['id'] as String,
+            kind: NodeKind.values.firstWhere((k) => k.name == node['kind']),
+            target: node['target'] as String?,
+            role: node['role'] as String?,
+            variant: node['variant'] as String?,
+            slot: node['slot'] as String?,
+            properties: Map<String, Object?>.from(
+              node['properties'] as Map? ?? const {},
+            ),
+          );
+        })
+        .toList();
+    final edges = (raw['edges'] as List? ?? const [])
+        .whereType<Map<Object?, Object?>>()
+        .map((edge) {
+          return IrEdge(
+            sourceId: edge['source'] as String,
+            targetId: edge['target'] as String,
+            kind: EdgeKind.values.firstWhere((k) => k.name == edge['kind']),
+            properties: Map<String, Object?>.from(
+              edge['properties'] as Map? ?? const {},
+            ),
+            source: edge['location'] is Map
+                ? SourceSpan.fromJson(
+                    Map<String, Object?>.from(edge['location'] as Map),
+                  )
+                : null,
+          );
+        })
+        .toList();
     final c = raw['completeness'] as Map? ?? const {};
     CompletenessValue parse(String? value) =>
         CompletenessValue.values.firstWhere(
@@ -707,58 +803,113 @@ class ExtractionService {
   ) {
     if (output.errors.isNotEmpty) return;
     final file = File(_cachePath(root, adapter, key));
-    file.parent.createSync(recursive: true);
-    final temporary = File('${file.path}.tmp');
-    temporary.writeAsStringSync(
-      const JsonEncoder.withIndent('  ').convert({
-            'kind': 'zuke.cache',
-            'adapter': {
-              'id': output.adapter.id,
-              'version': output.adapter.version,
-              'compatibilityId': output.adapter.compatibilityId,
-            },
-            'package': {'name': output.packageName, 'root': output.packageRoot},
-            'completeness': output.completeness.toJson(),
-            'inputDigest': output.inputDigest,
-            'errors': output.errors,
-            if (output.graph != null) 'graph': output.graph!.toJson(),
-            'symbols': output.symbols
-                .map(
-                  (s) => {
-                    'kind': s.kind,
-                    'role': s.role,
-                    'symbolId': s.symbolId,
-                    if (s.requirementIds.isNotEmpty)
-                      'requirementIds': s.requirementIds,
-                    if (s.controlIds.isNotEmpty) 'controlIds': s.controlIds,
-                    if (s.bindingId != null) 'bindingId': s.bindingId,
-                    if (s.providerKind != null) 'providerKind': s.providerKind,
-                    if (s.layer != null) 'layer': s.layer,
-                    if (s.target != null) 'target': s.target,
-                    'variant': s.variant,
-                    'slot': s.slot,
-                    if (s.evidenceType != null) 'evidenceType': s.evidenceType,
-                    if (s.scenarioIds.isNotEmpty) 'scenarioIds': s.scenarioIds,
-                    'source': {
-                      'uri': s.source.uri,
-                      'offset': s.source.offset,
-                      'length': s.source.length,
-                      'line': s.source.line,
-                      'column': s.source.column,
-                    },
-                  },
-                )
-                .toList(),
-          }) +
-          '\n',
+    writeBytesReplacing(
+      file,
+      utf8.encode(
+        '${const JsonEncoder.withIndent('  ').convert({
+          'kind': 'zuke.cache',
+          'adapter': {'id': output.adapter.id, 'version': output.adapter.version, 'compatibilityId': output.adapter.compatibilityId},
+          'package': {'name': output.packageName, 'root': output.packageRoot},
+          'completeness': output.completeness.toJson(),
+          'inputDigest': output.inputDigest,
+          // Written explicitly rather than reusing `inputDigest`: the two are
+          // different quantities and a cache hit must not republish the
+          // adapter's, which is sensitive to generated files.
+          if (output.provenanceDigest case final provenance?) 'provenanceDigest': provenance.value,
+          'errors': output.errors,
+          if (output.graph != null) 'graph': output.graph!.toJson(),
+          'symbols': output.symbols.map((s) => {
+            'kind': s.kind.name,
+            'role': s.role,
+            'symbolId': s.symbolId,
+            if (s.requirementIds.isNotEmpty) 'requirementIds': s.requirementIds,
+            if (s.controlIds.isNotEmpty) 'controlIds': s.controlIds,
+            if (s.bindingId != null) 'bindingId': s.bindingId,
+            if (s.providerKind != null) 'providerKind': s.providerKind,
+            if (s.layer != null) 'layer': s.layer,
+            if (s.target != null) 'target': s.target,
+            'variant': s.variant,
+            'slot': s.slot,
+            if (s.evidenceType != null) 'evidenceType': s.evidenceType,
+            if (s.scenarioIds.isNotEmpty) 'scenarioIds': s.scenarioIds,
+            'source': {'uri': s.source.uri, 'offset': s.source.offset, 'length': s.source.length, 'line': s.source.line, 'column': s.source.column},
+          }).toList(),
+        })}\n',
+      ),
     );
-    if (file.existsSync()) file.deleteSync();
-    temporary.renameSync(file.path);
   }
+}
+
+/// The two source digests for one package, computed from a single tree walk.
+///
+/// [provenance] is the published snapshot identity: manifest-declared generated
+/// files are skipped, so regeneration cannot invalidate evidence or move a lock.
+/// [cache] covers every file extraction reads, so regeneration always misses the
+/// extraction cache. The types differ on purpose — a cache identity is not a
+/// [SourceSnapshotDigest] and must not be usable as one.
+final class _SourceDigests {
+  const _SourceDigests({required this.provenance, required this.cache});
+
+  final SourceSnapshotDigest provenance;
+  final String cache;
 }
 
 class _EvidenceLoad {
   final List<EvidenceRecord> records;
   final List<String> errors;
   const _EvidenceLoad(this.records, this.errors);
+}
+
+/// Manifest-declared generated files, rebased onto a package when asked.
+///
+/// The manifest belongs to the workspace's contract output, not to a package:
+/// generation writes one output directory per workspace today.
+final class _GeneratedManifests {
+  const _GeneratedManifests(this._workspaceRelativePaths);
+
+  final Set<String> _workspaceRelativePaths;
+
+  static _GeneratedManifests load({
+    required String root,
+    required String? contractOutput,
+  }) {
+    if (contractOutput == null || contractOutput.isEmpty) {
+      return const _GeneratedManifests({});
+    }
+    final manifest = File(generatedManifestPath(root, contractOutput));
+    if (!manifest.existsSync()) return const _GeneratedManifests({});
+    Object? decoded;
+    try {
+      decoded = jsonDecode(manifest.readAsStringSync());
+    } on FormatException {
+      return const _GeneratedManifests({});
+    }
+    if (decoded is! Map) return const _GeneratedManifests({});
+    final files = decoded['files'];
+    if (files is! List) return const _GeneratedManifests({});
+    final paths = <String>{};
+    for (final entry in files.whereType<Map<Object?, Object?>>()) {
+      final path = entry['path'];
+      if (path is! String || path.isEmpty) continue;
+      paths.add(normalizeRelativePath(path));
+    }
+    return _GeneratedManifests(paths);
+  }
+
+  /// Recognizes generated files by their path inside [packagePath].
+  bool Function(String relative) predicateFor(String packagePath) {
+    final base = normalizeRelativePath(packagePath);
+    final packageRelative = <String>{};
+    for (final path in _workspaceRelativePaths) {
+      if (base.isEmpty || base == '.') {
+        packageRelative.add(path);
+      } else if (path.startsWith('$base/')) {
+        packageRelative.add(path.substring(base.length + 1));
+      }
+    }
+    return (relative) =>
+        relative == '.zuke-generated.json' ||
+        relative.endsWith('/.zuke-generated.json') ||
+        packageRelative.contains(relative);
+  }
 }

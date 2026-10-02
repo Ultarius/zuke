@@ -227,6 +227,10 @@ final class OpenApiContractCommand {
   }
 }
 
+/// Renders an OpenAPI path template as a comparable route pattern.
+///
+/// Route-pattern rewriting, not path normalization: see
+/// `path_safety.normalizeRelativePath` for workspace-relative paths.
 String _normalizePath(String value) {
   var path = value.replaceAll('\\', '/');
   path = path.replaceAll(RegExp(r'\{[^}/]+\}'), ':param');

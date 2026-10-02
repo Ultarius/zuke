@@ -29,13 +29,13 @@ packages:
     supportStatement: Supported application-facing annotation API.
     bumpReason: Breaking removal of provider-owned workspace target metadata.
   zuke_frontend:
-    version: 0.2.2
-    previousVersion: 0.2.1
+    version: 0.2.3
+    previousVersion: 0.2.2
     publish: true
     releaseAction: publish
     tier: Narrow SDK
     supportStatement: Supported frontend and configuration API.
-    bumpReason: Target-aware contract output and export configuration.
+    bumpReason: Reject a package path claimed by two different packages, and own the lexical path normalization every later comparison depends on.
   zuke:
     version: 0.4.0
     previousVersion: 0.3.1
@@ -85,13 +85,13 @@ packages:
     supportStatement: Supported optional package-owned build-time validation hook.
     bumpReason: Coordinated build-hook release for target-aware CLI extraction.
   zuke_analyzer:
-    version: 0.1.0
-    previousVersion: 0.1.0
+    version: 0.1.2
+    previousVersion: 0.1.1
     publish: false
     releaseAction: internal
     tier: Repository tooling
     supportStatement: Repository-only analyzer plugin; not published to pub.dev.
-    bumpReason: Internal workspace tooling.
+    bumpReason: Record binding-coverage facts in the analyzer index and report unbound evidence slots as a warning; the facts are required keys, so index contract 1 is incompatible rather than read as registering nothing.
   zuke_conformance:
     version: 0.1.0
     previousVersion: 0.1.0

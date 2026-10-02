@@ -124,8 +124,10 @@ _GateRead _readGate(File file) {
     return _GateRead(
       result: CommandResult.fromJson(Map<Object?, Object?>.from(decoded)),
     );
-  } on Object catch (_) {
-    return const _GateRead(failure: 'summary is malformed or not current');
+  } on FormatException catch (error) {
+    return _GateRead(failure: 'summary is malformed: ${error.message}');
+  } on Object catch (error) {
+    return _GateRead(failure: 'summary is unreadable (${error.runtimeType})');
   }
 }
 
@@ -173,7 +175,8 @@ String _readCoverage(File file) {
     final covered = decoded['covered'] ?? 'unavailable';
     final total = decoded['total'] ?? 'unavailable';
     return 'Coverage report: $percent% ($covered/$total).';
-  } on Object catch (_) {
-    return 'Coverage report: unavailable (malformed JSON).';
+  } on Object catch (error) {
+    return 'Coverage report: unavailable (malformed JSON: '
+        '${error.runtimeType}).';
   }
 }

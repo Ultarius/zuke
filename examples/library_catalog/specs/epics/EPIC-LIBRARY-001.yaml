@@ -1,0 +1,26 @@
+schemaVersion: 1
+id: EPIC-LIBRARY-001
+title: Library Checkout Desk
+owner: library-team
+strategicGoal: >-
+  Provide a reliable checkout desk that validates ISBN input, enforces loan
+  limits, and keeps the loan register accurate.
+businessContext: >-
+  Demonstrates a pure-Dart Zuke workspace built specs-first: Gherkin rules
+  become typed contracts via zuke generate, then the analyzer plugin keeps
+  annotations, indexes, and verification coverage honest while editing.
+successMetrics:
+  - id: KPI-LIBRARY-ZUKE-COVERAGE
+    description: All library rules have domain-unit evidence binding.
+    target: 100
+    unit: percent
+scope:
+  in:
+    - ISBN checkout validation
+    - active loan limit
+    - loan return
+    - branch-to-branch peer connection and loan-register sync
+  out:
+    - patron accounts
+    - overdue fines
+    - digital media

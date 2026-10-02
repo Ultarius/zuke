@@ -2,7 +2,7 @@ import 'dart:io';
 
 import 'package:test/test.dart';
 
-import '../../check_docs.dart';
+import 'support/check_docs.dart';
 
 void main() {
   late Directory root;

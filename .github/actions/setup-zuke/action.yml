@@ -1,0 +1,27 @@
+name: Setup Zuke
+description: Check out the repository, install the pinned Flutter SDK, and resolve workspace dependencies.
+
+inputs:
+  flutter-version:
+    description: Flutter SDK version to install.
+    required: false
+    default: '3.44.8'
+  fetch-depth:
+    description: Number of commits actions/checkout fetches; use 0 for full history.
+    required: false
+    default: '1'
+
+runs:
+  using: composite
+  steps:
+    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      with:
+        fetch-depth: ${{ inputs.fetch-depth }}
+    - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2
+      with:
+        flutter-version: ${{ inputs.flutter-version }}
+        channel: stable
+        cache: true
+    - name: Resolve workspace dependencies
+      shell: bash
+      run: flutter --suppress-analytics pub get

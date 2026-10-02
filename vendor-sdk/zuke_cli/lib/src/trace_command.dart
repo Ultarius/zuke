@@ -3,7 +3,6 @@ import 'dart:io';
 import 'package:args/args.dart';
 import 'package:zuke_frontend/zuke_frontend.dart';
 import 'configuration_preflight.dart';
-import 'ir.dart' show ProofStatus;
 import 'ir.dart';
 
 import 'extraction_service.dart';
@@ -25,11 +24,11 @@ class TraceCommand {
     ).absolute.resolveSymbolicLinksSync();
     final workspace = requireCurrentWorkspace(root);
     final extraction = await ExtractionService().extract(workspace);
-    final matching = <(ParsedFeature, ParsedRule)>[];
+    final matching = <_FeatureRuleMatch>[];
     for (final feature in workspace.data.features) {
       for (final rule in feature.rules) {
         if (rule.metadata.id == requirementId) {
-          matching.add((feature, rule));
+          matching.add(_FeatureRuleMatch(feature, rule));
         }
       }
     }
@@ -48,7 +47,7 @@ class TraceCommand {
     );
     final selected = matching.single;
     final symbols = extraction.outputs.expand((output) => output.symbols);
-    List<String> mappings(String kind) => symbols
+    List<String> mappings(ExtractedSymbolKind kind) => symbols
         .where(
           (symbol) =>
               symbol.kind == kind &&
@@ -57,7 +56,8 @@ class TraceCommand {
         .map((symbol) => '[${symbol.role}] ${symbol.symbolId}')
         .toList();
     final controls = <String>{
-      for (final control in selected.$2.metadata.requires ?? const [])
+      for (final control
+          in selected.rule.metadata.requires ?? const <ParsedControlRef>[])
         control.id,
     }.toList()..sort();
     stdout.write(
@@ -65,10 +65,10 @@ class TraceCommand {
         RequirementTrace(
           requirementId: requirementId,
           definedBy:
-              '${selected.$1.featureElement.source.file}:${selected.$2.ruleElement.source.line}',
-          implementations: mappings('requirementBoundary'),
-          presentations: mappings('presentationBoundary'),
-          verifications: mappings('verificationBoundary'),
+              '${selected.feature.featureElement.source.file}:${selected.rule.ruleElement.source.line}',
+          implementations: mappings(ExtractedSymbolKind.requirementBoundary),
+          presentations: mappings(ExtractedSymbolKind.presentationBoundary),
+          verifications: mappings(ExtractedSymbolKind.verificationBoundary),
           requiredControls: controls,
           report: report,
         ),
@@ -88,4 +88,11 @@ class TraceCommand {
         extraction.errors.isEmpty;
     return eligible ? 0 : 1;
   }
+}
+
+final class _FeatureRuleMatch {
+  const _FeatureRuleMatch(this.feature, this.rule);
+
+  final ParsedFeature feature;
+  final ParsedRule rule;
 }

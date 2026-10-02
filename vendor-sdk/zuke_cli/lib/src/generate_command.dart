@@ -1,12 +1,20 @@
 import 'dart:convert';
 import 'dart:io';
 import 'package:args/args.dart';
-import 'package:yaml/yaml.dart';
 import 'package:zuke_cli/tooling.dart';
 import 'package:zuke_frontend/zuke_frontend.dart';
 
 import 'generator.dart';
+import 'plugin_cache.dart';
 import 'configuration_preflight.dart';
+import 'generated_manifest_path.dart';
+import 'implementation_scan.dart';
+import 'proof_engine/binding_coverage_check.dart';
+import 'requirement_scopes.dart';
+import 'spec_lint_scan.dart';
+import 'tooling/source_files.dart';
+import 'workspace_annotation_scan.dart';
+import 'verified_requirement_scan.dart';
 
 class GenerateCommand {
   final ArgResults args;
@@ -15,7 +23,11 @@ class GenerateCommand {
 
   Future<int> execute() async {
     final requestedRoot = args['root'] as String? ?? Directory.current.path;
-    final root = Directory(requestedRoot).absolute.path;
+    // Canonical, so the root matches the one discovery resolved. Using
+    // `Directory.absolute` here instead would leave `--root .` as `.../ws/.`,
+    // which nothing relativizes against, and the index would then record
+    // absolute paths — making its digest differ per invocation and per machine.
+    final root = canonicalizeRoot(requestedRoot);
     final checkOnly = args['check'] as bool? ?? false;
     final quiet = args['quiet'] as bool? ?? false;
 
@@ -26,16 +38,25 @@ class GenerateCommand {
     info('${checkOnly ? "Checking" : "Generating"} contracts...');
 
     final workspace = requireCurrentWorkspace(root);
+    // This is an advisory about the current analysis context. A full audit
+    // belongs to doctor; walking every other workspace's AOT on each generate
+    // made routine generation slow and buried its own output in cache findings.
+    if (!quiet) {
+      printPluginCacheSummary(
+        await auditPluginCache(root, contextRoots: {root}),
+        sink: stdout.writeln,
+      );
+    }
 
     final generator = DartContractGenerator();
     final configuredOutput =
-        workspace.config.contractOutput ?? 'lib/src/generated';
+        workspace.config.contractOutput ?? defaultContractOutput;
     final outputDir = args['output'] as String? ?? configuredOutput;
     final result = generator.generate(
       workspace: workspace,
       outputDir: outputDir,
       exportPath: workspace.config.contractExport,
-      contractPackage: _contractPackage(root, outputDir),
+      contractPackage: contractPackageFor(root, outputDir),
     );
 
     if (result.errors.isNotEmpty) {
@@ -51,11 +72,8 @@ class GenerateCommand {
         .toSet();
     final generatedDir = Directory('$root/${outputDir.replaceAll('\\', '/')}');
     final normalizedOutput = outputDir.replaceAll('\\', '/');
-    final libIndex = normalizedOutput.indexOf('/lib/');
-    final packageDir = libIndex > 0
-        ? normalizedOutput.substring(0, libIndex)
-        : normalizedOutput.split('/').take(2).join('/');
-    final manifestPath = '$root/$packageDir/.zuke-generated.json';
+    final manifestDirectory = generatedManifestDirectory(outputDir);
+    final manifestPath = generatedManifestPath(root, outputDir);
     final indexPath = '$root/.zuke/analyzer-index.json';
     // Keep the existing manifest location, including lib/src for root packages,
     // but permit their public barrel in lib rather than the fictitious
@@ -63,19 +81,10 @@ class GenerateCommand {
     final packageLibDir = Directory(
       normalizedOutput.startsWith('lib/')
           ? '$root/lib'
-          : '$root/$packageDir/lib',
+          : '$root/$manifestDirectory/lib',
     );
     final generatedStepRoots = _generatedStepRoots(root, workspace);
     final expectedManifest = result.manifest.toJson();
-    final expectedIndex = _buildAnalyzerIndex(
-      root: root,
-      workspace: workspace,
-      generatedManifestContent: expectedManifest,
-      generatedManifestPath: _relativeToRoot(root, manifestPath),
-    );
-    final expectedIndexContent =
-        const JsonEncoder.withIndent('  ').convert(expectedIndex.toJson()) +
-        '\n';
     final manifestFile = File(manifestPath);
     final previousPaths = _previousManifestPaths(
       manifestFile,
@@ -85,6 +94,40 @@ class GenerateCommand {
       generatedStepRoots: generatedStepRoots,
     );
     final stalePaths = previousPaths.difference(expectedPaths).toList()..sort();
+    final expectedIndex = await _buildAnalyzerIndex(
+      root: root,
+      workspace: workspace,
+      generatedManifestContent: expectedManifest,
+      generatedManifestPath: _relativeToRoot(root, manifestPath),
+      featureFiles: result.featureFiles,
+      // The contracts this run is about to write, overlaid on disk so the scans
+      // resolve constants against what is being generated rather than what
+      // happened to be there before. Without it a first generation produces an
+      // index that disagrees with the files it just wrote.
+      //
+      // Keys are forward-slashed to match how the scans key and compare paths.
+      pendingContent: () {
+        final normalizedRoot = root.replaceAll('\\', '/');
+        return <String, String>{
+          for (final file in result.files)
+            '$normalizedRoot/${file.path.replaceAll('\\', '/')}': file.content,
+        };
+      }(),
+      // Every path the generator owns: being written now, or written by an
+      // earlier run and about to be deleted. Generated files are the manifest's
+      // business, so the index records hand-written sources only. Leaving a
+      // soon-to-be-deleted contract in the inventory is what made a workspace
+      // report itself stale the run after a feature was removed.
+      generatedPaths: () {
+        final normalizedRoot = root.replaceAll('\\', '/');
+        return <String>{
+          for (final path in {...expectedPaths, ...previousPaths})
+            '$normalizedRoot/${path.replaceAll('\\', '/')}',
+        };
+      }(),
+    );
+    final expectedIndexContent =
+        '${const JsonEncoder.withIndent('  ').convert(expectedIndex.toJson())}\n';
     // Older generators omitted the marker on barrels. Recognize only the
     // exact export-only content reconstructed from their existing manifest;
     // arbitrary handwritten barrels must still be refused.
@@ -170,11 +213,11 @@ class GenerateCommand {
     if (checkOnly) {
       if (!manifestFile.existsSync() ||
           manifestFile.readAsStringSync() != expectedManifest) {
-        stderr.writeln('  STALE: $packageDir/.zuke-generated.json');
+        stderr.writeln('  STALE: $manifestDirectory/.zuke-generated.json');
         allMatch = false;
         staleCount++;
       } else {
-        info('  OK: $packageDir/.zuke-generated.json');
+        info('  OK: $manifestDirectory/.zuke-generated.json');
       }
       final indexFile = File(indexPath);
       if (!indexFile.existsSync() ||
@@ -221,35 +264,51 @@ class GenerateCommand {
     return 0;
   }
 
-  ContractPackage? _contractPackage(String root, String outputDir) {
-    final output = outputDir.replaceAll('\\', '/');
-    final index = output.indexOf('/lib/');
-    final lib = output.startsWith('lib/')
-        ? 'lib'
-        : index > 0
-        ? output.substring(0, index + 4)
-        : null;
-    if (lib == null) return null;
-    final packagePath = lib == 'lib'
-        ? root
-        : '$root/${lib.substring(0, lib.length - 4)}';
-    final pubspec = File('$packagePath/pubspec.yaml');
-    if (!pubspec.existsSync()) return null;
-    final document = loadYaml(pubspec.readAsStringSync());
-    final name = document is Map ? document['name'] : null;
-    if (name is! String || !RegExp(r'^[a-z][a-z0-9_]*$').hasMatch(name)) {
-      return null;
-    }
-    return ContractPackage(name: name, libPath: lib);
-  }
-
-  ZukeIndex _buildAnalyzerIndex({
+  Future<ZukeIndex> _buildAnalyzerIndex({
     required String root,
     required WorkspaceDiscoveryResult workspace,
     required String generatedManifestContent,
     required String generatedManifestPath,
-  }) {
-    final inputs = <String>{...workspace.inputContents.keys};
+    Map<String, String> featureFiles = const {},
+    Map<String, String> pendingContent = const {},
+    Set<String> generatedPaths = const {},
+  }) async {
+    final scan = await scanWorkspaceAnnotations(
+      root,
+      workspace,
+      pendingContent: pendingContent,
+      generatedPaths: generatedPaths,
+    );
+    final verification = VerifiedRequirementScan.fromScan(scan);
+    final implementations = ImplementationScan.fromScan(scan);
+    final specDiagnostics = [
+      ...scanSpecDiagnostics(workspace, root: root),
+      // Scenario coverage is only knowable when every managed registration
+      // resolved to its constant scenario. One unresolved registration could be
+      // exactly the one that covers a scenario, and reporting a covered
+      // scenario as unverified would train readers to ignore the finding.
+      if (scan.unresolvedManagedRegistrations == 0)
+        ...scanScenarioCoverage(
+          workspace,
+          root: root,
+          registeredScenarioIds: scan.managedScenarioIds,
+        ),
+    ];
+    final inputs = <String>{
+      ...workspace.inputContents.keys,
+      // Everything the scans read, not only the files that contributed a
+      // resolved annotation: a file that merely defines a constant can change
+      // which requirement an annotation resolves to, and freshness must notice.
+      //
+      // `zuke.yaml` is already among `inputContents`, which is what makes a
+      // configuration edit invalidate the index: the configuration decides which
+      // packages a target owns, and so decides requirement scoping and the runner
+      // scopes a slot's adapter is attributed through. Naming it again here
+      // looked harmless because `inputs` is a set, but the set holds raw paths
+      // and the index writer normalizes them afterwards, so a differently spelled
+      // duplicate survived and every index recorded `zuke.yaml` twice.
+      ...scan.inputPaths,
+    };
     final requirements = <String>{};
     final bindings = <String>{};
     for (final feature in workspace.data.features) {
@@ -259,6 +318,7 @@ class GenerateCommand {
       }
     }
     return ZukeIndex.create(
+      diagnosticAnchor: workspace.config.contractExport,
       root: root,
       inputPaths: inputs,
       generatedManifestContent: generatedManifestContent,
@@ -266,9 +326,29 @@ class GenerateCommand {
       requirementIds: requirements,
       controlIds: workspace.data.controls.keys,
       bindingIds: bindings,
+      verifiedRequirementIds: verification.requirementIds,
+      verifiedClaims: verification.claims.map((claim) => claim.toIndexClaim()),
+      implementedRequirementIds: implementations.implementedRequirementIds,
+      presentedRequirementIds: implementations.presentedRequirementIds,
+      providedControlIds: implementations.providedControlIds,
+      implementedBindingIds: implementations.implementedBindingIds,
+      requirementTargets: requirementTargetScopes(workspace),
+      packageTargets: workspacePackageTargets(workspace),
+      specDiagnostics: specDiagnostics,
+      featureFiles: featureFiles,
+      managedRegistrations: managedRegistrationFacts(scan),
+      unresolvedManagedRegistrations: scan.unresolvedManagedRegistrations,
+      evidenceObligations: workspaceEvidenceObligations(workspace, root: root),
+      runnerScopes: workspaceRunnerScopes(workspace),
+      implementationClaims: implementations.claims
+          .map((claim) => claim.toIndexClaim())
+          .toList(growable: false),
+      sourceRoots: workspaceDartSourceRoots(workspace),
+      sourcePaths: scan.sourcePaths,
       inputPatterns: workspace.inputPatterns,
       patternInputPaths: workspace.patternInputPaths,
       inputContents: workspace.inputContents,
+      pendingContents: pendingContent,
     );
   }
 

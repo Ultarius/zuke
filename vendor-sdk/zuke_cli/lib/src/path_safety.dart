@@ -36,3 +36,100 @@ bool pathEqualsOrWithin(String parent, String child) {
   return p.equals(resolvedParent, resolvedChild) ||
       p.isWithin(resolvedParent, resolvedChild);
 }
+
+/// Whether [analyzedPath] is the workspace-relative path [relative].
+///
+/// [relative] is compared as both a forward-slashed workspace-relative path and
+/// a full path, because callers differ on which they hold: an index records the
+/// former, while an analysis server reports an absolute path.
+bool isSameWorkspacePath(
+  String? workspaceRoot,
+  String relative,
+  String analyzedPath,
+) {
+  final candidate = pathComparisonKey(normalizeRelativePath(relative));
+  if (candidate == pathComparisonKey(normalizeRelativePath(analyzedPath))) {
+    return true;
+  }
+  if (workspaceRoot == null) return false;
+  return candidate ==
+      pathComparisonKey(
+        normalizeRelativePath(p.relative(analyzedPath, from: workspaceRoot)),
+      );
+}
+
+/// Documentation fixtures under `test/guide_snippets/` intentionally restate
+/// production annotations for the integration guide. They are not
+/// implementation sources and must not contribute binding identities.
+///
+/// Matches the `guide_snippets` segment anywhere in the path rather than only
+/// where a separator precedes it, so a workspace whose fixtures sit at the root
+/// instead of under `test/` is still excluded.
+bool isGuideSnippetFixture(String path) {
+  final normalized = path.replaceAll('\\', '/');
+  return '/$normalized/'.contains('/guide_snippets/');
+}
+
+/// A filesystem path reduced to a comparison key.
+///
+/// Forward slashes so keys built with either separator agree, and lower case on
+/// Windows only, so differently cased spellings of the same path collide there
+/// while remaining distinct on a case-sensitive filesystem.
+///
+/// **Duplicated in `zuke_frontend` on purpose.** The frontend reads the
+/// configuration and so has to normalize a package path before a claim on it can
+/// be checked, which means it needs this too. They cannot share one definition
+/// yet: `zuke_cli` depends on `zuke_frontend` by published version, and a fresh
+/// resolution — which is what the analysis-server plugin fixture performs —
+/// would fetch whichever frontend is on pub.dev. Importing a symbol that only
+/// exists in an unreleased frontend fails to compile there, which is a worse
+/// outcome than two copies that a test keeps in step. See
+/// `test/path_agreement_test.dart` for the test that holds them together.
+String pathComparisonKey(String path) => Platform.isWindows
+    ? path.replaceAll('\\', '/').toLowerCase()
+    : path.replaceAll('\\', '/');
+
+/// Normalizes a workspace-relative path to forward slashes.
+///
+/// Posix rules are applied explicitly (`p.url`): `p.normalize` would follow the
+/// host's separator style, and these values feed digests, so a lock built on
+/// Windows has to hash the same as one built on Linux. The separator
+/// conversion happens first because posix style does not treat `\` as a
+/// separator. `..` segments are resolved lexically, as the filesystem would.
+///
+/// Leading `./` and `/` are stripped, and an empty path stays empty. Posix
+/// style also removes trailing and duplicated separators, so `a/b/`, `a//b`,
+/// and `a/b` all normalize to `a/b` and comparing them by string equality is
+/// safe.
+///
+/// Not for absolute paths, and not a replacement for [canonicalComparablePath],
+/// which resolves symlinks through the filesystem.
+String normalizeRelativePath(String path) {
+  final prefixed = path.replaceAll('\\', '/');
+  // `p.url.normalize` collapses the empty path to `.`.
+  if (prefixed.isEmpty) return '';
+  var normalized = p.url.normalize(prefixed);
+  while (normalized.startsWith('./')) {
+    normalized = normalized.substring(2);
+  }
+  while (normalized.startsWith('/')) {
+    normalized = normalized.substring(1);
+  }
+  return normalized;
+}
+
+/// Normalizes a workspace-relative *package* path, as declared by a
+/// `zuke.yaml` target's `packages:` entries.
+///
+/// Delegates to [normalizeRelativePath] so the target scoping, the source-root
+/// scan, and the index cannot disagree about what `./apps/api`, `apps/api/` and
+/// `.\apps\api` all name. Those three used to normalize separately and
+/// disagreed on the root-ish spellings, which is how a package declared as `./`
+/// could be dropped by one reader and kept as the workspace root by another.
+///
+/// A path that reduces to nothing denotes the workspace root, which is how a
+/// single-package workspace declares its only package, and that is what
+/// [normalizeRelativePath] already returns for `.`, `./` and `./.`. An empty
+/// input stays empty, and stays meaningful: it is the one spelling that means
+/// "no path at all" rather than "the root".
+String normalizePackagePath(String path) => normalizeRelativePath(path.trim());

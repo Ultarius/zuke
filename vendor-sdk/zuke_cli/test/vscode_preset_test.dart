@@ -9,6 +9,27 @@ void main() {
   setUp(() => root = Directory.systemTemp.createTempSync('zuke-editor-'));
   tearDown(() => root.deleteSync(recursive: true));
 
+  test(
+    'doctor folder-open task audits and repair remains an explicit task',
+    () {
+      for (final update in prepareVscodePreset(root.path)) {
+        update.write();
+      }
+      final document =
+          jsonDecode(File('${root.path}/.vscode/tasks.json').readAsStringSync())
+              as Map;
+      final tasks = (document['tasks'] as List).cast<Map<String, Object?>>();
+      final audit = tasks.singleWhere(
+        (t) => t['label'] == 'Zuke: Doctor Check',
+      );
+      final repair = tasks.singleWhere((t) => t['label'] == 'Zuke: Doctor Fix');
+      expect(audit['runOptions'], {'runOn': 'folderOpen'});
+      expect(audit['args'], isNot(contains('--fix')));
+      expect(repair['args'], contains('--fix'));
+      expect(repair.containsKey('runOptions'), isFalse);
+    },
+  );
+
   test('preserves aliases referenced by tasks or launch configurations', () {
     final taskFile = File('${root.path}/.vscode/tasks.json')
       ..parent.createSync(recursive: true);
@@ -70,7 +91,7 @@ void main() {
                 File('${root.path}/.vscode/launch.json').readAsStringSync(),
               )
               as Map;
-      expect(launch['configurations'] ?? [], isEmpty);
+      expect(launch['configurations'] ?? <Object?>[], isEmpty);
       final repeated = await runInProcessCli([
         'init',
         '--root',
@@ -116,7 +137,7 @@ void main() {
     final decoded =
         jsonDecode(File('${root.path}/.vscode/tasks.json').readAsStringSync())
             as Map;
-    final tasks = (decoded['tasks'] as List).cast<Map>();
+    final tasks = (decoded['tasks'] as List).cast<Map<Object?, Object?>>();
     expect(
       tasks.map((task) => task['label']),
       containsAll([
@@ -146,9 +167,9 @@ void main() {
       (refresh['args'] as List).join(' '),
       isNot(contains('--profile all')),
     );
-    final input = (decoded['inputs'] as List).cast<Map>().singleWhere(
-      (input) => input['id'] == 'zukeLockScope',
-    );
+    final input = (decoded['inputs'] as List)
+        .cast<Map<Object?, Object?>>()
+        .singleWhere((input) => input['id'] == 'zukeLockScope');
     expect(input['type'], 'pickString');
     expect(input['options'], contains('--all-profiles'));
     expect(input['options'], contains('--profile=pullRequest'));
@@ -183,13 +204,13 @@ void main() {
       update.write();
     }
     final decoded = jsonDecode(file.readAsStringSync()) as Map;
-    final labels = (decoded['tasks'] as List).cast<Map>().map(
+    final labels = (decoded['tasks'] as List).cast<Map<Object?, Object?>>().map(
       (task) => task['label'],
     );
     expect(labels, contains('Zuke: Refresh Profile Locks'));
     expect(labels, contains('Mine'));
     expect(labels, isNot(contains('Zuke: Refresh All Profile Locks')));
-    final inputs = (decoded['inputs'] as List).cast<Map>();
+    final inputs = (decoded['inputs'] as List).cast<Map<Object?, Object?>>();
     expect(inputs.map((input) => input['id']), contains('zukeLockScope'));
     expect(inputs.map((input) => input['id']), isNot(contains('zukeProfile')));
   });
@@ -207,9 +228,9 @@ lock:
     final decoded =
         jsonDecode(File('${root.path}/.vscode/tasks.json').readAsStringSync())
             as Map;
-    final input = (decoded['inputs'] as List).cast<Map>().singleWhere(
-      (input) => input['id'] == 'zukeLockScope',
-    );
+    final input = (decoded['inputs'] as List)
+        .cast<Map<Object?, Object?>>()
+        .singleWhere((input) => input['id'] == 'zukeLockScope');
     expect(input['options'], contains('--all-profiles'));
     expect(input['options'], contains('--profile=custom'));
   });

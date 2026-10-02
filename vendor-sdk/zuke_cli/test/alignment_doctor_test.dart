@@ -2,7 +2,7 @@ import 'dart:io';
 
 import 'package:test/test.dart';
 
-import '../lib/src/alignment_doctor.dart';
+import 'package:zuke_cli/src/alignment_doctor.dart';
 
 void main() {
   test('allows the supported tuple without requiring equal versions', () {

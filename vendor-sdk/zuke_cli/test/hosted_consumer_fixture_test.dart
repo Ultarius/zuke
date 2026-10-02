@@ -3,9 +3,9 @@ import 'dart:io';
 import 'package:test/test.dart';
 import 'package:yaml/yaml.dart';
 
-import '../../../tool/check_hosted_consumer.dart';
-import '../../../tool/release_matrix.dart';
-import '../../../tool/src/hosted_consumer_fixture.dart';
+import 'support/check_hosted_consumer.dart';
+import 'support/hosted_consumer_fixture.dart';
+import 'support/release_matrix.dart';
 
 void main() {
   test('rejects a fixture nested under a declared Pub workspace', () {
@@ -36,15 +36,7 @@ workspace:
 
     HostedConsumerFixture(
       templateRoot: Directory(
-        root.path +
-            Platform.pathSeparator +
-            'tool' +
-            Platform.pathSeparator +
-            'fixtures' +
-            Platform.pathSeparator +
-            'hosted_consumer' +
-            Platform.pathSeparator +
-            'template',
+        '${root.path}${Platform.pathSeparator}tool${Platform.pathSeparator}fixtures${Platform.pathSeparator}hosted_consumer${Platform.pathSeparator}template',
       ),
       destination: destination,
       matrix: matrix,
@@ -53,10 +45,10 @@ workspace:
     ).render();
 
     final pubspec = File(
-      destination.path + Platform.pathSeparator + 'pubspec.yaml',
+      '${destination.path}${Platform.pathSeparator}pubspec.yaml',
     ).readAsStringSync();
     final config = File(
-      destination.path + Platform.pathSeparator + 'zuke.yaml',
+      '${destination.path}${Platform.pathSeparator}zuke.yaml',
     ).readAsStringSync();
     expect(pubspec, contains('zuke_core: 0.4.0'));
     expect(pubspec, isNot(contains('{{')));
@@ -78,21 +70,13 @@ workspace:
     expect(config, contains('schemaVersion: 3'));
     expect(
       File(
-        destination.path +
-            Platform.pathSeparator +
-            'lib' +
-            Platform.pathSeparator +
-            'hosted_consumer.dart',
+        '${destination.path}${Platform.pathSeparator}lib${Platform.pathSeparator}hosted_consumer.dart',
       ).readAsStringSync(),
       contains("src/generated/feat_hosted_001_contracts.g.dart"),
     );
     expect(
       File(
-        destination.path +
-            Platform.pathSeparator +
-            'test' +
-            Platform.pathSeparator +
-            'consumer_test.dart',
+        '${destination.path}${Platform.pathSeparator}test${Platform.pathSeparator}consumer_test.dart',
       ).readAsStringSync(),
       contains('FeatHosted001Scenarios.all.single'),
     );
@@ -138,11 +122,7 @@ Directory _findRoot(Directory start) {
   var current = start.absolute;
   while (true) {
     if (File(
-      current.path +
-          Platform.pathSeparator +
-          'docs' +
-          Platform.pathSeparator +
-          'release-matrix.yaml',
+      '${current.path}${Platform.pathSeparator}docs${Platform.pathSeparator}release-matrix.yaml',
     ).existsSync()) {
       return current;
     }

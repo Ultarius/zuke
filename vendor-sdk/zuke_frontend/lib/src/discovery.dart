@@ -6,6 +6,25 @@ import 'types.dart';
 import 'gherkin_parser.dart';
 import 'metadata_extractor.dart';
 import 'config_models.dart';
+import 'workspace_paths.dart';
+
+/// The workspace root as a canonical absolute path, with symlinks resolved.
+///
+/// Defined once because the root is compared against paths produced elsewhere.
+/// [Directory.absolute] is not enough: for `--root .` it yields `.../workspace/.`
+/// with a trailing `\.`, which no path produced by discovery will start with, so
+/// anything that relativizes against the root silently falls back to recording
+/// an absolute path. That makes generated artifacts machine-specific.
+///
+/// Falls back to [Directory.absolute] when the path cannot be resolved, which
+/// is the case for a root that does not exist yet.
+String canonicalizeRoot(String requestedRoot) {
+  try {
+    return Directory(requestedRoot).resolveSymbolicLinksSync();
+  } catch (_) {
+    return Directory(requestedRoot).absolute.path;
+  }
+}
 
 /// Base error raised when a workspace configuration cannot be used by the
 /// current frontend parser.
@@ -69,6 +88,26 @@ class ZukeConfig {
 
   /// Evidence output path.
   final String? evidenceOutput;
+
+  /// Where evidence records are published when `evidence.output` is unset.
+  ///
+  /// One default, deliberately owned by the configuration rather than by each
+  /// command that touches evidence. `zuke test` published to
+  /// `generated/evidence/records` while `zuke validate` read `.zuke/evidence`,
+  /// so a workspace that left `evidence.output` unset wrote records that nothing
+  /// ever read — a silent failure that surfaced only as "No execution evidence
+  /// records were observed" plus a wall of unmet evidence requirements. A
+  /// reader with no configured path must resolve to this same value.
+  static const defaultEvidenceOutput = 'generated/evidence/records';
+
+  /// The effective evidence output path, falling back to [defaultEvidenceOutput].
+  String get resolvedEvidenceOutput {
+    final configured = evidenceOutput;
+    if (configured == null || configured.trim().isEmpty) {
+      return defaultEvidenceOutput;
+    }
+    return configured.trim();
+  }
 
   /// Trust bundle path.
   final String? trustBundle;
@@ -278,7 +317,7 @@ class ZukeConfig {
         final packages = value['packages'];
         if (packages is List) {
           targetPackages[entry.key] = packages
-              .whereType<Map>()
+              .whereType<Map<Object?, Object?>>()
               .map((package) => Map<String, dynamic>.from(package))
               .toList();
         }
@@ -422,7 +461,11 @@ class ZukeConfig {
     );
   }
 
-  static void _validateConfigurationShapes(Map doc, Map policies, Map lock) {
+  static void _validateConfigurationShapes(
+    Map<Object?, Object?> doc,
+    Map<Object?, Object?> policies,
+    Map<Object?, Object?> lock,
+  ) {
     final tooling = doc['dartTooling'];
     if (tooling != null && tooling is! Map) {
       throw const FormatException('dartTooling must be a mapping');
@@ -517,7 +560,11 @@ class ZukeConfig {
     }
   }
 
-  static void _requireString(Map section, String key, String path) {
+  static void _requireString(
+    Map<Object?, Object?> section,
+    String key,
+    String path,
+  ) {
     if (!section.containsKey(key)) return;
     final value = section[key];
     if (value is! String || value.trim().isEmpty) {
@@ -525,14 +572,22 @@ class ZukeConfig {
     }
   }
 
-  static void _requireBool(Map section, String key, String path) {
+  static void _requireBool(
+    Map<Object?, Object?> section,
+    String key,
+    String path,
+  ) {
     if (!section.containsKey(key)) return;
     if (section[key] is! bool) {
       throw FormatException('$path.$key must be boolean');
     }
   }
 
-  static void _requireStringList(Map section, String key, String path) {
+  static void _requireStringList(
+    Map<Object?, Object?> section,
+    String key,
+    String path,
+  ) {
     if (!section.containsKey(key)) return;
     final value = section[key];
     if (value is! List || value.any((entry) => entry is! String)) {
@@ -541,7 +596,7 @@ class ZukeConfig {
   }
 
   static void _requireEnum(
-    Map section,
+    Map<Object?, Object?> section,
     String key,
     String path,
     Set<String> allowed,
@@ -554,14 +609,15 @@ class ZukeConfig {
   }
 
   static void _validateV3(
-    Map targets,
+    Map<Object?, Object?> targets,
     Map<String, dynamic> execution,
-    Map evidence,
-    Map lock,
+    Map<Object?, Object?> evidence,
+    Map<Object?, Object?> lock,
     Map<String, List<Map<String, dynamic>>> targetPackages,
     Map<String, String> targetFrameworks,
     List<String> lockProfiles,
   ) {
+    final ownership = WorkspacePackageOwnership();
     for (final entry in targets.entries) {
       final targetId = entry.key.toString();
       final target = entry.value;
@@ -608,6 +664,7 @@ class ZukeConfig {
             'target $targetId package $id requires a non-empty path',
           );
         }
+        ownership.claim(path, targetId, id);
         if (roots is! List ||
             roots.any((root) => root is! String || root.isEmpty)) {
           throw FormatException(
@@ -762,12 +819,7 @@ class WorkspaceDiscovery {
     }
 
     final requestedRoot = rootPath ?? Directory.current.path;
-    late final String root;
-    try {
-      root = Directory(requestedRoot).resolveSymbolicLinksSync();
-    } catch (_) {
-      root = Directory(requestedRoot).absolute.path;
-    }
+    final root = canonicalizeRoot(requestedRoot);
     final workspacePrefix = root.replaceAll('\\', '/').toLowerCase();
 
     final configPath = '$root/zuke.yaml';
@@ -932,7 +984,7 @@ class WorkspaceDiscovery {
     List<String> errors,
   ) {
     final runners = (config.executionConfig['runners'] as List? ?? const [])
-        .whereType<Map>()
+        .whereType<Map<Object?, Object?>>()
         .toList();
     for (final feature in features) {
       for (final rule in feature.rules) {

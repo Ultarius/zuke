@@ -220,7 +220,10 @@ final application = ZukeHttpApplication(
 
         final lfOutput = lfExtraction.outputs.single;
         final crlfOutput = crlfExtraction.outputs.single;
-        expect(crlfOutput.inputDigest, equals(lfOutput.inputDigest));
+        expect(
+          crlfOutput.publishedSourceDigest,
+          equals(lfOutput.publishedSourceDigest),
+        );
         expect(
           lfOutput.symbols.any(
             (symbol) => symbol.requirementIds.contains('RULE-PARITY-001'),
@@ -518,8 +521,16 @@ final application = ZukeHttpApplication(
           'release-signer',
         ], environment: signerEnv);
 
-        expect(lfManifestRes.exitCode, 0, reason: lfManifestRes.stderr);
-        expect(crlfManifestRes.exitCode, 0, reason: crlfManifestRes.stderr);
+        expect(
+          lfManifestRes.exitCode,
+          0,
+          reason: lfManifestRes.stderr.toString(),
+        );
+        expect(
+          crlfManifestRes.exitCode,
+          0,
+          reason: crlfManifestRes.stderr.toString(),
+        );
 
         final lfRecordPath = _lastLine(lfManifestRes.stdout.toString());
         final crlfRecordPath = _lastLine(crlfManifestRes.stdout.toString());

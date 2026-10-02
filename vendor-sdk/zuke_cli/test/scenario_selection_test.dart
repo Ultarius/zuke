@@ -156,7 +156,7 @@ void main() {
 
   test('leaves runner-managed workspaces unfiltered', () {
     const runnerManaged = WorkspaceDiscoveryResult(
-      config: ZukeConfig(executionConfig: {'runners': []}),
+      config: ZukeConfig(executionConfig: {'runners': <Object?>[]}),
       data: MetadataExtractorResult(),
     );
 

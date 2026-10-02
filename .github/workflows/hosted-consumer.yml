@@ -17,27 +17,22 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - os: ubuntu-latest
+          - os: ubuntu-26.04
             platform: linux
             host: dart
           - os: windows-latest
             platform: windows
             host: dart
-          - os: ubuntu-latest
+          - os: ubuntu-26.04
             platform: linux
             host: flutter
           - os: windows-latest
             platform: windows
             host: flutter
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
-      - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2
-        with:
-          flutter-version: '3.44.8'
-          channel: stable
-          cache: true
-      - name: Resolve framework tooling
-        run: flutter --suppress-analytics pub get
+      - name: Check out repository for local action resolution
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - uses: ./.github/actions/setup-zuke
       - name: Certify the exact hosted package tuple
         run: >-
           dart --suppress-analytics run zuke_cli:zuke certify hosted
@@ -57,21 +52,16 @@ jobs:
     name: Build hosted compatibility manifest
     if: always()
     needs: hosted-consumer-certification
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - name: Check out repository for local action resolution
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - uses: ./.github/actions/setup-zuke
       - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
         with:
           pattern: hosted-consumer-certification-*
           path: generated/certification
           merge-multiple: true
-      - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2
-        with:
-          flutter-version: '3.44.8'
-          channel: stable
-          cache: true
-      - name: Resolve framework tooling
-        run: flutter --suppress-analytics pub get
       - name: Build compatibility manifest from certification evidence
         run: |
           set -euo pipefail

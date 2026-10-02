@@ -44,7 +44,7 @@ final class TestStdout implements Stdout {
   }
 
   @override
-  void writeAll(Iterable objects, [String separator = '']) {
+  void writeAll(Iterable<Object?> objects, [String separator = '']) {
     buffer.write(objects.join(separator));
   }
 
@@ -81,7 +81,10 @@ final class TestStdout implements Stdout {
 }
 
 /// Runs [ZukeCli] in-process using isolated [IOOverrides] stdout/stderr streams.
-Future<ProcessResult> runInProcessCli(List<String> args) async {
+///
+/// Returns a typed result rather than [ProcessResult] so stdout/stderr are
+/// [String] under `strict-casts`.
+Future<CliProcessResult> runInProcessCli(List<String> args) async {
   final stdoutBuffer = StringBuffer();
   final stderrBuffer = StringBuffer();
   late int exitCode;
@@ -94,12 +97,23 @@ Future<ProcessResult> runInProcessCli(List<String> args) async {
     stderr: () => TestStdout(stderrBuffer),
   );
 
-  return ProcessResult(
-    0,
-    exitCode,
-    stdoutBuffer.toString(),
-    stderrBuffer.toString(),
+  return CliProcessResult(
+    exitCode: exitCode,
+    stdout: stdoutBuffer.toString(),
+    stderr: stderrBuffer.toString(),
   );
+}
+
+final class CliProcessResult {
+  const CliProcessResult({
+    required this.exitCode,
+    required this.stdout,
+    required this.stderr,
+  });
+
+  final int exitCode;
+  final String stdout;
+  final String stderr;
 }
 
 /// Finds the repository workspace even when a package test is launched with

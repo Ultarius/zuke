@@ -170,68 +170,79 @@ List<StepDefinition<W>> httpVendorSteps<W extends ScenarioWorld>({
   required HttpResponseSpec? Function(W world) latestResponse,
   bool Function(Object? body, String schemaId)? matchesSchema,
 }) => [
-  StepDefinition(
+  StepDefinition.cucumber(
     tier: StepTier.vendor,
     target: 'http',
-    pattern: RegExp(r'^the response status is (\d+)$'),
-    action: (world, _, arguments) {
+    expression: CucumberExpression(
+      'the response status is {int}',
+      StepParameterTypeRegistry.standard(),
+    ),
+    action: (world, _, values) {
       HttpAssertions.expectStatus(
         _requireResponse(latestResponse(world)),
-        int.parse(arguments['1']!),
+        values[0]! as int,
       );
     },
   ),
-  StepDefinition(
+  StepDefinition.cucumber(
     tier: StepTier.vendor,
     target: 'http',
-    pattern: RegExp(r'^the response error code is "([^"]+)"$'),
-    action: (world, _, arguments) {
+    expression: CucumberExpression(
+      'the response error code is {string}',
+      StepParameterTypeRegistry.standard(),
+    ),
+    action: (world, _, values) {
       HttpAssertions.expectJson(
         _requireResponse(latestResponse(world)),
         '/error/code',
-        arguments['1'],
+        values[0]! as String,
       );
     },
   ),
-  StepDefinition(
+  StepDefinition.cucumber(
     tier: StepTier.vendor,
     target: 'http',
-    pattern: RegExp(r'^the response body at "([^"]+)" contains "([^"]*)"$'),
-    action: (world, _, arguments) {
-      final value = HttpAssertions.jsonPointer(
-        _requireResponse(latestResponse(world)).body,
-        arguments['1']!,
-      );
-      if (value is! String || !value.contains(arguments['2']!)) {
-        throw StateError(
-          'Expected ${arguments['1']} to contain ${arguments['2']}',
-        );
-      }
-    },
-  ),
-  StepDefinition(
-    tier: StepTier.vendor,
-    target: 'http',
-    pattern: RegExp(
-      r'^the response body at "([^"]+)" does not contain "([^"]*)"$',
+    expression: CucumberExpression(
+      'the response body at {string} contains {string}',
+      StepParameterTypeRegistry.standard(),
     ),
-    action: (world, _, arguments) {
+    action: (world, _, values) {
       final value = HttpAssertions.jsonPointer(
         _requireResponse(latestResponse(world)).body,
-        arguments['1']!,
+        values[0]! as String,
       );
-      if (value is String && value.contains(arguments['2']!)) {
-        throw StateError(
-          'Expected ${arguments['1']} not to contain ${arguments['2']}',
-        );
+      final expected = values[1]! as String;
+      if (value is! String || !value.contains(expected)) {
+        throw StateError('Expected ${values[0]} to contain $expected');
       }
     },
   ),
-  StepDefinition(
+  StepDefinition.cucumber(
     tier: StepTier.vendor,
     target: 'http',
-    pattern: RegExp(r'^the response conforms to schema "([^"]+)"$'),
-    action: (world, _, arguments) {
+    expression: CucumberExpression(
+      'the response body at {string} does not contain {string}',
+      StepParameterTypeRegistry.standard(),
+    ),
+    action: (world, _, values) {
+      final value = HttpAssertions.jsonPointer(
+        _requireResponse(latestResponse(world)).body,
+        values[0]! as String,
+      );
+      final unexpected = values[1]! as String;
+      if (value is String && value.contains(unexpected)) {
+        throw StateError('Expected ${values[0]} not to contain $unexpected');
+      }
+    },
+  ),
+  StepDefinition.cucumber(
+    tier: StepTier.vendor,
+    target: 'http',
+    expression: CucumberExpression(
+      'the response conforms to schema {string}',
+      StepParameterTypeRegistry.standard(),
+    ),
+    action: (world, _, values) {
       if (matchesSchema == null) {
         throw StateError(
           'No schema matcher is configured for vendor HTTP steps',
@@ -239,11 +250,9 @@ List<StepDefinition<W>> httpVendorSteps<W extends ScenarioWorld>({
       }
       if (!matchesSchema(
         _requireResponse(latestResponse(world)).body,
-        arguments['1']!,
+        values[0]! as String,
       )) {
-        throw StateError(
-          'Response does not conform to schema ${arguments['1']}',
-        );
+        throw StateError('Response does not conform to schema ${values[0]}');
       }
     },
   ),

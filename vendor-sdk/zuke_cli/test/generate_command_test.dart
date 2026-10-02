@@ -6,7 +6,9 @@ import 'package:args/args.dart';
 import 'package:zuke_cli/zuke_cli.dart';
 import 'package:test/test.dart';
 import 'package:zuke_cli/tooling.dart';
+import 'package:zuke_frontend/zuke_frontend.dart';
 import 'cli_test_helper.dart';
+import 'support/resolved_workspace.dart';
 
 void main() {
   group('GenerateCommand', () {
@@ -19,6 +21,39 @@ void main() {
 
     tearDown(() {
       if (root.existsSync()) root.deleteSync(recursive: true);
+    });
+
+    test('the analyzer index is byte-identical across regenerations', () async {
+      // The four example workspaces commit their analyzer indexes, and a
+      // `zuke generate` that rewrites them differently on an unchanged tree makes
+      // every one of those diffs unreviewable noise. It also means the editor is
+      // handed a different artifact than the one a reviewer approved.
+      //
+      // The second run is in a separate isolate on purpose. Dart seeds string
+      // hashing per isolate, so a set or map whose iteration order leaks into the
+      // serialized index is stable within one isolate and unstable across two.
+      // Running both in the same isolate would pass against exactly the bug that
+      // makes committed indexes churn.
+      final index = File(
+        '${root.path}${Platform.pathSeparator}.zuke'
+        '${Platform.pathSeparator}analyzer-index.json',
+      );
+
+      expect(await _run(root), 0);
+      final first = index.readAsBytesSync();
+
+      final secondExit = await Isolate.run(() => _run(root));
+      expect(secondExit, 0);
+      final second = index.readAsBytesSync();
+
+      expect(
+        second,
+        equals(first),
+        reason:
+            'regenerating an unchanged workspace must not rewrite its index; an '
+            'unstable ordering here makes every committed example index churn, '
+            'and is the kind of difference no reviewer catches by eye',
+      );
     });
 
     for (final output in [
@@ -372,9 +407,17 @@ void main() {
           stale.stderr,
           contains('Generated files are stale (1 issue(s)).'),
         );
+        // Compared against the *canonical* root, because that is what the
+        // command reports. `Directory.systemTemp` can hand back a spelling that
+        // differs from the canonical path -- a Windows 8.3 alias such as
+        // `RUNNER~1`, or macOS's `/var` against `/private/var` -- and asserting
+        // the raw `root.path` would pin the message to whichever spelling this
+        // machine happened to use.
         expect(
           stale.stderr,
-          contains('dart run zuke_cli:zuke generate --root "${root.path}"'),
+          contains(
+            'dart run zuke_cli:zuke generate --root "${canonicalizeRoot(root.path)}"',
+          ),
         );
       },
     );
@@ -485,6 +528,38 @@ String finderFor(FeatTest001FlutterBinding binding) => switch (binding) {
         expect(await _run(root, check: true), 1);
         expect(index.existsSync(), isTrue);
       },
+    );
+
+    test(
+      'indexes verified requirement IDs from package sources',
+      () async {
+        // The scan resolves annotations through the element model, so the fixture
+        // has to resolve `package:zuke_annotations` the way a real project does.
+        await configureFixturePackages(root);
+        final testDir = Directory('${root.path}/test')
+          ..createSync(recursive: true);
+        File('${testDir.path}/fixture_test.dart').writeAsStringSync('''
+import 'package:zuke_annotations/zuke_annotations.dart';
+
+@VerifiesRequirement(['RULE-TEST-001'])
+void coversFixture() {}
+''');
+        expect(await _run(root), 0);
+        final decoded =
+            jsonDecode(
+                  File(
+                    '${root.path}/.zuke/analyzer-index.json',
+                  ).readAsStringSync(),
+                )
+                as Map<String, Object?>;
+        expect(decoded['verifiedRequirementIds'], ['RULE-TEST-001']);
+        expect(await _run(root, check: true), 0);
+      },
+      // Bounded but slow: this resolves the fixture through the element model
+      // and generates twice, and the default 30s is not enough for it when the
+      // suite runs concurrently. Confirmed to pass well inside this budget on
+      // its own, so this is contention headroom and not a mask for a hang.
+      timeout: const Timeout(Duration(minutes: 3)),
     );
   });
 }

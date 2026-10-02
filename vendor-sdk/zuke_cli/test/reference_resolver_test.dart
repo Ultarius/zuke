@@ -6,7 +6,9 @@ void main() {
   group('Profile expansion', () {
     test('calculator-public-endpoint expands to CTRL-CALC-LOG-REDACTION', () {
       final discovery = WorkspaceDiscoveryResult(
-        config: const ZukeConfig(targetsConfig: {'backend': {}}),
+        config: const ZukeConfig(
+          targetsConfig: {'backend': <String, Object?>{}},
+        ),
         data: MetadataExtractorResult(
           controls: {
             'CTRL-CALC-LOG-REDACTION': {'id': 'CTRL-CALC-LOG-REDACTION'},
@@ -69,7 +71,7 @@ void main() {
   test('reports the complete fail-closed reference and provider matrix', () {
     const source = SourceLocation(file: 'invalid.feature', line: 1);
     final discovery = WorkspaceDiscoveryResult(
-      config: const ZukeConfig(targetsConfig: {'backend': {}}),
+      config: const ZukeConfig(targetsConfig: {'backend': <String, Object?>{}}),
       data: MetadataExtractorResult(
         epics: const {},
         controls: const {},

@@ -1,8 +1,17 @@
 import 'package:zuke_frontend/zuke_frontend.dart';
 import '../ir.dart';
+import 'declaration_source.dart';
 import 'validator.dart';
 
 class ReferenceResolver {
+  /// Delegates to [declarationSource] so every reference code in the proof
+  /// engine resolves a value to a position the same way.
+  static SourceLocation _at(
+    ParsedMetadata metadata,
+    MetadataField field,
+    Object? value,
+  ) => declarationSource(metadata, field, value);
+
   ValidationResult validate(WorkspaceDiscoveryResult workspace) {
     final errors = <ValidationMessage>[];
 
@@ -22,7 +31,27 @@ class ReferenceResolver {
               message:
                   'Unknown target "$target" referenced by ${feature.metadata.id}',
               severity: Severity.error,
-              source: feature.metadata.source,
+              // Point at the `- target` entry, not the top of the block. Falls
+              // back to the block when the value has no recorded position.
+              source: _at(feature.metadata, MetadataField.targets, target),
+            ),
+          );
+        }
+      }
+      // A rule may narrow its targets away from the feature's. Those are just as
+      // likely to name a target that does not exist, and they used to be accepted
+      // silently, so a typo in a rule passed validation that a typo in a feature
+      // did not.
+      for (final rule in feature.rules) {
+        for (final target in rule.metadata.targets ?? const <String>[]) {
+          if (workspace.config.targetsConfig.containsKey(target)) continue;
+          errors.add(
+            ValidationMessage(
+              code: 'ZUKE-REF-009',
+              message:
+                  'Unknown target "$target" referenced by ${rule.metadata.id}',
+              severity: Severity.error,
+              source: _at(rule.metadata, MetadataField.targets, target),
             ),
           );
         }
@@ -37,7 +66,11 @@ class ReferenceResolver {
             message:
                 'Unknown Epic "${feature.metadata.epic}" referenced by ${feature.metadata.id}',
             severity: Severity.error,
-            source: feature.metadata.source,
+            source: _at(
+              feature.metadata,
+              MetadataField.epic,
+              feature.metadata.epic,
+            ),
           ),
         );
       }
@@ -53,7 +86,7 @@ class ReferenceResolver {
                 message:
                     'Unknown PBI "$pbi" referenced by ${feature.metadata.id}',
                 severity: Severity.error,
-                source: feature.metadata.source,
+                source: _at(feature.metadata, MetadataField.pbis, pbi),
               ),
             );
           } else {
@@ -65,7 +98,7 @@ class ReferenceResolver {
                   message:
                       'PBI "$pbi" registry back-reference "$targetFeature" does not match declaring feature "${feature.metadata.id}"',
                   severity: Severity.error,
-                  source: feature.metadata.source,
+                  source: _at(feature.metadata, MetadataField.pbis, pbi),
                 ),
               );
             }
@@ -86,7 +119,7 @@ class ReferenceResolver {
                 message:
                     'Endpoint "${ep.id}" referenced by ${feature.metadata.id} is not registered',
                 severity: Severity.error,
-                source: feature.metadata.source,
+                source: _at(feature.metadata, MetadataField.endpointId, ep.id),
               ),
             );
           } else {
@@ -103,7 +136,11 @@ class ReferenceResolver {
                   message:
                       'Endpoint "${ep.id}" is owned by "$owner"; declare usage: reference when reusing it',
                   severity: Severity.error,
-                  source: feature.metadata.source,
+                  source: _at(
+                    feature.metadata,
+                    MetadataField.endpointId,
+                    ep.id,
+                  ),
                 ),
               );
             }
@@ -122,7 +159,11 @@ class ReferenceResolver {
                     message:
                         'Endpoint "${ep.id}" ${pair.key} "$expected" does not match registry value "${registered[pair.key]}"',
                     severity: Severity.error,
-                    source: feature.metadata.source,
+                    source: _at(
+                      feature.metadata,
+                      MetadataField.endpointId,
+                      ep.id,
+                    ),
                   ),
                 );
               }
@@ -139,7 +180,11 @@ class ReferenceResolver {
                 code: 'ZUKE-REF-009',
                 message: 'Unknown endpoint target "${endpoint.target}"',
                 severity: Severity.error,
-                source: feature.metadata.source,
+                source: _at(
+                  feature.metadata,
+                  MetadataField.endpointTarget,
+                  endpoint.target,
+                ),
               ),
             );
           }
@@ -156,7 +201,7 @@ class ReferenceResolver {
                 message:
                     'Unknown event "$eventId" referenced by ${feature.metadata.id}',
                 severity: Severity.error,
-                source: feature.metadata.source,
+                source: _at(feature.metadata, MetadataField.events, eventId),
               ),
             );
           }
@@ -173,7 +218,11 @@ class ReferenceResolver {
                 message:
                     'Unknown feature flag "$flagId" referenced by ${feature.metadata.id}',
                 severity: Severity.error,
-                source: feature.metadata.source,
+                source: _at(
+                  feature.metadata,
+                  MetadataField.featureFlags,
+                  flagId,
+                ),
               ),
             );
           }
@@ -190,7 +239,11 @@ class ReferenceResolver {
                 message:
                     'Unknown performance profile "${perf.profile}" referenced by ${feature.metadata.id}',
                 severity: Severity.error,
-                source: feature.metadata.source,
+                source: _at(
+                  feature.metadata,
+                  MetadataField.performanceProfile,
+                  perf.profile,
+                ),
               ),
             );
           }
@@ -208,7 +261,11 @@ class ReferenceResolver {
                   message:
                       'Unknown control "${ctrlRef.id}" required by ${rule.metadata.id}',
                   severity: Severity.error,
-                  source: rule.metadata.source,
+                  source: _at(
+                    rule.metadata,
+                    MetadataField.requiresId,
+                    ctrlRef.id,
+                  ),
                 ),
               );
             }
@@ -221,7 +278,11 @@ class ReferenceResolver {
                   message:
                       'Invalid control cardinality "${ctrlRef.cardinality}"',
                   severity: Severity.error,
-                  source: rule.metadata.source,
+                  source: _at(
+                    rule.metadata,
+                    MetadataField.requiresCardinality,
+                    ctrlRef.cardinality,
+                  ),
                 ),
               );
             }
@@ -232,7 +293,11 @@ class ReferenceResolver {
                   message:
                       'Unknown control target "${ctrlRef.target}" for ${ctrlRef.id}',
                   severity: Severity.error,
-                  source: rule.metadata.source,
+                  source: _at(
+                    rule.metadata,
+                    MetadataField.requiresTarget,
+                    ctrlRef.target,
+                  ),
                 ),
               );
             }
@@ -254,7 +319,11 @@ class ReferenceResolver {
                 message:
                     'Unknown security profile "$profileName" referenced by ${rule.metadata.id}',
                 severity: Severity.error,
-                source: rule.metadata.source,
+                source: _at(
+                  rule.metadata,
+                  MetadataField.securityProfile,
+                  profileName,
+                ),
               ),
             );
           }
@@ -363,7 +432,7 @@ class ReferenceResolver {
             final definition = profiles is Map ? profiles[profile] : null;
             final requires = definition is Map ? definition['requires'] : null;
             if (requires is! List) continue;
-            for (final raw in requires.whereType<Map>()) {
+            for (final raw in requires.whereType<Map<Object?, Object?>>()) {
               final controlId = raw['id']?.toString();
               if (controlId != null && controlId.isNotEmpty) {
                 addEdge(ruleNode, nodeIdFor(controlId));
@@ -434,7 +503,7 @@ class ReferenceResolver {
     for (final policy in workspace.data.policies.values) {
       final providers = policy['providers'];
       if (providers is! List) continue;
-      for (final provider in providers.whereType<Map>()) {
+      for (final provider in providers.whereType<Map<Object?, Object?>>()) {
         final id = provider['id']?.toString() ?? '<unnamed-provider>';
         final assurance = provider['assurance']?.toString();
         if (assurance != 'proven' && assurance != 'attested') {

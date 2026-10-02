@@ -94,7 +94,7 @@ class MyController implements ZukeController {
         target: 'backend',
       );
       final requirementIds = output.symbols
-          .where((s) => s.kind == 'requirementBoundary')
+          .where((s) => s.kind == ExtractedSymbolKind.requirementBoundary)
           .expand((s) => s.requirementIds)
           .toSet();
       expect(requirementIds, contains('RULE-CALC-ADDITION'));
@@ -282,7 +282,7 @@ targets: {}
         )..createSync(recursive: true);
         final emptyTrustFile = File('${emptyTrustDir.path}/ed25519.json');
         emptyTrustFile.writeAsStringSync(
-          jsonEncode({'kind': 'zuke.ed25519-trust', 'keys': []}),
+          jsonEncode({'kind': 'zuke.ed25519-trust', 'keys': <Object?>[]}),
         );
 
         Process.runSync('git', ['init'], workingDirectory: tempDir.path);
@@ -346,15 +346,17 @@ targets: {}
         isTrue,
       );
       expect(lock.containsKey('fragments'), isTrue);
-      expect(lock['fragments'], isA<List>());
+      expect(lock['fragments'], isA<List<Object?>>());
       expect(lock.containsKey('controls'), isTrue);
       final controls = lock['controls'] as Map;
       expect(
-        controls.keys.any((k) => k.contains('CTRL-GATEWAY-RATE-LIMIT')),
+        controls.keys.any(
+          (key) => key.toString().contains('CTRL-GATEWAY-RATE-LIMIT'),
+        ),
         isTrue,
       );
       expect(lock.containsKey('requirements'), isTrue);
-      expect(lock['requirements'], isA<List>());
+      expect(lock['requirements'], isA<List<Object?>>());
     });
 
     test('policy hashing preserves authored nested metadata', () async {
@@ -556,8 +558,8 @@ Feature: Gateway
       final feature = File('${tempDir.path}/specs/features/gateway.feature');
       feature.writeAsStringSync(
         feature.readAsStringSync().replaceFirst(
-          'Scenario: trivial',
-          'Scenario: committed source change',
+          'Given a step',
+          'Given a committed source change',
         ),
       );
       Process.runSync('git', ['add', '.'], workingDirectory: tempDir.path);

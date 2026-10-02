@@ -10,11 +10,11 @@ import 'package:analyzer/dart/constant/value.dart';
 import 'package:analyzer/dart/element/element.dart';
 import 'package:analyzer/error/error.dart' as analyzer_error;
 import 'package:analyzer/source/line_info.dart';
-import 'package:crypto/crypto.dart';
 import 'package:zuke_core/zuke_core.dart';
 import 'package:zuke_cli/src/ir.dart';
 import '../inspection.dart';
 import '../../generated/release_contract.dart';
+import '../../path_safety.dart';
 import '../analyzer_sdk.dart';
 
 Map<String, Expression> _namedArguments(Iterable<dynamic> arguments) {
@@ -144,6 +144,7 @@ class DartExtractor implements DartSourceExtractor {
             )
             .whereType<File>()
             .where((f) => f.path.endsWith('.dart'))
+            .where((f) => !isGuideSnippetFixture(f.path))
             .map((f) => f.absolute.resolveSymbolicLinksSync())
             .toSet()
             .toList()
@@ -210,7 +211,7 @@ class DartExtractor implements DartSourceExtractor {
       final implementation = symbols
           .where(
             (symbol) =>
-                symbol.kind == 'requirementBoundary' &&
+                symbol.kind == ExtractedSymbolKind.requirementBoundary &&
                 symbol.symbolId.endsWith('#$typeName'),
           )
           .toList();
@@ -244,7 +245,7 @@ class DartExtractor implements DartSourceExtractor {
       final provider = symbols
           .where(
             (symbol) =>
-                symbol.kind == 'controlProvider' &&
+                symbol.kind == ExtractedSymbolKind.controlProvider &&
                 symbol.symbolId.endsWith('#$typeName'),
           )
           .toList();
@@ -350,7 +351,7 @@ class DartExtractor implements DartSourceExtractor {
         }
         symbols.add(
           ExtractedSymbol(
-            kind: 'controlProvider',
+            kind: ExtractedSymbolKind.controlProvider,
             role: 'provider',
             symbolId: '$sourceUri#${node.id}',
             controlIds: [control],
@@ -409,7 +410,7 @@ class DartExtractor implements DartSourceExtractor {
     Map<String, IrNode> graphNodes,
   ) {
     for (final symbol in symbols) {
-      if (symbol.kind == 'requirementBoundary') {
+      if (symbol.kind == ExtractedSymbolKind.requirementBoundary) {
         _materializeAnnotationNode(
           graphNodes,
           symbol,
@@ -422,7 +423,7 @@ class DartExtractor implements DartSourceExtractor {
             'sourceLine': symbol.source.line,
           },
         );
-      } else if (symbol.kind == 'controlProvider') {
+      } else if (symbol.kind == ExtractedSymbolKind.controlProvider) {
         _materializeAnnotationNode(
           graphNodes,
           symbol,
@@ -516,7 +517,8 @@ class DartExtractor implements DartSourceExtractor {
           directory
               .listSync(recursive: true, followLinks: false)
               .whereType<File>()
-              .where((f) => f.path.endsWith('.dart')),
+              .where((f) => f.path.endsWith('.dart'))
+              .where((f) => !isGuideSnippetFixture(f.path)),
         );
       }
     }
@@ -536,7 +538,7 @@ class DartExtractor implements DartSourceExtractor {
       bytes.add(0);
     }
     bytes.addAll(utf8.encode('${adapterInfo.id}@${adapterInfo.version}'));
-    return sha256.convert(bytes).toString();
+    return sha256DigestHex(bytes);
   }
 }
 
@@ -582,7 +584,7 @@ class _ResolvedVisitor extends RecursiveAstVisitor<void> {
     if (isMatchingName &&
         uri != 'package:zuke_http_runtime/zuke_http_runtime.dart') {
       errors.add(
-        '${file}:${lineInfo.getLocation(node.offset).lineNumber}: '
+        '$file:${lineInfo.getLocation(node.offset).lineNumber}: '
         'unresolved registration for $name',
       );
     }
@@ -599,7 +601,7 @@ class _ResolvedVisitor extends RecursiveAstVisitor<void> {
       if (expression == null) return const [];
       if (expression is! ListLiteral) {
         errors.add(
-          '${file}:${lineInfo.getLocation(expression.offset).lineNumber}: '
+          '$file:${lineInfo.getLocation(expression.offset).lineNumber}: '
           '$fieldName must be a list literal',
         );
         return const [];
@@ -610,7 +612,7 @@ class _ResolvedVisitor extends RecursiveAstVisitor<void> {
           results.add(element);
         } else {
           errors.add(
-            '${file}:${lineInfo.getLocation(element.offset).lineNumber}: '
+            '$file:${lineInfo.getLocation(element.offset).lineNumber}: '
             'mutation or dynamic element in registration list $fieldName is not supported',
           );
         }
@@ -673,7 +675,7 @@ class _ResolvedVisitor extends RecursiveAstVisitor<void> {
           properties: {
             'sourceUri': 'package:$packageName/${_relativeLibPath(file)}',
             'sourceLine': lineInfo.getLocation(node.offset).lineNumber,
-            if (flow != null) 'flow': flow,
+            'flow': ?flow,
             ...properties,
           },
         ),
@@ -697,7 +699,7 @@ class _ResolvedVisitor extends RecursiveAstVisitor<void> {
           routeArgs.addAll(_namedArguments(route.argumentList.arguments));
         } else {
           errors.add(
-            '${file}:${lineInfo.getLocation(route.offset).lineNumber}: dynamic ZukeRouteRegistration',
+            '$file:${lineInfo.getLocation(route.offset).lineNumber}: dynamic ZukeRouteRegistration',
           );
           continue;
         }
@@ -705,7 +707,7 @@ class _ResolvedVisitor extends RecursiveAstVisitor<void> {
         final path = stringValue(routeArgs['path']);
         if (endpoint == null || path == null) {
           errors.add(
-            '${file}:${lineInfo.getLocation(route.offset).lineNumber}: dynamic ZukeRouteRegistration',
+            '$file:${lineInfo.getLocation(route.offset).lineNumber}: dynamic ZukeRouteRegistration',
           );
           continue;
         }
@@ -766,7 +768,7 @@ class _ResolvedVisitor extends RecursiveAstVisitor<void> {
           );
         } else {
           errors.add(
-            '${file}:${lineInfo.getLocation(failure.offset).lineNumber}: dynamic ZukeFailurePipelineRegistration',
+            '$file:${lineInfo.getLocation(failure.offset).lineNumber}: dynamic ZukeFailurePipelineRegistration',
           );
         }
       }
@@ -785,7 +787,7 @@ class _ResolvedVisitor extends RecursiveAstVisitor<void> {
           );
         } else {
           errors.add(
-            '${file}:${lineInfo.getLocation(logging.offset).lineNumber}: dynamic ZukeLoggingPipelineRegistration',
+            '$file:${lineInfo.getLocation(logging.offset).lineNumber}: dynamic ZukeLoggingPipelineRegistration',
           );
         }
       }
@@ -989,7 +991,7 @@ class _ResolvedVisitor extends RecursiveAstVisitor<void> {
       if (name == null || name.isEmpty) {
         final location = lineInfo.getLocation(node.offset);
         errors.add(
-          '${file}:${location.lineNumber}: unresolved $targetKind declaration name',
+          '$file:${location.lineNumber}: unresolved $targetKind declaration name',
         );
         continue;
       }
@@ -1021,7 +1023,7 @@ class _ResolvedVisitor extends RecursiveAstVisitor<void> {
           _addIds(
             value,
             'requirementIds',
-            'requirementBoundary',
+            ExtractedSymbolKind.requirementBoundary,
             'domain',
             name,
             source,
@@ -1034,7 +1036,7 @@ class _ResolvedVisitor extends RecursiveAstVisitor<void> {
           _addIds(
             value,
             'requirementIds',
-            'presentationBoundary',
+            ExtractedSymbolKind.presentationBoundary,
             'flutter',
             name,
             source,
@@ -1047,7 +1049,7 @@ class _ResolvedVisitor extends RecursiveAstVisitor<void> {
           _addIds(
             value,
             'requirementIds',
-            'verificationBoundary',
+            ExtractedSymbolKind.verificationBoundary,
             'test',
             name,
             source,
@@ -1080,7 +1082,7 @@ class _ResolvedVisitor extends RecursiveAstVisitor<void> {
   void _addIds(
     DartObject value,
     String field,
-    String kind,
+    ExtractedSymbolKind kind,
     String role,
     String name,
     ExtractedSourceLocation source, {
@@ -1144,7 +1146,7 @@ class _ResolvedVisitor extends RecursiveAstVisitor<void> {
     }
     symbols.add(
       ExtractedSymbol(
-        kind: 'controlProvider',
+        kind: ExtractedSymbolKind.controlProvider,
         role: 'provider',
         symbolId: '${source.uri}#$name',
         controlIds: ids,
@@ -1181,7 +1183,7 @@ class _ResolvedVisitor extends RecursiveAstVisitor<void> {
     }
     symbols.add(
       ExtractedSymbol(
-        kind: 'binding',
+        kind: ExtractedSymbolKind.binding,
         role: 'flutter',
         symbolId: '${source.uri}#$name',
         bindingId: bindingId,

@@ -41,6 +41,14 @@ sealed class _Binding implements ZukeBindingDescriptor {
   };
 
   @override
+  String? get label => switch (this) {
+    _InputBinding() => 'input field',
+    _ActionBinding() => 'action button',
+    _CollectionBinding() => 'result rows',
+    _ => null,
+  };
+
+  @override
   BindingInstanceCardinality get instanceCardinality => switch (this) {
     _CollectionBinding() => BindingInstanceCardinality.many,
     _MissingBinding() => BindingInstanceCardinality.zeroOrOne,
@@ -474,8 +482,13 @@ void main() {
     final accessibleStep = steps.firstWhere(
       (s) => s.pattern.pattern.contains('accessible name'),
     );
+    final missingAccessibleMatch = GherkinStep(
+      keyword: 'Then',
+      text: 'element "missing" has accessible name "Name"',
+      source: const SourceLocation(file: 'test.feature', line: 3),
+    );
     await expectLater(
-      () => accessibleStep.action(world, focusMatch, {
+      () => accessibleStep.action(world, missingAccessibleMatch, {
         '1': 'missing',
         '2': 'Name',
       }),
@@ -487,8 +500,13 @@ void main() {
         ),
       ),
     );
+    final accessibleMismatchMatch = GherkinStep(
+      keyword: 'Then',
+      text: 'element "action" has accessible name "Nonexistent Name"',
+      source: const SourceLocation(file: 'test.feature', line: 4),
+    );
     await expectLater(
-      () => accessibleStep.action(world, focusMatch, {
+      () => accessibleStep.action(world, accessibleMismatchMatch, {
         '1': 'action',
         '2': 'Nonexistent Name',
       }),
@@ -497,6 +515,41 @@ void main() {
           (e) => e.message,
           'message',
           contains('Expected accessible name Nonexistent Name'),
+        ),
+      ),
+    );
+  });
+
+  testWidgets('binding diagnostics name the declared label', (tester) async {
+    expect(bindingDisplayName(_Binding.fromId('input')), 'input field (input)');
+    expect(
+      bindingDisplayName(_Binding.fromId('collection')),
+      'result rows (collection)',
+    );
+    // Bindings without a label fall back to the canonical id.
+    expect(bindingDisplayName(_Binding.fromId('display')), 'display');
+
+    final world = _World(tester);
+    final steps = flutterVendorSteps<_World, _Binding>(
+      testerFor: (world) => world.tester,
+      bindingFromId: _Binding.fromId,
+      keyFor: (_, binding) => const Key('not-a-binding-key'),
+    );
+    final tap = steps.firstWhere(
+      (step) => step.pattern.pattern.contains('taps'),
+    );
+    final step = GherkinStep(
+      keyword: 'When',
+      text: 'the user taps "collection"',
+      source: const SourceLocation(file: 'label.feature', line: 1),
+    );
+    await expectLater(
+      () => tap.action(world, step, {'1': 'collection'}),
+      throwsA(
+        isA<StateError>().having(
+          (error) => error.message,
+          'message',
+          contains('result rows (collection)'),
         ),
       ),
     );

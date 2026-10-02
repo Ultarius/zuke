@@ -1,5 +1,6 @@
 import 'package:zuke_frontend/zuke_frontend.dart';
 import '../ir.dart';
+import 'declaration_source.dart';
 import 'validator.dart';
 
 class CardinalityValidator {
@@ -22,6 +23,9 @@ class CardinalityValidator {
                   'Binding provider "${sym.bindingId}" is missing an '
                   'explicit extraction target.',
               severity: Severity.error,
+              remediation:
+                  'Add `target:` to the `@ZukeBinding` on the provider for '
+                  '"${sym.bindingId}", naming a configured target.',
             ),
           );
           continue;
@@ -44,7 +48,14 @@ class CardinalityValidator {
               message:
                   'Binding "${binding.id}" uses unknown target "${binding.target}"',
               severity: Severity.error,
-              source: feature.metadata.source,
+              // Scoped to the binding's own field: the same target string can
+              // also appear under the feature's `targets`, and that is a
+              // different declaration from a different line.
+              source: declarationSource(
+                feature.metadata,
+                MetadataField.bindingTarget,
+                binding.target,
+              ),
             ),
           );
         }

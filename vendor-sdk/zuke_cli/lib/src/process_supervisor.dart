@@ -83,14 +83,15 @@ final class LocalProcessSupervisor implements ProcessSupervisor {
         (prepared.executable.toLowerCase().endsWith('.bat') ||
             prepared.executable.toLowerCase().endsWith('.cmd'));
     if (isBatch) {
-      final unsafe = <String>[prepared.executable, ...prepared.arguments]
-          .indexed
-          .map((entry) => (index: entry.$1, value: entry.$2))
-          .firstWhere(
-            (entry) => RegExp(r'''[&|<>^%!"\r\n]''').hasMatch(entry.value),
-            orElse: () => (index: -1, value: ''),
-          );
-      if (unsafe.index >= 0) {
+      final unsafe = <String>[prepared.executable, ...prepared.arguments];
+      var unsafeIndex = -1;
+      for (var index = 0; index < unsafe.length; index++) {
+        if (RegExp(r'''[&|<>^%!"\r\n]''').hasMatch(unsafe[index])) {
+          unsafeIndex = index;
+          break;
+        }
+      }
+      if (unsafeIndex >= 0) {
         throw const SupervisedProcessException(
           kind: ProcessFailureKind.launchFailure,
           diagnosticCode: 'ZUKE-BATCH-UNSAFE-ARGUMENT',
@@ -165,7 +166,7 @@ final class LocalProcessSupervisor implements ProcessSupervisor {
           (chunk) {
             onChunk(chunk, stdoutBuffer, request.onStdoutChunk);
           },
-          onError: (Object _, StackTrace __) {
+          onError: (Object _, StackTrace _) {
             if (!stdoutDone.isCompleted) stdoutDone.complete();
           },
           onDone: () {
@@ -178,7 +179,7 @@ final class LocalProcessSupervisor implements ProcessSupervisor {
           (chunk) {
             onChunk(chunk, stderrBuffer, request.onStderrChunk);
           },
-          onError: (Object _, StackTrace __) {
+          onError: (Object _, StackTrace _) {
             if (!stderrDone.isCompleted) stderrDone.complete();
           },
           onDone: () {

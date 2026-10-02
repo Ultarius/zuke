@@ -69,10 +69,12 @@ current framework-owned diagnostics. Neither command treats historical
 failures as current release state. The existing gate auxiliary JSON flags
 remain current snapshots.
 
-`examples/todo_app` is the recommended beginner Flutter integration.
-`examples/shopping_cart` expands that setup with additional UI coverage, and
-`examples/calculator-product` is the advanced mixed Flutter, Dart HTTP,
-security-attestation, and release-history reference. The existing specialized
+`examples/library_catalog` is the recommended pure-Dart beginner start (specs
+first, analyzer plugin, manual Gherkin harness). `examples/todo_app` is the
+recommended beginner Flutter integration. `examples/shopping_cart` expands that
+setup with additional UI coverage, and `examples/calculator-product` is the
+advanced mixed Flutter, Dart HTTP, security-attestation, and release-history
+reference. The existing specialized
 SDK packages are coordinated by the current release matrix in
 `docs/release-matrix.yaml`; analyzer-dependent extraction is isolated from the
 analyzer-free IR and adapter contracts.
@@ -427,6 +429,8 @@ Zuke validation requires an interconnected graph of Epics, PBIs, Controls, Featu
 ### A. Feature File (`specs/features/shopping_cart.feature`)
 Every `.feature` file **must** begin with a `# spec-begin` header declaring its metadata and binding dependencies. Every `Rule` must have a `# rule-spec-begin` header.
 
+A binding may declare a `label`: a human-readable name that becomes an accepted alias for the binding id. Generated contracts expose it as `ZukeBindingDescriptor.label` and resolve it in `fromId`, so a step may name either `"shopping.promoInput"` (the id) or `"promo code field"` (the label). Ids remain canonical; labels are optional and exist to keep step text readable. A label must be unique within a feature and must not collide with another binding id.
+
 ```gherkin
 # spec-begin
 # schemaVersion: 1
@@ -441,14 +445,17 @@ Every `.feature` file **must** begin with a `# spec-begin` header declaring its 
 # bindings:
 #   required:
 #     - id: shopping.promoInput
+#       label: promo code field
 #       target: flutter
 #       cardinality: exactlyOne
 #       interaction: input
 #     - id: shopping.applyPromoButton
+#       label: apply promo button
 #       target: flutter
 #       cardinality: exactlyOne
 #       interaction: action
 #     - id: shopping.discountStatusDisplay
+#       label: discount status message
 #       target: flutter
 #       cardinality: zeroOrOne
 #       interaction: output
@@ -677,7 +684,11 @@ Generation is transactional. It refuses to delete a stale file unless it has
 the generated-file marker, confines output to `contractOutput`, formats Dart
 before hashing it, and creates the sealed binding hierarchy, typed contract
 interfaces (`FeatCart001FlutterBindings`, `FeatCart001FlutterDriver`), and
-`.zuke/analyzer-index.json`.
+`.zuke/analyzer-index.json`. The index also records which requirements already
+have a `@VerifiesRequirement` (and the source files that declare them), so the
+analyzer plugin can report `ZUKE-MISSING-TEST` when an implemented requirement
+has no test annotation. After adding or editing a verification annotation, run
+`zuke generate` so the index stays current.
 
 To generate a public barrel and a scenario lookup together, configure the
 existing export option on the target that owns the contracts:
@@ -993,7 +1004,7 @@ on:
 
 jobs:
   zuke:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     defaults:
       run:
         working-directory: examples/shopping_cart
@@ -1016,20 +1027,159 @@ selection and evidence environment variables.
 ## 9. Analyzer feedback and optional build hook
 
 ### Analyzer Plugin
-Enable fast developer feedback in `analysis_options.yaml`:
+Enable fast developer feedback in the workspace root `analysis_options.yaml`.
+Plugin lints are **disabled until enabled under `plugins.<name>.diagnostics`**,
+and severity (error/warning vs info) is set on each rule in code. Plugins can
+only be configured at the analysis-options **root** (not nested package files):
 
 ```yaml
-analyzer:
-  plugins:
-    - zuke_analyzer
+# analysis_options.yaml (workspace root)
+plugins:
+  zuke_analyzer:
+    path: vendor-sdk/zuke_analyzer # repository-only; not published to pub.dev
+    diagnostics:
+      zuke_annotation: true # error
+      zuke_index_stale: true # error
+      zuke_unknown_index_id: true # error
+      zuke_missing_test: true # warning
+      zuke_unimplemented_requirement: true # warning
+      zuke_spec_lint: true # error
 ```
 
-And add `zuke_analyzer` to `dev_dependencies`:
+### Editor and CLI coverage diagnostics
+
+The compatibility guard `zuke_plugin_stale` is enabled by default, with error
+severity. When the plugin's compiled index contract differs from the generated
+index, it suppresses the other Zuke rules and reports once on the configured
+barrel (or a deterministic generated/source file). Run
+`dart run zuke_cli:zuke doctor --fix`, then restart the analysis server.
+The command rebuilds matching local plugin cache entries using content hashes;
+it never clears the entire Dart server or pub cache. `zuke analyze -- <args>`
+performs that repair before running `dart analyze`. See
+[plugin cache recovery](editor-plugin-cache.md) for scope, release checks, and
+the one-time migration for old plugins without this guard.
+
+Two rules look at the same relationship from opposite ends, and neither
+subsumes the other:
+
+| Rule | Direction | Meaning |
+|---|---|---|
+| `zuke_missing_test` | implementation → test | Something implements a requirement but no `@VerifiesRequirement` covers it. |
+| `zuke_unimplemented_requirement` | contract → implementation | A generated requirement ID has no `@ImplementsRequirement` or `@PresentsRequirement` anywhere. |
+
+`zuke_unimplemented_requirement` is reported **on the generated contract
+constant**, not on the requirement's source, because that is where the gap is
+visible:
+
+```text
+lib/src/generated/feat_connection_002_contracts.g.dart:6:8
+  ZUKE-UNIMPLEMENTED-REQUIREMENT: Requirement RULE-CONNECTION-002 is declared
+  for backend; nothing implements it. Add @ImplementsRequirement or
+  @PresentsRequirement, or narrow the requirement's declared targets.
+```
+
+The message names the target the file was resolved to, rather than saying
+"this target". A file whose target cannot be attributed is reported as unscoped
+rather than skipped, and `no target` in the message is how you can tell that
+happened — which is the case to look at if a requirement you expected to be
+narrowed is being reported anyway.
+
+Both default to **warning**, deliberately. A workspace that is mid-authoring
+its specifications would otherwise be red on every `dart analyze` before a line
+of implementation exists, which trains people to ignore the rule. Set
+`zuke_unimplemented_requirement: error` once the specifications have settled, and
+it composes with `--fatal-infos` in CI. Suppress a single contract with
+`// ignore: zuke/zuke_unimplemented_requirement`.
+
+The same gap is reported by `zuke validate` and `zuke gate` as
+`ZUKE-IMPL-001`, so a gate can fail on it without anyone reading the Problems
+pane. Both resolve target scoping through one shared predicate, so the editor
+and the CLI can never disagree about which target a requirement belongs to.
+
+**Requirements are target-scoped.** A specification declares `targets:` once per
+feature and rules inherit it unless they narrow it. A Flutter package is
+therefore never told it fails to implement a `backend`-only requirement, and
+generating contracts for a target does not drag in the other target's
+requirements. A requirement that declares no targets is unscoped and applies
+everywhere, and so does a file whose target cannot be determined — under-
+reporting a gap is recoverable, hiding one because scoping metadata was missing
+is not.
+
+**Regenerate after editing implementations.** `zuke generate` records the
+implementation sets in `.zuke/analyzer-index.json`, and they participate in the
+index digest, so adding or removing an implementation invalidates the index
+exactly like editing a test does. `zuke_index_stale` then asks for a
+regeneration before any of the other rules can be trusted.
+
+### Specification diagnostics in the editor
+
+`zuke_spec_lint` reports the findings the reference resolver makes about your
+`.feature` files — an unknown target, a missing Epic, an endpoint that is not
+registered — as editor diagnostics, so a broken cross-reference shows up while
+you are editing instead of at the next `zuke validate`.
+
+The resolver runs during `zuke generate`, which records each finding in
+`.zuke/analyzer-index.json` under `specDiagnostics`, together with the
+`featureFiles` map that says which generated contract each feature produced. The
+rule then reports a finding on that contract. When nothing is wrong, neither key
+is written, so a healthy workspace's index is unchanged.
+
+```text
+lib/src/generated/feat_dashboard_001_contracts.g.dart:6:1 - ZUKE-SPEC-LINT:
+  Unknown target "backend" referenced by FEAT-DASH-001
+  (specs/features/dashboard.feature:10:7) - zuke_spec_lint
+```
+
+**The squiggle is on a generated file, not on your specification.** An
+analysis-server plugin can only anchor a diagnostic on a Dart node, so a finding
+about a `.feature` line cannot be reported *on* that line. The specification's
+own `file:line:column` is in the message for exactly this reason, and the
+feature's contract is the anchor because that is the file the finding belongs to.
+Every finding for one feature shares that contract's class declaration as its
+anchor.
+
+The `file:line:column` in the message is the entry that is wrong, not the top of
+its metadata block. The parser records where each declared value was written and
+maps a YAML node's span back through the reconstructed metadata content, so a
+blank line inside a block — which shifts every following entry — is accounted
+for. Every reference code uses it, from `ZUKE-REF-001` through `ZUKE-REF-012`.
+A value with no recorded position falls back to the block start, so the location
+is always defined.
+
+Rule-level `targets:` are validated the same way feature-level ones are: a rule
+that narrows to a target which does not exist is reported as `ZUKE-REF-009` on
+the rule's own line.
+
+`zuke validate` reports the same finding, and the two agree because they read
+the same resolver output.
+
+If you would rather have the finding on the specification line itself, that
+needs a machine-readable format carrying locations — SARIF, or a problem
+matcher over a `lint` command. Neither exists yet; the index is the groundwork
+both would build on.
+
+Packages that ship their own `analysis_options.yaml` (for example Flutter
+apps that `include: package:flutter_lints/flutter.yaml`) form a nested analysis
+context. That context does **not** inherit the workspace `plugins:` block—put
+`plugins:` only at the root and `include` a root options file from the nested
+package (see `analysis_options.flutter.yaml` in this repo), or declare the same
+`plugins:` block once in a shared root-level options file that packages include.
+Do not put `plugins:` under `analyzer:`, and do not put it directly in a nested
+package options file (`plugins_in_inner_options`).
+
+The plugin is repository-only. If invoking its standalone analyzer, add the
+local checkout to `dev_dependencies` (adjust the relative path):
 
 ```yaml
 dev_dependencies:
-  zuke_analyzer: {path: ../../vendor-sdk/dart_analyzer_plugin}
+  zuke_analyzer:
+    path: ../zuke/vendor-sdk/zuke_analyzer
 ```
+
+After `pub get`, restart the analysis server (VS Code: **Dart: Restart Analysis
+Server**). Diagnostics appear in the **Problems** panel and as editor
+squiggles—same as built-in analyzer diagnostics. Suppress one with
+`// ignore: zuke/zuke_annotation` (plugin name / rule name).
 
 ### Dart Build Hook
 To enroll a package into diagnostic build hooks:

@@ -1,6 +1,6 @@
-# Shopping Cart Zuke Reference 🟡 (Intermediate)
+# Shopping Cart Zuke Reference 🟡 (Intermediate · Flutter)
 
-This is an intermediate Flutter reference application demonstrating state management (`CartController`), promo codes, accessibility constraints, evidence locking, and full CI gate profile validation with Zuke.
+This is an intermediate single-package Flutter reference for Zuke: promo-code state management (`CartController`), accessibility semantics, three security profiles/controls, and larger profile locks than the beginner examples.
 
 ---
 
