@@ -250,43 +250,38 @@ exit /b 7
     },
   );
 
-  test(
-    'tool preparation failures preserve their diagnostic code',
-    () async {
-      final missingRoot = Directory.systemTemp.createTempSync(
-        'missing_flutter_',
-      )..deleteSync();
-      await expectLater(
-        const LocalProcessSupervisor().run(
-          ProcessRunRequest(
-            executable: 'flutter',
-            arguments: ['test'],
-            workingDirectory: Directory.current.path,
-            environment: {'FLUTTER_ROOT': missingRoot.path},
-            startupTimeout: const Duration(seconds: 10),
-            executionTimeout: const Duration(seconds: 10),
-          ),
+  test('tool preparation failures preserve their diagnostic code', () async {
+    final missingRoot = Directory.systemTemp.createTempSync('missing_flutter_')
+      ..deleteSync();
+    await expectLater(
+      const LocalProcessSupervisor().run(
+        ProcessRunRequest(
+          executable: 'flutter',
+          arguments: ['test'],
+          workingDirectory: Directory.current.path,
+          environment: {'FLUTTER_ROOT': missingRoot.path},
+          startupTimeout: const Duration(seconds: 10),
+          executionTimeout: const Duration(seconds: 10),
         ),
-        throwsA(
-          isA<SupervisedProcessException>()
-              .having(
-                (error) => error.kind,
-                'kind',
-                ProcessFailureKind.launchFailure,
-              )
-              .having(
-                (error) => error.diagnosticCode,
-                'diagnosticCode',
-                'ZUKE-FLUTTER-NOT-FOUND',
-              )
-              .having(
-                (error) => error.message,
-                'message',
-                isNot(contains('Bad state:')),
-              ),
-        ),
-      );
-    },
-    skip: Platform.isWindows ? false : 'Windows Flutter resolution only.',
-  );
+      ),
+      throwsA(
+        isA<SupervisedProcessException>()
+            .having(
+              (error) => error.kind,
+              'kind',
+              ProcessFailureKind.launchFailure,
+            )
+            .having(
+              (error) => error.diagnosticCode,
+              'diagnosticCode',
+              'ZUKE-FLUTTER-NOT-FOUND',
+            )
+            .having(
+              (error) => error.message,
+              'message',
+              isNot(contains('Bad state:')),
+            ),
+      ),
+    );
+  }, skip: Platform.isWindows ? false : 'Windows Flutter resolution only.');
 }

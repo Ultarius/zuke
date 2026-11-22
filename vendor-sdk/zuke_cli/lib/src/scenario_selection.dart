@@ -5,6 +5,29 @@ import 'package:zuke_core/zuke_core.dart'
     show canonicalJson, sha256Text, writeBytesReplacing;
 import 'package:zuke_frontend/zuke_frontend.dart';
 
+const scenarioIdentityRequirement =
+    'Declare one @SCN-* tag on the scenario or one on each Examples block.';
+
+bool scenarioHasValidIdentity(GherkinScenario scenario) {
+  int idCount(Iterable<GherkinTag> tags) =>
+      tags.where((tag) => tag.name.startsWith('SCN-')).length;
+
+  final scenarioIds = idCount(scenario.tags);
+  if (scenarioIds > 1) return false;
+  if (scenario.examples.isEmpty) return scenarioIds == 1;
+  return scenario.examples.every((examples) {
+    final exampleIds = idCount(examples.tags);
+    return examples.rows.isNotEmpty &&
+        (scenarioIds == 1 ? exampleIds <= 1 : exampleIds == 1);
+  });
+}
+
+bool scenarioRunsOnTarget(Set<String> tags, String target) => switch (target) {
+  'backend' => !tags.contains('ui') || tags.contains('api'),
+  'flutter' => !tags.contains('api') || tags.contains('ui'),
+  _ => true,
+};
+
 /// Resolves the configured profile's tag expression against parsed scenarios.
 ///
 /// The selected stable scenario IDs are passed to runners; a profile is not an
@@ -20,6 +43,7 @@ class ScenarioSelector {
     WorkspaceDiscoveryResult workspace,
     String profile,
   ) {
+    _checkOutlineTargets(workspace);
     final profileConfig = workspace.config.executionConfig[profile];
     if (profileConfig is! Map) {
       // A runner may intentionally own selection when no tag expression is
@@ -45,27 +69,7 @@ class ScenarioSelector {
             ...ruleTags,
             ...scenario.tags.map((tag) => tag.name),
           };
-          final effectiveTagSets = scenario.examples.isEmpty
-              ? [scenarioTags]
-              : scenario.examples
-                    .map(
-                      (examples) => {
-                        ...scenarioTags,
-                        ...examples.tags.map((tag) => tag.name),
-                      },
-                    )
-                    .toList();
-          for (final tags in effectiveTagSets) {
-            if (!predicate.evaluate(tags)) continue;
-            final scenarioIds =
-                tags.where((tag) => tag.startsWith('SCN-')).toList()..sort();
-            if (scenarioIds.isEmpty) {
-              throw FormatException(
-                'selected scenario "${scenario.scenarioElement.title}" has no SCN-* tag',
-              );
-            }
-            selected.addAll(scenarioIds);
-          }
+          _selectScenario(scenario, scenarioTags, predicate, selected);
         }
       }
     }
@@ -81,6 +85,81 @@ class ScenarioSelector {
       scenarioIds: ordered,
     );
   }
+
+  void _selectScenario(
+    GherkinScenario scenario,
+    Set<String> tags,
+    _TagExpression predicate,
+    Set<String> selected,
+  ) {
+    final outlineIds = _scenarioIds(scenario.tags).toList();
+    final title = scenario.scenarioElement.title;
+    if (scenario.examples.isEmpty) {
+      if (!predicate.evaluate(tags)) return;
+      if (outlineIds.isEmpty) {
+        throw FormatException('Selected scenario "$title" has no @SCN-* tag.');
+      }
+      selected.addAll(outlineIds);
+      return;
+    }
+
+    final matching = scenario.examples
+        .where(
+          (block) => predicate.evaluate({
+            ...tags,
+            ...block.tags.map((tag) => tag.name),
+          }),
+        )
+        .toList();
+    final entireOutline = matching.length == scenario.examples.length;
+    if (entireOutline) selected.addAll(outlineIds);
+    for (final block in matching) {
+      final blockIds = _scenarioIds(block.tags).toList();
+      if (blockIds.isEmpty && !(entireOutline && outlineIds.isNotEmpty)) {
+        throw FormatException(
+          'Selected Examples "${block.title}" in "$title" needs its own @SCN-* tag '
+          'to run independently.',
+        );
+      }
+      selected.addAll(blockIds);
+    }
+  }
+
+  void _checkOutlineTargets(WorkspaceDiscoveryResult workspace) {
+    for (final feature in workspace.data.features) {
+      for (final rule in feature.rules) {
+        for (final scenario in rule.scenarios) {
+          if (_scenarioIds(scenario.tags).isEmpty ||
+              scenario.examples.isEmpty) {
+            continue;
+          }
+          final outlineTags = scenario.tags
+              .map((tag) => tag.name.toLowerCase())
+              .toSet();
+          for (final block in scenario.examples) {
+            final tags = {
+              ...outlineTags,
+              ...block.tags.map((tag) => tag.name.toLowerCase()),
+            };
+            if (['backend', 'flutter'].any(
+              (target) =>
+                  scenarioRunsOnTarget(tags, target) !=
+                  scenarioRunsOnTarget(outlineTags, target),
+            )) {
+              throw FormatException(
+                'Examples "${block.title}" changes the execution target of '
+                '"${scenario.scenarioElement.title}". Give each Examples block '
+                'its own @SCN-* tag and omit the outline-level ID.',
+              );
+            }
+          }
+        }
+      }
+    }
+  }
+
+  Iterable<String> _scenarioIds(Iterable<GherkinTag> tags) =>
+      tags.map((tag) => tag.name).where((name) => name.startsWith('SCN-'));
 }
 
 /// Immutable, deterministic provenance for a single profile selection. This is

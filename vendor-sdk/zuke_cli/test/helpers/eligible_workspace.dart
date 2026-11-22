@@ -4,6 +4,8 @@ import 'package:crypto/crypto.dart';
 import 'package:cryptography/cryptography.dart';
 import 'package:zuke_core/zuke_core.dart';
 
+import '../support/resolved_workspace.dart';
+
 Future<Directory> createEligibleWorkspace(
   Directory tempDir, {
   DateTime? attestationIssuedAt,
@@ -146,17 +148,7 @@ dependency_overrides:
   zuke_core:
     path: '$repositoryRoot/vendor-sdk/zuke_core'
 ''');
-  final pubGet = await Process.run(Platform.resolvedExecutable, [
-    '--suppress-analytics',
-    'pub',
-    'get',
-    '--offline',
-  ], workingDirectory: tempDir.path);
-  if (pubGet.exitCode != 0) {
-    throw StateError(
-      'Fixture pub get failed: ${pubGet.stdout}\n${pubGet.stderr}',
-    );
-  }
+  await configureFixturePackages(tempDir);
 
   // A consumer repository does not track Pub's generated package metadata.
   // Keeping it ignored also makes clean-repository release tests resilient to

@@ -896,6 +896,85 @@ void main() {
     },
   );
 
+  test('a linked entry from another Zuke clone is not this audit\'s', () async {
+    final otherClone = Directory('${root.path}/other-clone')..createSync();
+    final elsewhere = Directory('${root.path}/elsewhere/other-entry')
+      ..createSync(recursive: true);
+    _copyTree(entry, elsewhere);
+    File(
+      p.join(elsewhere.path, '.dart_tool', 'package_config.json'),
+    ).writeAsStringSync(
+      jsonEncode({
+        'configVersion': 2,
+        'packages': [
+          {'name': 'zuke_analyzer', 'rootUri': otherClone.uri.toString()},
+        ],
+      }),
+    );
+    final linked = p.join(cache.path, 'other-clone-link');
+    expect(
+      _linkDirectory(linked, elsewhere),
+      isTrue,
+      reason: 'link not created',
+    );
+    addTearDown(() => _removeLink(linked));
+
+    final result = await doctor().inspect(fix: true);
+
+    expect(result.single.path, isNot(contains('other-clone-link')));
+    expect(result.single.status, 'repaired', reason: result.single.message);
+  });
+
+  test('prune protects every context that may serve the workspace', () {
+    final workspace = Directory(p.join(root.path, 'repo', 'apps', 'api'))
+      ..createSync(recursive: true);
+    File(p.join(workspace.path, 'zuke.yaml')).writeAsStringSync(
+      'targets:\n  backend:\n    packages:\n      - path: packages/core\n',
+    );
+    final contexts = [
+      p.join(root.path, 'repo'),
+      p.join(workspace.path, 'packages', 'core'),
+    ];
+    final entries = <Directory>[];
+    for (final context in contexts) {
+      final protected = Directory(
+        p.join(cache.path, pluginCacheKeyForContextRoot(context)),
+      )..createSync();
+      _copyTree(entry, protected);
+      // Zuke-only, so the context guard is the one thing that can refuse it.
+      File(p.join(protected.path, 'pubspec.yaml')).writeAsStringSync(
+        'dependencies:\n  zuke_analyzer:\n    path: ${jsonEncode(package.path)}\n',
+      );
+      entries.add(protected);
+    }
+
+    final results = doctor().pruneSelected(
+      {for (final directory in entries) directory.path},
+      currentContextRoot: workspace.path,
+      dryRun: false,
+    );
+
+    expect(results.map((result) => result.status), everyElement('refused'));
+    for (final directory in entries) {
+      expect(directory.existsSync(), isTrue);
+    }
+  });
+
+  test('prune protection covers both Windows drive-letter spellings', () {
+    final path = root.path;
+    final first = path[0];
+    final flipped =
+        '${first == first.toUpperCase() ? first.toLowerCase() : first.toUpperCase()}'
+        '${path.substring(1)}';
+    expect(
+      pluginCacheKeysForWorkspace(path),
+      containsAll([
+        pluginCacheKeyForContextRoot(path),
+        pluginCacheKeyForContextRoot(flipped),
+      ]),
+    );
+  }, testOn: 'windows');
+
   test('a Zuke entry with a corrupt lock is reported, not dropped', () async {
     // Ownership is established from the pubspec, so a later parse failure is a
     // real problem to report. Previously the entry vanished from the audit.

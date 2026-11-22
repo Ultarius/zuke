@@ -39,10 +39,17 @@ class ZukeCli {
   final ProcessSupervisor processSupervisor;
   late final ArgParser parser;
   late final TestCommandRunner _testCommandRunner;
+  final PluginCacheAudit? _pluginAudit;
 
-  ZukeCli({String? version, ProcessSupervisor? processSupervisor})
-    : version = version ?? releasePublicPackageVersions['zuke_cli']!,
-      processSupervisor = processSupervisor ?? const LocalProcessSupervisor() {
+  /// [pluginAudit] replaces the doctor's audit of the machine-wide analyzer
+  /// plugin cache, so a test does not depend on what that cache holds.
+  ZukeCli({
+    String? version,
+    ProcessSupervisor? processSupervisor,
+    PluginCacheAudit? pluginAudit,
+  }) : version = version ?? releasePublicPackageVersions['zuke_cli']!,
+       processSupervisor = processSupervisor ?? const LocalProcessSupervisor(),
+       _pluginAudit = pluginAudit {
     parser = buildZukeArgParser();
     _testCommandRunner = TestCommandRunner(
       processSupervisor: this.processSupervisor,
@@ -80,7 +87,7 @@ class ZukeCli {
           if (command.command?.name == 'test-host') {
             return await runTestHostDoctor(command.command!);
           }
-          return await runDoctor(command);
+          return await runDoctor(command, pluginAudit: _pluginAudit);
         case 'clean':
           return CleanCommand(command).execute();
         case 'extract':
@@ -177,22 +184,22 @@ class ZukeCli {
           return 1;
         case 'artifacts':
           if (command.command?.name == 'audit') {
-            return ArtifactAuditCommand(command.command!).execute();
+            return await ArtifactAuditCommand(command.command!).execute();
           }
           if (command.command?.name == 'package') {
-            return ArtifactPackageCommand(command.command!).execute();
+            return await ArtifactPackageCommand(command.command!).execute();
           }
           printZukeHelp(version: version);
           return 1;
         case 'contract':
           if (command.command?.name == 'verify') {
-            return OpenApiContractCommand(command.command!).execute();
+            return await OpenApiContractCommand(command.command!).execute();
           }
           printZukeHelp(version: version);
           return 1;
         case 'policy':
           if (command.command?.name == 'check') {
-            return PolicyCommand(command.command!).execute();
+            return await PolicyCommand(command.command!).execute();
           }
           printZukeHelp(version: version);
           return 1;
@@ -205,9 +212,9 @@ class ZukeCli {
           printZukeHelp(version: version);
           return 1;
         case 'watch':
-          return _runWatch(command);
+          return await _runWatch(command);
         case 'affected':
-          return _runAffected(command);
+          return await _runAffected(command);
         case 'test':
           return await _testCommandRunner.runTests(command);
         case 'coverage':

@@ -272,7 +272,13 @@ advertise a nonexistent hosted release. Its first contract-aware version is
 `0.1.1`; the initial versioned index contract is `1`. Contract `2` and
 `zuke_analyzer` `0.1.2` add the binding-coverage facts described above; the
 strictness of that read is the reason a contract bump was required rather than an
-optional field.
+optional field. Contract `3` and `zuke_analyzer` `0.1.3` add each registration's
+variant and inventory the test directories managed runners audit.
+
+The plugin's synthetic package resolves `zuke_cli` by path but would take that
+package's Zuke dependencies from pub.dev. A release raises those floors before
+the versions exist there, so the repository's `analysis_options` files use
+`plugins.dependency_overrides` to resolve them from this checkout.
 
 For each JSON shape **or editor-visible semantic** change:
 

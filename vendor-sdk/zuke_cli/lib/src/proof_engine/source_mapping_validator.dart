@@ -24,7 +24,7 @@ class SourceMappingValidator {
         final id = rule.metadata.id;
         if (id != null) rules.add(id);
         for (final scenario in rule.scenarios) {
-          for (final tag in scenario.tags.where(
+          for (final tag in scenario.declaredTags.where(
             (t) => t.name.startsWith('SCN-'),
           )) {
             scenarios.add(tag.name);

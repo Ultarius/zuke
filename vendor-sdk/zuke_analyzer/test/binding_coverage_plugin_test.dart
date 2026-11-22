@@ -156,6 +156,69 @@ abstract final class FeatGap001Aliases {
     });
   });
 
+  group('ZukeScenarioCoverageRule', () {
+    late File registrationSource;
+
+    void writeCoverageIndex() {
+      registrationSource =
+          File(
+              '${tempDir.path}${Platform.pathSeparator}lib'
+              '${Platform.pathSeparator}registrations.dart',
+            )
+            ..parent.createSync(recursive: true)
+            ..writeAsStringSync('void register() {}\n');
+      final index = ZukeIndex.create(
+        root: tempDir.path,
+        inputPaths: [
+          registrationSource.path,
+          File('${tempDir.path}/zuke.yaml').path,
+        ],
+        generatedManifestContent: '{"files":[]}',
+        generatedManifestPath: 'generated-manifest.json',
+        requirementIds: const [],
+        controlIds: const [],
+        bindingIds: const [],
+        specDiagnostics: const [
+          ZukeSpecDiagnostic(
+            file: 'specs/features/gap.feature',
+            line: 3,
+            column: 5,
+            code: scenarioCoverageCode,
+            severity: 'warning',
+            message: 'Scenario "SCN-GAP-001" has no managed test registration',
+            featureId: 'FEAT-GAP-001',
+          ),
+        ],
+        featureFiles: const {
+          'FEAT-GAP-001': 'lib/src/generated/feat_gap_001_contracts.g.dart',
+        },
+      );
+      indexFile.writeAsStringSync(jsonEncode(index.toJson()));
+      analyzer_plugin.zukeClearIndexCacheForTesting();
+    }
+
+    test('reports a current finding on its contract', () {
+      writeCoverageIndex();
+      expect(
+        analyzer_plugin
+            .zukeScenarioCoverageFindingsForTesting(contract.path)
+            .single
+            .message,
+        contains('SCN-GAP-001'),
+      );
+    });
+
+    test('goes quiet once a source edit may have added the registration', () {
+      writeCoverageIndex();
+      registrationSource.writeAsStringSync('void registerNow() {}\n');
+      analyzer_plugin.zukeClearIndexCacheForTesting();
+      expect(
+        analyzer_plugin.zukeScenarioCoverageFindingsForTesting(contract.path),
+        isEmpty,
+      );
+    });
+  });
+
   group('ZukeBindingUnboundRule', () {
     test('both unbound rules are reported for the owning contract', () {
       writeIndex();

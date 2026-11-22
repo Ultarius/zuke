@@ -343,7 +343,7 @@ final class ZukeModelControlRequirement {
 }
 
 final class ZukeModelScenario {
-  final String id;
+  final String? id;
   final String title;
   final String keyword;
   final List<String> tags;
@@ -362,7 +362,7 @@ final class ZukeModelScenario {
   });
 
   Map<String, Object?> toJson() => {
-    'id': id,
+    if (id != null && id!.isNotEmpty) 'id': id,
     'title': title,
     'keyword': keyword,
     'tags': tags,
@@ -382,6 +382,7 @@ final class ZukeModelStep {
 }
 
 final class ZukeModelExamples {
+  final String? id;
   final String title;
   final List<String> tags;
   final List<String> effectiveTags;
@@ -389,6 +390,7 @@ final class ZukeModelExamples {
   final List<List<String>> rows;
 
   const ZukeModelExamples({
+    this.id,
     required this.title,
     this.tags = const [],
     this.effectiveTags = const [],
@@ -397,6 +399,7 @@ final class ZukeModelExamples {
   });
 
   Map<String, Object?> toJson() => {
+    if (id != null) 'id': id,
     'title': title,
     'tags': tags,
     'effectiveTags': effectiveTags,

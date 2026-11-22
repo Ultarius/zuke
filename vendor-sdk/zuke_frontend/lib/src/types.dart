@@ -479,6 +479,13 @@ class GherkinScenario {
 
   /// Alias for [examples] retained for parser consumers.
   List<GherkinExamples> get examplesBlocks => examples;
+
+  /// Every tag declared by this scenario, including those on its Examples
+  /// blocks, which is where an outline may declare its scenario IDs.
+  List<GherkinTag> get declaredTags => [
+    ...tags,
+    for (final block in examples) ...block.tags,
+  ];
 }
 
 /// One executable step in a Gherkin scenario.
@@ -501,7 +508,10 @@ class GherkinStep {
   /// Media type declared for [docString].
   final String? docStringMediaType;
 
-  /// Indentation of the doc string.
+  /// Characters of indentation before the opening delimiter.
+  ///
+  /// [docString] keeps its source indentation, so remove up to this many
+  /// leading whitespace characters per line to recover the authored text.
   final int docStringIndent;
 
   /// Parsed data table rows.

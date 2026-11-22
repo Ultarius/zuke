@@ -183,6 +183,28 @@ Expression? namedArgumentValue(Iterable<AstNode> arguments, String name) {
   return null;
 }
 
+/// One named argument: its node, for reporting, and the value it carries.
+final class NamedArgumentValue {
+  const NamedArgumentValue(this.node, this.value);
+
+  final AstNode node;
+  final Expression value;
+}
+
+/// Every named argument called [name], read through the token shape that
+/// analyzer 12's `NamedExpression` and analyzer 14's `NamedArgument` share.
+List<NamedArgumentValue> namedArgumentValues(
+  Iterable<AstNode> arguments,
+  String name,
+) => [
+  for (final argument in arguments)
+    if (argument.beginToken.lexeme == name &&
+        argument.beginToken.next?.lexeme == ':')
+      if (argument.childEntities.whereType<Expression>().lastOrNull
+          case final value?)
+        NamedArgumentValue(argument, value),
+];
+
 /// Whether a managed call's `evidenceTypes` argument is present and non-empty.
 ///
 /// Returns null when the named argument is absent. A nonliteral expression is

@@ -343,7 +343,7 @@ class GenerateCommand {
       implementationClaims: implementations.claims
           .map((claim) => claim.toIndexClaim())
           .toList(growable: false),
-      sourceRoots: workspaceDartSourceRoots(workspace),
+      sourceRoots: workspaceIndexSourceRoots(workspace),
       sourcePaths: scan.sourcePaths,
       inputPatterns: workspace.inputPatterns,
       patternInputPaths: workspace.patternInputPaths,

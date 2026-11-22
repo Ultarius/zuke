@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.5.0
+
+- Coordinated with the `zuke_annotations` 0.5 binding descriptor.
+- HTTP vendor steps use Cucumber expressions. `{string}` now returns single-quoted values and accepts a value ending in a backslash.
+- Deprecated the raw `RegExp` `StepDefinition` constructor.
+- `executeScenario` now throws unless its indexes identify exactly one case of a contract with several Examples rows, instead of passing after running only the first row.
+
 ## 0.4.0
 
 - Coordinated the current facade with target-aware provider extraction and the

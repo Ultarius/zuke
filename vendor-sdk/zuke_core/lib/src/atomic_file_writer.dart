@@ -1,5 +1,7 @@
 import 'dart:io';
 
+import 'file_replacement.dart';
+
 /// Writes an exact byte sequence without deleting an existing destination.
 ///
 /// This is shared by command-result and managed evidence writers so collision
@@ -39,18 +41,11 @@ void writeBytesAtomically(
 /// latest writer to win, so differing bytes replace the destination instead of
 /// throwing a conflict.
 void writeBytesReplacing(File destination, List<int> bytes) {
-  _withTemporaryBytes(destination, bytes, (temporary) {
-    try {
-      temporary.renameSync(destination.path);
-    } on FileSystemException {
-      // Some platforms reject rename-over-existing. Preserve replacement
-      // semantics there, while platforms that support it keep the rename
-      // atomic.
-      if (!destination.existsSync()) rethrow;
-      destination.deleteSync();
-      temporary.renameSync(destination.path);
-    }
-  });
+  _withTemporaryBytes(
+    destination,
+    bytes,
+    (temporary) => replaceFile(temporary, destination),
+  );
 }
 
 void _withTemporaryBytes(

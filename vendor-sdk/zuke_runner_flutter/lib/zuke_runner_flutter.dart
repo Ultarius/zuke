@@ -227,11 +227,18 @@ final class FlutterEvidenceCase {
   /// Optional evidence types emitted by the case.
   final Iterable<String>? evidenceTypes;
 
+  /// Examples row observed by the case, such as `examples-1-row-2`.
+  ///
+  /// Required for a scenario with Examples, where each row needs its own case.
+  /// Must be a string literal so the registration audit can read it.
+  final String? caseId;
+
   /// Creates a Flutter evidence case.
   const FlutterEvidenceCase({
     required this.scenario,
     required this.body,
     this.evidenceTypes,
+    this.caseId,
   });
 }
 
@@ -300,33 +307,33 @@ final class ZukeFlutterEvidenceHarness {
           'Each Flutter evidence case must emit at least one evidence type.',
         );
       }
-      testWidgets(
-        '${evidenceCase.scenario.id}: ${evidenceCase.scenario.title}',
-        (tester) async {
-          final digestInput = await evidenceCase.body(tester);
-          if (!managed) return;
-          final identity = sourceIdentity ?? context?.sourceIdentity;
-          if (identity == null) {
-            throw const FormatException(
-              'Managed Flutter evidence is missing source identity.',
-            );
-          }
-          const SuiteEvidenceEmitter().emitPassing(
-            requirementId: evidenceCase.scenario.requirementId.value,
-            scenarioId: evidenceCase.scenario.id,
-            evidenceTypes: evidenceTypes,
-            target: target,
-            variant: variant,
-            profile: profile ?? context?.profile,
-            runnerId: runnerId ?? context?.runnerId,
-            runnerCompatibilityId: runnerCompatibilityId,
-            outputDirectory: outputDirectory ?? context?.resultDirectory,
-            digestInput: digestInput,
-            sourceIdentity: identity,
+      testWidgets('${evidenceCase.scenario.id}: ${evidenceCase.scenario.title}'
+          '${evidenceCase.caseId == null ? '' : ' [${evidenceCase.caseId}]'}', (
+        tester,
+      ) async {
+        final digestInput = await evidenceCase.body(tester);
+        if (!managed) return;
+        final identity = sourceIdentity ?? context?.sourceIdentity;
+        if (identity == null) {
+          throw const FormatException(
+            'Managed Flutter evidence is missing source identity.',
           );
-        },
-        skip: !shouldRunScenario(evidenceCase.scenario.id.value, selected),
-      );
+        }
+        const SuiteEvidenceEmitter().emitPassing(
+          requirementId: evidenceCase.scenario.requirementId.value,
+          scenarioId: evidenceCase.scenario.id,
+          evidenceTypes: evidenceTypes,
+          target: target,
+          variant: variant,
+          profile: profile ?? context?.profile,
+          runnerId: runnerId ?? context?.runnerId,
+          runnerCompatibilityId: runnerCompatibilityId,
+          outputDirectory: outputDirectory ?? context?.resultDirectory,
+          digestInput: digestInput,
+          sourceIdentity: identity,
+          caseId: evidenceCase.caseId,
+        );
+      }, skip: !shouldRunScenario(evidenceCase.scenario.id.value, selected));
     }
   }
 }
@@ -409,7 +416,10 @@ final class ZukeFlutterHarness<W extends ScenarioWorld> {
       // Resolve before test execution so feature/contract drift is surfaced at
       // registration instead of as a late unresolved step.
       final resolved = resolveScenarioContract(feature, contract);
-      for (final exampleCase in scenarioExampleCases(resolved.scenario)) {
+      for (final exampleCase in scenarioExampleCases(
+        resolved.scenario,
+        scenarioId: contract.id.value,
+      )) {
         final suffix = exampleCase.displayLabel.isEmpty
             ? ''
             : ' (${exampleCase.displayLabel})';

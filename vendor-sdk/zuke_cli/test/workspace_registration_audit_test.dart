@@ -1,7 +1,9 @@
 import 'dart:io';
 import 'package:test/test.dart';
 import 'package:zuke_cli/zuke_cli.dart';
+import 'package:zuke_cli/src/configuration_preflight.dart';
 import 'package:zuke_cli/src/init_preset.dart';
+import 'package:zuke_cli/src/proof_engine/identity_validator.dart';
 
 void main() {
   late Directory root;
@@ -69,6 +71,104 @@ Feature: Example
     final unknown = const WorkspaceRegistrationAudit().inspect(root.path);
     expect(unknown.passed, isFalse);
     expect(unknown.registrations.single.scenarioId, isNull);
+  });
+
+  test('Examples-level scenario IDs audit only their own rows', () {
+    final feature = File('${root.path}/specs/features/example.feature');
+    feature.writeAsStringSync('''
+# spec-begin
+# schemaVersion: 1
+# id: FEAT-EXAMPLE-001
+# spec-end
+@FEAT-EXAMPLE-001
+Feature: Example
+  # rule-spec-begin
+  # id: RULE-EXAMPLE-001
+  # requiredEvidence: []
+  # rule-spec-end
+  @RULE-EXAMPLE-001
+  Rule: Example rule
+    Scenario Outline: Example <value>
+      Given an example <value>
+      @SCN-EXAMPLE-001
+      Examples: First value
+        | value |
+        | one   |
+      @SCN-EXAMPLE-002
+      Examples: Second value
+        | value |
+        | two   |
+        | three |
+''');
+    final contracts = File('${root.path}/lib/contracts/example.g.dart');
+    contracts.writeAsStringSync('''enum ExampleScenario {
+  first(ScenarioId('SCN-EXAMPLE-001')), second(ScenarioId('SCN-EXAMPLE-002'));
+  const ExampleScenario(this.id);
+  final ScenarioId id;
+}
+abstract final class ExampleScenarios {
+  static const all = [ExampleScenario.first, ExampleScenario.second];
+}
+''');
+    testFile.writeAsStringSync('''
+void main() {
+  ZukeFlutterHarness<Object>(
+    scenarios: ExampleScenarios.all,
+  ).registerAll();
+}
+''');
+
+    final workspace = requireCurrentWorkspace(root.path);
+    expect(IdentityValidator().validate(workspace).errors, isEmpty);
+    final audit = const WorkspaceRegistrationAudit().inspect(root.path);
+    expect(audit.diagnostics.map((item) => item.toJson()), isEmpty);
+    expect(
+      audit.registrations.map((item) => '${item.scenarioId}:${item.caseId}'),
+      unorderedEquals([
+        'SCN-EXAMPLE-001:examples-1-row-1',
+        'SCN-EXAMPLE-002:examples-2-row-1',
+        'SCN-EXAMPLE-002:examples-2-row-2',
+      ]),
+    );
+
+    RegistrationAuditResult directCases(
+      String firstCase, {
+      bool complete = false,
+    }) {
+      testFile.writeAsStringSync('''
+void main() {
+  zukeTest(() {}, scenario: ExampleScenario.first, caseId: 'examples-1-row-1');
+  zukeTest(() {}, scenario: ExampleScenario.second, caseId: '$firstCase');
+  ${complete ? "zukeTest(() {}, scenario: ExampleScenario.second, caseId: 'examples-2-row-2');" : ''}
+}
+''');
+      return const WorkspaceRegistrationAudit().inspect(root.path);
+    }
+
+    expect(
+      directCases('examples-1-row-1').diagnostics.map((item) => item.code),
+      containsAll([
+        'ZK-REGISTRATION-CASE-UNKNOWN',
+        'ZK-REGISTRATION-CASE-MISSING',
+      ]),
+    );
+    expect(
+      directCases('examples-2-row-1').diagnostics.map((item) => item.code),
+      ['ZK-REGISTRATION-CASE-MISSING'],
+    );
+    expect(
+      directCases('examples-2-row-1', complete: true).diagnostics,
+      isEmpty,
+    );
+
+    feature.writeAsStringSync(
+      feature.readAsStringSync().replaceFirst('@SCN-EXAMPLE-002', '@release'),
+    );
+    final incomplete = requireCurrentWorkspace(root.path);
+    expect(
+      IdentityValidator().validate(incomplete).errors.map((item) => item.code),
+      contains('ZUKE-ID-008'),
+    );
   });
 
   test(

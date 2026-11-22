@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:test/test.dart';
+import 'package:zuke_core/src/file_replacement.dart';
 import 'package:zuke_core/zuke_core.dart';
 
 void main() {
@@ -45,6 +46,55 @@ void main() {
     writeBytesReplacing(destination, utf8.encode('same'));
     writeBytesReplacing(destination, utf8.encode('same'));
     expect(destination.readAsStringSync(), 'same');
+  });
+
+  group('replaceFile fallback', () {
+    late File source;
+    late File destination;
+
+    setUp(() {
+      source = File('${temporary.path}${Platform.pathSeparator}source')
+        ..writeAsStringSync('new');
+      destination = File('${temporary.path}${Platform.pathSeparator}target')
+        ..writeAsStringSync('old');
+    });
+
+    test('keeps the original when the new file cannot be moved in', () {
+      var sourceMoves = 0;
+      void rename(File from, String to) {
+        if (from.path == source.path) {
+          sourceMoves++;
+          throw FileSystemException('blocked', from.path);
+        }
+        from.renameSync(to);
+      }
+
+      expect(
+        () => replaceFile(source, destination, rename: rename),
+        throwsA(isA<FileSystemException>()),
+      );
+      expect(sourceMoves, 2, reason: 'the fallback must have been reached');
+      expect(destination.readAsStringSync(), 'old');
+      expect(source.readAsStringSync(), 'new');
+      expect(temporary.listSync(), hasLength(2), reason: 'no stray backup');
+    });
+
+    test('replaces the file and removes its backup on success', () {
+      var sourceMoves = 0;
+      void rename(File from, String to) {
+        if (from.path == source.path && sourceMoves++ == 0) {
+          throw FileSystemException('rename-over-existing', from.path);
+        }
+        from.renameSync(to);
+      }
+
+      replaceFile(source, destination, rename: rename);
+
+      expect(destination.readAsStringSync(), 'new');
+      expect(temporary.listSync().map((entity) => entity.path), [
+        destination.path,
+      ]);
+    });
   });
 
   test('writeBytesAtomically still reports differing bytes as a conflict', () {

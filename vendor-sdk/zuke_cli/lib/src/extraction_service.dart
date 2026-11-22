@@ -15,6 +15,7 @@ import 'dart_frog_adapter.dart';
 import 'generated_manifest_path.dart';
 import 'ir.dart';
 import 'path_safety.dart';
+import 'tooling/source_files.dart' show defaultContractOutput;
 
 class WorkspaceExtraction {
   final List<IrAdapterOutput> outputs;
@@ -88,7 +89,9 @@ class ExtractionService {
     // exclude.
     final generated = _GeneratedManifests.load(
       root: root,
-      contractOutput: workspace.config.contractOutput,
+      // The default generation writes to. Without it, generated contracts in a
+      // workspace that omits `contractOutput` count as hand-written source.
+      contractOutput: workspace.config.contractOutput ?? defaultContractOutput,
     );
     for (final targetEntry in workspace.config.workspaceTargets.entries) {
       final target = targetEntry.value;

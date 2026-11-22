@@ -183,6 +183,40 @@ void main() {
     },
   );
 
+  test('a first analysis with no cache entry is not a failure', () async {
+    final root = Directory.systemTemp.createTempSync('zuke-first-analyze-');
+    addTearDown(() => deleteTemporaryDirectory(root));
+    writeSchema3Workspace(
+      root,
+      name: 'doctor',
+      target: 'app',
+      packageId: 'app',
+      framework: 'dart',
+      roots: ['lib'],
+      contractOutput: 'lib/src/generated',
+    );
+    Directory('${root.path}/specs/features').createSync(recursive: true);
+    final output = StringBuffer();
+    late int code;
+    await IOOverrides.runZoned(() async {
+      code = await runDoctor(
+        buildZukeArgParser().parse([
+          'doctor',
+          '--root',
+          root.path,
+          '--fix',
+          '--current-context',
+          '--format',
+          'json',
+        ]).command!,
+        pluginAudit: (_, _, _) async => const <PluginCacheFinding>[],
+        requireContextEntry: false,
+      );
+    }, stdout: () => TestStdout(output));
+    expect(code, 0, reason: output.toString());
+    expect(output.toString(), isNot(contains('ZUKE-PLUGIN-CACHE-CONTEXT')));
+  });
+
   test(
     'doctor --fix regenerates incompatible and unversioned indexes with JSON output',
     () async {

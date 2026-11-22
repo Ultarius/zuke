@@ -67,12 +67,7 @@ final class BindingCoverageCheck {
         // The sentence is the engine's, so the CLI and the analyzer plugin
         // describe one gap identically.
         message: bindingUnboundMessage(finding),
-        remediation:
-            'Register a managed test for ${finding.scenarioId} that declares '
-            'evidenceTypes including "${finding.type}"'
-            '${finding.discoveredAt.isEmpty ? '' : '. Registrations found at '
-                      '${finding.discoveredAt.join(', ')} publish '
-                      '${finding.publishedKinds}'}',
+        remediation: _unboundRemediation(finding),
       ),
     for (final finding in report.unverified)
       IrDiagnostic(
@@ -92,6 +87,19 @@ final class BindingCoverageCheck {
             '${summary.obligations} rule/slot obligations',
       ),
   ];
+}
+
+String _unboundRemediation(BindingCoverageFinding finding) {
+  final action = finding.scenarioIds.isEmpty
+      ? 'Add an @SCN- tagged scenario to ${finding.ruleId}, then register a '
+            'managed test for it'
+      : 'Register a managed test for ${finding.scenarioId}';
+  final discovered = finding.discoveredAt.isEmpty
+      ? ''
+      : '. Registrations found at ${finding.discoveredAt.join(', ')} publish '
+            '${finding.publishedKinds}';
+  return '$action that declares evidenceTypes including "${finding.type}"'
+      '$discovered';
 }
 
 /// Every declared evidence obligation in the workspace, one per rule that has
@@ -154,11 +162,8 @@ List<String> _sortedScenarioIds(ParsedRule rule) => {
 }.toList()..sort();
 
 Set<String> _scenarioIdsOf(GherkinScenario scenario) => {
-  for (final tag in scenario.tags)
+  for (final tag in scenario.declaredTags)
     if (tag.name.startsWith('SCN-')) tag.name,
-  for (final examples in scenario.examples)
-    for (final tag in examples.tags)
-      if (tag.name.startsWith('SCN-')) tag.name,
 };
 
 /// The rule's real location in the `.feature`, when the parser recorded one.
@@ -205,5 +210,6 @@ List<ManagedRegistrationFact> managedRegistrationFacts(
       target: claim.target,
       packageId: claim.packageId,
       evidenceTypes: claim.evidenceTypes,
+      variant: claim.variant,
     ),
 ];

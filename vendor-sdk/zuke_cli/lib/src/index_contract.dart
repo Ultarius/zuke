@@ -13,7 +13,10 @@ import 'package:yaml/yaml.dart';
 /// "this workspace registered nothing" — which would turn every slot in it into a
 /// false gap. An older index is therefore incompatible rather than readable, and
 /// `zuke doctor --fix` regenerates it.
-const zukeIndexContract = 2;
+///
+/// v3 added each registration's `variant`, and inventories the directories
+/// managed runners audit alongside the extraction roots.
+const zukeIndexContract = 3;
 
 const _fallbackDirectoryLimit = 256;
 const _fallbackExcludedDirectories = {

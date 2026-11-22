@@ -100,6 +100,43 @@ void main() {
       expect(receipt.readAsBytesSync(), bytes);
     });
 
+    test('refresh without a lock section uses the default profiles', () async {
+      final config = File('${root.path}/zuke.yaml');
+      final withoutLock = config.readAsStringSync().replaceFirst(
+        RegExp(r'lock:\r?\n  directory: .*\r?\n  profiles: .*\r?\n'),
+        '',
+      );
+      expect(withoutLock, isNot(contains('assurance/locks')));
+      config.writeAsStringSync(withoutLock);
+
+      final single = await runInProcessCli([
+        'lock',
+        '--refresh',
+        '--root',
+        root.path,
+        '--profile',
+        'merge',
+      ]);
+      expect(single.exitCode, 0, reason: single.stderr);
+
+      final receipt = File('${root.path}/lock-diff.json');
+      final all = await runInProcessCli([
+        'lock',
+        '--refresh',
+        '--root',
+        root.path,
+        '--diff-output',
+        receipt.path,
+      ]);
+      expect(all.exitCode, 0, reason: all.stderr);
+      final json = jsonDecode(receipt.readAsStringSync()) as Map;
+      expect(
+        [for (final change in json['changed'] as List) change['profile']],
+        ['nightly', 'pullRequest', 'release'],
+        reason: 'every lock this refresh created must appear in its diff',
+      );
+    });
+
     test(
       'lock update refreshes every configured profile and is not check mode',
       () async {

@@ -467,7 +467,7 @@ class Bindings {
 
       analyzer_plugin.plugin.register(registry);
 
-      expect(registry.rules, hasLength(10));
+      expect(registry.rules, hasLength(11));
       expect(
         registry.rules.map((rule) => rule.name),
         containsAll([
@@ -481,7 +481,12 @@ class Bindings {
           'zuke_unimplemented_requirement',
           'zuke_spec_lint',
           'zuke_binding_unbound',
+          'zuke_scenario_coverage',
         ]),
+      );
+      expect(
+        analyzer_plugin.ZukeScenarioCoverageRule().diagnosticCode.severity,
+        DiagnosticSeverity.WARNING,
       );
       expect(
         analyzer_plugin.ZukeAnnotationRule().diagnosticCode.lowerCaseName,

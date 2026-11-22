@@ -38,6 +38,34 @@ void main() {
       expect(finding.scenarioId, 'SCN-1');
     });
 
+    test('a rule with slots but no scenario IDs is a decided gap', () {
+      final workspace = _workspace(slots: [_slot()], scenarioIds: const []);
+      // An unreadable registration cannot name a scenario this rule lacks, so
+      // it must not soften the verdict to unverified.
+      final report = _check.run(workspace, _scan(const [], unresolved: 1));
+
+      final finding = report.unbound.single;
+      expect(finding.scenarioId, 'none');
+      expect(finding.reason, contains('@SCN-'));
+      expect(report.featureSummaries.single.unbound, 1);
+      final message = _check
+          .toMessages(report, severity: IrDiagnosticSeverity.error)
+          .firstWhere((entry) => entry.code == bindingCoverageUnboundCode);
+      expect(message.remediation, contains('Add an @SCN- tagged scenario'));
+
+      expect(
+        _check
+            .run(
+              workspace,
+              _scan(const []),
+              selectedScenarioIds: const ['SCN-OTHER'],
+            )
+            .findings,
+        isEmpty,
+        reason: 'a profile selects scenarios, so this rule is out of its scope',
+      );
+    });
+
     test('a registration of the wrong kind is a decided gap, not a pass', () {
       final report = _check.run(
         _workspace(slots: [_slot(type: 'flutter-widget')]),
@@ -118,9 +146,46 @@ void main() {
         ]),
       );
 
-      final finding = report.unverified.single;
+      final finding = report.unbound.single;
       expect(finding.slotKey, 'flutter-widget/app/app/dart-source/dark-mode');
-      expect(finding.reason, contains('do not record a variant'));
+      expect(finding.reason, contains('variant default'));
+      expect(finding.reason, contains('"dark-mode"'));
+    });
+
+    test('a registration satisfies only the variant it emits', () {
+      final darkMode = _scan([
+        _binding(
+          'SCN-1',
+          evidenceTypes: ['flutter-widget'],
+          variant: 'dark-mode',
+        ),
+      ]);
+
+      expect(
+        _check
+            .run(_workspace(slots: [_slot(variant: 'dark-mode')]), darkMode)
+            .findings
+            .single
+            .verdict,
+        BindingCoverageVerdict.bound,
+      );
+      expect(
+        _check.run(_workspace(slots: [_slot()]), darkMode).unbound,
+        hasLength(1),
+        reason: 'dark-mode evidence cannot satisfy a default slot',
+      );
+    });
+
+    test('an unreadable variant is unverified, not a gap', () {
+      final report = _check.run(
+        _workspace(slots: [_slot()]),
+        _scan([
+          _binding('SCN-1', evidenceTypes: ['flutter-widget'], variant: null),
+        ]),
+      );
+
+      expect(report.unverified.single.reason, contains('variant'));
+      expect(report.unbound, isEmpty);
     });
 
     test(
@@ -408,12 +473,14 @@ ManagedScenarioClaim _binding(
   String? target = 'app',
   String? packageId = 'app',
   String sourcePath = 'test/app_test.dart',
+  String? variant = 'default',
 }) => ManagedScenarioClaim(
   scenarioId: scenarioId,
   sourcePath: sourcePath,
   target: target,
   packageId: packageId,
   evidenceTypes: evidenceTypes,
+  variant: variant,
 );
 
 WorkspaceAnnotationScan _scan(

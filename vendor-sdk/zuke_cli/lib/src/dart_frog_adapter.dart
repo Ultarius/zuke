@@ -545,7 +545,10 @@ final class DartFrogAdapter implements FrameworkAdapter {
     // base handler therefore yields the effective incoming order directly.
     for (final invocation in chain) {
       final arguments = invocation.argumentList.arguments;
-      final argument = arguments.length == 1 ? arguments.single : null;
+      // A positional argument is an expression on every supported analyzer;
+      // analyzer 14 types the list more broadly because it also holds named ones.
+      final single = arguments.length == 1 ? arguments.single : null;
+      final argument = single is Expression ? single : null;
       final name = argument == null ? null : _middlewareName(argument);
       if (argument == null || name == null) {
         complete = false;

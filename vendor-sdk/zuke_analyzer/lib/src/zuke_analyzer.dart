@@ -74,7 +74,7 @@ class ZukeAnalyzer {
             code: 'ZUKE-INDEX-STALE',
             message:
                 'The analyzer index is behind the sources. ${first.message} '
-                '(${issues.length} in total; run zuke doctor for the full list).',
+                '(${issues.length} in total; run zuke generate to refresh the index).',
           ),
         );
       }

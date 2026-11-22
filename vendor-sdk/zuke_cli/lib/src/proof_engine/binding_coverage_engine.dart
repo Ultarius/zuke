@@ -36,6 +36,12 @@ const bindingCoverageUnverifiedCode = 'ZUKE-EVIDENCE-BINDING-UNVERIFIED';
 /// The per-feature planning roll-up, always informational.
 const bindingCoverageSummaryCode = 'ZUKE-EVIDENCE-BINDING-SUMMARY';
 
+/// A declared scenario that no managed registration names.
+///
+/// Recorded with the specification findings but derived from registrations too,
+/// so the editor has to treat it as depending on both kinds of input.
+const scenarioCoverageCode = 'ZUKE-SCENARIO-UNVERIFIED';
+
 /// The default `variant` value a slot means when it does not name one.
 const defaultSlotVariant = 'default';
 
@@ -72,12 +78,17 @@ final class ManagedRegistrationFact {
   /// The evidence kinds this registration publishes, or null when unreadable.
   final List<String>? evidenceTypes;
 
+  /// The variant this registration's evidence is recorded under, or null when
+  /// it could not be read.
+  final String? variant;
+
   const ManagedRegistrationFact({
     required this.scenarioId,
     required this.sourcePath,
     this.target,
     this.packageId,
     this.evidenceTypes,
+    this.variant = defaultSlotVariant,
   });
 
   Map<String, Object?> toJson() => {
@@ -88,6 +99,7 @@ final class ManagedRegistrationFact {
     'target': target,
     'packageId': packageId,
     'evidenceTypes': evidenceTypes,
+    'variant': variant,
   };
 
   /// Read strictly: a missing key is an error, not an empty value.
@@ -106,11 +118,14 @@ final class ManagedRegistrationFact {
     if (!json.containsKey('target')) return null;
     if (!json.containsKey('packageId')) return null;
     if (!json.containsKey('evidenceTypes')) return null;
+    if (!json.containsKey('variant')) return null;
     final target = json['target'];
     final packageId = json['packageId'];
     final kinds = json['evidenceTypes'];
+    final variant = json['variant'];
     if (target != null && target is! String) return null;
     if (packageId != null && packageId is! String) return null;
+    if (variant != null && variant is! String) return null;
     // Kept as a separate step from the null check so the promoted type survives to
     // the constructor call below; the closure in a combined condition prevents it.
     List<String>? parsedKinds;
@@ -129,13 +144,15 @@ final class ManagedRegistrationFact {
       target: target as String?,
       packageId: packageId as String?,
       evidenceTypes: parsedKinds,
+      variant: variant as String?,
     );
   }
 
   @override
   String toString() =>
       'ManagedRegistrationFact($scenarioId @ $sourcePath -> '
-      '$target/$packageId, ${evidenceTypes ?? '<unknown>'})';
+      '$target/$packageId/${variant ?? '<unknown>'}, '
+      '${evidenceTypes ?? '<unknown>'})';
 }
 
 /// One configured runner's target, package and adapter.
@@ -382,7 +399,9 @@ final class BindingCoverageFinding {
   String get type => slot['type'] ?? slot['evidenceType'] ?? '-';
 
   /// The scenarios rendered for a message, truncated for readability only.
-  String get scenarioId => scenarioIds.length <= 3
+  String get scenarioId => scenarioIds.isEmpty
+      ? 'none'
+      : scenarioIds.length <= 3
       ? scenarioIds.join(', ')
       : '${scenarioIds.take(3).join(', ')} (+${scenarioIds.length - 3} more)';
 }
@@ -509,11 +528,13 @@ final class BindingVerdictEngine {
     for (final obligation in obligations) {
       var featureBound = 0, featureUnbound = 0, featureUnverified = 0;
       final scenarioIds = obligation.scenarioIds;
-      if (scenarioIds.isEmpty) continue;
       final inScope = selected == null
           ? scenarioIds
           : scenarioIds.where(selected.contains).toList();
-      if (inScope.isEmpty) continue;
+      // Only a profile can put a rule out of scope. Without one, a rule that
+      // declares slots but has no scenario IDs is still an obligation, and
+      // skipping it would report that nothing is wrong.
+      if (selected != null && inScope.isEmpty) continue;
       // Every registration of the rule, not just the selected scenarios: a slot
       // satisfied by an out-of-profile scenario is still satisfied.
       final bindings = [
@@ -592,6 +613,13 @@ final class BindingVerdictEngine {
       if (registration.packageId != sourcePackage) return BindingFit.refutes;
     }
 
+    // Evidence is recorded under one variant, so a registration for another
+    // variant cannot stand in for this one.
+    if (registration.variant == null) return BindingFit.unknown;
+    if (registration.variant != (slot['variant'] ?? defaultSlotVariant)) {
+      return BindingFit.refutes;
+    }
+
     // A registration records no adapter: which one runs it is a property of the
     // runner the workspace configured for that target and package, not of the
     // call site. So this is decided only when the configuration attributes
@@ -633,21 +661,20 @@ final class BindingVerdictEngine {
       );
     }
 
-    // A non-default variant can never be satisfied from a registration: the
-    // Flutter `TestVariant` a call site passes reaches `testWidgets` only and is
-    // absent from the emitted record, so every record carries 'default'. Reporting
-    // those as unbound would assert a falsehood about the framework.
-    if ((slot['variant'] ?? defaultSlotVariant) != defaultSlotVariant) {
+    // A registration names a scenario ID, so with none to name, nothing can
+    // bind this slot. That holds for any variant and however many registrations
+    // were unreadable, so it is a decided gap rather than an unknown.
+    if (obligation.scenarioIds.isEmpty) {
       return BindingCoverageFinding(
         featureId: obligation.featureId,
         ruleId: obligation.ruleId,
-        scenarioIds: scenarioIds,
+        scenarioIds: const [],
         slot: slot,
-        verdict: BindingCoverageVerdict.unverified,
+        verdict: BindingCoverageVerdict.unbound,
         location: obligation.location,
         reason:
-            'the slot requires variant "${slot['variant']}" and registrations '
-            'do not record a variant, so this slot cannot be decided from source',
+            'rule ${obligation.ruleId} has no scenario with an @SCN- tag, so no '
+            'managed registration can name it',
       );
     }
 
@@ -786,6 +813,10 @@ final class BindingVerdictEngine {
       return 'a managed registration for this rule belongs to no configured '
           'package, so its package cannot be compared to the slot package';
     }
+    if (registration.variant == null) {
+      return 'a managed registration for this rule declares a variant that could '
+          'not be read as a constant, so it may publish this slot';
+    }
     final adapters =
         scopes[_ScopeKey(
           target: slot['target'],
@@ -822,9 +853,25 @@ final class BindingVerdictEngine {
       return 'registrations publish $publishedKinds, but none in the slot target '
           '(registration targets: ${targets.join(', ')})';
     }
-    return 'registrations publish $publishedKinds in the slot target, but none in '
-        'the slot package "${slot['sourcePackage']}" (registration packages: '
-        '${packages.join(', ')})';
+    final inSlotPackage = [
+      for (final binding in bindings)
+        if ((binding.evidenceTypes?.contains(type) ?? false) &&
+            (slot['target'] == null || binding.target == slot['target']) &&
+            (slot['sourcePackage'] == null ||
+                binding.packageId == slot['sourcePackage']))
+          binding,
+    ];
+    if (inSlotPackage.isEmpty) {
+      return 'registrations publish $publishedKinds in the slot target, but none '
+          'in the slot package "${slot['sourcePackage']}" (registration '
+          'packages: ${packages.join(', ')})';
+    }
+    final variants = {
+      for (final binding in inSlotPackage) binding.variant ?? '<unknown>',
+    }.toList()..sort();
+    return 'registrations publish $publishedKinds for variant '
+        '${variants.join(', ')}, but the slot requires variant '
+        '"${slot['variant'] ?? defaultSlotVariant}"';
   }
 
   static String _kindsOf(List<ManagedRegistrationFact> bindings) {

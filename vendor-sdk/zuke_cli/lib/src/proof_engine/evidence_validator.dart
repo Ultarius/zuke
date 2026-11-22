@@ -147,7 +147,9 @@ class EvidenceValidator {
       final hasSecurityTag =
           feature.tags.any((t) => t.name == 'security') ||
           rule.tags.any((t) => t.name == 'security') ||
-          rule.scenarios.any((s) => s.tags.any((t) => t.name == 'security'));
+          rule.scenarios.any(
+            (s) => s.declaredTags.any((t) => t.name == 'security'),
+          );
       if (hasSecurityTag && record.status == EvidenceStatus.skipped) {
         errors.add(
           ValidationMessage(
@@ -313,10 +315,12 @@ class EvidenceValidator {
         final hasSecurityTag =
             feature.tags.any((t) => t.name == 'security') ||
             rule.tags.any((t) => t.name == 'security') ||
-            rule.scenarios.any((s) => s.tags.any((t) => t.name == 'security'));
+            rule.scenarios.any(
+              (s) => s.declaredTags.any((t) => t.name == 'security'),
+            );
         if (hasSecurityTag) {
           final hasNegativeScenario = rule.scenarios.any(
-            (s) => s.tags.any((t) => t.name == 'negative'),
+            (s) => s.declaredTags.any((t) => t.name == 'negative'),
           );
           if (!hasNegativeScenario) {
             errors.add(
@@ -334,7 +338,7 @@ class EvidenceValidator {
         final hasAccessibilityTag =
             rule.tags.any((t) => t.name == 'accessibility') ||
             rule.scenarios.any(
-              (s) => s.tags.any((t) => t.name == 'accessibility'),
+              (s) => s.declaredTags.any((t) => t.name == 'accessibility'),
             );
         if (hasAccessibilityTag) {
           if (!requiredEvidence.contains('flutter-widget') &&

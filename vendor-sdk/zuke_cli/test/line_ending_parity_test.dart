@@ -11,6 +11,7 @@ import 'package:zuke_cli/src/extraction_service.dart';
 import 'package:test/test.dart';
 
 import 'cli_test_helper.dart';
+import 'support/resolved_workspace.dart';
 import 'helpers/eligible_workspace.dart';
 
 void main() {
@@ -124,19 +125,7 @@ final application = ZukeHttpApplication(
 '''
             .replaceAll('\n', lineEnding),
       );
-      final pubGet = await Process.run(Platform.resolvedExecutable, [
-        '--suppress-analytics',
-        'pub',
-        'get',
-        '--offline',
-      ], workingDirectory: dir.path);
-      expect(
-        pubGet.exitCode,
-        0,
-        reason: 'pub get failed: ${pubGet.stdout}\n${pubGet.stderr}',
-      );
-      final generatedLock = File('${dir.path}/pubspec.lock');
-      if (generatedLock.existsSync()) generatedLock.deleteSync();
+      await configureFixturePackages(dir);
     }
 
     test(

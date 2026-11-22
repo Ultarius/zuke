@@ -5,7 +5,7 @@ inputs:
   flutter-version:
     description: Flutter SDK version to install.
     required: false
-    default: '3.44.8'
+    default: '3.47.9'
   fetch-depth:
     description: Number of commits actions/checkout fetches; use 0 for full history.
     required: false

@@ -1,6 +1,8 @@
 import 'package:analyzer/dart/ast/ast.dart';
 import 'package:analyzer/dart/element/element.dart';
 
+import 'tooling/inspection.dart' show namedArgumentValues;
+
 /// Recognizes a leading method guard that returns 405 for all other methods.
 /// Unsupported control flow remains unknown; occurrences of HttpMethod alone
 /// are not evidence of a route's method contract.
@@ -26,10 +28,11 @@ List<String> dartFrogHttpMethods(FunctionDeclaration handler) {
       !_dartFrog(response.constructorName.element)) {
     return const [];
   }
-  final status = response.argumentList.arguments
-      .whereType<NamedExpression>()
-      .where((argument) => argument.name.label.name == 'statusCode');
-  if (status.length != 1 || _integer(status.single.expression) != 405) {
+  final status = namedArgumentValues(
+    response.argumentList.arguments,
+    'statusCode',
+  );
+  if (status.length != 1 || _integer(status.single.value) != 405) {
     return const [];
   }
   final context = parameters.first.declaredFragment?.element;

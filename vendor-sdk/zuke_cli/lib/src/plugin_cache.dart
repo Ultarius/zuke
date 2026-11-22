@@ -280,14 +280,17 @@ final class PluginCacheDoctor {
         // directory the cache does not own. Reading the pubspec is safe and is
         // what establishes ownership below.
         //
-        // The cache is shared with other plugins, so a link is only reported
-        // once it is known to be one of ours: without this a third-party
-        // plugin's link fails `zuke doctor` for a workspace it has nothing to
-        // do with. Windows reports a directory junction as a Link rather than
-        // a Directory, so without this branch such entries would be skipped by
-        // the Directory-only test, never audited, repaired, or explained.
+        // The cache is shared with other plugins and other Zuke clones, so a
+        // link is only reported once it resolves to this clone: without this
+        // someone else's link fails `zuke doctor` for a workspace it has
+        // nothing to do with. Windows reports a directory junction as a Link
+        // rather than a Directory, so without this branch such entries would
+        // be skipped by the Directory-only test, never audited, repaired, or
+        // explained.
         if (entity is! Directory) {
-          if (!_declaresZuke(entity.path)) continue;
+          if (!_declaresZuke(entity.path) || !_linkResolvesHere(entity.path)) {
+            continue;
+          }
           matched.add(_canonical(entity.path));
           findings.add(
             PluginCacheFinding(
@@ -575,13 +578,13 @@ final class PluginCacheDoctor {
     bool dryRun = true,
   }) {
     final results = <PluginCachePruneResult>[];
-    final protectedKey = pluginCacheKeyForContextRoot(currentContextRoot);
+    final protectedKeys = pluginCacheKeysForWorkspace(currentContextRoot);
     for (final requested in paths.toList()..sort()) {
       final directory = Directory(p.absolute(requested));
       final path = directory.path;
       try {
         if (!RegExp(r'^[0-9a-f]{32}$').hasMatch(p.basename(path)) ||
-            p.basename(path) == protectedKey ||
+            protectedKeys.contains(p.basename(path)) ||
             FileSystemEntity.typeSync(path, followLinks: false) !=
                 FileSystemEntityType.directory ||
             !_isDirectCacheEntry(directory)) {
@@ -687,6 +690,24 @@ final class PluginCacheDoctor {
             (candidate.key == 'zuke_cli' || candidate.key == 'zuke_analyzer') &&
             localZukeRoots.contains(_canonical(candidate.value)),
       );
+
+  /// Whether the linked entry at [path] resolves its packages to this clone.
+  ///
+  /// The configuration is read from its real location because a relative
+  /// `rootUri` is relative to where the file lives, not to the link. Anything
+  /// unreadable cannot be attributed, so it is left alone like a real directory
+  /// in the same state.
+  bool _linkResolvesHere(String path) {
+    final config = File(p.join(path, '.dart_tool', 'package_config.json'));
+    if (!config.existsSync()) return false;
+    try {
+      return _ownsResolvedPackages(
+        _packageRoots(File(config.resolveSymbolicLinksSync())),
+      );
+    } on Object {
+      return false;
+    }
+  }
 
   /// One recursive pass over an entry, answering both questions the prune needs:
   /// whether it contains a link, and how large it is.
@@ -1046,6 +1067,72 @@ String _canonical(String path) {
 /// The path spelling must match what the analysis server sees exactly.
 String pluginCacheKeyForContextRoot(String contextRoot) =>
     md5.convert(contextRoot.codeUnits).toString();
+
+/// Cache keys for every analysis context that may be serving [root].
+///
+/// The key hashes the exact path the analysis server was given, and the command
+/// line cannot know which one that was. An editor may have opened an enclosing
+/// repository or pub workspace, a configured package on its own, a linked path,
+/// or the same path with a differently cased Windows drive letter. Pruning is
+/// destructive, so each of those is protected rather than guessed between.
+Set<String> pluginCacheKeysForWorkspace(String root) {
+  final absolute = p.normalize(p.absolute(root));
+  final canonical = canonicalComparablePath(root);
+  final contexts = <String>{
+    root,
+    for (final start in {absolute, canonical}) ...[
+      ..._selfAndAncestors(start),
+      ..._configuredPackageRoots(start),
+    ],
+  };
+  return {
+    for (final context in contexts)
+      for (final spelling in _driveLetterSpellings(context))
+        pluginCacheKeyForContextRoot(spelling),
+  };
+}
+
+Iterable<String> _selfAndAncestors(String path) sync* {
+  var current = path;
+  while (true) {
+    yield current;
+    final parent = p.dirname(current);
+    if (parent == current) return;
+    current = parent;
+  }
+}
+
+/// The package directories `zuke.yaml` declares under [root]. An unreadable
+/// configuration adds none; the root and its ancestors remain protected.
+Iterable<String> _configuredPackageRoots(String root) {
+  final Object? yaml;
+  try {
+    final config = File(p.join(root, 'zuke.yaml'));
+    if (!config.existsSync()) return const [];
+    yaml = loadYaml(config.readAsStringSync());
+  } on FileSystemException {
+    return const [];
+  } on YamlException {
+    return const [];
+  }
+  final targets = yaml is Map ? yaml['targets'] : null;
+  if (targets is! Map) return const [];
+  return {
+    for (final target in targets.values)
+      if (target is Map && target['packages'] is List)
+        for (final package in target['packages'] as List)
+          if (package is Map && package['path'] is String)
+            p.normalize(p.join(root, package['path'] as String)),
+  };
+}
+
+Iterable<String> _driveLetterSpellings(String path) {
+  if (!Platform.isWindows || !RegExp(r'^[A-Za-z]:').hasMatch(path)) {
+    return [path];
+  }
+  final rest = path.substring(1);
+  return {'${path[0].toUpperCase()}$rest', '${path[0].toLowerCase()}$rest'};
+}
 
 Future<List<PluginCacheFinding>> auditPluginCache(
   String root, {

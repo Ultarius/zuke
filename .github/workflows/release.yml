@@ -61,8 +61,10 @@ jobs:
           path: .
       - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
         with:
-          name: shopping-cart-assurance-ubuntu-26.04
-          path: .
+          name: shopping_cart-assurance-ubuntu-26.04
+          # Every uploaded path is under the example, so the artifact stores
+          # them relative to that directory.
+          path: examples/shopping_cart
       - name: Prepare Flutter tool package
         run: dart --suppress-analytics run tool/prepare_flutter_toolchain.dart
       - name: Obtain short-lived Azure signer token through GitHub OIDC

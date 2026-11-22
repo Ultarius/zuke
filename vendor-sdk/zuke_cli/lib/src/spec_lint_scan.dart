@@ -1,5 +1,6 @@
 import 'package:zuke_frontend/zuke_frontend.dart';
 
+import 'proof_engine/binding_coverage_engine.dart' show scenarioCoverageCode;
 import 'proof_engine/reference_resolver.dart';
 import 'proof_engine/validator.dart';
 import 'tooling/dart_extractor/zuke_index.dart';
@@ -98,38 +99,36 @@ List<ZukeSpecDiagnostic> scanScenarioCoverage(
     if (featureId == null || featureId.isEmpty) continue;
     for (final rule in feature.rules) {
       for (final scenario in rule.scenarios) {
-        final tag = _scenarioTag(scenario);
-        if (tag == null || registeredScenarioIds.contains(tag.name)) continue;
-        final source = tag.source;
-        final specPath = _specPath(root, source.file);
-        if (specPath == null) continue;
-        diagnostics.add(
-          ZukeSpecDiagnostic(
-            file: specPath,
-            line: source.line < 1 ? 1 : source.line,
-            column: source.column < 0 ? 0 : source.column,
-            code: 'ZUKE-SCENARIO-UNVERIFIED',
-            severity: 'warning',
-            message:
-                'Scenario "${tag.name}" has no managed test registration; '
-                '`zuke test` will not execute it. Register it with '
-                'zukeTest(...)/zukeTestWidgets(...) naming this scenario, or '
-                'retire the scenario.',
-            featureId: featureId,
-          ),
-        );
+        final reported = <String>{};
+        for (final tag in scenario.declaredTags) {
+          if (!tag.name.startsWith('SCN-') ||
+              registeredScenarioIds.contains(tag.name) ||
+              !reported.add(tag.name)) {
+            continue;
+          }
+          final source = tag.source;
+          final specPath = _specPath(root, source.file);
+          if (specPath == null) continue;
+          diagnostics.add(
+            ZukeSpecDiagnostic(
+              file: specPath,
+              line: source.line < 1 ? 1 : source.line,
+              column: source.column < 0 ? 0 : source.column,
+              code: scenarioCoverageCode,
+              severity: 'warning',
+              message:
+                  'Scenario "${tag.name}" has no managed test registration; '
+                  '`zuke test` will not execute it. Register it with '
+                  'zukeTest(...)/zukeTestWidgets(...) naming this scenario, or '
+                  'retire the scenario.',
+              featureId: featureId,
+            ),
+          );
+        }
       }
     }
   }
   return diagnostics;
-}
-
-/// The scenario's stable ID tag, or null when it declares none.
-GherkinTag? _scenarioTag(GherkinScenario scenario) {
-  for (final tag in scenario.tags) {
-    if (tag.name.startsWith('SCN-')) return tag;
-  }
-  return null;
 }
 
 /// A specification path as workspace-relative and forward-slashed, or null when

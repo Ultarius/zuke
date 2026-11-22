@@ -65,9 +65,9 @@ open a new terminal before continuing.
 
 The next coordinated hosted package tuple is defined by
 `docs/release-matrix.yaml`. It contains nine public packages: `zuke_core`
-0.4.0, `zuke_annotations` 0.4.0, `zuke_frontend` 0.2.2, `zuke` 0.4.0,
-`zuke_runner` 0.4.0, `zuke_runner_flutter` 0.4.0, `zuke_http_runtime` 0.1.1,
-`zuke_cli` 0.5.0, and `zuke_dart_build_hook` 0.4.0. Repository-only packages
+0.4.1, `zuke_annotations` 0.5.0, `zuke_frontend` 0.2.3, `zuke` 0.5.0,
+`zuke_runner` 0.5.0, `zuke_runner_flutter` 0.5.0, `zuke_http_runtime` 0.1.1,
+`zuke_cli` 0.6.0, and `zuke_dart_build_hook` 0.5.0. Repository-only packages
 such as `zuke_analyzer` are not hosted dependencies. Until this tuple is
 published, the repository's consumer verification uses the temporary Git
 overrides documented in `pubspec_overrides.yaml`.
@@ -76,14 +76,14 @@ overrides documented in `pubspec_overrides.yaml`.
 dependencies:
   flutter:
     sdk: flutter
-  zuke_annotations: ^0.4.0
+  zuke_annotations: ^0.5.0
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
-  zuke: ^0.4.0
-  zuke_cli: ^0.5.0
-  zuke_runner_flutter: ^0.4.0
+  zuke: ^0.5.0
+  zuke_cli: ^0.6.0
+  zuke_runner_flutter: ^0.5.0
 ```
 
 `zuke` is the primary pure-Dart execution SDK and owns the runner, runtime

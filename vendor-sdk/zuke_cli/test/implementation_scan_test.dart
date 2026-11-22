@@ -474,16 +474,13 @@ Feature: Scoping
       Given a step
 ''');
       final scopes = requirementTargetScopes(workspace);
-      expect(
-        scopes['RULE-SCOPE-INHERITED'],
-        ['backend', 'flutter'],
-        reason: 'a rule with no targets inherits the feature\'s',
-      );
-      expect(
-        scopes['RULE-SCOPE-NARROWED'],
-        ['backend'],
-        reason: 'a rule that declares targets overrides the feature',
-      );
+      expect(scopes['RULE-SCOPE-INHERITED'], [
+        'backend',
+        'flutter',
+      ], reason: 'a rule with no targets inherits the feature\'s');
+      expect(scopes['RULE-SCOPE-NARROWED'], [
+        'backend',
+      ], reason: 'a rule that declares targets overrides the feature');
     });
 
     test('appliesToTarget is the single shared scoping predicate', () {

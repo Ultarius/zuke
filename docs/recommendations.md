@@ -20,7 +20,7 @@ in the later CI/docs follow-up pass.
 | Public API surface | `zuke_core` exports `atomic_file_writer.dart`; internal `package:.../src/` imports in first-party code were removed. |
 | Strict analysis modes | Root `analysis_options.yaml` enables `strict-inference` and `strict-raw-types` alongside `strict-casts`. |
 | Security scanning | Added `.github/workflows/dependency-review.yml` (fails on moderate+ severity) and `.github/workflows/secret-scan.yml` (gitleaks on PRs and `main`), both SHA-pinned; GitHub push protection and optional CodeQL remain repository settings. |
-| Workflow setup deduplication | Added the `.github/actions/setup-zuke` composite action (checkout + Flutter 3.44.8 + `pub get`); every job that used to inline those steps now calls it, so version bumps are single-touch. |
+| Workflow setup deduplication | Added the `.github/actions/setup-zuke` composite action (checkout + Flutter 3.47.9 + `pub get`); every job that used to inline those steps now calls it, so version bumps are single-touch. |
 | PR parity coverage | `pr.yml` maintenance-parity runs the full `vendor-sdk/zuke_cli` package suite with a 20-minute timeout instead of a thirteen-file list, so new regression tests are never missed. |
 | Community docs | Added `SECURITY.md` (private advisory reporting), `CONTRIBUTING.md`, and `docs/release-runbook.md`; the README links the runbook. |
 | Coverage depth | Line-coverage gate remains; branch/mutation testing deferred and documented as optional future work. |

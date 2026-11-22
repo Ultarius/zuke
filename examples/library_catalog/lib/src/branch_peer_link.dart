@@ -8,11 +8,16 @@ import 'package:zuke_annotations/zuke_annotations.dart';
 /// branches and exchanges loan-register snapshots over a plain TCP socket.
 @ImplementsRequirement(['RULE-LIBRARY-BRANCH-PEER'])
 final class BranchPeerServer {
+  static const _deliveryTimeout = Duration(seconds: 2);
+
   final String branchId;
   final List<String> localLoans = [];
   final List<String> peerLoans = [];
   ServerSocket? _server;
-  Socket? _outbound;
+
+  /// Outbound connections keyed by destination branch, so a share can only
+  /// ever reach the branch it names.
+  final _outbound = <String, Socket>{};
   final _listening = Completer<void>();
   final _connected = Completer<void>();
   final _loanWaiters = <Completer<void>>[];
@@ -40,25 +45,45 @@ final class BranchPeerServer {
       throw StateError('Peer branch ${peer.branchId} is not listening.');
     }
     final socket = await Socket.connect(InternetAddress.loopbackIPv4, port);
-    _outbound = socket;
-    _listenForMessages(socket);
+    final previous = _outbound[peer.branchId];
+    _outbound[peer.branchId] = socket;
+    await previous?.close();
+    _listenForMessages(
+      socket,
+      onClosed: () {
+        if (identical(_outbound[peer.branchId], socket)) {
+          _outbound.remove(peer.branchId);
+        }
+      },
+    );
     socket.write('HELLO $branchId\n');
     await socket.flush();
     if (!_connected.isCompleted) _connected.complete();
-    await peer._connected.future.timeout(const Duration(seconds: 2));
+    await peer._connected.future.timeout(_deliveryTimeout);
   }
 
+  /// Sends this branch's loans to [peer] and waits until [peer] has them.
+  ///
+  /// Throws when this branch has no connection to [peer], or when delivery is
+  /// not confirmed in time.
   Future<void> shareLoansWith(BranchPeerServer peer) async {
-    final socket = _outbound;
-    if (socket == null || !isConnected) {
-      throw StateError('Branch $branchId has no active peer connection.');
+    final socket = _outbound[peer.branchId];
+    if (socket == null) {
+      throw StateError(
+        'Branch $branchId has no active connection to ${peer.branchId}.',
+      );
     }
     final waiter = Completer<void>();
     peer._loanWaiters.add(waiter);
     try {
       socket.write('LOANS ${jsonEncode(localLoans)}\n');
       await socket.flush();
-      await waiter.future.timeout(const Duration(seconds: 2), onTimeout: () {});
+      await waiter.future.timeout(
+        _deliveryTimeout,
+        onTimeout: () => throw StateError(
+          'Branch ${peer.branchId} did not confirm loans from $branchId.',
+        ),
+      );
     } finally {
       peer._loanWaiters.remove(waiter);
     }
@@ -81,18 +106,25 @@ final class BranchPeerServer {
     }
   }
 
-  void _listenForMessages(Socket socket) {
+  void _listenForMessages(Socket socket, {void Function()? onClosed}) {
     socket
         .cast<List<int>>()
         .transform(utf8.decoder)
         .transform(const LineSplitter())
-        .listen(_onLine, onDone: () {}, onError: (_) {});
+        .listen(
+          _onLine,
+          onDone: () => onClosed?.call(),
+          onError: (_) => onClosed?.call(),
+        );
   }
 
   Future<void> close() async {
-    await _outbound?.close();
+    final sockets = _outbound.values.toList();
+    _outbound.clear();
+    for (final socket in sockets) {
+      await socket.close();
+    }
     await _server?.close();
-    _outbound = null;
     _server = null;
   }
 }

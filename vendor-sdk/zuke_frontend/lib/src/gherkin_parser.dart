@@ -33,7 +33,12 @@ class GherkinParser {
   /// Parses [content] as the feature at [file].
   GherkinParseResult parseFile(String content, String file) {
     _lastFile = file;
-    final lines = content.split('\n');
+    // The same line endings the evidence digest canonicalizes, so the parser
+    // and the digest always agree on where a line, and a doc string, ends.
+    final lines = content
+        .replaceAll('\r\n', '\n')
+        .replaceAll('\r', '\n')
+        .split('\n');
     final errors = <ParseError>[];
     final features = <ParsedFeature>[];
 
@@ -42,6 +47,8 @@ class GherkinParser {
       if (parsed != null) {
         features.add(parsed);
       }
+    } on ParseError catch (error) {
+      errors.add(error);
     } catch (e) {
       errors.add(
         ParseError(
@@ -55,10 +62,15 @@ class GherkinParser {
   }
 
   ParsedFeature? _parseDocument(List<String> lines, String file) {
-    final beginCount = lines
-        .where((line) => line.trim() == '# spec-begin')
-        .length;
-    final endCount = lines.where((line) => line.trim() == '# spec-end').length;
+    final docStringLines = _docStringLines(lines);
+    var beginCount = 0;
+    var endCount = 0;
+    for (var i = 0; i < lines.length; i++) {
+      if (docStringLines.contains(i)) continue;
+      final trimmed = lines[i].trim();
+      if (trimmed == '# spec-begin') beginCount++;
+      if (trimmed == '# spec-end') endCount++;
+    }
     if (beginCount != 1 || endCount != 1) {
       throw FormatException(
         'feature metadata requires exactly one # spec-begin/# spec-end block',
@@ -68,6 +80,7 @@ class GherkinParser {
       lines,
       'spec-begin',
       'spec-end',
+      docStringLines,
     );
     final featureTags = <GherkinTag>[];
     int? featureLine;
@@ -123,7 +136,8 @@ class GherkinParser {
     // Find all Rule: positions
     final rulePositions = <int>[];
     for (int i = ruleStart ?? featureLine + 1; i < lines.length; i++) {
-      if (GherkinSyntax.keywordOf(lines[i].trim()) == GherkinSyntax.rule) {
+      if (!docStringLines.contains(i) &&
+          GherkinSyntax.keywordOf(lines[i].trim()) == GherkinSyntax.rule) {
         rulePositions.add(i);
       }
     }
@@ -133,8 +147,9 @@ class GherkinParser {
         ? lines.length
         : rulePositions.first;
     for (var i = featureLine + 1; i < featureBodyEnd; i++) {
-      if (GherkinSyntax.keywordOf(lines[i].trim()) ==
-          GherkinSyntax.background) {
+      if (!docStringLines.contains(i) &&
+          GherkinSyntax.keywordOf(lines[i].trim()) ==
+              GherkinSyntax.background) {
         featureBackgroundPositions.add(i);
       }
     }
@@ -160,6 +175,7 @@ class GherkinParser {
         start: metadataStart,
         end: rp,
         file: file,
+        docStringLines: docStringLines,
       );
       if (ruleBlocks.length != 1) {
         throw FormatException(
@@ -172,6 +188,7 @@ class GherkinParser {
       // Extract tags from just before the Rule: line
       final ruleTags = <GherkinTag>[];
       for (int j = rp - 1; j >= 0; j--) {
+        if (docStringLines.contains(j)) break;
         final t = lines[j].trim();
         if (t.startsWith('@')) {
           for (final tag in t.split(RegExp(r'\s+'))) {
@@ -217,6 +234,7 @@ class GherkinParser {
         start: rulePositions.last + 1,
         end: lines.length,
         file: file,
+        docStringLines: docStringLines,
       );
       if (trailing.isNotEmpty) {
         throw const FormatException(
@@ -299,8 +317,13 @@ class GherkinParser {
     List<String>? scenarioLines;
     int? scenarioStart;
     final pendingScenarioTags = <String>[];
+    final docStringLines = _docStringLines(lines, lineOffset: lineOffset);
 
     for (int i = ruleLine + 1; i < lines.length; i++) {
+      if (docStringLines.contains(i)) {
+        (scenarioLines ?? backgroundLines)?.add(lines[i]);
+        continue;
+      }
       final trimmed = lines[i].trim();
       if (trimmed.startsWith('@')) {
         if (scenarioLines != null && _tagsApplyToExamples(lines, i)) {
@@ -371,6 +394,75 @@ class GherkinParser {
     );
   }
 
+  /// Indexes of the lines that belong to a step's doc string, delimiters
+  /// included.
+  ///
+  /// A doc string is step content, so its lines must never be read as tags or
+  /// structural keywords, whatever they happen to say. A delimiter only opens
+  /// one after an executable step, so not after `Examples:`, and only the same
+  /// delimiter closes it.
+  ///
+  /// Throws a [ParseError] at the opening delimiter of an unclosed doc string,
+  /// which would otherwise swallow the rest of the file, and at the second doc
+  /// string of a step, which would otherwise silently replace the first. The
+  /// whole document is scanned first, so the reported line is always a file
+  /// line.
+  Set<int> _docStringLines(
+    List<String> lines, {
+    bool inStepBody = false,
+    int lineOffset = 0,
+  }) {
+    final inside = <int>{};
+    String? delimiter;
+    var openedAt = 0;
+    var afterStep = false;
+    var stepHasDocString = false;
+    for (var i = 0; i < lines.length; i++) {
+      final trimmed = lines[i].trim();
+      if (delimiter != null) {
+        inside.add(i);
+        if (trimmed == delimiter) delimiter = null;
+        continue;
+      }
+      final keyword = GherkinSyntax.keywordOf(trimmed);
+      if (keyword != null) {
+        inStepBody = GherkinSyntax.stepContainers.contains(keyword);
+        afterStep = false;
+      } else if (inStepBody && GherkinSyntax.step.hasMatch(trimmed)) {
+        afterStep = true;
+        stepHasDocString = false;
+      } else if (afterStep) {
+        final opening = GherkinSyntax.docStringDelimiterOf(trimmed);
+        if (opening == null) continue;
+        if (stepHasDocString) {
+          throw ParseError(
+            message: 'This step already has a doc string.',
+            source: SourceLocation(
+              file: _lastFile!,
+              line: lineOffset + i + 1,
+              column: lines[i].indexOf(opening) + 1,
+            ),
+          );
+        }
+        inside.add(i);
+        delimiter = opening;
+        openedAt = i;
+        stepHasDocString = true;
+      }
+    }
+    if (delimiter != null) {
+      throw ParseError(
+        message: 'Doc string opened with $delimiter is never closed.',
+        source: SourceLocation(
+          file: _lastFile!,
+          line: lineOffset + openedAt + 1,
+          column: lines[openedAt].indexOf(delimiter) + 1,
+        ),
+      );
+    }
+    return inside;
+  }
+
   /// Gherkin tags immediately before an Examples block belong to that block,
   /// while tags before a following scenario belong to the following scenario.
   bool _tagsApplyToExamples(List<String> lines, int tagLine) {
@@ -432,8 +524,17 @@ class GherkinParser {
     final executableLines = <String>[];
     final pendingExampleTags = <GherkinTag>[];
     int inExamples = -1;
+    final docStringLines = _docStringLines(
+      stepLines,
+      inStepBody: true,
+      lineOffset: lineOffset + scenarioLine + 1,
+    );
 
     for (int i = 0; i < stepLines.length; i++) {
+      if (docStringLines.contains(i)) {
+        if (inExamples < 0) executableLines.add(stepLines[i]);
+        continue;
+      }
       final trimmed = stepLines[i].trim();
       if (trimmed.startsWith('@')) {
         for (final tag in trimmed.split(RegExp(r'\s+'))) {
@@ -459,29 +560,40 @@ class GherkinParser {
         final examplesTitle = titlePart.isNotEmpty
             ? titlePart
             : 'examples_${examplesList.length}';
-        // Collect the table lines (rows starting with |)
+        // Collect the table rows. Gherkin allows comments and blank lines
+        // between them, so only other content ends the table. Stopping at a
+        // comment would silently discard every case after it.
         final tableLines = <String>[];
         int j = i + 1;
-        while (j < stepLines.length && stepLines[j].trim().startsWith('|')) {
-          tableLines.add(stepLines[j]);
-          j++;
+        for (var next = i + 1; next < stepLines.length; next++) {
+          final row = stepLines[next].trim();
+          if (row.isEmpty || row.startsWith('#')) continue;
+          if (!row.startsWith('|')) break;
+          tableLines.add(stepLines[next]);
+          j = next + 1;
         }
-        if (tableLines.isNotEmpty) {
-          final rows = tableLines.map(_parseTableRow).toList();
-          examplesList.add(
-            GherkinExamples(
-              title: examplesTitle,
-              tags: List.unmodifiable(pendingExampleTags),
-              headers: rows.first,
-              rows: rows.skip(1).toList(),
-              source: SourceLocation(
-                file: file,
-                line: lineOffset + scenarioLine + i + 2,
-                column: stepLines[i].indexOf(GherkinSyntax.examples) + 1,
-              ),
-            ),
+        final source = SourceLocation(
+          file: file,
+          line: lineOffset + scenarioLine + i + 2,
+          column: stepLines[i].indexOf(GherkinSyntax.examples) + 1,
+        );
+        if (tableLines.length < 2) {
+          throw ParseError(
+            message:
+                'Examples "$examplesTitle" requires a table with a header and at least one data row.',
+            source: source,
           );
         }
+        final rows = tableLines.map(_parseTableRow).toList();
+        examplesList.add(
+          GherkinExamples(
+            title: examplesTitle,
+            tags: List.unmodifiable(pendingExampleTags),
+            headers: rows.first,
+            rows: rows.skip(1).toList(),
+            source: source,
+          ),
+        );
         pendingExampleTags.clear();
         inExamples = i;
         i = j - 1; // skip past the table rows
@@ -526,6 +638,8 @@ class GherkinParser {
     GherkinStep? current;
     var previousKeyword = 'Given';
     String? docDelimiter;
+    String? docMediaType;
+    var docIndent = 0;
     final doc = StringBuffer();
     for (int i = 0; i < lines.length; i++) {
       final trimmed = lines[i].trim();
@@ -537,6 +651,8 @@ class GherkinParser {
             text: current.text,
             source: current.source,
             docString: doc.toString(),
+            docStringMediaType: docMediaType,
+            docStringIndent: docIndent,
             table: current.table,
           );
           steps[steps.length - 1] = current;
@@ -565,17 +681,24 @@ class GherkinParser {
           ),
         );
         steps.add(current);
-      } else if (trimmed == '"""' || trimmed == "'''") {
-        if (current != null) {
-          docDelimiter = trimmed;
-        }
-      } else if (trimmed.startsWith('|') && current != null) {
+        continue;
+      }
+      if (current == null) continue;
+      final opening = GherkinSyntax.docStringDelimiterOf(trimmed);
+      if (opening != null) {
+        final mediaType = trimmed.substring(opening.length).trim();
+        docDelimiter = opening;
+        docMediaType = mediaType.isEmpty ? null : mediaType;
+        docIndent = lines[i].indexOf(opening);
+      } else if (trimmed.startsWith('|')) {
         current = GherkinStep(
           keyword: current.keyword,
           inheritedKeyword: current.inheritedKeyword,
           text: current.text,
           source: current.source,
           docString: current.docString,
+          docStringMediaType: current.docStringMediaType,
+          docStringIndent: current.docStringIndent,
           table: [...current.table, _parseTableRow(trimmed)],
         );
         steps[steps.length - 1] = current;
@@ -637,6 +760,7 @@ class GherkinParser {
     List<String> lines,
     String beginMarker,
     String endMarker,
+    Set<int> docStringLines,
   ) {
     bool inBlock = false;
     int startLine = 0;
@@ -644,6 +768,7 @@ class GherkinParser {
     final lineMap = <MetadataLine>[];
 
     for (int i = 0; i < lines.length; i++) {
+      if (docStringLines.contains(i)) continue;
       final raw = lines[i];
       final trimmed = raw.trim();
       if (trimmed == '# $beginMarker') {
@@ -833,6 +958,7 @@ class GherkinParser {
     required int start,
     required int end,
     required String file,
+    required Set<int> docStringLines,
   }) {
     final blocks = <MetadataBlock>[];
     StringBuffer? content;
@@ -843,6 +969,7 @@ class GherkinParser {
     // sharing those rules too.
     final lineMap = <MetadataLine>[];
     for (var index = start; index < end; index++) {
+      if (docStringLines.contains(index)) continue;
       final raw = lines[index];
       final trimmed = raw.trim();
       if (trimmed == '# rule-spec-begin') {

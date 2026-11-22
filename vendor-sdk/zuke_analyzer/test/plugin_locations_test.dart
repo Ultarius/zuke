@@ -24,6 +24,19 @@ void main() {
 
     tearDown(() => deleteTemporaryDirectory(tempDir));
 
+    // Resolving a fixture costs a pub get, so the tests that run the real
+    // plugin share one resolved package and start from clean contents.
+    Directory? analyzeFixture;
+    tearDownAll(() async {
+      final fixture = analyzeFixture;
+      if (fixture != null) await deleteTemporaryDirectory(fixture);
+    });
+    Future<Directory> freshAnalyzeFixture() async {
+      final fixture = analyzeFixture ??= await _writeAnalyzeFixture();
+      _resetAnalyzeFixture(fixture);
+      return fixture;
+    }
+
     test('stale index rule reports the analyzed file at a real line', () async {
       _writeWorkspaceConfig(tempDir);
       final lib = Directory('${tempDir.path}/lib')..createSync(recursive: true);
@@ -212,8 +225,7 @@ class Service {
     test(
       'dart analyze reports file, line, and column for annotation errors',
       () async {
-        final fixture = await _writeAnalyzeFixture();
-        addTearDown(() => deleteTemporaryDirectory(fixture));
+        final fixture = await freshAnalyzeFixture();
 
         final source = File('${fixture.path}/lib/app.dart');
         source.parent.createSync(recursive: true);
@@ -250,15 +262,12 @@ class Holder {
       timeout: const Timeout(Duration(minutes: 3)),
     );
 
-    test(
-      'fresh plugin resolution diagnoses missing evidence types',
-      () async {
-        final fixture = await _writeAnalyzeFixture(includeZukeTesting: true);
-        addTearDown(() => deleteTemporaryDirectory(fixture));
-        _writeWorkspaceConfig(fixture);
-        final source = File('${fixture.path}/lib/managed_test.dart')
-          ..parent.createSync(recursive: true)
-          ..writeAsStringSync('''
+    test('fresh plugin resolution diagnoses missing evidence types', () async {
+      final fixture = await freshAnalyzeFixture();
+      _writeWorkspaceConfig(fixture);
+      final source = File('${fixture.path}/lib/managed_test.dart')
+        ..parent.createSync(recursive: true)
+        ..writeAsStringSync('''
 import 'package:zuke/testing.dart';
 
 void evidenceTypesCallback() {}
@@ -268,17 +277,15 @@ void register() {
 }
 ''');
 
-        final result = await _analyzeSource(fixture, source);
-        final output = '${result.stdout}\n${result.stderr}';
-        expect(
-          output,
-          contains('zuke_missing_evidence_types'),
-          reason:
-              'the fresh plugin must inspect the named argument AST:\n$output',
-        );
-      },
-      timeout: const Timeout(Duration(minutes: 3)),
-    );
+      final result = await _analyzeSource(fixture, source);
+      final output = '${result.stdout}\n${result.stderr}';
+      expect(
+        output,
+        contains('zuke_missing_evidence_types'),
+        reason:
+            'the fresh plugin must inspect the named argument AST:\n$output',
+      );
+    }, timeout: const Timeout(Duration(minutes: 3)));
 
     test('dart analyze reports an unbound evidence slot on its rule, through the '
         'real plugin', () async {
@@ -288,8 +295,7 @@ void register() {
       // message. The other binding tests drive the shared decision function
       // and the visitor directly, so a broken registration or a mis-substituted
       // {0} would pass all of them and show nothing in an editor.
-      final fixture = await _writeAnalyzeFixture();
-      addTearDown(() => deleteTemporaryDirectory(fixture));
+      final fixture = await freshAnalyzeFixture();
       _writeWorkspaceConfig(fixture);
 
       const contractPath = 'lib/src/generated/feat_gap_001_contracts.g.dart';
@@ -388,8 +394,7 @@ class FeatGap001RuleIds {
     test(
       'dart analyze names the unimplemented requirement in the message',
       () async {
-        final fixture = await _writeAnalyzeFixture();
-        addTearDown(() => deleteTemporaryDirectory(fixture));
+        final fixture = await freshAnalyzeFixture();
 
         // A workspace whose only requirement has no implementation, mirroring a
         // generated contract that was never acted on.
@@ -456,8 +461,7 @@ class FeatDemo001RequirementIds {
         // *file*. Reporting it as "declared for no target" read as a claim about
         // the requirement's scoping, and when the explanation was added to that
         // clause it repeated the template's remedy.
-        final fixture = await _writeAnalyzeFixture();
-        addTearDown(() => deleteTemporaryDirectory(fixture));
+        final fixture = await freshAnalyzeFixture();
 
         File('${fixture.path}/zuke.yaml').writeAsStringSync('''
   schemaVersion: 3
@@ -663,9 +667,7 @@ void _writeCurrentIndex(
 }
 
 /// Isolated package that enables the real plugin the way a consumer would.
-Future<Directory> _writeAnalyzeFixture({
-  bool includeZukeTesting = false,
-}) async {
+Future<Directory> _writeAnalyzeFixture() async {
   final workspaceRoot = _findWorkspaceRoot().path;
   final annotationsPath = _posixPath(
     '$workspaceRoot${Platform.pathSeparator}vendor-sdk'
@@ -679,15 +681,31 @@ Future<Directory> _writeAnalyzeFixture({
     '$workspaceRoot${Platform.pathSeparator}vendor-sdk'
     '${Platform.pathSeparator}zuke',
   );
+  // A release's dependency floors may not be on pub.dev yet.
+  final localOverrides = [
+    for (final package in const [
+      'zuke',
+      'zuke_annotations',
+      'zuke_core',
+      'zuke_frontend',
+    ])
+      '  $package:\n    path: '
+          '${_posixPath('$workspaceRoot/vendor-sdk/$package')}',
+  ].join('\n');
   final fixture = Directory.systemTemp.createTempSync('zuke-analyze-e2e-');
   File('${fixture.path}/pubspec.yaml').writeAsStringSync('''
 name: loc_e2e_pkg
 environment:
   sdk: ">=3.10.0 <4.0.0"
 dependencies:
-${includeZukeTesting ? '  zuke:\n    path: $zukePath\n' : '  zuke_annotations:\n    path: $annotationsPath\n'}
+  zuke:
+    path: $zukePath
+  zuke_annotations:
+    path: $annotationsPath
 dev_dependencies:
   lints: any
+dependency_overrides:
+$localOverrides
 ''');
   File('${fixture.path}/analysis_options.yaml').writeAsStringSync('''
 include: package:lints/recommended.yaml
@@ -702,6 +720,8 @@ plugins:
       zuke_missing_evidence_types: true
       zuke_unimplemented_requirement: true
       zuke_binding_unbound: true
+  dependency_overrides:
+${localOverrides.replaceAll(RegExp('^', multiLine: true), '  ')}
 ''');
   final pubGet = await Process.run(
     Platform.resolvedExecutable,
@@ -716,6 +736,20 @@ plugins:
     reason: 'pub get failed:\n${pubGet.stdout}\n${pubGet.stderr}',
   );
   return fixture;
+}
+
+/// Removes what a previous test wrote, keeping only the package resolution.
+void _resetAnalyzeFixture(Directory fixture) {
+  const resolution = {
+    'pubspec.yaml',
+    'pubspec.lock',
+    'analysis_options.yaml',
+    '.dart_tool',
+  };
+  for (final entity in fixture.listSync()) {
+    final name = entity.uri.pathSegments.lastWhere((part) => part.isNotEmpty);
+    if (!resolution.contains(name)) entity.deleteSync(recursive: true);
+  }
 }
 
 Future<ProcessResult> _analyzeSource(Directory root, File source) =>

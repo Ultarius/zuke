@@ -35,6 +35,7 @@ class ZukePlugin extends Plugin {
     registry.registerLintRule(ZukeUnimplementedRequirementRule());
     registry.registerLintRule(ZukeSpecLintRule());
     registry.registerWarningRule(ZukeBindingUnboundRule());
+    registry.registerWarningRule(ZukeScenarioCoverageRule());
   }
 }
 
@@ -274,7 +275,7 @@ abstract class _ZukeIndexFreshnessRule extends AnalysisRule {
     final first = issues.first.message;
     final extra = issues.length - 1;
     return extra > 0
-        ? '$cause. $first (+$extra more; run zuke doctor for the full list)'
+        ? '$cause. $first (+$extra more; run zuke generate to refresh the index)'
         : '$cause. $first';
   }
 }
@@ -711,27 +712,15 @@ class ZukeSpecLintRule extends AnalysisRule {
     RuleContext context,
   ) {
     final path = context.definingUnit.file.path;
-    final state = _indexStateFor(path);
     // Reads spec findings, which come from the specifications. Editing Dart
     // cannot invalidate them, so spec-lint keeps reporting while a workspace is
     // edited — which is most of its value, since that is when it is read.
-    final index = state.indexFor(_needsSpecificationFacts);
-    if (index == null) return;
-    if (index.specDiagnostics.isEmpty) return;
-    final root = state.workspaceRoot;
-    if (root == null) return;
-    final relative = ZukeIndex.relativeToRoot(root, path);
-    if (relative == null) return;
-    // Only the file generated from the offending feature reports it, so one
-    // finding appears once rather than in every contract in the workspace.
-    final features = index.featuresAtPath(relative);
-    if (features.isEmpty) return;
-    final findings = index.specDiagnostics
-        .where(
-          (finding) =>
-              finding.featureId != null && features.contains(finding.featureId),
-        )
-        .toList(growable: false);
+    // Scenario coverage depends on the sources too, and has its own rule.
+    final findings = _contractSpecFindings(
+      path,
+      fresh: _needsSpecificationFacts,
+      include: (finding) => finding.code != scenarioCoverageCode,
+    );
     if (findings.isEmpty) return;
     registry.addCompilationUnit(
       this,
@@ -750,6 +739,93 @@ class ZukeSpecLintRule extends AnalysisRule {
     );
   }
 }
+
+/// Reports declared scenarios that no managed test registration names.
+///
+/// Separate from [ZukeSpecLintRule] for two reasons. The finding is a warning,
+/// and one rule has one severity. It also compares specifications against
+/// registrations, so it has to wait for both to be fresh: otherwise it stays
+/// visible after the missing registration has been written.
+class ZukeScenarioCoverageRule extends AnalysisRule {
+  static const code = LintCode(
+    'zuke_scenario_coverage',
+    '$scenarioCoverageCode: {0} ({1})',
+    uniqueName: 'LintCode.zuke_scenario_coverage',
+    severity: DiagnosticSeverity.WARNING,
+  );
+
+  ZukeScenarioCoverageRule()
+    : super(
+        name: 'zuke_scenario_coverage',
+        description: 'Requires a managed test registration for each scenario',
+      );
+
+  @override
+  DiagnosticCode get diagnosticCode => code;
+
+  @override
+  void registerNodeProcessors(
+    RuleVisitorRegistry registry,
+    RuleContext context,
+  ) {
+    final findings = _scenarioCoverageFindingsFor(
+      context.definingUnit.file.path,
+    );
+    if (findings.isEmpty) return;
+    registry.addCompilationUnit(
+      this,
+      ZukeSpecLintVisitor(
+        findings: findings,
+        report: (anchor, finding) => reportAtNode(
+          anchor,
+          arguments: [finding.message, finding.location],
+        ),
+      ),
+    );
+  }
+}
+
+List<ZukeSpecDiagnostic> _scenarioCoverageFindingsFor(String path) =>
+    _contractSpecFindings(
+      path,
+      fresh: _needsSpecificationAndSourceFacts,
+      include: (finding) => finding.code == scenarioCoverageCode,
+    );
+
+/// The index's spec findings for the contract at [path], when [fresh] allows
+/// reading them.
+///
+/// Only the file generated from the offending feature reports a finding, so it
+/// appears once rather than in every contract in the workspace.
+List<ZukeSpecDiagnostic> _contractSpecFindings(
+  String path, {
+  required bool Function(ZukePluginIndexState state) fresh,
+  required bool Function(ZukeSpecDiagnostic finding) include,
+}) {
+  final state = _indexStateFor(path);
+  final index = state.indexFor(fresh);
+  if (index == null || index.specDiagnostics.isEmpty) return const [];
+  final root = state.workspaceRoot;
+  if (root == null) return const [];
+  final relative = ZukeIndex.relativeToRoot(root, path);
+  if (relative == null) return const [];
+  final features = index.featuresAtPath(relative);
+  if (features.isEmpty) return const [];
+  return index.specDiagnostics
+      .where(
+        (finding) =>
+            finding.featureId != null &&
+            features.contains(finding.featureId) &&
+            include(finding),
+      )
+      .toList(growable: false);
+}
+
+/// The scenario-coverage findings [ZukeScenarioCoverageRule] would report for
+/// [sourcePath].
+List<ZukeSpecDiagnostic> zukeScenarioCoverageFindingsForTesting(
+  String sourcePath,
+) => _scenarioCoverageFindingsFor(sourcePath);
 
 /// Internal test seam for the workspace/index discovery used by analyzer
 /// callbacks, which otherwise only run inside the analysis server process.

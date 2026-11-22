@@ -1,4 +1,5 @@
 import 'package:zuke_frontend/zuke_frontend.dart';
+import '../scenario_selection.dart';
 import 'validator.dart';
 
 class IdentityValidator {
@@ -164,38 +165,30 @@ class IdentityValidator {
 
         // Scenario IDs
         for (final scenario in rule.scenarios) {
-          final scnIds = scenario.tags
-              .where((t) => t.name.startsWith('SCN-'))
-              .map((t) => t.name);
-          final scenarioIdList = scnIds.toList();
-          if (scenarioIdList.length != 1) {
+          if (!scenarioHasValidIdentity(scenario)) {
             errors.add(
               ValidationMessage(
                 code: 'ZUKE-ID-008',
-                message: 'Scenario must have exactly one @SCN-* tag',
+                message: scenarioIdentityRequirement,
                 severity: Severity.error,
                 source: scenario.scenarioElement.source,
               ),
             );
           }
-          for (final scnId in scenarioIdList) {
+          for (final tag in scenario.declaredTags) {
+            final scnId = tag.name;
+            if (!scnId.startsWith('SCN-')) continue;
             if (!_isValidIdFormat(scnId)) {
               errors.add(
                 ValidationMessage(
                   code: 'ZUKE-ID-009',
                   message: 'Scenario ID "$scnId" has invalid format',
                   severity: Severity.error,
-                  source: scenario.scenarioElement.source,
+                  source: tag.source,
                 ),
               );
             }
-            _checkDuplicate(
-              scnId,
-              seenIds,
-              retiredIds,
-              scenario.scenarioElement.source,
-              errors,
-            );
+            _checkDuplicate(scnId, seenIds, retiredIds, tag.source, errors);
           }
         }
       }

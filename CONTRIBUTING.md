@@ -5,7 +5,7 @@ runs, and the expectations for pull requests.
 
 ## Development setup
 
-- Install **Flutter 3.44.8** (stable). Dart ships with Flutter, so
+- Install **Flutter 3.47.9** (stable). Dart ships with Flutter, so
   `flutter doctor` and `dart --version` must both work.
 - From the repository root, bootstrap the pub workspace:
 

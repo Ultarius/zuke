@@ -93,13 +93,13 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  zuke_annotations: ^0.4.0
+  zuke_annotations: ^0.5.0
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
-  zuke_cli: ^0.5.0
-  zuke_runner_flutter: ^0.4.0
+  zuke_cli: ^0.6.0
+  zuke_runner_flutter: ^0.5.0
   # Optional hosted build-time check:
   # zuke_dart_build_hook: ^0.3.0
 ```
@@ -153,9 +153,9 @@ hosted registry:
 dart run zuke_cli:zuke certify hosted --platform linux --host dart
 dart run zuke_cli:zuke certify hosted --platform windows --host dart
 dart run zuke_cli:zuke certify hosted --platform linux --host flutter \
-  --flutter-version 3.44.8
+  --flutter-version 3.47.9
 dart run zuke_cli:zuke certify hosted --platform windows --host flutter \
-  --flutter-version 3.44.8
+  --flutter-version 3.47.9
 ```
 
 The Flutter capsule uses `flutter_test` from the SDK and does not declare a
@@ -170,7 +170,7 @@ sources in the resolved lock, run all four profiles, and compare the canonical
 gate result across stdout, summary, and safe artifact output.
 
 The current matrix records one certified Flutter version: `minimum` and
-`current` are intentionally both `3.44.8`. This is baseline certification,
+`current` are intentionally both `3.47.9`. This is baseline certification,
 not evidence for an older-to-current support band. A second CI lane and a
 distinct matrix version are required before describing the release as a
 Flutter version band.
@@ -825,6 +825,14 @@ const writer = ExecutionResultWriter(
 writer.writeScenarioToEnvironment(result);
 ```
 
+`executeScenario` runs one case. It throws unless the indexes you pass identify
+exactly one row of the contract, so a result can never report a pass for only
+part of it. `rowIndex` and `examplesIndex` together always do. One of them alone
+is enough only when it leaves a single row. Use `executeRule` to run every row,
+or iterate `scenarioExampleCases`. With `ZukeFlutterEvidenceHarness`, register one
+`FlutterEvidenceCase` per row and give each a literal `caseId` such as
+`examples-1-row-2`.
+
 ### Profile and tag selection
 
 `execution.<profile>.tagExpression` selects scenarios using Gherkin tags. The
@@ -921,6 +929,17 @@ registerScenarios(ZukeScenarioPattern.prefix('SCN-CART-'));
 ```
 
 #### Choosing a selection expression
+
+To select blocks of a single outline independently, put a distinct `@SCN-*`
+tag on each `Examples` block and omit the outline-level ID. A contract for an
+`Examples` ID runs that block's rows. An outline-level ID covers every row in
+the outline.
+
+A profile selecting only some blocks requires an ID on each selected block.
+Use block IDs when blocks have different execution targets. For direct managed
+registrations, declare each row with its generated case ID, such as
+`examples-2-row-1` for the first data row in the second block. `ScenarioExecutor`
+sets that ID when it executes a row.
 
 Use the enum directly for one scenario: `registerScenario(FeatCart001Scenario.successCheckout)`.
 Use a prefix or regular expression for a deliberate family, such as
@@ -1045,6 +1064,10 @@ plugins:
       zuke_unimplemented_requirement: true # warning
       zuke_spec_lint: true # error
 ```
+
+`zuke_scenario_coverage` is a warning rule enabled by default. It reports a
+declared scenario that no managed test registers, and it waits until both the
+specifications and the Dart sources match the generated index.
 
 ### Editor and CLI coverage diagnostics
 

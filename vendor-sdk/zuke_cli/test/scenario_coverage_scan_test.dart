@@ -107,6 +107,59 @@ Feature: Demo
     expect(finding.line, greaterThan(1));
   });
 
+  test('a scenario ID declared on an Examples block is reported', () {
+    source(
+      'pubspec.yaml',
+      "name: fixture\nenvironment:\n  sdk: '>=3.10.0 <4.0.0'\n",
+    );
+    source('zuke.yaml', '''
+schemaVersion: 3
+workspace:
+  name: fixture
+  root: .
+specifications:
+  features: [specs/features/**/*.feature]
+targets:
+  app:
+    language: dart
+    framework: flutter
+    packages:
+      - id: app
+        path: .
+        roots: [lib]
+''');
+    source('specs/features/demo.feature', '''
+# spec-begin
+# schemaVersion: 1
+# id: FEAT-DEMO-001
+# spec-end
+
+@FEAT-DEMO-001
+Feature: Demo
+  # rule-spec-begin
+  # id: RULE-DEMO-001
+  # rule-spec-end
+  @RULE-DEMO-001
+  Rule: Things work
+
+    Scenario Outline: A thing <value>
+      Given a thing <value>
+
+      @SCN-DEMO-003
+      Examples:
+        | value |
+        | 1     |
+''');
+
+    final diagnostics = scanScenarioCoverage(
+      requireCurrentWorkspace(root.path),
+      root: root.path,
+      registeredScenarioIds: const {},
+    );
+
+    expect(diagnostics.single.message, contains('SCN-DEMO-003'));
+  });
+
   test(
     'managed registrations resolve to their constant scenario IDs',
     () async {
@@ -156,10 +209,8 @@ void register() {
     timeout: const Timeout(Duration(minutes: 2)),
   );
 
-  test(
-    'a non-constant scenario makes coverage unknown, not empty',
-    () async {
-      source('lib/fake_contract.dart', '''
+  test('a non-constant scenario makes coverage unknown, not empty', () async {
+    source('lib/fake_contract.dart', '''
 import 'package:zuke_annotations/zuke_annotations.dart';
 
 const fake = _Fake(
@@ -182,7 +233,7 @@ class _Fake implements ZukeScenarioContract {
   final Set<ControlId> controlIds;
 }
 ''');
-      source('lib/registrations.dart', '''
+    source('lib/registrations.dart', '''
 import 'package:zuke_annotations/zuke_annotations.dart';
 import 'package:zuke_runner_flutter/zuke_runner_flutter.dart';
 
@@ -191,11 +242,9 @@ void register(ZukeScenarioContract scenario) {
 }
 ''');
 
-      final scan = await scanWorkspaceAnnotations(root.path, workspace());
+    final scan = await scanWorkspaceAnnotations(root.path, workspace());
 
-      expect(scan.managedScenarioIds, isEmpty);
-      expect(scan.unresolvedManagedRegistrations, 1);
-    },
-    timeout: const Timeout(Duration(minutes: 2)),
-  );
+    expect(scan.managedScenarioIds, isEmpty);
+    expect(scan.unresolvedManagedRegistrations, 1);
+  }, timeout: const Timeout(Duration(minutes: 2)));
 }

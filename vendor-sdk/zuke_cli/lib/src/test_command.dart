@@ -50,6 +50,9 @@ final class TestCommandRunner {
   Future<int> runTests(ArgResults cmd) async {
     final root = cmd['root'] as String? ?? Directory.current.path;
     final workspace = requireCurrentWorkspace(root);
+    if (workspace.data.errors.isNotEmpty) {
+      throw FormatException(workspace.data.errors.join('\n'));
+    }
     final profile = cmd['profile'] as String? ?? 'pullRequest';
     final jsonMode = (cmd['format'] as String? ?? 'text') == 'json';
     final quiet = boolFlag(cmd, 'quiet');
@@ -61,6 +64,15 @@ final class TestCommandRunner {
     );
     final selection = const ScenarioSelector().resolve(workspace, profile);
     final scenarioFilter = selection.scenarioIds;
+    final selectedIds = scenarioFilter.toSet();
+    final selectedExamplesIds = {
+      for (final feature in workspace.data.features)
+        for (final rule in feature.rules)
+          for (final scenario in rule.scenarios)
+            for (final block in scenario.examples)
+              for (final tag in block.tags)
+                if (selectedIds.contains(tag.name)) tag.name,
+    };
     final selectedRequiredEvidence = selection.tagExpression == null
         ? null
         : _requiredEvidenceForSelectedScenarios(workspace, scenarioFilter);
@@ -143,11 +155,19 @@ final class TestCommandRunner {
             selection,
             runnerTarget,
           );
+          final runnerScenarioFilter = scenarioFilter.where(
+            (id) =>
+                !selectedExamplesIds.contains(id) ||
+                expectedRunnerScenarios.contains(id),
+          );
+          final excludedExamplesIds = selectedExamplesIds.difference(
+            expectedRunnerScenarios,
+          );
           final registrationAudit = _auditRunnerRegistrations(
             workspace,
             runner,
             expectedScenarioIds: expectedRunnerScenarios,
-            knownScenarioIds: _allScenarioIds(workspace),
+            knownScenarioIds: _declaredScenarioIds(workspace),
           );
           if (!registrationAudit.passed) {
             throw StateError(
@@ -220,7 +240,7 @@ final class TestCommandRunner {
                   'ZUKE_SOURCE_COMPATIBILITY_ID': runnerSourceCompatibilityId,
                   'ZUKE_RUNNER_COMPATIBILITY_ID': runnerCompatibilityId,
                   if (scenarioFilter.isNotEmpty)
-                    'ZUKE_SCENARIO_FILTER': scenarioFilter.join(','),
+                    'ZUKE_SCENARIO_FILTER': runnerScenarioFilter.join(','),
                   'ZUKE_SELECTION_DIGEST': selection.digest,
                   'FLUTTER_SUPPRESS_ANALYTICS': 'true',
                 },
@@ -271,6 +291,18 @@ final class TestCommandRunner {
               expectedSourceAdapter: runnerSourceAdapter,
               expectedSourceCompatibilityId: runnerSourceCompatibilityId,
             );
+            for (final artifact in runnerArtifacts) {
+              final excluded = [
+                artifact.candidateId,
+                ...artifact.scenarioIds.map((id) => id.value),
+              ].where(excludedExamplesIds.contains).firstOrNull;
+              if (excluded != null) {
+                throw StateError(
+                  'ZK-REGISTRATION-EXECUTION: Runner $runnerId produced '
+                  'Examples case $excluded outside its target $runnerTarget.',
+                );
+              }
+            }
             final configuredEvidenceTypes =
                 ((runner['evidenceTypes'] as List?) ?? const [])
                     .whereType<String>()
@@ -713,14 +745,6 @@ final class TestCommandRunner {
     knownScenarioIds: knownScenarioIds,
   );
 
-  Set<String> _allScenarioIds(WorkspaceDiscoveryResult workspace) => {
-    for (final feature in workspace.data.features)
-      for (final rule in feature.rules)
-        for (final scenario in rule.scenarios)
-          for (final tag in scenario.tags)
-            if (tag.name.startsWith('SCN-')) tag.name,
-  };
-
   Set<String> _selectedScenarioIdsForTarget(
     WorkspaceDiscoveryResult workspace,
     ScenarioSelection selection,
@@ -758,19 +782,20 @@ final class TestCommandRunner {
           // API-only case, merely because sibling scenarios in the same rule
           // have evidence for both targets. Shared cases tagged with both
           // `api` and `ui` remain selected for both targets.
-          if (target == 'backend' &&
-              scenarioTags.contains('ui') &&
-              !scenarioTags.contains('api')) {
-            continue;
+          if (scenarioRunsOnTarget(scenarioTags, target)) {
+            result.addAll(
+              scenario.tags.map((tag) => tag.name).where(selected.contains),
+            );
           }
-          if (target == 'flutter' &&
-              scenarioTags.contains('api') &&
-              !scenarioTags.contains('ui')) {
-            continue;
-          }
-          for (final tag in scenario.tags) {
-            if (tag.name.startsWith('SCN-') && selected.contains(tag.name)) {
-              result.add(tag.name);
+          for (final examples in scenario.examples) {
+            final tags = {
+              ...scenarioTags,
+              ...examples.tags.map((tag) => tag.name.toLowerCase()),
+            };
+            if (scenarioRunsOnTarget(tags, target)) {
+              result.addAll(
+                examples.tags.map((tag) => tag.name).where(selected.contains),
+              );
             }
           }
         }
@@ -888,11 +913,8 @@ final class TestCommandRunner {
     for (final feature in workspace.data.features)
       for (final rule in feature.rules)
         for (final scenario in rule.scenarios)
-          ...[
-            ...scenario.tags.map((tag) => tag.name),
-            for (final examples in scenario.examples)
-              ...examples.tags.map((tag) => tag.name),
-          ].where((tag) => tag.startsWith('SCN-')),
+          for (final tag in scenario.declaredTags)
+            if (tag.name.startsWith('SCN-')) tag.name,
   };
 
   Set<String> _requiredEvidenceForSelectedScenarios(
@@ -904,11 +926,8 @@ final class TestCommandRunner {
     for (final feature in workspace.data.features) {
       for (final rule in feature.rules) {
         final containsSelectedScenario = rule.scenarios.any(
-          (scenario) => [
-            ...scenario.tags.map((tag) => tag.name),
-            for (final examples in scenario.examples)
-              ...examples.tags.map((tag) => tag.name),
-          ].any(selected.contains),
+          (scenario) =>
+              scenario.declaredTags.any((tag) => selected.contains(tag.name)),
         );
         if (containsSelectedScenario) {
           required.addAll(rule.metadata.requiredEvidence ?? const []);

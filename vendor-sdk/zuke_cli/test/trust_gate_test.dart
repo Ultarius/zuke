@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:test/test.dart';
 import 'package:zuke_cli/src/trust_bundle.dart';
 import 'cli_test_helper.dart';
+import 'support/resolved_workspace.dart';
 
 void main() {
   group('Gate command trust eligibility (ZUKE-TRUST-001)', () {
@@ -133,14 +134,7 @@ dependency_overrides:
   zuke_frontend:
     path: '$workspaceRootPath/vendor-sdk/zuke_frontend'
 ''');
-      final pubGet = await Process.run(Platform.resolvedExecutable, [
-        'pub',
-        'get',
-        '--offline',
-      ], workingDirectory: tempDir.path);
-      if (pubGet.exitCode != 0) {
-        throw Exception('pub get failed: ${pubGet.stdout}\n${pubGet.stderr}');
-      }
+      await configureFixturePackages(tempDir);
       Directory('${tempDir.path}/lib').createSync(recursive: true);
 
       final featureDir = Directory('${tempDir.path}/specs/features')

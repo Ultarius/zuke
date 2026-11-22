@@ -1,7 +1,7 @@
 {
   "kind": "zuke.analyzer-index",
-  "contractVersion": 2,
-  "inputDigest": "sha256:1054347cdbcdcc9516c8e4add83161a49fad9334c456494880017d87c88e9a1a",
+  "contractVersion": 3,
+  "inputDigest": "sha256:df19df18d37747dcaa75ed8147851c8954ef01d0a22b97817c13265b421544f5",
   "generatedManifestDigest": "sha256:5282d1e887a3b5186d2fe75d9b4ba8ddf4c3697ba551746ccbfd9503c9e081b2",
   "generatedManifestPath": "lib/src/.zuke-generated.json",
   "inputs": [
@@ -88,6 +88,7 @@
     "specs/registry/retired-ids.yaml"
   ],
   "sourceRoots": [
+    "integration_test",
     "lib",
     "test"
   ],
@@ -236,7 +237,8 @@
       "packageId": "todo-app",
       "evidenceTypes": [
         "gherkin-ui"
-      ]
+      ],
+      "variant": "default"
     },
     {
       "scenarioId": "SCN-TODO-ADD-ITEM",
@@ -245,7 +247,8 @@
       "packageId": "todo-app",
       "evidenceTypes": [
         "gherkin-ui"
-      ]
+      ],
+      "variant": "default"
     },
     {
       "scenarioId": "SCN-TODO-ADD-WHITESPACE",
@@ -254,7 +257,8 @@
       "packageId": "todo-app",
       "evidenceTypes": [
         "gherkin-ui"
-      ]
+      ],
+      "variant": "default"
     },
     {
       "scenarioId": "SCN-TODO-CLEAR-COMPLETED",
@@ -263,7 +267,8 @@
       "packageId": "todo-app",
       "evidenceTypes": [
         "gherkin-ui"
-      ]
+      ],
+      "variant": "default"
     },
     {
       "scenarioId": "SCN-TODO-CLEAR-KEEPS-INCOMPLETE",
@@ -272,7 +277,8 @@
       "packageId": "todo-app",
       "evidenceTypes": [
         "gherkin-ui"
-      ]
+      ],
+      "variant": "default"
     },
     {
       "scenarioId": "SCN-TODO-COMPLETE-COUNT",
@@ -281,7 +287,8 @@
       "packageId": "todo-app",
       "evidenceTypes": [
         "gherkin-ui"
-      ]
+      ],
+      "variant": "default"
     },
     {
       "scenarioId": "SCN-TODO-COMPLETE-ITEM",
@@ -290,7 +297,8 @@
       "packageId": "todo-app",
       "evidenceTypes": [
         "gherkin-ui"
-      ]
+      ],
+      "variant": "default"
     },
     {
       "scenarioId": "SCN-TODO-MULTI-TASKS",
@@ -299,7 +307,8 @@
       "packageId": "todo-app",
       "evidenceTypes": [
         "gherkin-ui"
-      ]
+      ],
+      "variant": "default"
     },
     {
       "scenarioId": "SCN-TODO-TOGGLE-BACK",
@@ -308,7 +317,8 @@
       "packageId": "todo-app",
       "evidenceTypes": [
         "gherkin-ui"
-      ]
+      ],
+      "variant": "default"
     }
   ],
   "unresolvedManagedRegistrations": 0,

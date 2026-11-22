@@ -44,7 +44,7 @@ class ExportedReleaseVerifier {
           diagnostics: ['Export and trust bundle must both be JSON objects'],
         );
       }
-      return verify(
+      return await verify(
         Map<String, Object?>.from(exportValue),
         TrustBundle.fromJson(trustValue),
       );

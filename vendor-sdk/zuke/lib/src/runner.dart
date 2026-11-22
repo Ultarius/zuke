@@ -907,11 +907,19 @@ String? scenarioExampleCaseId(ScenarioExampleCase exampleCase) {
   return 'examples-${exampleCase.examplesIndex + 1}-row-${exampleCase.rowIndex + 1}';
 }
 
-/// Enumerates every executable case for [scenario] in source order.
+/// Enumerates executable cases for [scenario] in source order.
+///
+/// A scenario-level [scenarioId] includes all rows. An Examples-level ID
+/// includes only rows in the block that declares it, with their original case
+/// indexes preserved.
 Iterable<ScenarioExampleCase> scenarioExampleCases(
-  GherkinScenario scenario,
-) sync* {
+  GherkinScenario scenario, {
+  String? scenarioId,
+}) sync* {
+  final allCases =
+      scenarioId == null || scenario.tags.any((tag) => tag.name == scenarioId);
   if (scenario.examples.isEmpty) {
+    if (!allCases) return;
     yield const ScenarioExampleCase(
       examplesIndex: 0,
       rowIndex: 0,
@@ -927,6 +935,9 @@ Iterable<ScenarioExampleCase> scenarioExampleCases(
     examplesIndex++
   ) {
     final examples = scenario.examples[examplesIndex];
+    if (!allCases && !examples.tags.any((tag) => tag.name == scenarioId)) {
+      continue;
+    }
     for (var rowIndex = 0; rowIndex < examples.rows.length; rowIndex++) {
       yield ScenarioExampleCase(
         examplesIndex: examplesIndex,
@@ -1031,7 +1042,10 @@ class ScenarioExecutor<W extends ScenarioWorld> {
   ) async {
     final results = <ScenarioResult>[];
     for (final scenario in rule.scenarios) {
-      for (final exampleCase in scenarioExampleCases(scenario)) {
+      for (final exampleCase in scenarioExampleCases(
+        scenario,
+        scenarioId: candidateId?.value,
+      )) {
         results.add(
           await executeScenario(
             feature,
@@ -1047,30 +1061,85 @@ class ScenarioExecutor<W extends ScenarioWorld> {
     return results;
   }
 
+  /// Executes one case of [scenario].
+  ///
+  /// Unless both indexes are given, those that are must identify exactly one
+  /// case for [candidateId]. Anything broader throws instead of reporting a
+  /// pass for only one row: use [executeRule], or iterate
+  /// [scenarioExampleCases] and pass both indexes.
   Future<ScenarioResult> executeScenario(
     ParsedFeature feature,
     ParsedRule rule,
     GherkinScenario scenario,
     W Function() worldFactory, {
-    int rowIndex = 0,
-    int examplesIndex = 0,
+    int? rowIndex,
+    int? examplesIndex,
   }) async {
-    final exampleCase = scenarioExampleCaseAt(
-      scenario,
-      examplesIndex: examplesIndex,
-      rowIndex: rowIndex,
-    );
+    final ScenarioExampleCase exampleCase;
+    if (rowIndex != null && examplesIndex != null) {
+      exampleCase = scenarioExampleCaseAt(
+        scenario,
+        examplesIndex: examplesIndex,
+        rowIndex: rowIndex,
+      );
+    } else {
+      final cases =
+          scenarioExampleCases(scenario, scenarioId: candidateId?.value)
+              .where(
+                (candidate) =>
+                    (rowIndex == null || candidate.rowIndex == rowIndex) &&
+                    (examplesIndex == null ||
+                        candidate.examplesIndex == examplesIndex),
+              )
+              .toList(growable: false);
+      if (cases.length > 1) {
+        throw ArgumentError(
+          'Scenario "${scenario.scenarioElement.title}" has ${cases.length} '
+          'matching Examples cases. Use executeRule, or pass rowIndex and '
+          'examplesIndex for each case from scenarioExampleCases.',
+        );
+      }
+      // No match falls through to the range and candidate checks, which name
+      // the index that was wrong.
+      exampleCase = cases.isEmpty
+          ? scenarioExampleCaseAt(
+              scenario,
+              examplesIndex: examplesIndex ?? 0,
+              rowIndex: rowIndex ?? 0,
+            )
+          : cases.single;
+    }
+    final selectedExamplesIndex = exampleCase.examplesIndex;
+    final selectedRowIndex = exampleCase.rowIndex;
     final examples = scenario.examples;
-    final selectedExamples = examples.isEmpty ? null : examples[examplesIndex];
+    final selectedExamples = examples.isEmpty
+        ? null
+        : examples[selectedExamplesIndex];
+    final id = candidateId?.value;
+    if (id != null &&
+        !scenario.tags.any((tag) => tag.name == id) &&
+        !(selectedExamples?.tags.any((tag) => tag.name == id) ?? false)) {
+      throw ArgumentError(
+        'Scenario ID "$id" does not apply to the selected case.',
+      );
+    }
+    final rowCaseId = scenarioExampleCaseId(exampleCase);
+    if (rowCaseId != null && caseId != null && caseId != rowCaseId) {
+      throw ArgumentError.value(
+        caseId,
+        'caseId',
+        'Expected "$rowCaseId" for the selected row',
+      );
+    }
     final row = exampleCase.values;
     final executionId = _executionId(
       feature,
       rule,
       scenario,
       row,
-      selectedExamples?.title,
-      examplesIndex,
-      rowIndex,
+      selectedExamples,
+      selectedExamplesIndex,
+      selectedRowIndex,
     );
     final requirementId =
         rule.metadata.id ??
@@ -1090,7 +1159,7 @@ class ScenarioExecutor<W extends ScenarioWorld> {
       target: target,
       variant: variant,
       candidateId: candidateId?.value ?? executionId,
-      caseId: caseId,
+      caseId: rowCaseId ?? caseId,
       profile: profile,
       runnerId: runnerId ?? 'zuke-runner',
       runnerCompatibilityId: runnerCompatibilityId ?? 'zuke-runner-scenario-v1',
@@ -1158,7 +1227,7 @@ class ScenarioExecutor<W extends ScenarioWorld> {
     ParsedRule rule,
     GherkinScenario scenario,
     Map<String, String> row,
-    String? examplesTitle,
+    GherkinExamples? examples,
     int examplesIndex,
     int rowIndex,
   ) {
@@ -1178,11 +1247,20 @@ class ScenarioExecutor<W extends ScenarioWorld> {
     final digestIdentity = stableDigests
         .map((entry) => '${entry.key}=${entry.value}')
         .join('&');
+    final id = candidateId?.value;
+    // The outline and an Examples contract can publish the same row. Scope the
+    // latter to its own ID while preserving existing outline execution IDs.
+    final examplesIdentity =
+        id != null &&
+            examples != null &&
+            examples.tags.any((tag) => tag.name == id)
+        ? '\x00$id'
+        : '';
     final input =
         '$stableFeature\x00$stableRule\x00$stableScenario\x00'
-        '${examplesTitle ?? ''}\x00$examplesIndex\x00$rowIndex\x00'
+        '${examples?.title ?? ''}\x00$examplesIndex\x00$rowIndex\x00'
         '$rowIdentity\x00$profile\x00$target\x00$variant\x00'
-        '$digestIdentity';
+        '$digestIdentity$examplesIdentity';
     return sha256DigestHex(utf8.encode(input));
   }
 
@@ -1197,6 +1275,10 @@ class ScenarioExecutor<W extends ScenarioWorld> {
       text: replace(step.text),
       source: step.source,
       docString: step.docString == null ? null : replace(step.docString!),
+      docStringMediaType: step.docStringMediaType == null
+          ? null
+          : replace(step.docStringMediaType!),
+      docStringIndent: step.docStringIndent,
       table: step.table.map((r) => r.map(replace).toList()).toList(),
     );
   }

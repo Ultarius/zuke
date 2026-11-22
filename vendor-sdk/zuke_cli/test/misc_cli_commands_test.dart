@@ -7,6 +7,16 @@ import 'cli_test_helper.dart';
 import 'package:zuke_cli/src/generated/release_contract.dart';
 
 void main() {
+  test('affected reports an invalid workspace as a CLI error', () async {
+    final root = Directory.systemTemp.createTempSync('zuke-invalid-workspace-');
+    addTearDown(() => root.deleteSync(recursive: true));
+
+    final result = await runInProcessCli(['affected', '--root', root.path]);
+
+    expect(result.exitCode, 2);
+    expect(result.stderr, contains('zuke.yaml not found'));
+  });
+
   group('Misc CLI Commands', () {
     late Directory root;
 

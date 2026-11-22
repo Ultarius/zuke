@@ -1,1 +1,6 @@
+analyzer:
+  exclude:
+    - build/**
+    - ios/**
+    - web/**
 include: ../../analysis_options.flutter.yaml

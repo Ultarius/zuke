@@ -38,7 +38,7 @@ jobs:
           dart --suppress-analytics run zuke_cli:zuke certify hosted
           --platform ${{ matrix.platform }}
           --host ${{ matrix.host }}
-          --flutter-version 3.44.8
+          --flutter-version 3.47.9
           --output generated/hosted-consumer-certification-${{ matrix.host }}-${{ matrix.platform }}.json
       - name: Upload hosted consumer result
         if: always()

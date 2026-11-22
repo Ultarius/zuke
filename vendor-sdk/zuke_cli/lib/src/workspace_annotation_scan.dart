@@ -12,6 +12,7 @@ import 'package:path/path.dart' as p;
 import 'package:zuke_frontend/zuke_frontend.dart';
 
 import 'annotation_claim.dart';
+import 'proof_engine/binding_coverage_engine.dart' show defaultSlotVariant;
 import 'requirement_scopes.dart';
 import 'tooling/analyzer_sdk.dart';
 import 'tooling/inspection.dart';
@@ -50,17 +51,23 @@ final class ManagedScenarioClaim {
   /// empty list.
   final List<String>? evidenceTypes;
 
+  /// The variant this registration's evidence is recorded under, or null when
+  /// a harness declares one that cannot be read as a constant.
+  final String? variant;
+
   const ManagedScenarioClaim({
     required this.scenarioId,
     required this.sourcePath,
     this.target,
     this.packageId,
     this.evidenceTypes,
+    this.variant = defaultSlotVariant,
   });
 
   @override
   String toString() =>
-      'ManagedScenarioClaim($scenarioId @ $sourcePath -> $target/$packageId, '
+      'ManagedScenarioClaim($scenarioId @ $sourcePath -> '
+      '$target/$packageId/${variant ?? '<unknown>'}, '
       '${evidenceTypes ?? '<unknown>'})';
 }
 
@@ -123,11 +130,24 @@ Future<WorkspaceAnnotationScan> scanWorkspaceAnnotations(
       normalize(entry.key): entry.value,
   };
   final generated = {...generatedPaths.map(normalize), ...pending.keys};
-  final sources = packageDartFiles(
+  final claimSources = packageDartFiles(
     root,
     workspace,
     pendingContent: pending,
   ).where((file) => !generated.contains(file.path)).toList();
+  final claimSourcePaths = {for (final file in claimSources) file.path};
+  // A runner executes tests outside the extraction roots too. Those files count
+  // for registrations, but an annotation there is not an implementation claim.
+  final registrationOnlySources = runnerRegistrationDartFiles(root, workspace)
+      .map((file) => File(normalize(file.path)))
+      .where(
+        (file) =>
+            !generated.contains(file.path) &&
+            !claimSourcePaths.contains(file.path),
+      )
+      .toList();
+  final sources = [...claimSources, ...registrationOnlySources]
+    ..sort((left, right) => left.path.compareTo(right.path));
   final sourcePaths = sources.map((file) => file.path).toList();
   final inputs = sourcePaths.toSet();
   final claims = <ImplementationClaim>[];
@@ -216,7 +236,7 @@ Future<WorkspaceAnnotationScan> scanWorkspaceAnnotations(
         sourcePath,
         targetForWorkspacePath(packageTargets, sourcePath),
         packageIdForWorkspacePath(packageIds, sourcePath),
-        claims,
+        claimSourcePaths.contains(file.path) ? claims : <ImplementationClaim>[],
         managedScenarios,
       );
       result.unit.accept(collector);
@@ -260,10 +280,25 @@ final class _StepHarnessDeclaration {
 /// that happens to take a `defaultEvidenceTypes` argument is not a harness this
 /// scan knows how to attribute.
 final class _EvidenceHarnessDeclaration {
-  _EvidenceHarnessDeclaration({required this.node, required this.defaults});
+  _EvidenceHarnessDeclaration({
+    required this.node,
+    required this.defaults,
+    required this.variant,
+  });
 
   final InstanceCreationExpression node;
   final ConstantStringsArgument defaults;
+
+  /// The harness's `variant`, which it stamps on every record it emits.
+  final ConstantStringsArgument variant;
+
+  /// The variant its cases publish, or null when it cannot be read.
+  String? get resolvedVariant => switch (variant.state) {
+    ConstantArgumentState.absent => defaultSlotVariant,
+    ConstantArgumentState.readable =>
+      variant.values!.length == 1 ? variant.values!.single : null,
+    ConstantArgumentState.unreadable => null,
+  };
 }
 
 /// A `FlutterEvidenceCase` construction.
@@ -457,6 +492,10 @@ class _ClaimCollector extends RecursiveAstVisitor<void> {
             node.argumentList.arguments,
             'defaultEvidenceTypes',
           ),
+          variant: constantStringsArgument(
+            node.argumentList.arguments,
+            'variant',
+          ),
         );
       case 'FlutterEvidenceCase':
         _cases[node] = _EvidenceCaseDeclaration(
@@ -533,7 +572,11 @@ class _ClaimCollector extends RecursiveAstVisitor<void> {
           ConstantArgumentState.unreadable => null,
           ConstantArgumentState.absent => inherited,
         };
-        _recordScenarioArgument(declaration.scenarioArgument, kinds);
+        _recordScenarioArgument(
+          declaration.scenarioArgument,
+          kinds,
+          variant: harness.resolvedVariant,
+        );
       }
     }
   }
@@ -633,10 +676,11 @@ class _ClaimCollector extends RecursiveAstVisitor<void> {
   /// harness declaration already carries it from the walk.
   void _recordScenarioArgument(
     Expression? expression,
-    List<String>? evidenceTypes,
-  ) {
+    List<String>? evidenceTypes, {
+    String? variant = defaultSlotVariant,
+  }) {
     if (expression == null ||
-        !_registerScenarioExpression(expression, evidenceTypes)) {
+        !_registerScenarioExpression(expression, evidenceTypes, variant)) {
       // A registration that names no scenario is unresolved, not coverage.
       unresolvedRegistrations += 1;
     }
@@ -645,12 +689,13 @@ class _ClaimCollector extends RecursiveAstVisitor<void> {
   bool _registerScenarioExpression(
     Expression expression,
     List<String>? evidenceTypes,
+    String? variant,
   ) {
     if (expression is ListLiteral) {
       var complete = expression.elements.isNotEmpty;
       for (final element in expression.elements) {
         if (element is! Expression ||
-            !_registerScenarioExpression(element, evidenceTypes)) {
+            !_registerScenarioExpression(element, evidenceTypes, variant)) {
           complete = false;
         }
       }
@@ -675,16 +720,20 @@ class _ClaimCollector extends RecursiveAstVisitor<void> {
     if (items != null) {
       var complete = items.isNotEmpty;
       for (final item in items) {
-        if (!_registerScenarioId(_scenarioIdOf(item), evidenceTypes)) {
+        if (!_registerScenarioId(_scenarioIdOf(item), evidenceTypes, variant)) {
           complete = false;
         }
       }
       return complete;
     }
-    return _registerScenarioId(_scenarioIdOf(value), evidenceTypes);
+    return _registerScenarioId(_scenarioIdOf(value), evidenceTypes, variant);
   }
 
-  bool _registerScenarioId(String? scenarioId, List<String>? evidenceTypes) {
+  bool _registerScenarioId(
+    String? scenarioId,
+    List<String>? evidenceTypes,
+    String? variant,
+  ) {
     if (scenarioId == null) return false;
     // Appended, never merged. Deduplicating by scenario here would combine two
     // registrations into one claim and attribute one's kinds to the other's
@@ -699,6 +748,7 @@ class _ClaimCollector extends RecursiveAstVisitor<void> {
         evidenceTypes: evidenceTypes == null
             ? null
             : List.unmodifiable(evidenceTypes.toSet().toList()..sort()),
+        variant: variant,
       ),
     );
     return true;

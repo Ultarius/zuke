@@ -324,11 +324,9 @@ Feature: Freshness
       // Guards the premise of the assertions below: with no recorded pattern
       // inventory there is nothing to compare, and the test would pass whatever
       // the walker did.
-      expect(
-        index.patternInputs,
-        {'specs/features/f.feature'},
-        reason: 'the specification inventory must actually be recorded',
-      );
+      expect(index.patternInputs, {
+        'specs/features/f.feature',
+      }, reason: 'the specification inventory must actually be recorded');
 
       final issues = index.freshnessIssues(root: alias);
       expect(

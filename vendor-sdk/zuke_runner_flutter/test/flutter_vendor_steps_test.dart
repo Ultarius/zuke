@@ -109,89 +109,227 @@ final class _Scenario implements ZukeScenarioContract {
   Set<ControlId> get controlIds => const {};
 }
 
+List<SuiteResult> _suiteResults(Directory directory) => [
+  for (final file in directory.listSync().whereType<File>())
+    SuiteResult.fromJson(
+      jsonDecode(file.readAsStringSync()) as Map<String, Object?>,
+    ),
+];
+
 void main() {
-  final evidenceDirectory = Directory.systemTemp.createTempSync(
-    'zuke_flutter_evidence_',
+  final testDirectory = Directory.systemTemp.createTempSync(
+    'zuke_flutter_vendor_steps_',
   );
-  final filteredEvidenceDirectory = Directory.systemTemp.createTempSync(
-    'zuke_flutter_evidence_filtered_',
+  final evidenceDirectory = Directory.fromUri(
+    testDirectory.uri.resolve('evidence/'),
   );
-  final harnessResultDirectory = Directory.systemTemp.createTempSync(
-    'zuke_flutter_harness_',
+  final filteredEvidenceDirectory = Directory.fromUri(
+    testDirectory.uri.resolve('filtered/'),
   );
-  final evidenceHarness = ZukeFlutterEvidenceHarness(
-    runnerCompatibilityId: 'runner-compatibility-v1',
-    defaultEvidenceTypes: const ['flutter-widget', 'gherkin-ui'],
-    outputDirectory: evidenceDirectory.path,
-    sourceIdentity: _testSourceIdentity,
-    environment: {
-      'ZUKE_RESULT_DIR': evidenceDirectory.path,
-      'ZUKE_PROFILE': 'merge',
-      'ZUKE_TARGET': 'flutter',
-      'ZUKE_RUNNER_ID': 'flutter-harness-test',
-      'ZUKE_RUNNER_COMPATIBILITY_ID': 'runner-compatibility-v1',
-      'ZUKE_SOURCE_PACKAGE': _testSourceIdentity.sourcePackage,
-      'ZUKE_SOURCE_ADAPTER': _testSourceIdentity.sourceAdapter,
-      'ZUKE_SOURCE_COMPATIBILITY_ID': _testSourceIdentity.sourceCompatibilityId,
-    },
+  final rowEvidenceDirectory = Directory.fromUri(
+    testDirectory.uri.resolve('rows/'),
   );
-  evidenceHarness.registerAll([
-    FlutterEvidenceCase(
-      scenario: const _Scenario(
+  final harnessResultDirectory = Directory.fromUri(
+    testDirectory.uri.resolve('gherkin/'),
+  );
+  tearDownAll(() => deleteTemporaryDirectory(testDirectory));
+
+  group(
+    'evidence harness writes default and deduplicated override results',
+    () {
+      const defaultScenario = _Scenario(
         id: ScenarioId('SCN-EVIDENCE-DEFAULT'),
         requirementId: RuleId('RULE-EVIDENCE-001'),
         title: 'Publishes default evidence',
-      ),
-      body: (_) => 'default observation',
-    ),
-    FlutterEvidenceCase(
-      scenario: const _Scenario(
+      );
+      const overrideScenario = _Scenario(
         id: ScenarioId('SCN-EVIDENCE-OVERRIDE'),
         requirementId: RuleId('RULE-EVIDENCE-001'),
         title: 'Publishes overridden evidence',
-      ),
-      evidenceTypes: const [
-        'accessibility-integration',
-        'accessibility-integration',
-      ],
-      body: (_) => 'override observation',
-    ),
-  ]);
+      );
 
-  ZukeFlutterEvidenceHarness(
-    runnerCompatibilityId: 'runner-compatibility-v1',
-    defaultEvidenceTypes: const ['flutter-widget'],
-    outputDirectory: filteredEvidenceDirectory.path,
-    sourceIdentity: _testSourceIdentity,
-    environment: {
-      'ZUKE_RESULT_DIR': filteredEvidenceDirectory.path,
-      'ZUKE_PROFILE': 'merge',
-      'ZUKE_TARGET': 'flutter',
-      'ZUKE_SCENARIO_FILTER': 'SCN-EVIDENCE-SELECTED',
-      'ZUKE_RUNNER_ID': 'filtered-harness-test',
-      'ZUKE_RUNNER_COMPATIBILITY_ID': 'runner-compatibility-v1',
-      'ZUKE_SOURCE_PACKAGE': _testSourceIdentity.sourcePackage,
-      'ZUKE_SOURCE_ADAPTER': _testSourceIdentity.sourceAdapter,
-      'ZUKE_SOURCE_COMPATIBILITY_ID': _testSourceIdentity.sourceCompatibilityId,
+      void expectEvidence(_Scenario scenario, List<String> types) {
+        final results = _suiteResults(
+          evidenceDirectory,
+        ).where((result) => result.candidateId == scenario.id.value);
+        expect(
+          results.map((result) => result.evidenceType),
+          unorderedEquals(types),
+        );
+        for (final result in results) {
+          expect(result.runnerId, 'flutter-harness-test');
+          expect(result.profile, 'merge');
+        }
+      }
+
+      ZukeFlutterEvidenceHarness(
+        runnerCompatibilityId: 'runner-compatibility-v1',
+        defaultEvidenceTypes: const ['flutter-widget', 'gherkin-ui'],
+        outputDirectory: evidenceDirectory.path,
+        sourceIdentity: _testSourceIdentity,
+        environment: {
+          'ZUKE_RESULT_DIR': evidenceDirectory.path,
+          'ZUKE_PROFILE': 'merge',
+          'ZUKE_TARGET': 'flutter',
+          'ZUKE_RUNNER_ID': 'flutter-harness-test',
+          'ZUKE_RUNNER_COMPATIBILITY_ID': 'runner-compatibility-v1',
+          'ZUKE_SOURCE_PACKAGE': _testSourceIdentity.sourcePackage,
+          'ZUKE_SOURCE_ADAPTER': _testSourceIdentity.sourceAdapter,
+          'ZUKE_SOURCE_COMPATIBILITY_ID':
+              _testSourceIdentity.sourceCompatibilityId,
+        },
+      ).registerAll([
+        FlutterEvidenceCase(
+          scenario: defaultScenario,
+          body: (_) {
+            addTearDown(
+              () => expectEvidence(defaultScenario, [
+                'flutter-widget',
+                'gherkin-ui',
+              ]),
+            );
+            return 'default observation';
+          },
+        ),
+        FlutterEvidenceCase(
+          scenario: overrideScenario,
+          evidenceTypes: const [
+            'accessibility-integration',
+            'accessibility-integration',
+          ],
+          body: (_) {
+            addTearDown(
+              () => expectEvidence(overrideScenario, [
+                'accessibility-integration',
+              ]),
+            );
+            return 'override observation';
+          },
+        ),
+      ]);
     },
-  ).registerAll([
-    FlutterEvidenceCase(
-      scenario: const _Scenario(
-        id: ScenarioId('SCN-EVIDENCE-SELECTED'),
-        requirementId: RuleId('RULE-EVIDENCE-001'),
-        title: 'Selected evidence',
+  );
+
+  // The rows are widget tests that write the records, so the check runs once
+  // they finish and compares against the rows that actually ran. That keeps it
+  // valid when the group, or a single row, is selected by name.
+  group('evidence harness publishes one record per Examples row', () {
+    final observedRows = <String>[];
+    const scenario = _Scenario(
+      id: ScenarioId('SCN-EVIDENCE-ROWS'),
+      requirementId: RuleId('RULE-EVIDENCE-001'),
+      title: 'Row evidence',
+    );
+
+    String observeRow(String caseId) {
+      observedRows.add(caseId);
+      return 'observation for $caseId';
+    }
+
+    ZukeFlutterEvidenceHarness(
+      runnerCompatibilityId: 'runner-compatibility-v1',
+      defaultEvidenceTypes: const ['flutter-widget'],
+      outputDirectory: rowEvidenceDirectory.path,
+      sourceIdentity: _testSourceIdentity,
+      environment: {
+        'ZUKE_RESULT_DIR': rowEvidenceDirectory.path,
+        'ZUKE_PROFILE': 'merge',
+        'ZUKE_TARGET': 'flutter',
+        'ZUKE_RUNNER_ID': 'row-harness-test',
+        'ZUKE_RUNNER_COMPATIBILITY_ID': 'runner-compatibility-v1',
+        'ZUKE_SOURCE_PACKAGE': _testSourceIdentity.sourcePackage,
+        'ZUKE_SOURCE_ADAPTER': _testSourceIdentity.sourceAdapter,
+        'ZUKE_SOURCE_COMPATIBILITY_ID':
+            _testSourceIdentity.sourceCompatibilityId,
+      },
+    ).registerAll([
+      FlutterEvidenceCase(
+        scenario: scenario,
+        caseId: 'examples-1-row-1',
+        body: (_) => observeRow('examples-1-row-1'),
       ),
-      body: (_) => 'selected observation',
-    ),
-    FlutterEvidenceCase(
-      scenario: const _Scenario(
-        id: ScenarioId('SCN-EVIDENCE-EXCLUDED'),
-        requirementId: RuleId('RULE-EVIDENCE-001'),
-        title: 'Excluded evidence',
+      FlutterEvidenceCase(
+        scenario: scenario,
+        caseId: 'examples-1-row-2',
+        body: (_) => observeRow('examples-1-row-2'),
       ),
-      body: (_) => 'excluded observation',
-    ),
-  ]);
+    ]);
+
+    tearDownAll(() {
+      final recordedRows = _suiteResults(
+        rowEvidenceDirectory,
+      ).map((result) => result.caseId);
+      expect(observedRows, isNotEmpty);
+      expect(recordedRows, unorderedEquals(observedRows));
+    });
+  });
+
+  group('evidence harness filters registration and rejects empty types', () {
+    ZukeFlutterEvidenceHarness(
+      runnerCompatibilityId: 'runner-compatibility-v1',
+      defaultEvidenceTypes: const ['flutter-widget'],
+      outputDirectory: filteredEvidenceDirectory.path,
+      sourceIdentity: _testSourceIdentity,
+      environment: {
+        'ZUKE_RESULT_DIR': filteredEvidenceDirectory.path,
+        'ZUKE_PROFILE': 'merge',
+        'ZUKE_TARGET': 'flutter',
+        'ZUKE_SCENARIO_FILTER': 'SCN-EVIDENCE-SELECTED',
+        'ZUKE_RUNNER_ID': 'filtered-harness-test',
+        'ZUKE_RUNNER_COMPATIBILITY_ID': 'runner-compatibility-v1',
+        'ZUKE_SOURCE_PACKAGE': _testSourceIdentity.sourcePackage,
+        'ZUKE_SOURCE_ADAPTER': _testSourceIdentity.sourceAdapter,
+        'ZUKE_SOURCE_COMPATIBILITY_ID':
+            _testSourceIdentity.sourceCompatibilityId,
+      },
+    ).registerAll([
+      FlutterEvidenceCase(
+        scenario: const _Scenario(
+          id: ScenarioId('SCN-EVIDENCE-SELECTED'),
+          requirementId: RuleId('RULE-EVIDENCE-001'),
+          title: 'Selected evidence',
+        ),
+        body: (_) {
+          addTearDown(() {
+            final result = _suiteResults(filteredEvidenceDirectory).single;
+            expect(result.candidateId, 'SCN-EVIDENCE-SELECTED');
+          });
+          return 'selected observation';
+        },
+      ),
+      FlutterEvidenceCase(
+        scenario: const _Scenario(
+          id: ScenarioId('SCN-EVIDENCE-EXCLUDED'),
+          requirementId: RuleId('RULE-EVIDENCE-001'),
+          title: 'Excluded evidence',
+        ),
+        body: (_) => fail('The excluded scenario ran.'),
+      ),
+    ]);
+
+    test('empty evidence types throw', () {
+      final emptyHarness = ZukeFlutterEvidenceHarness(
+        runnerCompatibilityId: 'runner-compatibility-v1',
+        defaultEvidenceTypes: const [],
+        outputDirectory: filteredEvidenceDirectory.path,
+        environment: const {},
+        sourceIdentity: _testSourceIdentity,
+      );
+      expect(
+        () => emptyHarness.registerAll([
+          FlutterEvidenceCase(
+            scenario: const _Scenario(
+              id: ScenarioId('SCN-EVIDENCE-EMPTY'),
+              requirementId: RuleId('RULE-EVIDENCE-001'),
+              title: 'Empty evidence types',
+            ),
+            body: (_) => 'never emitted',
+          ),
+        ]),
+        throwsArgumentError,
+      );
+    });
+  });
 
   test('scenario filtering treats empty as all and trims IDs', () {
     expect(scenarioFilterFromEnvironment(const {}), isEmpty);
@@ -214,56 +352,6 @@ void main() {
     expect(find.text('vendor root'), findsOneWidget);
     await driver.captureScreenshot(world, 'capture');
     await expectLater(driver.captureScreenshot(world, ''), throwsArgumentError);
-  });
-
-  test('evidence harness writes default and deduplicated override results', () {
-    final files = evidenceDirectory.listSync().whereType<File>().toList();
-    expect(files, hasLength(3));
-    final contents = files.map((file) => file.readAsStringSync()).join('\n');
-    expect(contents, contains('flutter-harness-test'));
-    expect(contents, contains('"profile": "merge"'));
-    final evidenceTypes = files
-        .map(
-          (file) =>
-              (jsonDecode(file.readAsStringSync()) as Map)['evidenceType']
-                  as String,
-        )
-        .toList();
-    expect(evidenceTypes, containsAll(['flutter-widget', 'gherkin-ui']));
-    expect(
-      evidenceTypes.where((type) => type == 'accessibility-integration'),
-      hasLength(1),
-    );
-  });
-
-  test('evidence harness filters registration and rejects empty types', () {
-    final files = filteredEvidenceDirectory
-        .listSync()
-        .whereType<File>()
-        .toList();
-    expect(files, hasLength(1));
-    expect(files.single.readAsStringSync(), contains('SCN-EVIDENCE-SELECTED'));
-
-    final emptyHarness = ZukeFlutterEvidenceHarness(
-      runnerCompatibilityId: 'runner-compatibility-v1',
-      defaultEvidenceTypes: const [],
-      outputDirectory: filteredEvidenceDirectory.path,
-      environment: const {},
-      sourceIdentity: _testSourceIdentity,
-    );
-    expect(
-      () => emptyHarness.registerAll([
-        FlutterEvidenceCase(
-          scenario: const _Scenario(
-            id: ScenarioId('SCN-EVIDENCE-EMPTY'),
-            requirementId: RuleId('RULE-EVIDENCE-001'),
-            title: 'Empty evidence types',
-          ),
-          body: (_) => 'never emitted',
-        ),
-      ]),
-      throwsArgumentError,
-    );
   });
 
   testWidgets('vendor Flutter steps use only project-provided binding lookup', (
@@ -637,6 +725,7 @@ Feature: Harness Feature
         | one   |
         | two   |
 
+      @SCN-H-SECOND
       Examples: second values
         | value |
         | three |
@@ -647,68 +736,71 @@ Feature: Harness Feature
       .features
       .first;
 
-  ZukeFlutterHarness<_World>(
-    feature: harnessFeature,
-    scenarios: [
-      _TestScenarioContract(
-        id: ScenarioId('SCN-H-001'),
-        title: 'Harness Scenario',
-        requirementId: RuleId('RULE-H-001'),
-        controlIds: {ControlId('CTRL-H-001')},
-      ),
-    ],
-    registryFactory: () => StepRegistry<_World>()
-      ..register(
-        StepDefinition.cucumber(
-          expression: CucumberExpression(
-            'a step {string}',
-            StepParameterTypeRegistry.standard(),
-          ),
-          tier: StepTier.project,
-          target: 'flutter',
-          action: (world, step, values) async {
-            harnessRows.add(values.single as String);
-          },
+  // Grouped so these checks only run when the harness cases were selected.
+  group('harness runs every Examples row', () {
+    ZukeFlutterHarness<_World>(
+      feature: harnessFeature,
+      scenarios: [
+        _TestScenarioContract(
+          id: ScenarioId('SCN-H-001'),
+          title: 'Harness Scenario',
+          requirementId: RuleId('RULE-H-001'),
+          controlIds: {ControlId('CTRL-H-001')},
         ),
-      ),
-    worldFactory: (tester) async => _World(tester),
-    runnerId: 'test-runner',
-    runnerCompatibilityId: 'test-runner-v1',
-    resultDirectory: harnessResultDirectory.path,
-    sourceIdentity: _testSourceIdentity,
-  ).registerAll();
+        _TestScenarioContract(
+          id: ScenarioId('SCN-H-SECOND'),
+          title: 'Harness Scenario',
+          requirementId: RuleId('RULE-H-001'),
+          controlIds: {ControlId('CTRL-H-001')},
+        ),
+      ],
+      registryFactory: () => StepRegistry<_World>()
+        ..register(
+          StepDefinition.cucumber(
+            expression: CucumberExpression(
+              'a step {string}',
+              StepParameterTypeRegistry.standard(),
+            ),
+            tier: StepTier.project,
+            target: 'flutter',
+            action: (world, step, values) async {
+              harnessRows.add(values.single as String);
+            },
+          ),
+        ),
+      worldFactory: (tester) async => _World(tester),
+      runnerId: 'test-runner',
+      runnerCompatibilityId: 'test-runner-v1',
+      resultDirectory: harnessResultDirectory.path,
+      sourceIdentity: _testSourceIdentity,
+    ).registerAll();
 
-  tearDownAll(() async {
-    try {
+    tearDownAll(() {
       expect(harnessRows, {'one', 'two', 'three'});
       final files = harnessResultDirectory
           .listSync()
           .whereType<File>()
           .where((file) => file.path.contains('scenario-'))
           .toList();
-      expect(files, hasLength(3));
-      final executionIds = files
-          .map(
-            (file) =>
-                (jsonDecode(file.readAsStringSync()) as Map)['executionId'],
-          )
-          .toSet();
-      expect(executionIds, hasLength(3));
-      final caseIds = files
-          .map((file) => (jsonDecode(file.readAsStringSync()) as Map)['caseId'])
-          .toSet();
+      final results = files.map(
+        (file) => jsonDecode(file.readAsStringSync()) as Map<String, Object?>,
+      );
+      expect(results, hasLength(4));
+      expect(
+        results.map((result) => result['executionId']).toSet(),
+        hasLength(4),
+      );
+      final caseIds = results.map((result) => result['caseId']).toSet();
       expect(caseIds, {
         'examples-1-row-1',
         'examples-1-row-2',
         'examples-2-row-1',
       });
-    } finally {
-      await Future.wait([
-        deleteTemporaryDirectory(evidenceDirectory),
-        deleteTemporaryDirectory(filteredEvidenceDirectory),
-        deleteTemporaryDirectory(harnessResultDirectory),
-      ]);
-    }
+      final secondBlock = results.singleWhere(
+        (result) => result['candidateId'] == 'SCN-H-SECOND',
+      );
+      expect(secondBlock['caseId'], 'examples-2-row-1');
+    });
   });
 }
 

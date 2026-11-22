@@ -718,7 +718,7 @@
     {
       "code": "ZUKE-ID-008",
       "severity": "error",
-      "summary": "A governed identifier has an invalid scope."
+      "summary": "A scenario or its Examples blocks have missing or ambiguous scenario IDs."
     },
     {
       "code": "ZUKE-ID-009",
@@ -1256,6 +1256,16 @@
       "summary": "A registration caseId is not statically resolvable."
     },
     {
+      "code": "ZK-REGISTRATION-CASE-MISSING",
+      "severity": "error",
+      "summary": "A configured Examples row has no managed registration for its scenario and target."
+    },
+    {
+      "code": "ZK-REGISTRATION-CASE-UNKNOWN",
+      "severity": "error",
+      "summary": "A registration case ID does not identify an Examples row of its scenario."
+    },
+    {
       "code": "ZK-REGISTRATION-CONTROLS-BLANKET",
       "severity": "error",
       "summary": "A registration claims controls without explicit assertion support."
@@ -1320,9 +1330,9 @@
     {
       "code": "ZK-REGISTRATION-SCENARIO-IDENTITY",
       "severity": "error",
-      "summary": "A configured scenario does not have exactly one scenario identity tag.",
+      "summary": "A scenario or its Examples blocks have missing or ambiguous scenario IDs.",
       "owner": "project",
-      "remediation": "Give each scenario exactly one SCN- tag."
+      "remediation": "Declare one SCN- tag on the scenario or one on each Examples block."
     },
     {
       "code": "ZK-REGISTRATION-UNKNOWN-SCENARIO",

@@ -285,11 +285,7 @@ class DartContractGenerator {
         final scenarios = <_GeneratedScenario>[];
         final seenIds = <String>{};
         for (final scenario in rule.scenarios) {
-          final tags = <GherkinTag>[
-            ...scenario.tags,
-            for (final examples in scenario.examples) ...examples.tags,
-          ];
-          for (final tag in tags) {
+          for (final tag in scenario.declaredTags) {
             if (tag.name.toUpperCase().startsWith('SCN-') &&
                 !_isCanonicalScenarioId(tag.name)) {
               errors.add(

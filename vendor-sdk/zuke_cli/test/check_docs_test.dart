@@ -52,6 +52,18 @@ void main() {
     expect(failures, contains('retired reference `spec_runtime`'));
   });
 
+  test('rejects a dependency floor below the coordinated release', () {
+    File('${root.path}/vendor-sdk/zuke_cli/pubspec.yaml').writeAsStringSync(
+      'name: zuke_cli\nversion: 0.4.0\nresolution: workspace\n'
+      'dependencies:\n  zuke_frontend: ^0.1.1\n',
+    );
+
+    expect(
+      DocumentationChecker(root).check().join('\n'),
+      contains('zuke_frontend must be constrained to ^0.2.0'),
+    );
+  });
+
   test('rejects unclassified Dart fences and source drift', () {
     File(
       '${root.path}/docs/integration-guide.md',
@@ -109,19 +121,22 @@ void main() {
     expect(DocumentationChecker(root).check(), isEmpty);
   });
 
-  test('rejects versioned current artifact discriminators in active libraries', () {
-    final fixture = File('${root.path}/vendor-sdk/zuke_core/lib/src/current.dart')
-      ..parent.createSync(recursive: true)
-      ..writeAsStringSync(
-        "Map<String, Object?> toJson() => {'schemaVersion': 'zuke.current.v1'};\n",
-      );
+  test(
+    'rejects versioned current artifact discriminators in active libraries',
+    () {
+      final fixture = File('${root.path}/vendor-sdk/zuke_core/lib/src/current.dart')
+        ..parent.createSync(recursive: true)
+        ..writeAsStringSync(
+          "Map<String, Object?> toJson() => {'schemaVersion': 'zuke.current.v1'};\n",
+        );
 
-    expect(fixture.existsSync(), isTrue);
-    expect(
-      DocumentationChecker(root).check().join('\n'),
-      contains('current Zuke artifacts must use an unversioned kind'),
-    );
-  });
+      expect(fixture.existsSync(), isTrue);
+      expect(
+        DocumentationChecker(root).check().join('\n'),
+        contains('current Zuke artifacts must use an unversioned kind'),
+      );
+    },
+  );
 }
 
 void _writeBaseline(Directory root) {

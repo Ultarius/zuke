@@ -22,6 +22,17 @@ plugins:
       zuke_missing_evidence_types: true
       zuke_unimplemented_requirement: true
       zuke_spec_lint: true
+  # The plugin would otherwise take these from pub.dev, where a release's new
+  # dependency floors do not exist until it has been published.
+  dependency_overrides:
+    zuke:
+      path: vendor-sdk/zuke
+    zuke_annotations:
+      path: vendor-sdk/zuke_annotations
+    zuke_core:
+      path: vendor-sdk/zuke_core
+    zuke_frontend:
+      path: vendor-sdk/zuke_frontend
 
 linter:
   rules:

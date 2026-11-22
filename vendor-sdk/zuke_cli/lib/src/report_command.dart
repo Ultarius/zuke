@@ -56,6 +56,9 @@ class ReportCommand {
         final scenarios = rule.scenarios.map((scenario) {
           final scenarioTags = scenario.tags.map((tag) => tag.name).toList()
             ..sort();
+          final scenarioId = scenarioTags
+              .where((tag) => tag.startsWith('SCN-'))
+              .firstOrNull;
           final effectiveScenarioTags = {
             ...effectiveRuleTags,
             ...scenarioTags,
@@ -65,6 +68,9 @@ class ReportCommand {
             final effectiveTags = {...effectiveScenarioTags, ...tags}.toList()
               ..sort();
             return ZukeModelExamples(
+              id:
+                  tags.where((tag) => tag.startsWith('SCN-')).firstOrNull ??
+                  scenarioId,
               title: block.title,
               tags: tags,
               effectiveTags: effectiveTags,
@@ -73,10 +79,7 @@ class ReportCommand {
             );
           }).toList();
           return ZukeModelScenario(
-            id: scenarioTags.firstWhere(
-              (tag) => tag.startsWith('SCN-'),
-              orElse: () => '',
-            ),
+            id: scenarioId,
             title: scenario.scenarioElement.title,
             keyword: scenario.scenarioElement.keyword.name,
             tags: scenarioTags,

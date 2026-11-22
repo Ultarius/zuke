@@ -584,7 +584,10 @@ Feature: Gateway
       'in-process CLI routes the release lifecycle and fail-closed branches',
       () async {
         await createEligibleWorkspace(tempDir);
-        final cli = ZukeCli(version: 'test-version');
+        final cli = ZukeCli(
+          version: 'test-version',
+          pluginAudit: noPluginCacheAudit,
+        );
         final empty = Directory('${tempDir.path}/empty')..createSync();
 
         expect(await cli.run(const []), 0);

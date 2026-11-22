@@ -24,7 +24,7 @@ scripts:
   analyze:flutter: dart --disable-dart-dev --suppress-analytics run melos exec --scope=calculator_mobile --scope=shopping_cart --scope=todo_app --concurrency=3 -- flutter --suppress-analytics analyze --no-pub --fatal-infos
   analyze:all: dart --disable-dart-dev --suppress-analytics run melos run analyze:dart && dart --disable-dart-dev --suppress-analytics run melos run analyze:flutter
   test:dart: dart --disable-dart-dev --suppress-analytics run vendor-sdk/run_dart_tests.dart
-  test:flutter: flutter --suppress-analytics --version && dart --disable-dart-dev --suppress-analytics run melos exec --scope=calculator_mobile --scope=shopping_cart --scope=todo_app --concurrency=1 -- flutter --suppress-analytics test --no-pub
+  test:flutter: flutter --suppress-analytics --version && dart --disable-dart-dev --suppress-analytics run melos exec --scope=calculator_mobile --scope=shopping_cart --scope=todo_app --scope=zuke_runner_flutter --concurrency=4 -- flutter --suppress-analytics test --no-pub
   test:all: dart --disable-dart-dev --suppress-analytics run melos run test:dart && dart --disable-dart-dev --suppress-analytics run melos run test:flutter
   zuke:generate: dart --disable-dart-dev --suppress-analytics run zuke_cli:zuke generate --root examples/calculator-product
   zuke:generate:check: dart --disable-dart-dev --suppress-analytics run zuke_cli:zuke generate --root examples/calculator-product --check

@@ -129,7 +129,12 @@ Future<Directory> _pluginEntry(
   File(p.join(entry.path, 'pubspec.yaml')).writeAsStringSync(
     'name: plugin_entrypoint\nversion: 0.0.1\nenvironment:\n  sdk: ^3.6.0\n'
     'dependencies:\n  analysis_server_plugin: ^0.3.8\n'
-    '  zuke_analyzer:\n    path: $pluginRoot\n',
+    '  zuke_analyzer:\n    path: $pluginRoot\n'
+    // A release's dependency floors may not be on pub.dev yet.
+    'dependency_overrides:\n'
+    '${[
+      for (final package in const ['zuke', 'zuke_annotations', 'zuke_core', 'zuke_frontend']) '  $package:\n    path: ${p.join(p.dirname(pluginRoot), package)}\n',
+    ].join()}',
   );
   File(p.join(entry.path, 'bin', 'plugin.dart'))
     ..createSync(recursive: true)

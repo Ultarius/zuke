@@ -180,13 +180,16 @@ final class BodyLimitMiddleware implements ZukeMiddleware {
         },
       );
     }
+    final Object? body;
     try {
       final text = utf8.decode(request.rawBody, allowMalformed: false);
-      final body = text.isEmpty ? const <String, Object?>{} : jsonDecode(text);
-      return next(request.copyWith(body: body));
+      body = text.isEmpty ? const <String, Object?>{} : jsonDecode(text);
     } on FormatException {
       throw const CalculatorRequestFailure('INVALID_REQUEST');
     }
+    // Outside the try: only a malformed body is the client's fault, so a
+    // downstream FormatException must reach the 500 mapping.
+    return next(request.copyWith(body: body));
   }
 }
 

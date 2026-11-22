@@ -10,6 +10,7 @@ import 'cli_parser.dart';
 import 'extraction_service.dart';
 import 'generate_command.dart';
 import 'lock_command.dart';
+import 'lock_path.dart';
 import 'lock_refresh_roots.dart';
 import 'path_safety.dart';
 import 'validate_command.dart';
@@ -32,7 +33,9 @@ Future<int> runLockRefresh(
   ]);
   // Resolve every root and profile before any generation or evidence writes.
   for (final root in roots) {
-    final configured = requireCurrentWorkspace(root.path).config.lockProfiles;
+    final configured = _effectiveLockProfiles(
+      requireCurrentWorkspace(root.path).config.lockProfiles,
+    );
     final requested = [
       if (cmd['profile'] case final String profile) profile,
       ...cmd['profiles'] as List<String>,
@@ -90,11 +93,20 @@ Future<int> runLockRefresh(
   }
 }
 
+/// The profiles a refresh acts on: those configured, or every current profile
+/// when the workspace has no `lock` section.
+///
+/// Preflight, the refresh and the diff snapshots all read this, so a workspace
+/// cannot be refreshed for a profile it is told is unconfigured, or have a
+/// rewritten lock missing from its diff.
+List<String> _effectiveLockProfiles(List<String> configured) =>
+    configured.isEmpty ? currentLockProfiles.toList() : configured;
+
 Map<String, String?> _lockSnapshot(Directory root) {
   final workspace = requireCurrentWorkspace(root.path);
   final directory = workspace.config.lockDirectory ?? 'assurance/locks';
   return {
-    for (final profile in workspace.config.lockProfiles)
+    for (final profile in _effectiveLockProfiles(workspace.config.lockProfiles))
       profile:
           File(
             '${root.path}${Platform.pathSeparator}$directory${Platform.pathSeparator}$profile.lock.json',
@@ -163,13 +175,10 @@ Future<int> _runLockRefreshRoot(
     );
   }
   final workspace = requireCurrentWorkspace(root);
-  final configuredProfiles = workspace.config.lockProfiles;
   final profiles = requestedProfiles.isNotEmpty
       ? requestedProfiles.toSet().toList()
       : requestedProfile == null
-      ? (configuredProfiles.isEmpty
-            ? const ['pullRequest', 'merge', 'release', 'nightly']
-            : configuredProfiles)
+      ? _effectiveLockProfiles(workspace.config.lockProfiles)
       : [requestedProfile];
 
   final generated = await GenerateCommand(

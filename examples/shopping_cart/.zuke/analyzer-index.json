@@ -1,7 +1,7 @@
 {
   "kind": "zuke.analyzer-index",
-  "contractVersion": 2,
-  "inputDigest": "sha256:ad6646a7a2a6a572d40d0a912e6908c4521442bea58b68cb27fd64bbf3b9f822",
+  "contractVersion": 3,
+  "inputDigest": "sha256:12ce28db920da74654f84db4fc51eaf48538ccb1a5f4267c3cd8a2f911af17ab",
   "generatedManifestDigest": "sha256:ef26c0cf81111c3a96a2e0dcfe1a5e23f62c4e72d115eec37d3b674a5a741f17",
   "generatedManifestPath": "lib/src/.zuke-generated.json",
   "inputs": [
@@ -116,6 +116,7 @@
     "specs/registry/retired-ids.yaml"
   ],
   "sourceRoots": [
+    "integration_test",
     "lib",
     "test"
   ],
@@ -326,7 +327,8 @@
       "packageId": "shopping-cart",
       "evidenceTypes": [
         "gherkin-ui"
-      ]
+      ],
+      "variant": "default"
     },
     {
       "scenarioId": "SCN-CART-ADD-ITEM",
@@ -335,7 +337,8 @@
       "packageId": "shopping-cart",
       "evidenceTypes": [
         "gherkin-ui"
-      ]
+      ],
+      "variant": "default"
     },
     {
       "scenarioId": "SCN-CART-ADD-SECOND-ITEM",
@@ -344,7 +347,8 @@
       "packageId": "shopping-cart",
       "evidenceTypes": [
         "gherkin-ui"
-      ]
+      ],
+      "variant": "default"
     },
     {
       "scenarioId": "SCN-CART-APPLY-PROMO",
@@ -353,7 +357,8 @@
       "packageId": "shopping-cart",
       "evidenceTypes": [
         "gherkin-ui"
-      ]
+      ],
+      "variant": "default"
     },
     {
       "scenarioId": "SCN-CART-EMPTY-CHECKOUT",
@@ -362,7 +367,8 @@
       "packageId": "shopping-cart",
       "evidenceTypes": [
         "gherkin-ui"
-      ]
+      ],
+      "variant": "default"
     },
     {
       "scenarioId": "SCN-CART-EMPTY-PROMO",
@@ -371,7 +377,8 @@
       "packageId": "shopping-cart",
       "evidenceTypes": [
         "gherkin-ui"
-      ]
+      ],
+      "variant": "default"
     },
     {
       "scenarioId": "SCN-CART-INVALID-PROMO",
@@ -380,7 +387,8 @@
       "packageId": "shopping-cart",
       "evidenceTypes": [
         "gherkin-ui"
-      ]
+      ],
+      "variant": "default"
     },
     {
       "scenarioId": "SCN-CART-PROMO-EMPTY-CART",
@@ -389,7 +397,8 @@
       "packageId": "shopping-cart",
       "evidenceTypes": [
         "gherkin-ui"
-      ]
+      ],
+      "variant": "default"
     },
     {
       "scenarioId": "SCN-CART-SUCCESS-CHECKOUT",
@@ -398,7 +407,8 @@
       "packageId": "shopping-cart",
       "evidenceTypes": [
         "gherkin-ui"
-      ]
+      ],
+      "variant": "default"
     }
   ],
   "unresolvedManagedRegistrations": 0,

@@ -83,6 +83,105 @@ void main() {
       );
     });
 
+    test('launches the runner for a selected Examples-level scenario', () async {
+      final root = _workspace(
+        scenarioTags: '@SCN-SUPERVISOR-002',
+        runners: '''
+    - id: artifact-runner
+      kind: test
+      target: backend
+      sourcePackage: fake-supervisor
+      sourceAdapter: dart-source
+      sourceCompatibilityId: dart-source-package-v1
+      runnerCompatibilityId: artifact-runner-v1
+      executable: dart
+      args: [test]
+''',
+        profiles: '''
+  pullRequest:
+    tagExpression: '@pr'
+''',
+      );
+      addTearDown(() => root.delete(recursive: true));
+      final feature = File('${root.path}/specs/features/unit.feature');
+      feature.writeAsStringSync('''
+    Scenario Outline: The configured runner receives <value>
+      Given the runner receives <value>
+      @SCN-SUPERVISOR-001 @pr
+      Examples: Pull request input
+        | value |
+        | one   |
+''', mode: FileMode.append);
+      final registration = File('${root.path}/test/supervisor_test.dart');
+      registration.writeAsStringSync(
+        registration
+            .readAsStringSync()
+            .replaceFirst(
+              'required SupervisorScenario scenario,',
+              'required SupervisorScenario scenario, String? caseId,',
+            )
+            .replaceFirst(
+              'scenario: SupervisorScenario.configured,',
+              "scenario: SupervisorScenario.configured, caseId: 'examples-1-row-1',",
+            ),
+      );
+      final supervisor = _ResultSupervisor([
+        const ScenarioResult(
+          executionId: 'outline-execution',
+          status: ScenarioStatus.passed,
+          requirementId: 'RULE-SUPERVISOR-001',
+          evidenceType: 'domain-unit',
+          target: 'backend',
+          candidateId: 'SCN-SUPERVISOR-001',
+          profile: 'pullRequest',
+          caseId: 'examples-1-row-1',
+          runnerId: 'artifact-runner',
+          runnerCompatibilityId: 'artifact-runner-v1',
+          scenarioIds: [ScenarioId('SCN-SUPERVISOR-001')],
+        ),
+      ]);
+
+      final exitCode = await ZukeCli(
+        processSupervisor: supervisor,
+      ).run(['test', '--root', root.path]);
+
+      expect(exitCode, 0);
+      expect(
+        supervisor.requests.single.environment['ZUKE_SCENARIO_FILTER'],
+        'SCN-SUPERVISOR-001',
+      );
+
+      feature.writeAsStringSync('''
+      @SCN-SUPERVISOR-003 @pr @ui
+      Examples: UI input
+        | value |
+        | two   |
+''', mode: FileMode.append);
+      final wrongTarget = _ResultSupervisor([
+        const ScenarioResult(
+          executionId: 'ui-case-on-backend',
+          status: ScenarioStatus.passed,
+          requirementId: 'RULE-SUPERVISOR-001',
+          evidenceType: 'domain-unit',
+          target: 'backend',
+          candidateId: 'SCN-SUPERVISOR-003',
+          profile: 'pullRequest',
+          caseId: 'examples-2-row-1',
+          runnerId: 'artifact-runner',
+          runnerCompatibilityId: 'artifact-runner-v1',
+          scenarioIds: [ScenarioId('SCN-SUPERVISOR-003')],
+        ),
+      ]);
+      final invalidExit = await ZukeCli(
+        processSupervisor: wrongTarget,
+      ).run(['test', '--root', root.path]);
+      expect(invalidExit, 1);
+      expect(
+        wrongTarget.requests.single.environment['ZUKE_SCENARIO_FILTER'],
+        'SCN-SUPERVISOR-001',
+      );
+    });
+
     test(
       'skips a target runner with no scenarios in a tag-selected profile',
       () async {

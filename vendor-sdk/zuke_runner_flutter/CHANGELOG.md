@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.5.0
+
+- Coordinated with the `zuke_annotations` 0.5 binding descriptor.
+- Added `FlutterEvidenceCase.caseId` so the evidence harness can cover each Examples row.
+
 ## 0.4.0
 
 - Coordinated Flutter runner result emission with explicit extraction targets

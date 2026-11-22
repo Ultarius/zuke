@@ -343,6 +343,68 @@ void main() {
       expect(result.errors.any((e) => e.code == 'ZUKE-EVIDENCE-006'), isTrue);
     });
 
+    test('Examples tags drive security and accessibility evidence rules', () {
+      WorkspaceDiscoveryResult workspace(String tags) {
+        final parsed = GherkinParser().parseFile('''
+# spec-begin
+# schemaVersion: 1
+# id: FEAT-PAY-001
+# spec-end
+Feature: Request outcome
+  # rule-spec-begin
+  # id: RULE-PAY-001
+  # requiredEvidence: [{type: domain-unit, target: backend, sourcePackage: backend, sourceAdapter: dart-source, variant: default}]
+  # rule-spec-end
+  Rule: Review the request outcome
+    Scenario Outline: Review <state>
+      Then the request is <state>
+      @SCN-PAY-DENIED $tags
+      Examples: Denied requests
+        | state  |
+        | denied |
+''', 'pay.feature');
+        expect(parsed.errors, isEmpty);
+        return WorkspaceDiscoveryResult(
+          config: const ZukeConfig(),
+          data: MetadataExtractorResult(features: parsed.features),
+        );
+      }
+
+      final skipped = EvidenceRecord(
+        requirementId: 'RULE-PAY-001',
+        evidenceType: 'domain-unit',
+        target: 'backend',
+        sourcePackage: 'backend',
+        sourceAdapter: 'dart-source',
+        executionId: 'pay-case',
+        profile: 'pullRequest',
+        status: EvidenceStatus.skipped,
+      );
+      final validator = EvidenceValidator();
+      final missingNegative = validator.validate(
+        workspace('@security @accessibility'),
+        records: [skipped],
+      );
+      expect(
+        missingNegative.errors.map((error) => error.code),
+        containsAll(['ZUKE-EVIDENCE-006', 'ZUKE-EVID-001']),
+      );
+      expect(
+        missingNegative.errors
+            .where((diagnostic) => diagnostic.severity == Severity.warning)
+            .map((warning) => warning.code),
+        contains('ZUKE-EVID-002'),
+      );
+      final withNegative = validator.validate(
+        workspace('@security @negative'),
+        records: [skipped],
+      );
+      expect(
+        withNegative.errors.map((error) => error.code),
+        isNot(contains('ZUKE-EVID-001')),
+      );
+    });
+
     test('rejects missing required evidence with ZUKE-EVID-003', () {
       final workspace = WorkspaceDiscoveryResult(
         config: const ZukeConfig(),

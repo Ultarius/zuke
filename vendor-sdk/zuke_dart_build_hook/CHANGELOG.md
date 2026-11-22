@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.5.0
+
+- Coordinated with `zuke_cli` 0.6.
+
 ## 0.4.0
 
 - Propagated the active workspace extraction target to the analyzer-backed

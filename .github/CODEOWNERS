@@ -5,3 +5,4 @@
 /examples/calculator-product/assurance/locks/ @Ultarius
 /examples/calculator-product/assurance-history/trust/ @Ultarius
 /.github/workflows/ @Ultarius
+/.github/actions/ @Ultarius

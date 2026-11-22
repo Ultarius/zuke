@@ -1,8 +1,8 @@
 {
   "kind": "zuke.analyzer-index",
-  "contractVersion": 2,
+  "contractVersion": 3,
   "diagnosticAnchor": "lib/zuke_contracts.dart",
-  "inputDigest": "sha256:eeb8f78dd8d195fd8b610fe1c7cdfd5d79a0065bc7e40ec7139450683935c838",
+  "inputDigest": "sha256:50f7d01e65265672a2c88996f19952192e59baac888be878bffa88fef7ee7824",
   "generatedManifestDigest": "sha256:8336f0f6e268574768ca81bf98c37b6527fe5eb6dcd87b88c520b1e98005dc30",
   "generatedManifestPath": "lib/src/.zuke-generated.json",
   "inputs": [
@@ -12,7 +12,7 @@
     },
     {
       "path": "lib/src/branch_peer_link.dart",
-      "digest": "sha256:c1b78a0864466a5c8dd59e59ef59a43d4087748c7f96f06bdd62013540b7a322"
+      "digest": "sha256:4bcc40bda0b4376dcca03f9cc2768ee5302bd18cd31ef3993ec9d6c769358ff3"
     },
     {
       "path": "lib/src/catalog_bindings.dart",
@@ -55,6 +55,10 @@
       "digest": "sha256:df7d44baffd91eb7941e72c151856bf913a8a6446649d3c9625aa398e89dc0ee"
     },
     {
+      "path": "test/library_desk_cli_test.dart",
+      "digest": "sha256:11dbb0287689490ac15dc85d3f1da354e2a4a664347389af6874c1f5276ccc73"
+    },
+    {
       "path": "test/library_gherkin_test.dart",
       "digest": "sha256:724a2388d5acc6646099661aaff27ccde89669688af594be096db1c89e63dae6"
     },
@@ -93,6 +97,7 @@
     "specs/registry/retired-ids.yaml"
   ],
   "sourceRoots": [
+    "integration_test",
     "lib",
     "test"
   ],
@@ -102,6 +107,7 @@
     "lib/src/catalog_bindings.dart",
     "lib/src/checkout_controller.dart",
     "test/checkout_controller_test.dart",
+    "test/library_desk_cli_test.dart",
     "test/library_gherkin_test.dart",
     "test/support/library_fixtures.dart",
     "test/support/library_gherkin_steps.dart",
@@ -230,7 +236,8 @@
       "packageId": "library-catalog",
       "evidenceTypes": [
         "domain-unit"
-      ]
+      ],
+      "variant": "default"
     },
     {
       "scenarioId": "SCN-LIBRARY-CHECKOUT-EMPTY",
@@ -239,7 +246,8 @@
       "packageId": "library-catalog",
       "evidenceTypes": [
         "domain-unit"
-      ]
+      ],
+      "variant": "default"
     },
     {
       "scenarioId": "SCN-LIBRARY-CHECKOUT-LIMIT",
@@ -248,7 +256,8 @@
       "packageId": "library-catalog",
       "evidenceTypes": [
         "domain-unit"
-      ]
+      ],
+      "variant": "default"
     },
     {
       "scenarioId": "SCN-LIBRARY-CHECKOUT-VALID",
@@ -257,7 +266,8 @@
       "packageId": "library-catalog",
       "evidenceTypes": [
         "domain-unit"
-      ]
+      ],
+      "variant": "default"
     },
     {
       "scenarioId": "SCN-LIBRARY-PEER-CONNECT",
@@ -266,7 +276,8 @@
       "packageId": "library-catalog",
       "evidenceTypes": [
         "domain-unit"
-      ]
+      ],
+      "variant": "default"
     },
     {
       "scenarioId": "SCN-LIBRARY-PEER-SYNC",
@@ -275,7 +286,8 @@
       "packageId": "library-catalog",
       "evidenceTypes": [
         "domain-unit"
-      ]
+      ],
+      "variant": "default"
     },
     {
       "scenarioId": "SCN-LIBRARY-RETURN",
@@ -284,7 +296,8 @@
       "packageId": "library-catalog",
       "evidenceTypes": [
         "domain-unit"
-      ]
+      ],
+      "variant": "default"
     }
   ],
   "unresolvedManagedRegistrations": 0,

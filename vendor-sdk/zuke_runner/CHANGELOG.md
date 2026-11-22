@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.5.0
+
+- Coordinated with the `zuke_annotations` 0.5 binding descriptor.
+
 ## 0.4.0
 
 - Coordinated runner identity and result emission with the target-aware

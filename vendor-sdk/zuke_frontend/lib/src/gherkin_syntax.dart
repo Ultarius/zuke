@@ -41,6 +41,9 @@ abstract final class GherkinSyntax {
   /// Keywords that open a scenario, including outline synonyms.
   static const scenarioKeywords = <String>[scenario, scenarioOutline];
 
+  /// Keywords whose bodies can contain executable steps.
+  static const stepContainers = <String>[background, ...scenarioKeywords];
+
   /// Keywords that end a feature description or a rule body.
   static const blockOpeners = <String>[
     rule,
@@ -60,6 +63,16 @@ abstract final class GherkinSyntax {
 
   /// A complete step line, capturing its text.
   static final step = RegExp('^(${stepKeywords.join('|')})\\s+(.+)\$');
+
+  /// The opening doc-string delimiter of a trimmed [line], if present.
+  ///
+  /// An opener can include a media type. A closer must match the bare
+  /// delimiter exactly.
+  static String? docStringDelimiterOf(String line) {
+    if (line.startsWith('"""')) return '"""';
+    if (line.startsWith("'''")) return "'''";
+    return null;
+  }
 
   /// The structural keyword [line] opens, or null when it opens none.
   static String? keywordOf(String line) {

@@ -2,7 +2,7 @@
 
 End-to-end release procedure for the solo maintainer. There are two independent
 tracks: **SDK packages** to pub.dev (triggered by `sdk-v*` tags) and **signed
-example releases** (triggered by `v*` tags). Flutter **3.44.8** (stable) is the
+example releases** (triggered by `v*` tags). Flutter **3.47.9** (stable) is the
 pinned toolchain for every step. Local package versions and the publish order
 are defined by [release-matrix.yaml](release-matrix.yaml).
 

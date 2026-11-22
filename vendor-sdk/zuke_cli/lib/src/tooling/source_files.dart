@@ -35,6 +35,59 @@ List<String> workspaceDartSourceRoots(WorkspaceDiscoveryResult workspace) {
   return roots.toList()..sort();
 }
 
+/// The directories a managed runner audits for registrations in [package],
+/// relative to the workspace.
+///
+/// One definition for `zuke test` and the static binding scan: a test the runner
+/// executes from `test/` must be visible to coverage even when the package's
+/// extraction roots name only `lib`.
+List<String> runnerRegistrationRoots(
+  WorkspacePackage package, {
+  String? workingDirectory,
+}) => [
+  for (final directory in ['test', 'integration_test', ...package.roots])
+    '${package.path}/$directory',
+  if (workingDirectory != null && workingDirectory.isNotEmpty) ...[
+    '$workingDirectory/test',
+    '$workingDirectory/integration_test',
+  ],
+];
+
+/// Normalized registration roots of every configured runner.
+List<String> workspaceRunnerRegistrationRoots(
+  WorkspaceDiscoveryResult workspace,
+) {
+  final roots = <String>{};
+  for (final runner in workspace.config.workspaceRunners) {
+    final packages = workspace.config.workspaceTargets[runner.target]?.packages;
+    if (packages == null) continue;
+    for (final package in packages) {
+      if (package.id != runner.sourcePackage) continue;
+      for (final root in runnerRegistrationRoots(
+        package,
+        workingDirectory: runner.workingDirectory,
+      )) {
+        roots.add(normalizeRelativePath(root));
+      }
+    }
+  }
+  return roots.toList()..sort();
+}
+
+/// Every root whose Dart files the analyzer index inventories: extraction roots
+/// plus the directories runners audit, so adding a registration in either is
+/// noticed as drift.
+List<String> workspaceIndexSourceRoots(WorkspaceDiscoveryResult workspace) => {
+  ...workspaceDartSourceRoots(workspace),
+  ...workspaceRunnerRegistrationRoots(workspace),
+}.toList()..sort();
+
+/// Dart files in runner-audited directories.
+Iterable<File> runnerRegistrationDartFiles(
+  String root,
+  WorkspaceDiscoveryResult workspace,
+) => _dartFilesUnder(root, workspaceRunnerRegistrationRoots(workspace));
+
 /// Every Dart source file under the configured package roots, in a stable
 /// order so collected constants do not depend on directory iteration.
 ///
@@ -50,9 +103,19 @@ Iterable<File> packageDartFiles(
   String root,
   WorkspaceDiscoveryResult workspace, {
   Map<String, String> pendingContent = const {},
+}) => _dartFilesUnder(
+  root,
+  workspaceDartSourceRoots(workspace),
+  pendingContent: pendingContent,
+);
+
+Iterable<File> _dartFilesUnder(
+  String root,
+  Iterable<String> relativeRoots, {
+  Map<String, String> pendingContent = const {},
 }) sync* {
   final files = <String>{};
-  for (final relativeRoot in workspaceDartSourceRoots(workspace)) {
+  for (final relativeRoot in relativeRoots) {
     final directory = Directory(p.normalize(p.join(root, relativeRoot)));
     if (directory.existsSync()) {
       files.addAll(

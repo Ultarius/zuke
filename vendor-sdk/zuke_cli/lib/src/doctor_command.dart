@@ -99,7 +99,16 @@ typedef PluginCacheAudit =
       Set<String>? contextRoots,
     );
 
-Future<int> runDoctor(ArgResults cmd, {PluginCacheAudit? pluginAudit}) async {
+/// Runs the doctor checks.
+///
+/// [requireContextEntry] decides what `--current-context` means when the cache
+/// has no entry for this context. Asked directly, that is an error the user has
+/// to see. `zuke analyze` passes false because it is about to create the entry.
+Future<int> runDoctor(
+  ArgResults cmd, {
+  PluginCacheAudit? pluginAudit,
+  bool requireContextEntry = true,
+}) async {
   final root = cmd['root'] as String? ?? Directory.current.path;
   final contextRoot = p.normalize(Directory(root).absolute.path);
   final jsonMode = (cmd['format'] as String? ?? 'text') == 'json';
@@ -196,7 +205,8 @@ Future<int> runDoctor(ArgResults cmd, {PluginCacheAudit? pluginAudit}) async {
                 },
         )
       : await pluginAudit(root, fix, currentContext ? {contextRoot} : null);
-  final unmatchedContext = currentContext && pluginFindings.isEmpty;
+  final unmatchedContext =
+      requireContextEntry && currentContext && pluginFindings.isEmpty;
   if (unmatchedContext) {
     final message =
         'No Zuke analyzer plugin cache entry matched the analysis '

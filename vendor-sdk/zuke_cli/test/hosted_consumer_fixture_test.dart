@@ -50,7 +50,7 @@ workspace:
     final config = File(
       '${destination.path}${Platform.pathSeparator}zuke.yaml',
     ).readAsStringSync();
-    expect(pubspec, contains('zuke_core: 0.4.0'));
+    expect(pubspec, contains('zuke_core: 0.4.1'));
     expect(pubspec, isNot(contains('{{')));
     expect(pubspec, isNot(contains('dependency_overrides:')));
     expect(pubspec, isNot(contains('resolution: workspace')));
@@ -63,7 +63,7 @@ workspace:
     );
     expect(
       (parsedPubspec['dev_dependencies'] as YamlMap)['zuke_cli'],
-      equals('0.5.0'),
+      equals('0.6.0'),
     );
     expect(config, contains('dart-source-package-v1'));
     expect(config, contains('kind: test'));

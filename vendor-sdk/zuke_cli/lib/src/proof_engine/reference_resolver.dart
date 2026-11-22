@@ -442,13 +442,10 @@ class ReferenceResolver {
         }
 
         for (final scenario in rule.scenarios) {
-          final scenarioId = scenario.tags
-              .where((t) => t.name.startsWith('SCN-'))
-              .map((t) => t.name)
-              .firstOrNull;
-          if (scenarioId != null) {
-            final scenarioNode = nodeIdFor(scenarioId);
-            addEdge(scenarioNode, ruleNode);
+          for (final tag in scenario.declaredTags) {
+            if (tag.name.startsWith('SCN-')) {
+              addEdge(nodeIdFor(tag.name), ruleNode);
+            }
           }
         }
       }

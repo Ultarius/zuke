@@ -507,6 +507,7 @@ void main() {
             'target': 'app',
             'packageId': 'app',
             'evidenceTypes': ['flutter-widget'],
+            'variant': 'default',
           },
         ],
       });

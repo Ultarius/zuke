@@ -239,7 +239,10 @@ final class WorkspaceDigest {
           ? name
           : '$relativeDirectory/$name';
       if (entity is Directory) {
-        if (_shouldPruneDirectory(name, relative)) continue;
+        if (!_isEvidenceInputPath(relative) &&
+            _shouldPruneDirectory(name, relative)) {
+          continue;
+        }
         _walkFiltered(entity, relative, onFile);
         continue;
       }
@@ -248,6 +251,14 @@ final class WorkspaceDigest {
       }
     }
   }
+
+  /// Whether [relativePath] lies inside a root the evidence digests cover.
+  ///
+  /// Artifact names mean nothing there: discovery parses
+  /// `specs/features/coverage/report.feature` like any other feature, so pruning
+  /// it by name would let its steps change without making evidence stale.
+  static bool _isEvidenceInputPath(String relativePath) =>
+      relativePath.startsWith('specs/') || relativePath.startsWith('policies/');
 
   static bool _shouldPruneDirectory(String name, String relativePath) {
     if (_ignoredDirectoryNames.contains(name)) return true;
@@ -315,8 +326,25 @@ final class WorkspaceDigest {
     final kept = <String>[];
     var inMetadata = false;
     String? openFence;
+    // Track the same doc-string openers and executable sections as the parser
+    // so step content participates in the digest.
+    var hasExecutableStep = false;
+    var inStepBody = false;
+    var afterExamples = false;
+    // The parser reads an Examples table up to the first line that is neither a
+    // row, a comment, nor blank. Rows past that point never execute, so keeping
+    // them here would hide their removal from the digest.
+    var examplesTableOpen = false;
     for (final raw in const LineSplitter().convert(content)) {
       final trimmed = raw.trim();
+      // Checked first: a metadata marker inside a doc string is step content.
+      if (openFence != null) {
+        kept.add(raw);
+        // Only the delimiter that opened the block can close it, so a `"""`
+        // block is not terminated by a stray `'''` line.
+        if (trimmed == openFence) openFence = null;
+        continue;
+      }
       if (inMetadata) {
         kept.add(raw);
         if (trimmed == '# spec-end' || trimmed == '# rule-spec-end') {
@@ -329,30 +357,35 @@ final class WorkspaceDigest {
         kept.add(raw);
         continue;
       }
-      if (openFence != null) {
-        kept.add(raw);
-        // Only the delimiter that opened the block can close it, so a `"""`
-        // block is not terminated by a stray `'''` line.
-        if (trimmed == openFence) openFence = null;
-        continue;
-      }
       if (trimmed.isEmpty || trimmed.startsWith('#')) continue;
-      if (trimmed.startsWith('@') ||
-          trimmed.startsWith('|') ||
-          GherkinSyntax.stepPrefix.hasMatch(trimmed)) {
+      if (trimmed.startsWith('|')) {
+        if (!afterExamples || examplesTableOpen) kept.add(raw);
+        continue;
+      }
+      examplesTableOpen = false;
+      if (GherkinSyntax.step.hasMatch(trimmed)) {
+        kept.add(raw);
+        hasExecutableStep = inStepBody;
+        continue;
+      }
+      if (trimmed.startsWith('@')) {
         kept.add(raw);
         continue;
       }
-      if (trimmed.startsWith('"""') || trimmed.startsWith("'''")) {
-        final fence = trimmed.substring(0, 3);
+      final delimiter = GherkinSyntax.docStringDelimiterOf(trimmed);
+      if (delimiter != null) {
         kept.add(raw);
-        if (trimmed.length == fence.length || !trimmed.endsWith(fence)) {
-          openFence = fence;
-        }
+        if (hasExecutableStep) openFence = delimiter;
         continue;
       }
       final keyword = GherkinSyntax.keywordOf(trimmed);
-      if (keyword != null) kept.add(keyword);
+      if (keyword != null) {
+        kept.add(keyword);
+        hasExecutableStep = false;
+        inStepBody = GherkinSyntax.stepContainers.contains(keyword);
+        afterExamples = keyword == GherkinSyntax.examples;
+        examplesTableOpen = afterExamples;
+      }
     }
     return kept.join('\n');
   }

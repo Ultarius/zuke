@@ -2,7 +2,8 @@ import 'dart:io';
 
 import 'package:zuke_cli/src/workspace_digest.dart';
 import 'package:zuke_cli/src/ir.dart';
-import 'package:zuke_frontend/zuke_frontend.dart' show GherkinSyntax;
+import 'package:zuke_frontend/zuke_frontend.dart'
+    show GherkinParser, GherkinSyntax;
 import 'package:test/test.dart';
 
 void main() {
@@ -290,6 +291,148 @@ void main() {
     );
   });
 
+  test('filtered digests cover spec folders named like build artifacts', () {
+    Map<String, String> digests() =>
+        WorkspaceDigest.computeEvidenceIndexDigests(workspace.path);
+
+    for (final name in const ['build', 'coverage', 'dist', 'generated']) {
+      final path = 'specs/features/$name/report.feature';
+      writeFile(path, 'Feature: One\n  Scenario: A\n    Given one\n');
+      final before = digests()['specificationIndex'];
+      writeFile(path, 'Feature: One\n  Scenario: A\n    Given two\n');
+      expect(digests()['specificationIndex'], isNot(before), reason: path);
+
+      final policy = 'policies/$name/policy.yaml';
+      writeFile(policy, 'value: 1\n');
+      final mappingBefore = digests()['mapping'];
+      writeFile(policy, 'value: 2\n');
+      expect(digests()['mapping'], isNot(mappingBefore), reason: policy);
+    }
+  });
+
+  test('a doc string the parser executes is never dropped as prose', () {
+    String feature(String value, {String mediaType = 'json'}) => <String>[
+      '# spec-begin',
+      '# schemaVersion: 1',
+      '# id: FEAT-ONE-001',
+      '# spec-end',
+      'Feature: One',
+      '  # rule-spec-begin',
+      '  # id: RULE-ONE-001',
+      '  # rule-spec-end',
+      '  Rule: Does things',
+      '    Scenario: Doc strings',
+      '      Given a payload',
+      '        """$mediaType',
+      '        {"amount": $value}',
+      '        """',
+      '      Then the value is shown',
+      '',
+    ].join('\n');
+
+    final parsed = GherkinParser().parseFile(feature('5'), 'x.feature');
+    expect(parsed.errors, isEmpty);
+    final step =
+        parsed.features.single.rules.single.scenarios.single.steps.first;
+    expect(step.docStringMediaType, 'json');
+    expect(step.docString, contains('{"amount": 5}'));
+    final projection = WorkspaceDigest.structuralFeatureText(feature('5'));
+    expect(
+      WorkspaceDigest.structuralFeatureText(feature('6')),
+      isNot(projection),
+    );
+    expect(
+      WorkspaceDigest.structuralFeatureText(feature('5', mediaType: 'text')),
+      isNot(projection),
+    );
+  });
+
+  group('Examples tables', () {
+    String feature(String table) => <String>[
+      '# spec-begin',
+      '# schemaVersion: 1',
+      '# id: FEAT-ONE-001',
+      '# spec-end',
+      'Feature: One',
+      '  # rule-spec-begin',
+      '  # id: RULE-ONE-001',
+      '  # rule-spec-end',
+      '  Rule: Does things',
+      '    Scenario Outline: Adds <value>',
+      '      Given a value <value>',
+      '      Examples:',
+      table,
+      '',
+    ].join('\n');
+    int cases(String content) => GherkinParser()
+        .parseFile(content, 'x.feature')
+        .features
+        .single
+        .rules
+        .single
+        .scenarios
+        .single
+        .examples
+        .single
+        .rows
+        .length;
+    const clean =
+        '        | value |\n        | 1 |\n        | 2 |\n        | 3 |';
+
+    test('a comment between rows keeps every case and the digest', () {
+      final commented = feature(
+        '        | value |\n        | 1 |\n        # note\n'
+        '        | 2 |\n        | 3 |',
+      );
+      expect(cases(commented), 3);
+      expect(
+        WorkspaceDigest.structuralFeatureText(commented),
+        WorkspaceDigest.structuralFeatureText(feature(clean)),
+      );
+    });
+
+    test('content that removes cases changes the digest', () {
+      final truncated = feature(
+        '        | value |\n        | 1 |\n        stray text\n'
+        '        | 2 |\n        | 3 |',
+      );
+      expect(cases(truncated), 1);
+      expect(
+        WorkspaceDigest.structuralFeatureText(truncated),
+        isNot(WorkspaceDigest.structuralFeatureText(feature(clean))),
+      );
+    });
+  });
+
+  test('a delimiter before any step does not misalign doc strings', () {
+    final projected = WorkspaceDigest.structuralFeatureText(
+      <String>[
+        'Feature: One',
+        '  Scenario: Stray delimiter',
+        '    """',
+        '    Given a value',
+        '      """',
+        '      executed content',
+        '      """',
+        '',
+      ].join('\n'),
+    );
+    expect(projected, contains('executed content'));
+  });
+
+  test('a doc-string opener in prose does not hide later structure', () {
+    final projection = WorkspaceDigest.structuralFeatureText('''
+Feature: One
+  Given is the keyword for a precondition.
+  """json
+  Rule: Stores a document
+    Scenario: Carries a document
+      Given a document
+''');
+
+    expect(projection.split('\n'), containsAll(['Rule:', 'Scenario:']));
+  });
+
   test('specification digest ignores prose edits but not step edits', () {
     const original = '''
 # spec-begin
@@ -432,6 +575,27 @@ Rule: Does things
       contains('a line with a different fence is still content'),
     );
     expect(projected, contains('Then the value is shown'));
+  });
+
+  test('structuralFeatureText reads metadata markers in a doc string as '
+      'content', () {
+    String feature(String comment) => <String>[
+      'Feature: One',
+      '  Scenario: Doc strings',
+      '    Given a value',
+      '      """',
+      '      # spec-begin',
+      '      """',
+      '    # $comment',
+      '    Then the value is shown',
+      '',
+    ].join('\n');
+    // A marker that opened a metadata block would keep the comment that
+    // follows, so a wording-only edit would make evidence stale.
+    expect(
+      WorkspaceDigest.structuralFeatureText(feature('first wording')),
+      WorkspaceDigest.structuralFeatureText(feature('second wording')),
+    );
   });
 
   test('evidence layouts never sit under pruned directory names', () {

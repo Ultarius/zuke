@@ -1,8 +1,8 @@
 {
   "kind": "zuke.analyzer-index",
-  "contractVersion": 2,
+  "contractVersion": 3,
   "diagnosticAnchor": "packages/calculator_contracts/lib/calculator_contracts.dart",
-  "inputDigest": "sha256:787245f9a70e2a18e991dc43519071e80bb4335defb790559b07b1aa25be5127",
+  "inputDigest": "sha256:450b862b28360eee193c88b719d99cae8128b0d2e4cceb5b054849edc6009cdb",
   "generatedManifestDigest": "sha256:00b397aadc850c49c6fe28b5bbc955517be6077a2eb7a97ffcf295aa41de25aa",
   "generatedManifestPath": "packages/calculator_contracts/.zuke-generated.json",
   "inputs": [
@@ -20,7 +20,7 @@
     },
     {
       "path": "apps/calculator_api/lib/src/application.dart",
-      "digest": "sha256:d96de3e40d1e0aa0a6f6a7e9158b8475eb6b5da04713adbeba1f4cb4d8d5c7c1"
+      "digest": "sha256:217088160d92340af40adac6e89f361371473d15b3bd1f7bf1bfb4d65209d1e4"
     },
     {
       "path": "apps/calculator_api/lib/src/server.dart",
@@ -28,7 +28,7 @@
     },
     {
       "path": "apps/calculator_api/test/calculator_api_test.dart",
-      "digest": "sha256:4d82811d7c73e9f3efc9092000a35f53e8cd722511100db448b51aedf55be453"
+      "digest": "sha256:273592f30ee8a0a6a0e087047033863ff0dc767222f7fbe706ad290aba94db27"
     },
     {
       "path": "apps/calculator_mobile/lib/calculator_bindings.dart",
@@ -48,7 +48,7 @@
     },
     {
       "path": "apps/calculator_mobile/test/calculator_domain_test.dart",
-      "digest": "sha256:9ddd5077fdfaa9e1d82efb05f19137ef0eec2b940b1e59ee6a4e32b7536b9219"
+      "digest": "sha256:c523943733c48ee68264f90cc5261393904fc7fb22b507d57a064cf436db0a83"
     },
     {
       "path": "apps/calculator_mobile/test/calculator_widget_test.dart",
@@ -155,8 +155,10 @@
   ],
   "sourceRoots": [
     "apps/calculator_api/bin",
+    "apps/calculator_api/integration_test",
     "apps/calculator_api/lib",
     "apps/calculator_api/test",
+    "apps/calculator_mobile/integration_test",
     "apps/calculator_mobile/lib",
     "apps/calculator_mobile/test",
     "packages/calculator_domain/lib"
@@ -523,7 +525,8 @@
       "evidenceTypes": [
         "api-contract",
         "gherkin-api"
-      ]
+      ],
+      "variant": "default"
     },
     {
       "scenarioId": "SCN-CALC-ADD-VALUES",
@@ -533,7 +536,41 @@
       "evidenceTypes": [
         "api-contract",
         "gherkin-api"
-      ]
+      ],
+      "variant": "default"
+    },
+    {
+      "scenarioId": "SCN-CALC-ADD-VALUES",
+      "sourcePath": "apps/calculator_api/test/calculator_api_test.dart",
+      "target": "backend",
+      "packageId": "calculator-api",
+      "evidenceTypes": [
+        "api-contract",
+        "gherkin-api"
+      ],
+      "variant": "default"
+    },
+    {
+      "scenarioId": "SCN-CALC-ADD-VALUES",
+      "sourcePath": "apps/calculator_api/test/calculator_api_test.dart",
+      "target": "backend",
+      "packageId": "calculator-api",
+      "evidenceTypes": [
+        "api-contract",
+        "gherkin-api"
+      ],
+      "variant": "default"
+    },
+    {
+      "scenarioId": "SCN-CALC-ADD-VALUES",
+      "sourcePath": "apps/calculator_api/test/calculator_api_test.dart",
+      "target": "backend",
+      "packageId": "calculator-api",
+      "evidenceTypes": [
+        "api-contract",
+        "gherkin-api"
+      ],
+      "variant": "default"
     },
     {
       "scenarioId": "SCN-CALC-BAD-OPERAND",
@@ -544,7 +581,56 @@
         "api-contract",
         "gherkin-api",
         "security-integration"
-      ]
+      ],
+      "variant": "default"
+    },
+    {
+      "scenarioId": "SCN-CALC-BAD-OPERAND",
+      "sourcePath": "apps/calculator_api/test/calculator_api_test.dart",
+      "target": "backend",
+      "packageId": "calculator-api",
+      "evidenceTypes": [
+        "api-contract",
+        "gherkin-api",
+        "security-integration"
+      ],
+      "variant": "default"
+    },
+    {
+      "scenarioId": "SCN-CALC-BAD-OPERAND",
+      "sourcePath": "apps/calculator_api/test/calculator_api_test.dart",
+      "target": "backend",
+      "packageId": "calculator-api",
+      "evidenceTypes": [
+        "api-contract",
+        "gherkin-api",
+        "security-integration"
+      ],
+      "variant": "default"
+    },
+    {
+      "scenarioId": "SCN-CALC-BAD-OPERAND",
+      "sourcePath": "apps/calculator_api/test/calculator_api_test.dart",
+      "target": "backend",
+      "packageId": "calculator-api",
+      "evidenceTypes": [
+        "api-contract",
+        "gherkin-api",
+        "security-integration"
+      ],
+      "variant": "default"
+    },
+    {
+      "scenarioId": "SCN-CALC-BAD-OPERAND",
+      "sourcePath": "apps/calculator_api/test/calculator_api_test.dart",
+      "target": "backend",
+      "packageId": "calculator-api",
+      "evidenceTypes": [
+        "api-contract",
+        "gherkin-api",
+        "security-integration"
+      ],
+      "variant": "default"
     },
     {
       "scenarioId": "SCN-CALC-BAD-OPERATOR",
@@ -555,7 +641,8 @@
         "api-contract",
         "gherkin-api",
         "security-integration"
-      ]
+      ],
+      "variant": "default"
     },
     {
       "scenarioId": "SCN-CALC-DIVIDE",
@@ -566,7 +653,8 @@
         "api-contract",
         "gherkin-api",
         "security-integration"
-      ]
+      ],
+      "variant": "default"
     },
     {
       "scenarioId": "SCN-CALC-DIVIDE-DECIMAL",
@@ -576,7 +664,8 @@
       "evidenceTypes": [
         "api-contract",
         "gherkin-api"
-      ]
+      ],
+      "variant": "default"
     },
     {
       "scenarioId": "SCN-CALC-DIVIDE-ZERO",
@@ -587,7 +676,8 @@
         "api-contract",
         "gherkin-api",
         "security-integration"
-      ]
+      ],
+      "variant": "default"
     },
     {
       "scenarioId": "SCN-CALC-MULTIPLY",
@@ -597,7 +687,8 @@
       "evidenceTypes": [
         "api-contract",
         "gherkin-api"
-      ]
+      ],
+      "variant": "default"
     },
     {
       "scenarioId": "SCN-CALC-OVERSIZED-BODY",
@@ -608,7 +699,8 @@
         "api-contract",
         "gherkin-api",
         "security-integration"
-      ]
+      ],
+      "variant": "default"
     },
     {
       "scenarioId": "SCN-CALC-P95",
@@ -617,7 +709,8 @@
       "packageId": "calculator-api",
       "evidenceTypes": [
         "performance"
-      ]
+      ],
+      "variant": "default"
     },
     {
       "scenarioId": "SCN-CALC-RATE-LIMIT",
@@ -627,7 +720,8 @@
       "evidenceTypes": [
         "gherkin-api",
         "security-integration"
-      ]
+      ],
+      "variant": "default"
     },
     {
       "scenarioId": "SCN-CALC-SUBTRACT",
@@ -637,7 +731,8 @@
       "evidenceTypes": [
         "api-contract",
         "gherkin-api"
-      ]
+      ],
+      "variant": "default"
     },
     {
       "scenarioId": "SCN-CALC-UNEXPECTED-FAILURE",
@@ -649,7 +744,8 @@
         "gherkin-api",
         "logging-verification",
         "security-integration"
-      ]
+      ],
+      "variant": "default"
     },
     {
       "scenarioId": "SCN-CALC-ADD-INTEGERS-API",
@@ -658,7 +754,8 @@
       "packageId": "calculator-mobile",
       "evidenceTypes": [
         "domain-unit"
-      ]
+      ],
+      "variant": "default"
     },
     {
       "scenarioId": "SCN-CALC-ADD-INTEGERS-UI",
@@ -667,7 +764,8 @@
       "packageId": "calculator-mobile",
       "evidenceTypes": [
         "domain-unit"
-      ]
+      ],
+      "variant": "default"
     },
     {
       "scenarioId": "SCN-CALC-BAD-OPERAND",
@@ -676,7 +774,48 @@
       "packageId": "calculator-mobile",
       "evidenceTypes": [
         "domain-unit"
-      ]
+      ],
+      "variant": "default"
+    },
+    {
+      "scenarioId": "SCN-CALC-BAD-OPERAND",
+      "sourcePath": "apps/calculator_mobile/test/calculator_domain_test.dart",
+      "target": "flutter",
+      "packageId": "calculator-mobile",
+      "evidenceTypes": [
+        "domain-unit"
+      ],
+      "variant": "default"
+    },
+    {
+      "scenarioId": "SCN-CALC-BAD-OPERAND",
+      "sourcePath": "apps/calculator_mobile/test/calculator_domain_test.dart",
+      "target": "flutter",
+      "packageId": "calculator-mobile",
+      "evidenceTypes": [
+        "domain-unit"
+      ],
+      "variant": "default"
+    },
+    {
+      "scenarioId": "SCN-CALC-BAD-OPERAND",
+      "sourcePath": "apps/calculator_mobile/test/calculator_domain_test.dart",
+      "target": "flutter",
+      "packageId": "calculator-mobile",
+      "evidenceTypes": [
+        "domain-unit"
+      ],
+      "variant": "default"
+    },
+    {
+      "scenarioId": "SCN-CALC-BAD-OPERAND",
+      "sourcePath": "apps/calculator_mobile/test/calculator_domain_test.dart",
+      "target": "flutter",
+      "packageId": "calculator-mobile",
+      "evidenceTypes": [
+        "domain-unit"
+      ],
+      "variant": "default"
     },
     {
       "scenarioId": "SCN-CALC-BAD-OPERATOR",
@@ -685,7 +824,8 @@
       "packageId": "calculator-mobile",
       "evidenceTypes": [
         "domain-unit"
-      ]
+      ],
+      "variant": "default"
     },
     {
       "scenarioId": "SCN-CALC-DIVIDE",
@@ -694,7 +834,8 @@
       "packageId": "calculator-mobile",
       "evidenceTypes": [
         "domain-unit"
-      ]
+      ],
+      "variant": "default"
     },
     {
       "scenarioId": "SCN-CALC-DIVIDE-ZERO",
@@ -703,7 +844,8 @@
       "packageId": "calculator-mobile",
       "evidenceTypes": [
         "domain-unit"
-      ]
+      ],
+      "variant": "default"
     },
     {
       "scenarioId": "SCN-CALC-MULTIPLY",
@@ -712,7 +854,8 @@
       "packageId": "calculator-mobile",
       "evidenceTypes": [
         "domain-unit"
-      ]
+      ],
+      "variant": "default"
     },
     {
       "scenarioId": "SCN-CALC-SUBTRACT",
@@ -721,7 +864,8 @@
       "packageId": "calculator-mobile",
       "evidenceTypes": [
         "domain-unit"
-      ]
+      ],
+      "variant": "default"
     },
     {
       "scenarioId": "SCN-CALC-ACCESSIBLE",
@@ -732,7 +876,8 @@
         "accessibility-integration",
         "flutter-widget",
         "gherkin-ui"
-      ]
+      ],
+      "variant": "default"
     },
     {
       "scenarioId": "SCN-CALC-ADD-INTEGERS-UI",
@@ -742,7 +887,8 @@
       "evidenceTypes": [
         "flutter-widget",
         "gherkin-ui"
-      ]
+      ],
+      "variant": "default"
     },
     {
       "scenarioId": "SCN-CALC-CALCULATION-FAILED",
@@ -752,7 +898,8 @@
       "evidenceTypes": [
         "flutter-widget",
         "gherkin-ui"
-      ]
+      ],
+      "variant": "default"
     },
     {
       "scenarioId": "SCN-CALC-DIVIDE",
@@ -762,7 +909,8 @@
       "evidenceTypes": [
         "flutter-widget",
         "gherkin-ui"
-      ]
+      ],
+      "variant": "default"
     },
     {
       "scenarioId": "SCN-CALC-DIVIDE-ZERO",
@@ -772,7 +920,8 @@
       "evidenceTypes": [
         "flutter-widget",
         "gherkin-ui"
-      ]
+      ],
+      "variant": "default"
     },
     {
       "scenarioId": "SCN-CALC-MISSING-FIRST",
@@ -782,7 +931,8 @@
       "evidenceTypes": [
         "flutter-widget",
         "gherkin-ui"
-      ]
+      ],
+      "variant": "default"
     },
     {
       "scenarioId": "SCN-CALC-MISSING-OPERATOR",
@@ -792,7 +942,8 @@
       "evidenceTypes": [
         "flutter-widget",
         "gherkin-ui"
-      ]
+      ],
+      "variant": "default"
     },
     {
       "scenarioId": "SCN-CALC-MISSING-SECOND",
@@ -802,7 +953,8 @@
       "evidenceTypes": [
         "flutter-widget",
         "gherkin-ui"
-      ]
+      ],
+      "variant": "default"
     },
     {
       "scenarioId": "SCN-CALC-MULTIPLY",
@@ -812,7 +964,8 @@
       "evidenceTypes": [
         "flutter-widget",
         "gherkin-ui"
-      ]
+      ],
+      "variant": "default"
     },
     {
       "scenarioId": "SCN-CALC-SUBTRACT",
@@ -822,7 +975,8 @@
       "evidenceTypes": [
         "flutter-widget",
         "gherkin-ui"
-      ]
+      ],
+      "variant": "default"
     }
   ],
   "unresolvedManagedRegistrations": 0,

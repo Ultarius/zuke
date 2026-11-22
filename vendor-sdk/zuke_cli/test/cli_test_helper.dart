@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:zuke_cli/src/plugin_cache.dart' show PluginCacheFinding;
 import 'package:zuke_cli/zuke_cli.dart';
 
 /// In-process stdout/stderr buffer implementation for isolated CLI testing.
@@ -80,6 +81,14 @@ final class TestStdout implements Stdout {
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 
+/// Keeps `doctor` away from the machine-wide analyzer plugin cache, which hashes
+/// every snapshot and so takes as long as that cache is large.
+Future<List<PluginCacheFinding>> noPluginCacheAudit(
+  String root,
+  bool fix,
+  Set<String>? contextRoots,
+) async => const [];
+
 /// Runs [ZukeCli] in-process using isolated [IOOverrides] stdout/stderr streams.
 ///
 /// Returns a typed result rather than [ProcessResult] so stdout/stderr are
@@ -91,7 +100,7 @@ Future<CliProcessResult> runInProcessCli(List<String> args) async {
 
   await IOOverrides.runZoned(
     () async {
-      exitCode = await ZukeCli().run(args);
+      exitCode = await ZukeCli(pluginAudit: noPluginCacheAudit).run(args);
     },
     stdout: () => TestStdout(stdoutBuffer),
     stderr: () => TestStdout(stderrBuffer),

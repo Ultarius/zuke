@@ -15,7 +15,7 @@ void main() {
     'passed': passed,
     'packageVersions': {'zuke': '0.4.0', 'zuke_cli': '0.5.0'},
     'compatibilityIds': {'dart-source': 'dart-source-package-v1'},
-    'sdk': {'dart': '3.10.0', if (host == 'flutter') 'flutter': '3.44.8'},
+    'sdk': {'dart': '3.10.0', if (host == 'flutter') 'flutter': '3.47.9'},
     'resolvedPackages': {'zuke': 'hosted:0.4.0'},
     'lockDigests': {'pullRequest': 'abc'},
   };
