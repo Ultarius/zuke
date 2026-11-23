@@ -32,12 +32,6 @@ jobs:
     env:
       FLUTTER_SUPPRESS_ANALYTICS: 'true'
       ZUKE_RUN_PROCESS_INTEGRATION: 'true'
-      # Keep the total Dart isolate budget bounded. Windows runs the
-      # subprocess-heavy zuke_cli suite with two package processes and four
-      # isolates per package; the remaining packages queue to avoid CPU and
-      # Flutter-tool contention.
-      ZUKE_TEST_WORKERS: '8'
-      ZUKE_TEST_PACKAGE_SLOTS: "${{ matrix.os == 'windows-latest' && '2' || '4' }}"
     steps:
       - name: Check out repository for local action resolution
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
@@ -73,7 +67,15 @@ jobs:
       - run: dart --suppress-analytics run zuke_cli:zuke check --root examples/calculator-product --profile ${{ inputs.profile }} --jobs 1 --format json
       - run: dart --suppress-analytics run zuke_cli:zuke manifest verify --root examples/calculator-product
       - name: Coverage check
-        run: dart --suppress-analytics run melos run coverage:check
+        shell: pwsh
+        run: |
+          # On macOS the analyzer-heavy coverage tests use the runner's
+          # processor count. The other hosts keep their existing budgets.
+          if (-not $IsMacOS) {
+            $env:ZUKE_TEST_WORKERS = '8'
+            $env:ZUKE_TEST_PACKAGE_SLOTS = if ($IsWindows) { '2' } else { '4' }
+          }
+          dart --suppress-analytics run melos run coverage:check
       - name: Upload assurance artifacts
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         if: always()

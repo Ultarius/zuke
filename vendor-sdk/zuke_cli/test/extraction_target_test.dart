@@ -91,6 +91,84 @@ void main() {
       ),
     );
   });
+
+  test('an explicit workspace root takes precedence over a nearer config', () {
+    _writeWorkspace(root, const ['backend'], packagePath: 'app');
+    final package = Directory('${root.path}/app')..createSync();
+    _writeWorkspace(package, const ['flutter'], packagePath: 'other');
+
+    expect(
+      resolvePlacement(
+        package.path,
+        explicitWorkspaceRoot: root.path,
+      ).target.id,
+      'backend',
+    );
+    expect(
+      () => resolvePlacement(package.path),
+      throwsA(
+        isA<PlacementFailure>().having(
+          (error) => error.code,
+          'code',
+          'ZK-TARGET-UNASSIGNED',
+        ),
+      ),
+    );
+  });
+
+  test('rejects an explicit workspace root without a configuration', () {
+    _writeWorkspace(root, const ['backend']);
+    final empty = Directory('${root.path}/empty')..createSync();
+
+    expect(
+      () => resolvePlacement(root.path, explicitWorkspaceRoot: empty.path),
+      throwsA(
+        isA<PlacementFailure>()
+            .having((error) => error.code, 'code', 'ZK-TARGET-UNASSIGNED')
+            .having(
+              (error) => error.message,
+              'message',
+              contains('no zuke.yaml'),
+            ),
+      ),
+    );
+  });
+
+  test('never places a package through an absolute configured path', () {
+    final workspace = Directory('${root.path}/workspace')..createSync();
+    final outside = Directory('${root.path}/outside')..createSync();
+    _writeWorkspace(workspace, const [
+      'backend',
+    ], packagePath: outside.absolute.path.replaceAll(r'\', '/'));
+
+    expect(
+      () =>
+          resolvePlacement(outside.path, explicitWorkspaceRoot: workspace.path),
+      throwsA(
+        isA<PlacementFailure>().having(
+          (error) => error.code,
+          'code',
+          'ZK-TARGET-UNASSIGNED',
+        ),
+      ),
+    );
+  });
+
+  for (final (content, code) in const [
+    ('targets: [\n', 'ZK-CONFIG-INVALID'),
+    ('schemaVersion: 2\n', 'ZK-CONFIG-LEGACY-FORMAT'),
+  ]) {
+    test('reports an unusable workspace configuration as $code', () {
+      File('${root.path}/zuke.yaml').writeAsStringSync(content);
+
+      expect(
+        () => resolvePlacement(root.path),
+        throwsA(
+          isA<PlacementFailure>().having((error) => error.code, 'code', code),
+        ),
+      );
+    });
+  }
 }
 
 void _writeWorkspace(
