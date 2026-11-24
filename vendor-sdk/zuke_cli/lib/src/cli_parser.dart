@@ -260,6 +260,12 @@ ArgParser buildZukeArgParser() {
           help:
               'Collect coverage from test runners (Flutter: --coverage, '
               'Dart: --coverage=coverage)',
+        )
+        ..addFlag(
+          'prepare-lock',
+          help:
+              'Write the profile lock from this run, then verify it, '
+              'instead of checking a committed lock',
         ),
     )
     ..addCommand(

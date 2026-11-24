@@ -22,6 +22,17 @@ Future<void> main(List<String> arguments) async {
   // Zuke runner, which supplies the evidence environment. Coverage is a
   // separate observational pass and must include that package.
   final includeRunnerManaged = extra.remove('--include-runner-managed');
+  final collectsCoverage =
+      task == 'test' &&
+      extra.any((arg) => arg == '--coverage' || arg.startsWith('--coverage='));
+  // CI runs the CLI suite in its own job; this selects one side of that split.
+  final testScope = Platform.environment['ZUKE_TEST_SCOPE'];
+  if (testScope != null &&
+      (task != 'test' || !const {'cli', 'non-cli'}.contains(testScope))) {
+    stderr.writeln('ZUKE_TEST_SCOPE must be cli or non-cli on a test run.');
+    exitCode = 64;
+    return;
+  }
   final rawBudget = Platform.environment['ZUKE_TEST_WORKERS'];
   final rawPackageSlots = Platform.environment['ZUKE_TEST_PACKAGE_SLOTS'];
   late final WorkerBudget budget;
@@ -53,16 +64,26 @@ Future<void> main(List<String> arguments) async {
                       '/examples/calculator-product/apps/calculator_api',
                     ),
           )
+          .where(
+            (package) => switch (testScope) {
+              'cli' => package.name == 'zuke_cli',
+              'non-cli' => package.name != 'zuke_cli',
+              _ => true,
+            },
+          )
           .toList()
         ..sort((a, b) => a.path.compareTo(b.path));
+  if (testScope == 'cli' && selected.isEmpty) {
+    stderr.writeln('The workspace has no runnable zuke_cli test suite.');
+    exitCode = 1;
+    return;
+  }
   if (selected.isEmpty) return;
 
-  final collectsCoverage =
-      task == 'test' &&
-      extra.any((arg) => arg == '--coverage' || arg.startsWith('--coverage='));
-  // CLI tests resolve Flutter libraries and launch subprocesses. Both still
-  // contend for CPU and memory when the CLI has only one test worker.
-  final cliCoverage = collectsCoverage
+  // CLI tests resolve Flutter libraries and launch subprocesses. Under
+  // coverage they contend with the packages running beside them, so the CLI
+  // runs afterwards with one worker. Alone, it uses the normal budget.
+  final cliCoverage = collectsCoverage && selected.length > 1
       ? selected.where((package) => package.name == 'zuke_cli').firstOrNull
       : null;
   final parallelPackages = cliCoverage == null

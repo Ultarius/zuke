@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
@@ -466,6 +467,113 @@ void main() {
           diagnostics.map((diagnostic) => diagnostic['code']),
           contains('ZK-LOCK-STALE'),
         );
+      },
+    );
+
+    test(
+      'check --prepare-lock writes the lock that lock --check accepts',
+      () async {
+        await runInProcessCli(['generate', '--root', root.path]);
+        final lockFile = File(
+          '${root.path}/assurance/locks/pullRequest.lock.json',
+        );
+        if (lockFile.existsSync()) lockFile.deleteSync();
+
+        // Without the flag, a missing lock fails the check.
+        final missing = await runInProcessCli([
+          'check',
+          '--root',
+          root.path,
+          '--profile',
+          'pullRequest',
+        ]);
+        expect(missing.exitCode, 1);
+        expect(lockFile.existsSync(), isFalse);
+
+        final prepared = await runInProcessCli([
+          'check',
+          '--root',
+          root.path,
+          '--profile',
+          'pullRequest',
+          '--prepare-lock',
+        ]);
+        expect(prepared.exitCode, 0, reason: prepared.stderr);
+        expect(lockFile.existsSync(), isTrue);
+
+        final verified = await runInProcessCli([
+          'lock',
+          '--root',
+          root.path,
+          '--profile',
+          'pullRequest',
+          '--check',
+        ]);
+        expect(verified.exitCode, 0, reason: verified.stderr);
+
+        // A stale lock is replaced rather than reported.
+        final preparedLock = lockFile.readAsStringSync();
+        lockFile.writeAsStringSync('{}\n');
+        final replaced = await runInProcessCli([
+          'check',
+          '--root',
+          root.path,
+          '--profile',
+          'pullRequest',
+          '--prepare-lock',
+        ]);
+        expect(replaced.exitCode, 0, reason: replaced.stderr);
+        expect(lockFile.readAsStringSync(), preparedLock);
+      },
+    );
+
+    test(
+      'check --prepare-lock restores the lock if verification fails',
+      () async {
+        await runInProcessCli(['generate', '--root', root.path]);
+        final canonicalRoot = root.resolveSymbolicLinksSync();
+        final lock = File(
+          '$canonicalRoot/assurance/locks/pullRequest.lock.json',
+        );
+        const previousBytes = 'previous lock bytes';
+        lock.parent.createSync(recursive: true);
+        lock.writeAsStringSync(previousBytes);
+
+        final outerZone = Zone.current;
+        var verificationFailed = false;
+        final result = await IOOverrides.runZoned(
+          () => runInProcessCli([
+            'check',
+            '--root',
+            canonicalRoot,
+            '--prepare-lock',
+            '--format',
+            'json',
+          ]),
+          createFile: (path) => outerZone.run(() {
+            final file = File(path);
+            // Simulate a failed read-back after the destination has been replaced.
+            if (!verificationFailed &&
+                file.uri == lock.uri &&
+                file.existsSync() &&
+                file.readAsStringSync() != previousBytes) {
+              verificationFailed = true;
+              return File('$canonicalRoot/missing-lock.json');
+            }
+            return file;
+          }),
+        );
+
+        expect(verificationFailed, isTrue);
+        expect(result.exitCode, 1);
+        final summary = CommandResult.fromJson(
+          jsonDecode(result.stdout) as Map<String, Object?>,
+        );
+        expect(
+          summary.diagnostics.map((diagnostic) => diagnostic.code),
+          contains('ZK-LOCK-STALE'),
+        );
+        expect(lock.readAsStringSync(), previousBytes);
       },
     );
   });

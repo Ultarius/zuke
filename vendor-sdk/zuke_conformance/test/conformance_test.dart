@@ -242,6 +242,68 @@ void main() {
   });
 
   group('process integration gate', () {
+    test('calculator verification requires both matrix results', () {
+      final root = _workspaceRoot();
+      final workflow =
+          loadYaml(
+                File(
+                  '${root.path}/.github/workflows/calculator-product-assurance.yml',
+                ).readAsStringSync(),
+              )
+              as Map<Object?, Object?>;
+      final jobs = workflow['jobs'] as Map<Object?, Object?>;
+      final calculator = jobs['calculator'] as Map<Object?, Object?>;
+      final cli = jobs['cli-tests'] as Map<Object?, Object?>;
+      final verify = jobs['verify'] as Map<Object?, Object?>;
+      expect(cli['needs'], isNull, reason: 'the CLI suite runs in parallel');
+      expect(calculator['needs'], isNull);
+      expect(verify['needs'], unorderedEquals(['calculator', 'cli-tests']));
+      expect(verify['if'], r'${{ !cancelled() }}');
+      expect(cli['strategy'], calculator['strategy']);
+      expect(verify['strategy'], calculator['strategy']);
+
+      List<Map<Object?, Object?>> steps(Map<Object?, Object?> job) =>
+          (job['steps'] as List<Object?>)
+              .whereType<Map<Object?, Object?>>()
+              .toList();
+      String run(Map<Object?, Object?> step) => step['run'] as String? ?? '';
+
+      final calculatorCoverage = steps(
+        calculator,
+      ).singleWhere((step) => run(step).contains('coverage:check'));
+      expect(
+        calculatorCoverage['env'],
+        containsPair('ZUKE_TEST_SCOPE', 'non-cli'),
+      );
+      final cliRun = steps(
+        cli,
+      ).singleWhere((step) => run(step).contains('run_dart_tests.dart'));
+      expect(cliRun['if'], isNull);
+      expect(
+        run(cliRun),
+        isNot(contains('--coverage')),
+        reason: 'no gate reads zuke_cli coverage',
+      );
+      expect(cliRun['env'], containsPair('ZUKE_TEST_SCOPE', 'cli'));
+      expect(cli['env'], containsPair('ZUKE_RUN_PROCESS_INTEGRATION', 'true'));
+
+      expect(verify['name'], r'verify (${{ matrix.os }})');
+      expect(steps(verify).single['env'], {
+        'CALCULATOR_RESULT': r'${{ needs.calculator.result }}',
+        'CLI_TESTS_RESULT': r'${{ needs.cli-tests.result }}',
+      });
+    });
+
+    test('calculator lock preparation runs the assurance pipeline once', () {
+      final root = _workspaceRoot();
+      final content = File(
+        '${root.path}/.github/workflows/calculator-product-assurance.yml',
+      ).readAsStringSync();
+      expect(content, contains("inputs.prepare_lock && ' --prepare-lock'"));
+      expect(content, isNot(contains('zuke_cli:zuke lock ')));
+      expect(content, isNot(contains('zuke_cli:zuke test ')));
+    });
+
     test('workflows that run process-gated tests enable the gate', () {
       final root = _workspaceRoot();
       final workflows = Directory('${root.path}/.github/workflows');

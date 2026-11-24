@@ -22,8 +22,8 @@ on:
         type: boolean
 
 jobs:
-  verify:
-    name: verify (${{ matrix.os }})
+  calculator:
+    name: calculator checks (${{ matrix.os }})
     strategy:
       fail-fast: false
       matrix:
@@ -57,16 +57,15 @@ jobs:
         if: ${{ inputs.demonstrate_rate_limit }}
         working-directory: examples/calculator-product/apps/calculator_api
         run: dart --suppress-analytics run bin/rate_limit_demo.dart
-      - name: Prepare ${{ inputs.profile }} assurance lock
-        if: ${{ inputs.prepare_lock }}
-        run: |
-          dart --suppress-analytics run zuke_cli:zuke generate --root examples/calculator-product --check
-          dart --suppress-analytics run zuke_cli:zuke test --root examples/calculator-product --profile ${{ inputs.profile }}
-          dart --suppress-analytics run zuke_cli:zuke validate --root examples/calculator-product --profile ${{ inputs.profile }} --format json
-          dart --suppress-analytics run zuke_cli:zuke lock --root examples/calculator-product --profile ${{ inputs.profile }}
-      - run: dart --suppress-analytics run zuke_cli:zuke check --root examples/calculator-product --profile ${{ inputs.profile }} --jobs 1 --format json
+      # With prepare_lock, check writes the lock from its own run and then
+      # verifies it, so the assurance pipeline runs once.
+      - name: Check ${{ inputs.profile }} assurance
+        run: dart --suppress-analytics run zuke_cli:zuke check --root examples/calculator-product --profile ${{ inputs.profile }} --jobs 1 --format json${{ inputs.prepare_lock && ' --prepare-lock' || '' }}
       - run: dart --suppress-analytics run zuke_cli:zuke manifest verify --root examples/calculator-product
       - name: Coverage check
+        env:
+          # The cli-tests job owns the CLI suite.
+          ZUKE_TEST_SCOPE: non-cli
         shell: pwsh
         run: |
           # On macOS the analyzer-heavy coverage tests use the runner's
@@ -90,3 +89,50 @@ jobs:
       - name: Clean Zuke test temporary directories
         if: always()
         run: dart --suppress-analytics run zuke_cli:zuke clean --root .
+
+  cli-tests:
+    name: CLI tests (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-26.04, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    env:
+      FLUTTER_SUPPRESS_ANALYTICS: 'true'
+      ZUKE_RUN_PROCESS_INTEGRATION: 'true'
+    steps:
+      - name: Check out repository for local action resolution
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - uses: ./.github/actions/setup-zuke
+      - name: Prepare Flutter tool package
+        run: dart --suppress-analytics run tool/prepare_flutter_toolchain.dart
+      # No coverage: no gate reads zuke_cli coverage. The 3-vCPU macOS
+      # runner keeps one worker; the 4-vCPU runners use two.
+      - name: Run the CLI suite
+        env:
+          ZUKE_TEST_SCOPE: cli
+          ZUKE_TEST_WORKERS: ${{ matrix.os == 'macos-latest' && '1' || '2' }}
+        run: dart --suppress-analytics run vendor-sdk/run_dart_tests.dart
+      - name: Clean Zuke test temporary directories
+        if: always()
+        run: dart --suppress-analytics run zuke_cli:zuke clean --root .
+
+  verify:
+    # Retain the existing check names. Each check requires both matrices
+    # to complete successfully across all platforms.
+    name: verify (${{ matrix.os }})
+    needs: [calculator, cli-tests]
+    if: ${{ !cancelled() }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-26.04, macos-latest, windows-latest]
+    runs-on: ubuntu-26.04
+    steps:
+      - name: Require calculator checks and CLI tests
+        env:
+          CALCULATOR_RESULT: ${{ needs.calculator.result }}
+          CLI_TESTS_RESULT: ${{ needs.cli-tests.result }}
+        run: |
+          printf 'Calculator checks: %s\nCLI tests: %s\n' "$CALCULATOR_RESULT" "$CLI_TESTS_RESULT"
+          test "$CALCULATOR_RESULT" = success && test "$CLI_TESTS_RESULT" = success

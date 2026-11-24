@@ -1022,7 +1022,7 @@ dart run zuke_cli:zuke check --root examples/calculator-product --root examples/
   transactional lock publication. It stops before writing locks when any
   selected profile is not eligible.
 - **`gate`**: Combines validation, clean generation checks, test execution if evidence is missing, lock checking, and release trust checks into a single command.
-- **`check`**: Runs generation, configured runners, validation, lock synchronization, and an observational report for each supplied root. Roots can run concurrently; `--format json` emits exactly one `kind: zuke.check` document.
+- **`check`** runs generation checks, configured runners, validation, lock verification, and an observational report for each supplied root. Roots can run concurrently. `--format json` emits one document with `kind: zuke.command-result` and `command: check`. With `--prepare-lock`, the lock stage publishes and verifies a profile lock using evidence from that run. If lock publication or verification fails, the previous lock is restored.
 - **`clean`**: Removes only directories matching `test/temp_*` beneath the supplied root. It does not remove source, locks, generated contracts, evidence, caches, or build output. Use `--dry-run` to preview.
 
 ### Pull-request CI example

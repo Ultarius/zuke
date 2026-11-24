@@ -44,6 +44,9 @@ class LockCommand {
     final check = args['check'] as bool? ?? false;
     final update =
         args.options.contains('update') && (args['update'] as bool? ?? false);
+    final output = args.options.contains('output')
+        ? args['output'] as String?
+        : null;
     if (check && update) {
       throw const FormatException(
         'lock --check and lock --update are mutually exclusive',
@@ -85,6 +88,14 @@ class LockCommand {
         profiles: _configuredProfiles(requestedRoot),
         transactional: update,
         checkOnly: check,
+      );
+    }
+    if (update && profile != null && (output == null || output.isEmpty)) {
+      return _executeProfiles(
+        requestedRoot,
+        profiles: [profile],
+        transactional: true,
+        checkOnly: false,
       );
     }
     final root = Directory(
@@ -187,9 +198,6 @@ class LockCommand {
       validation,
       profile: profileName,
     );
-    final output = args.options.contains('output')
-        ? args['output'] as String?
-        : null;
     final path = output != null && output.isNotEmpty
         ? output
         : resolveProfileLockPath(root.path, profileName);
@@ -261,7 +269,6 @@ class LockCommand {
           requestedRoot,
           profile,
           check: checkOnly,
-          update: false,
         );
       }
       return result;
@@ -284,7 +291,7 @@ class LockCommand {
           requestedRoot,
           profile,
           output: stagedPath,
-          update: true,
+          quiet: true,
         );
         if (result != 0 || !File(stagedPath).existsSync()) {
           _restoreSnapshots(snapshots);
@@ -299,10 +306,20 @@ class LockCommand {
         destination.writeAsBytesSync(File(stagedPath).readAsBytesSync());
       }
       for (final profile in profiles) {
-        final check = await _executeCheck(requestedRoot, profile);
+        final check = await _executeSingleProfile(
+          requestedRoot,
+          profile,
+          check: true,
+          quiet: true,
+        );
         if (check != 0) {
           _restoreSnapshots(snapshots);
           return check;
+        }
+      }
+      if (!boolFlag(args, 'quiet')) {
+        for (final path in snapshots.keys) {
+          stdout.writeln('Wrote $path');
         }
       }
       return 0;
@@ -319,7 +336,7 @@ class LockCommand {
     String root,
     String profile, {
     bool check = false,
-    bool update = false,
+    bool quiet = false,
     String? output,
   }) async {
     final parser = ArgParser()
@@ -327,9 +344,8 @@ class LockCommand {
       ..addOption('profile')
       ..addOption('output')
       ..addFlag('check')
-      ..addFlag('quiet')
-      ..addFlag('update');
-    return LockCommand(
+      ..addFlag('quiet');
+    final command = LockCommand(
       parser.parse([
         '--root',
         root,
@@ -337,28 +353,12 @@ class LockCommand {
         profile,
         if (output != null) ...['--output', output],
         if (check) '--check',
-        if (update) '--update',
+        if (quiet) '--quiet',
       ]),
-    ).execute();
-  }
-
-  Future<int> _executeCheck(String root, String profile) async {
-    final parser = ArgParser()
-      ..addOption('root')
-      ..addOption('profile')
-      ..addFlag('check')
-      ..addFlag('quiet')
-      ..addFlag('update');
-    return LockCommand(
-      parser.parse([
-        '--root',
-        root,
-        '--profile',
-        profile,
-        '--check',
-        '--quiet',
-      ]),
-    ).execute();
+    );
+    final result = await command.execute();
+    diagnostics = [...diagnostics, ...command.diagnostics];
+    return result;
   }
 
   void _restoreSnapshots(Map<String, List<int>?> snapshots) {

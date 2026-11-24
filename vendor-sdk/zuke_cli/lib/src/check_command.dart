@@ -38,6 +38,7 @@ class CheckCommand {
     final json = (args['format'] as String? ?? 'text') == 'json';
     final summaryFile = args['summary-file'] as String?;
     final coverage = boolFlag(args, 'coverage');
+    final prepareLock = boolFlag(args, 'prepare-lock');
     final results = await _runBounded(
       roots,
       jobs: jobs < roots.length ? jobs : roots.length,
@@ -46,6 +47,7 @@ class CheckCommand {
         profile: profile,
         runnerMode: args['runner-mode'] as String?,
         coverage: coverage,
+        prepareLock: prepareLock,
       ),
     );
     results.sort(
@@ -111,6 +113,7 @@ class CheckCommand {
     required String profile,
     String? runnerMode,
     bool coverage = false,
+    bool prepareLock = false,
   }) async {
     final stages = <_StageResult>[];
     WorkspaceDiscoveryResult initial;
@@ -158,7 +161,7 @@ class CheckCommand {
           );
           stages.add(validated);
           if (validated.status == 'passed') {
-            stages.add(await _checkLock(root, profile));
+            stages.add(await _verifyLock(root, profile, prepare: prepareLock));
           } else {
             stages.addAll(_skipped(['lock']));
           }
@@ -228,10 +231,20 @@ int _jobs(String raw) {
   return parsed;
 }
 
-/// A configured runner intentionally replaces profile evidence. Lock output
-Future<_StageResult> _checkLock(String root, String profile) async {
+/// Verifies the profile lock against the evidence this check produced.
+Future<_StageResult> _verifyLock(
+  String root,
+  String profile, {
+  required bool prepare,
+}) async {
   final command = LockCommand(
-    buildLockArgs(root: root, profile: profile, check: true, quiet: true),
+    buildLockArgs(
+      root: root,
+      profile: profile,
+      check: !prepare,
+      update: prepare,
+      quiet: true,
+    ),
   );
   return _stage(
     'lock',
