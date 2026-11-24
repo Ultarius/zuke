@@ -7,8 +7,9 @@ import 'package:test/test.dart';
 
 void main() {
   WorkspaceDiscoveryResult workspace(
-    String expression,
-  ) => WorkspaceDiscoveryResult(
+    String expression, {
+    List<GherkinExamples>? outlineExamples,
+  }) => WorkspaceDiscoveryResult(
     config: ZukeConfig(
       executionConfig: {
         'release': {'tagExpression': expression},
@@ -51,25 +52,30 @@ void main() {
                 _scenario(
                   'SCN-OUTLINE',
                   'outline',
-                  examples: const [
-                    GherkinExamples(
-                      title: 'release values',
-                      tags: [
-                        GherkinTag(
-                          name: 'release',
+                  examples:
+                      outlineExamples ??
+                      const [
+                        GherkinExamples(
+                          title: 'release values',
+                          tags: [
+                            GherkinTag(
+                              name: 'release',
+                              source: SourceLocation(
+                                file: 'select.feature',
+                                line: 3,
+                              ),
+                            ),
+                          ],
+                          headers: ['value'],
+                          rows: [
+                            ['1'],
+                          ],
                           source: SourceLocation(
                             file: 'select.feature',
                             line: 3,
                           ),
                         ),
                       ],
-                      headers: ['value'],
-                      rows: [
-                        ['1'],
-                      ],
-                      source: SourceLocation(file: 'select.feature', line: 3),
-                    ),
-                  ],
                 ),
               ],
             ),
@@ -128,6 +134,69 @@ void main() {
     ]);
   });
 
+  GherkinExamples examples(String title, List<String> tags) => GherkinExamples(
+    title: title,
+    tags: tags
+        .map(
+          (tag) => GherkinTag(
+            name: tag,
+            source: const SourceLocation(file: 'select.feature', line: 3),
+          ),
+        )
+        .toList(),
+    headers: const ['value'],
+    rows: const [
+      ['1'],
+    ],
+    source: const SourceLocation(file: 'select.feature', line: 3),
+  );
+
+  test('partial profile selection includes only matching block IDs', () {
+    final selected = const ScenarioSelector().select(
+      workspace(
+        '@pr',
+        outlineExamples: [
+          examples('Fast rows', ['SCN-FAST-BLOCK', 'pr']),
+          examples('Full rows', ['SCN-FULL-BLOCK', 'release']),
+        ],
+      ),
+      'release',
+    );
+    expect(selected, ['SCN-FAST-BLOCK', 'SCN-PR']);
+  });
+
+  test('rejects partial selection when a selected block has no ID', () {
+    expect(
+      () => const ScenarioSelector().select(
+        workspace(
+          '@pr',
+          outlineExamples: [
+            examples('Fast rows', ['pr']),
+            examples('Full rows', ['release']),
+          ],
+        ),
+        'release',
+      ),
+      throwsFormatException,
+    );
+  });
+
+  test('rejects an outline-level ID when block tags change runner targets', () {
+    expect(
+      () => const ScenarioSelector().select(
+        workspace(
+          '@pr',
+          outlineExamples: [
+            examples('API rows', ['SCN-API-BLOCK', 'pr', 'api']),
+            examples('UI rows', ['SCN-UI-BLOCK', 'pr', 'ui']),
+          ],
+        ),
+        'release',
+      ),
+      throwsFormatException,
+    );
+  });
+
   test('rejects not without an operand', () {
     expect(
       () =>
@@ -156,7 +225,7 @@ void main() {
 
   test('leaves runner-managed workspaces unfiltered', () {
     const runnerManaged = WorkspaceDiscoveryResult(
-      config: ZukeConfig(executionConfig: {'runners': []}),
+      config: ZukeConfig(executionConfig: {'runners': <Object?>[]}),
       data: MetadataExtractorResult(),
     );
 

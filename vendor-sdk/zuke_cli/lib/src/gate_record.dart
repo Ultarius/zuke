@@ -127,12 +127,19 @@ _Recording _readRecording(
         diagnostics: result.diagnostics,
       ),
     );
-  } on Object catch (_) {
+  } on FormatException catch (error) {
     return _missingRecording(
       recordedAt: recordedAt,
       releaseId: releaseId,
       commitSha: commitSha,
-      reason: 'Summary file is missing or malformed.',
+      reason: 'Summary file is malformed: ${error.message}',
+    );
+  } on Object catch (error) {
+    return _missingRecording(
+      recordedAt: recordedAt,
+      releaseId: releaseId,
+      commitSha: commitSha,
+      reason: 'Summary file is missing or unreadable (${error.runtimeType}).',
     );
   }
 }

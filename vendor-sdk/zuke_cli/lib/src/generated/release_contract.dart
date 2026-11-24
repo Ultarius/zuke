@@ -9,15 +9,15 @@ const releaseDartSourceCompatibilityId = 'dart-source-package-v1';
 
 /// Exact versions for the currently supported hosted public packages.
 const releasePublicPackageVersions = <String, String>{
-  'zuke_core': '0.4.0',
-  'zuke_annotations': '0.4.0',
-  'zuke_frontend': '0.2.2',
-  'zuke': '0.4.0',
-  'zuke_runner': '0.4.0',
-  'zuke_runner_flutter': '0.4.0',
+  'zuke_core': '0.4.1',
+  'zuke_annotations': '0.5.0',
+  'zuke_frontend': '0.2.3',
+  'zuke': '0.5.0',
+  'zuke_runner': '0.5.0',
+  'zuke_runner_flutter': '0.5.0',
   'zuke_http_runtime': '0.1.1',
-  'zuke_cli': '0.5.0',
-  'zuke_dart_build_hook': '0.4.0',
+  'zuke_cli': '0.6.0',
+  'zuke_dart_build_hook': '0.5.0',
 };
 
 /// Packages retained only as historical names and never published by current Zuke.
@@ -38,8 +38,8 @@ const releaseSupportedOperatingSystems = <String>['linux', 'windows'];
 
 /// Exact Flutter host versions covered by hosted certification.
 const releaseFlutterCertification = <String, Object?>{
-  'minimum': '3.44.8',
-  'current': '3.44.8',
+  'minimum': '3.47.9',
+  'current': '3.47.9',
   'channels': <String>['stable'],
 };
 

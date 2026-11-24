@@ -1,0 +1,13 @@
+# Declares the repository's test tags and their defaults.
+#
+# `integration` tests drive the real toolchain -- a `dart pub get` and a
+# `dart compile aot-snapshot` per entry -- so they depend on a warm pub cache
+# and take tens of seconds. They are skipped by default and run explicitly:
+#
+#   dart test --run-skipped --tags integration
+#
+# The nightly workflow runs that on `vendor-sdk/zuke_cli`. Local runs of
+# `dart test` are unaffected.
+tags:
+  integration:
+    skip: "integration: drives the real toolchain, run with --tags integration"

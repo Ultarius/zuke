@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.5.0
+
+- Breaking: `ZukeBindingDescriptor` now exposes the binding's declared `label`.
+
 ## 0.4.0
 
 - Removed placement `target` overrides from `ImplementsRequirement`,

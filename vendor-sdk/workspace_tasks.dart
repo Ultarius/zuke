@@ -22,6 +22,17 @@ Future<void> main(List<String> arguments) async {
   // Zuke runner, which supplies the evidence environment. Coverage is a
   // separate observational pass and must include that package.
   final includeRunnerManaged = extra.remove('--include-runner-managed');
+  final collectsCoverage =
+      task == 'test' &&
+      extra.any((arg) => arg == '--coverage' || arg.startsWith('--coverage='));
+  // CI runs the CLI suite in its own job; this selects one side of that split.
+  final testScope = Platform.environment['ZUKE_TEST_SCOPE'];
+  if (testScope != null &&
+      (task != 'test' || !const {'cli', 'non-cli'}.contains(testScope))) {
+    stderr.writeln('ZUKE_TEST_SCOPE must be cli or non-cli on a test run.');
+    exitCode = 64;
+    return;
+  }
   final rawBudget = Platform.environment['ZUKE_TEST_WORKERS'];
   final rawPackageSlots = Platform.environment['ZUKE_TEST_PACKAGE_SLOTS'];
   late final WorkerBudget budget;
@@ -53,14 +64,36 @@ Future<void> main(List<String> arguments) async {
                       '/examples/calculator-product/apps/calculator_api',
                     ),
           )
+          .where(
+            (package) => switch (testScope) {
+              'cli' => package.name == 'zuke_cli',
+              'non-cli' => package.name != 'zuke_cli',
+              _ => true,
+            },
+          )
           .toList()
         ..sort((a, b) => a.path.compareTo(b.path));
+  if (testScope == 'cli' && selected.isEmpty) {
+    stderr.writeln('The workspace has no runnable zuke_cli test suite.');
+    exitCode = 1;
+    return;
+  }
   if (selected.isEmpty) return;
+
+  // CLI tests resolve Flutter libraries and launch subprocesses. Under
+  // coverage they contend with the packages running beside them, so the CLI
+  // runs afterwards with one worker. Alone, it uses the normal budget.
+  final cliCoverage = collectsCoverage && selected.length > 1
+      ? selected.where((package) => package.name == 'zuke_cli').firstOrNull
+      : null;
+  final parallelPackages = cliCoverage == null
+      ? selected
+      : selected.where((package) => package != cliCoverage).toList();
 
   late final int packageSlots;
   try {
     packageSlots = budget.packageSlotsFor(
-      selected.length,
+      parallelPackages.length,
       overrideEnv: rawPackageSlots,
     );
   } on FormatException catch (error) {
@@ -69,19 +102,32 @@ Future<void> main(List<String> arguments) async {
     return;
   }
   final workers = task == 'test' ? budget.workersFor(packageSlots) : 1;
+  // Parallel dart analyze processes race on the shared analyzer-plugin AOT
+  // snapshot under ~/.dartServer/.plugin_manager (truncated plugin.aot).
+  // Analyze one package at a time so the plugin is built once, then reused.
+  final jobs = task == 'analyze' ? 1 : packageSlots;
   // CI needs live package progress so a long analyzer/test phase is
   // distinguishable from a stalled child. Local runs keep the compact report.
   final streamOutput = Platform.environment['CI']?.toLowerCase() == 'true';
   stdout.writeln(
     'Dart $task worker budget: ${budget.budget} '
-    '(packages=$packageSlots, workers/package=$workers).',
+    '(processors=${Platform.numberOfProcessors}, '
+    'packages=$jobs, workers/package=$workers).',
   );
-  final results = await _runBounded(
-    selected,
-    jobs: packageSlots,
-    run: (package) =>
-        _runPackage(package, task: task, workers: workers, extra: extra),
-  );
+  final results = [
+    ...await _runBounded(
+      parallelPackages,
+      jobs: jobs,
+      run: (package) =>
+          _runPackage(package, task: task, workers: workers, extra: extra),
+    ),
+  ];
+  if (cliCoverage != null) {
+    stdout.writeln('Dart CLI coverage: running separately with one worker.');
+    results.add(
+      await _runPackage(cliCoverage, task: task, workers: 1, extra: extra),
+    );
+  }
   // Passing tests may intentionally exercise negative CLI paths. Those paths
   // report their diagnostics on stderr, but surfacing that stream as a
   // warning makes a green workspace run look failed. Keep successful package
@@ -162,11 +208,13 @@ final class WorkerBudget {
 }
 
 final class _WorkspacePackage {
+  final String? name;
   final String path;
   final bool isFlutter;
   final bool hasTests;
 
   const _WorkspacePackage({
+    required this.name,
     required this.path,
     required this.isFlutter,
     required this.hasTests,
@@ -208,7 +256,7 @@ Future<List<_WorkspacePackage>> _workspacePackages() async {
   }
   final decoded = jsonDecode(result.stdout as String) as Map<String, Object?>;
   final entries = decoded['packages'] as List<Object?>? ?? const [];
-  return entries.whereType<Map>().map((entry) {
+  return entries.whereType<Map<Object?, Object?>>().map((entry) {
     final path = entry['path']?.toString();
     if (path == null || path.isEmpty) {
       throw const FormatException('Workspace package entry is missing path.');
@@ -219,6 +267,7 @@ Future<List<_WorkspacePackage>> _workspacePackages() async {
     );
     final content = pubspec.existsSync() ? pubspec.readAsStringSync() : '';
     return _WorkspacePackage(
+      name: entry['name']?.toString(),
       path: directory.path,
       isFlutter: RegExp(
         r'^\s*sdk\s*:\s*flutter\s*$',
@@ -301,7 +350,7 @@ Future<_PackageResult> _runPackage(
           if (streamOutput) stdout.write('[${package.path}] $chunk');
           resetIdleTimer();
         },
-        onError: (Object _, StackTrace __) {
+        onError: (Object _, StackTrace _) {
           if (!stdoutDone.isCompleted) stdoutDone.complete();
         },
         onDone: () {
@@ -315,7 +364,7 @@ Future<_PackageResult> _runPackage(
           stderrBuffer.write(chunk);
           resetIdleTimer();
         },
-        onError: (Object _, StackTrace __) {
+        onError: (Object _, StackTrace _) {
           if (!stderrDone.isCompleted) stderrDone.complete();
         },
         onDone: () {
@@ -337,7 +386,7 @@ Future<_PackageResult> _runPackage(
     ]);
     if (timedOut) {
       stderrBuffer.writeln(
-        'ZUKE-PACKAGE-TIMEOUT: ${package.path} produced no output for '
+        'ZK-PACKAGE-TIMEOUT: ${package.path} produced no output for '
         '$_packageIdleTimeout.',
       );
     }

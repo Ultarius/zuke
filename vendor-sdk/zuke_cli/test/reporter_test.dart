@@ -155,4 +155,24 @@ void main() {
     expect(json, contains('pbis'));
     expect(json, contains('features'));
   });
+
+  test('binding labels survive model serialization', () {
+    const labelled = ZukeModelBinding(
+      id: 'todo.addTaskButton',
+      label: 'add task button',
+      target: 'flutter',
+      cardinality: 'exactlyOne',
+      interaction: 'action',
+    );
+    expect(labelled.toJson()['label'], 'add task button');
+
+    const unlabelled = ZukeModelBinding(
+      id: 'todo.addTaskButton',
+      target: 'flutter',
+      cardinality: 'exactlyOne',
+      interaction: 'action',
+    );
+    expect(unlabelled.toJson().containsKey('label'), isTrue);
+    expect(unlabelled.toJson()['label'], isNull);
+  });
 }

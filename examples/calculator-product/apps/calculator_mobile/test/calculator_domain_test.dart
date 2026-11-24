@@ -17,6 +17,20 @@ import 'package:zuke_runner_flutter/zuke_runner_flutter.dart';
   variant: 'default',
 )
 void main() {
+  final feature = ZukeFeatureLoader.load('calculator_operations.feature');
+  final invalid = resolveScenarioContract(
+    feature,
+    ValidationScenarios.badOperand,
+  );
+  void expectInvalidRow(int row) {
+    final input = scenarioExampleCaseAt(
+      invalid.scenario,
+      examplesIndex: 0,
+      rowIndex: row,
+    ).values['input']!;
+    expect(() => FiniteOperandParser().parse(input), throwsFormatException);
+  }
+
   final selectedScenarios = scenarioFilterFromEnvironment(Platform.environment);
   bool skipScenario(ZukeScenarioContract scenario) =>
       !shouldRunScenario(scenario.id.value, selectedScenarios);
@@ -114,20 +128,42 @@ void main() {
     skip: skipScenario(DivisionScenarios.divideZero),
   );
   zukeTest(
-    () async {
-      final parser = FiniteOperandParser();
-      for (final input in [
-        'NaN',
-        'Infinity',
-        'one',
-        '<script>alert(1)</script>',
-      ]) {
-        expect(() => parser.parse(input), throwsFormatException);
-      }
-    },
+    () => expectInvalidRow(0),
     scenario: ValidationScenarios.badOperand,
     evidenceTypes: const ['domain-unit'],
-    caseId: 'domain',
+    caseId: 'examples-1-row-1',
+    provedImplementationSlots: const ['primary'],
+    skip: skipScenario(ValidationScenarios.badOperand),
+  );
+  zukeTest(
+    () => expectInvalidRow(1),
+    scenario: ValidationScenarios.badOperand,
+    evidenceTypes: const ['domain-unit'],
+    caseId: 'examples-1-row-2',
+    provedImplementationSlots: const ['primary'],
+    skip: skipScenario(ValidationScenarios.badOperand),
+  );
+  zukeTest(
+    () => expectInvalidRow(2),
+    scenario: ValidationScenarios.badOperand,
+    evidenceTypes: const ['domain-unit'],
+    caseId: 'examples-1-row-3',
+    provedImplementationSlots: const ['primary'],
+    skip: skipScenario(ValidationScenarios.badOperand),
+  );
+  zukeTest(
+    () => expectInvalidRow(3),
+    scenario: ValidationScenarios.badOperand,
+    evidenceTypes: const ['domain-unit'],
+    caseId: 'examples-1-row-4',
+    provedImplementationSlots: const ['primary'],
+    skip: skipScenario(ValidationScenarios.badOperand),
+  );
+  zukeTest(
+    () => expectInvalidRow(4),
+    scenario: ValidationScenarios.badOperand,
+    evidenceTypes: const ['domain-unit'],
+    caseId: 'examples-1-row-5',
     provedImplementationSlots: const ['primary'],
     skip: skipScenario(ValidationScenarios.badOperand),
   );

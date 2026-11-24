@@ -6,6 +6,8 @@ import 'package:analyzer/dart/analysis/utilities.dart';
 import 'package:analyzer/source/line_info.dart';
 import 'package:zuke/runner.dart';
 
+import 'tooling/inspection.dart' show namedArgumentValues;
+
 /// One direct Zuke registration found in a Dart source file.
 final class ZukeRegistration {
   const ZukeRegistration({
@@ -382,10 +384,58 @@ final class RegistrationAudit {
         );
       }
     }
+    diagnostics.addAll(_checkRegisteredRows(registrations, scenarioCaseIds));
     return RegistrationAuditResult(
       registrations: List.unmodifiable(registrations),
       diagnostics: List.unmodifiable(diagnostics),
     );
+  }
+
+  Iterable<RegistrationAuditDiagnostic> _checkRegisteredRows(
+    Iterable<ZukeRegistration> registrations,
+    Map<String, Iterable<String?>> scenarioCaseIds,
+  ) sync* {
+    final outlines = <String, Set<String>>{};
+    for (final entry in scenarioCaseIds.entries) {
+      final rows = entry.value.whereType<String>().toSet();
+      if (rows.isNotEmpty) outlines[entry.key] = rows;
+    }
+    final groups = <(String, String?), List<ZukeRegistration>>{};
+    for (final registration in registrations) {
+      final id = registration.scenarioId;
+      if (id == null || !outlines.containsKey(id)) continue;
+      (groups[(id, registration.target)] ??= []).add(registration);
+    }
+    for (final entry in groups.entries) {
+      final (id, _) = entry.key;
+      final expected = outlines[id]!;
+      final declared = <String>{};
+      for (final registration in entry.value) {
+        final caseId = registration.caseId;
+        if (caseId != null && expected.contains(caseId)) {
+          declared.add(caseId);
+          continue;
+        }
+        yield RegistrationAuditDiagnostic(
+          code: 'ZK-REGISTRATION-CASE-UNKNOWN',
+          message:
+              'Case "${caseId ?? '(default)'}" is not an Examples row of $id.',
+          file: registration.file,
+          line: registration.line,
+          column: registration.column,
+        );
+      }
+      final missing = expected.difference(declared).toList()..sort();
+      if (missing.isEmpty) continue;
+      final first = entry.value.first;
+      yield RegistrationAuditDiagnostic(
+        code: 'ZK-REGISTRATION-CASE-MISSING',
+        message: 'Scenario $id has no registration for ${missing.join(', ')}.',
+        file: first.file,
+        line: first.line,
+        column: first.column,
+      );
+    }
   }
 
   RegistrationAuditResult inspectDirectory(
@@ -444,11 +494,6 @@ final class _RegistrationVisitor extends RecursiveAstVisitor<void> {
   final Map<String, String> _generatedScenarioIds;
   final _functionStack = <String>[];
   final _flutterHarnessAliases = <String, _FlutterHarnessKind>{};
-
-  @override
-  void visitCompilationUnit(CompilationUnit node) {
-    super.visitCompilationUnit(node);
-  }
 
   @override
   void visitFunctionDeclaration(FunctionDeclaration node) {
@@ -535,18 +580,18 @@ final class _RegistrationVisitor extends RecursiveAstVisitor<void> {
       return;
     }
     final line = _line(node.offset);
-    final scenarioArgument = node.argumentList.arguments
-        .whereType<NamedExpression>()
-        .where((argument) => argument.name.label.name == 'scenario')
-        .toList();
-    final caseArgument = node.argumentList.arguments
-        .whereType<NamedExpression>()
-        .where((argument) => argument.name.label.name == 'caseId')
-        .toList();
-    final provedControlsArgument = node.argumentList.arguments
-        .whereType<NamedExpression>()
-        .where((argument) => argument.name.label.name == 'provedControls')
-        .toList();
+    final scenarioArgument = namedArgumentValues(
+      node.argumentList.arguments,
+      'scenario',
+    );
+    final caseArgument = namedArgumentValues(
+      node.argumentList.arguments,
+      'caseId',
+    );
+    final provedControlsArgument = namedArgumentValues(
+      node.argumentList.arguments,
+      'provedControls',
+    );
     if (provedControlsArgument.length > 1) {
       _diagnostic(
         'ZK-REGISTRATION-CONTROLS-DUPLICATE',
@@ -554,17 +599,17 @@ final class _RegistrationVisitor extends RecursiveAstVisitor<void> {
         node,
       );
     } else if (provedControlsArgument.length == 1 &&
-        _isBlanketControlProof(provedControlsArgument.single.expression)) {
+        _isBlanketControlProof(provedControlsArgument.single.value)) {
       _diagnostic(
         'ZK-REGISTRATION-CONTROLS-BLANKET',
         'provedControls must name only controls asserted by this test; '
             'scenario.controlIds and controlsFor(...) would automatically claim '
             'future specification controls.',
-        provedControlsArgument.single,
+        provedControlsArgument.single.node,
       );
     }
     final scenarioId = scenarioArgument.length == 1
-        ? _resolve(scenarioArgument.single.expression)
+        ? _resolve(scenarioArgument.single.value)
         : null;
     if (scenarioArgument.length != 1) {
       _diagnostic(
@@ -576,14 +621,14 @@ final class _RegistrationVisitor extends RecursiveAstVisitor<void> {
       _diagnostic(
         'ZK-REGISTRATION-DYNAMIC',
         'Unable to statically resolve the scenario contract for $runner. Use a generated contract or a local alias initialized from one.',
-        scenarioArgument.single,
+        scenarioArgument.single.node,
       );
     } else if (knownScenarioIds.isNotEmpty &&
         !knownScenarioIds.contains(scenarioId)) {
       _diagnostic(
         'ZK-REGISTRATION-UNKNOWN-SCENARIO',
         'Registration resolves to $scenarioId, which is not present in the configured specification set.',
-        scenarioArgument.single,
+        scenarioArgument.single.node,
       );
     }
     String? caseId = runner == 'zukeUnit' ? scenarioId : null;
@@ -594,13 +639,13 @@ final class _RegistrationVisitor extends RecursiveAstVisitor<void> {
         node,
       );
     } else if (caseArgument.length == 1) {
-      final expression = caseArgument.single.expression;
+      final expression = caseArgument.single.value;
       caseId = _resolveCaseId(expression);
       if (caseId == null) {
         _diagnostic(
           'ZK-REGISTRATION-CASE-DYNAMIC',
           'caseId must be a string literal or a statically resolved scenario.id.value expression so registration identity is deterministic.',
-          caseArgument.single,
+          caseArgument.single.node,
         );
       }
     }
@@ -659,10 +704,10 @@ final class _RegistrationVisitor extends RecursiveAstVisitor<void> {
       return;
     }
     final harnessTarget = node.target;
-    final arguments = switch (harnessTarget) {
+    final List<AstNode> arguments = switch (harnessTarget) {
       InstanceCreationExpression(:final argumentList) => argumentList.arguments,
       MethodInvocation(:final argumentList) => argumentList.arguments,
-      _ => const <Expression>[],
+      _ => const <AstNode>[],
     };
     final harnessKind = _flutterHarnessKind(harnessTarget);
     final aliasKind = harnessTarget is SimpleIdentifier
@@ -680,10 +725,7 @@ final class _RegistrationVisitor extends RecursiveAstVisitor<void> {
       _inspectEvidenceHarnessCases(node);
       return;
     }
-    final scenariosArgument = arguments
-        .whereType<NamedExpression>()
-        .where((argument) => argument.name.label.name == 'scenarios')
-        .toList();
+    final scenariosArgument = namedArgumentValues(arguments, 'scenarios');
     if (scenariosArgument.length != 1) {
       _diagnostic(
         'ZK-REGISTRATION-SCENARIOS-MISSING',
@@ -694,7 +736,7 @@ final class _RegistrationVisitor extends RecursiveAstVisitor<void> {
       return;
     }
     final scenarioIds = _resolveScenarioCollection(
-      scenariosArgument.single.expression,
+      scenariosArgument.single.value,
     );
     if (scenarioIds == null || scenarioIds.isEmpty) {
       _diagnostic(
@@ -702,7 +744,7 @@ final class _RegistrationVisitor extends RecursiveAstVisitor<void> {
         'Unable to statically resolve the ZukeFlutterHarness scenarios '
             'collection. Use a generated scenario collection such as '
             'GeneratedScenarios.all.',
-        scenariosArgument.single,
+        scenariosArgument.single.node,
       );
       return;
     }
@@ -714,7 +756,7 @@ final class _RegistrationVisitor extends RecursiveAstVisitor<void> {
           'ZK-REGISTRATION-UNKNOWN-SCENARIO',
           'Harness registration resolves to $scenarioId, which is not '
               'present in the configured specification set.',
-          scenariosArgument.single,
+          scenariosArgument.single.node,
         );
       }
       final cases = scenarioCaseIds[scenarioId]?.toList(growable: false);
@@ -751,7 +793,7 @@ final class _RegistrationVisitor extends RecursiveAstVisitor<void> {
     final cases = (arguments.single as ListLiteral).elements;
     final location = _line(node.offset);
     for (final element in cases) {
-      final caseArguments = switch (element) {
+      final List<AstNode>? caseArguments = switch (element) {
         InstanceCreationExpression(:final constructorName, :final argumentList)
             when constructorName.type.name.lexeme == 'FlutterEvidenceCase' =>
           argumentList.arguments,
@@ -770,10 +812,7 @@ final class _RegistrationVisitor extends RecursiveAstVisitor<void> {
         );
         continue;
       }
-      final scenarioArguments = caseArguments
-          .whereType<NamedExpression>()
-          .where((argument) => argument.name.label.name == 'scenario')
-          .toList();
+      final scenarioArguments = namedArgumentValues(caseArguments, 'scenario');
       if (scenarioArguments.length != 1) {
         _diagnostic(
           'ZK-REGISTRATION-SCENARIO-MISSING',
@@ -783,14 +822,14 @@ final class _RegistrationVisitor extends RecursiveAstVisitor<void> {
         );
         continue;
       }
-      final scenarioId = _resolve(scenarioArguments.single.expression);
+      final scenarioId = _resolve(scenarioArguments.single.value);
       if (scenarioId == null) {
         _diagnostic(
           'ZK-REGISTRATION-DYNAMIC',
           'Unable to statically resolve the FlutterEvidenceCase scenario. '
               'Use a generated contract or a local alias initialized from '
               'one.',
-          scenarioArguments.single,
+          scenarioArguments.single.node,
         );
         continue;
       }
@@ -800,8 +839,28 @@ final class _RegistrationVisitor extends RecursiveAstVisitor<void> {
           'ZK-REGISTRATION-UNKNOWN-SCENARIO',
           'Evidence harness registration resolves to $scenarioId, which is '
               'not present in the configured specification set.',
-          scenarioArguments.single,
+          scenarioArguments.single.node,
         );
+      }
+      final caseIdArguments = namedArgumentValues(caseArguments, 'caseId');
+      String? caseId;
+      if (caseIdArguments.length > 1) {
+        _diagnostic(
+          'ZK-REGISTRATION-CASE-DUPLICATE',
+          'FlutterEvidenceCase contains more than one caseId argument.',
+          element,
+        );
+      } else if (caseIdArguments.length == 1) {
+        caseId = _resolveCaseId(caseIdArguments.single.value);
+        if (caseId == null) {
+          _diagnostic(
+            'ZK-REGISTRATION-CASE-DYNAMIC',
+            'caseId must be a string literal or a statically resolved '
+                'scenario.id.value expression so registration identity is '
+                'deterministic.',
+            caseIdArguments.single.node,
+          );
+        }
       }
       registrations.add(
         ZukeRegistration(
@@ -811,7 +870,7 @@ final class _RegistrationVisitor extends RecursiveAstVisitor<void> {
           runner: 'zukeTestWidgets',
           target: target,
           scenarioId: scenarioId,
-          caseId: null,
+          caseId: caseId,
         ),
       );
     }
@@ -847,8 +906,7 @@ final class _RegistrationVisitor extends RecursiveAstVisitor<void> {
     // arbitrary variable named `all`.
     final collectionName = parts[parts.length - 2];
     if (!collectionName.endsWith('Scenarios')) return null;
-    final enumName =
-        '${collectionName.substring(0, collectionName.length - 1)}';
+    final enumName = collectionName.substring(0, collectionName.length - 1);
     final ids = _generatedScenarioIds.entries
         .where((entry) => entry.key.startsWith('$enumName.'))
         .map((entry) => entry.value)
@@ -926,6 +984,29 @@ final class _RegistrationVisitor extends RecursiveAstVisitor<void> {
   }
 }
 
+/// The name of a class or enum declaration.
+///
+/// Analyzer 9 moved it below `namePart`, and 8.4 declares that field but can
+/// leave it null. Flutter SDKs may still select analyzer 8.
+String _declaredTypeName(CompilationUnitMember declaration) {
+  final dynamic node = declaration;
+  try {
+    return node.namePart.typeName.lexeme as String;
+  } on NoSuchMethodError {
+    return node.name.lexeme as String;
+  }
+}
+
+/// An enum's constants, wherever the resolved analyzer version keeps them.
+Iterable<EnumConstantDeclaration> _enumConstants(EnumDeclaration declaration) {
+  final dynamic node = declaration;
+  try {
+    return (node.body.constants as Iterable).cast<EnumConstantDeclaration>();
+  } on NoSuchMethodError {
+    return (node.constants as Iterable).cast<EnumConstantDeclaration>();
+  }
+}
+
 final class _GeneratedScenarioCollector {
   _GeneratedScenarioCollector(this.output);
 
@@ -934,9 +1015,9 @@ final class _GeneratedScenarioCollector {
   void collect(CompilationUnit node) {
     for (final declaration in node.declarations) {
       if (declaration is! EnumDeclaration) continue;
-      final enumName = declaration.name.lexeme;
+      final enumName = _declaredTypeName(declaration);
       if (!enumName.endsWith('Scenario')) continue;
-      for (final constant in declaration.constants) {
+      for (final constant in _enumConstants(declaration)) {
         final visitor = _ScenarioIdVisitor();
         constant.arguments?.accept(visitor);
         if (visitor.ids.length == 1) {
@@ -961,7 +1042,7 @@ final class _GeneratedScenarioAliasCollector extends RecursiveAstVisitor<void> {
   @override
   void visitClassDeclaration(ClassDeclaration node) {
     final previous = _className;
-    _className = node.name.lexeme;
+    _className = _declaredTypeName(node);
     super.visitClassDeclaration(node);
     _className = previous;
   }

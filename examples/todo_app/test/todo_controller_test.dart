@@ -1,6 +1,12 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:todo_app/todo_app.dart';
+import 'package:zuke_annotations/zuke_annotations.dart';
 
+@VerifiesRequirement(
+  [FeatTodo001RequirementIds.addItem, FeatTodo001RequirementIds.completeItem],
+  evidenceType: 'domain-unit',
+  variant: 'default',
+)
 void main() {
   group('TodoController', () {
     test('rejects empty task text', () {

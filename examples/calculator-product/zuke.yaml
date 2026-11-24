@@ -21,6 +21,9 @@ targets:
       - id: calculator-domain
         path: packages/calculator_domain
         roots: [lib]
+    # `calculator_contracts` is shared by both targets, so it belongs to neither
+    # target's packages. Individual rules declare their targets; the performance
+    # rule is backend-only and its implementation lives in calculator_api.
     contractOutput: packages/calculator_contracts/lib/src/generated
     contractExport: packages/calculator_contracts/lib/calculator_contracts.dart
     extractor: zuke-dart-resolved

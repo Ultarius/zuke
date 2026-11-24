@@ -105,7 +105,15 @@ void main() {
       await runInProcessCli(['generate', '--root', root.path]);
       await runInProcessCli(['lock', '--root', root.path]);
       final feature = File('${root.path}/specs/features/gateway.feature');
-      feature.writeAsStringSync('${feature.readAsStringSync()}\n# changed\n');
+      // A step edit moves the specification digest; prose would not. Refresh
+      // the generated artifacts so the gate reaches the lock stage.
+      feature.writeAsStringSync(
+        feature.readAsStringSync().replaceFirst(
+          'Given a step',
+          'Given a changed step',
+        ),
+      );
+      await runInProcessCli(['generate', '--root', root.path]);
       final blocker = File('${root.path}/blocker.json');
       final handoff = File('${root.path}/handoff.json');
 

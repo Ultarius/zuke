@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:args/args.dart';
+import 'package:zuke_frontend/zuke_frontend.dart' show ParsedBinding;
 
 import 'extraction_service.dart';
 import 'proof_engine.dart';
@@ -55,6 +56,9 @@ class ReportCommand {
         final scenarios = rule.scenarios.map((scenario) {
           final scenarioTags = scenario.tags.map((tag) => tag.name).toList()
             ..sort();
+          final scenarioId = scenarioTags
+              .where((tag) => tag.startsWith('SCN-'))
+              .firstOrNull;
           final effectiveScenarioTags = {
             ...effectiveRuleTags,
             ...scenarioTags,
@@ -64,6 +68,9 @@ class ReportCommand {
             final effectiveTags = {...effectiveScenarioTags, ...tags}.toList()
               ..sort();
             return ZukeModelExamples(
+              id:
+                  tags.where((tag) => tag.startsWith('SCN-')).firstOrNull ??
+                  scenarioId,
               title: block.title,
               tags: tags,
               effectiveTags: effectiveTags,
@@ -72,10 +79,7 @@ class ReportCommand {
             );
           }).toList();
           return ZukeModelScenario(
-            id: scenarioTags.firstWhere(
-              (tag) => tag.startsWith('SCN-'),
-              orElse: () => '',
-            ),
+            id: scenarioId,
             title: scenario.scenarioElement.title,
             keyword: scenario.scenarioElement.keyword.name,
             tags: scenarioTags,
@@ -112,10 +116,11 @@ class ReportCommand {
         );
       }).toList()..sort((left, right) => left.id.compareTo(right.id));
       final bindings =
-          (feature.metadata.bindings ?? const [])
+          (feature.metadata.bindings ?? const <ParsedBinding>[])
               .map(
                 (binding) => ZukeModelBinding(
                   id: binding.id,
+                  label: binding.label,
                   target: binding.target,
                   cardinality: binding.cardinality,
                   instanceCardinality: binding.instanceCardinality,

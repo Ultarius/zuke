@@ -18,30 +18,35 @@ An illustrative migration is:
 ```yaml
 dev_dependencies:
   # Previous coordinated set (last published tuple):
-  # zuke_core: ^0.3.0
-  # zuke_annotations: ^0.3.0
-  # zuke_frontend: ^0.2.1
-  # zuke: ^0.3.1
-  # zuke_runner: ^0.3.1
-  # zuke_runner_flutter: ^0.3.1
-  # zuke_http_runtime: ^0.1.1
-  # zuke_cli: ^0.4.1
-  # zuke_dart_build_hook: ^0.3.0
-
-  # Current coordinated set:
   # zuke_core: ^0.4.0
   # zuke_annotations: ^0.4.0
   # zuke_frontend: ^0.2.2
-  zuke: ^0.4.0
-  zuke_runner: ^0.4.0
-  zuke_runner_flutter: ^0.4.0
+  # zuke: ^0.4.0
+  # zuke_runner: ^0.4.0
+  # zuke_runner_flutter: ^0.4.0
+  # zuke_http_runtime: ^0.1.1
+  # zuke_cli: ^0.5.0
+  # zuke_dart_build_hook: ^0.4.0
+
+  # Current coordinated set:
+  # zuke_core: ^0.4.1
+  # zuke_annotations: ^0.5.0
+  # zuke_frontend: ^0.2.3
+  zuke: ^0.5.0
+  zuke_runner: ^0.5.0
+  zuke_runner_flutter: ^0.5.0
   zuke_http_runtime: ^0.1.1
-  zuke_cli: ^0.5.0
-  zuke_dart_build_hook: ^0.4.0
+  zuke_cli: ^0.6.0
+  zuke_dart_build_hook: ^0.5.0
 ```
 
 Keep the versions in the same coordinated row. Do not add path dependencies
 or dependency overrides to make a hosted consumer resolve.
+
+After upgrading to `zuke_cli` 0.6, run `zuke generate` and then
+`zuke lock --refresh --all-profiles`. Specification digests are now structural, and the
+analyzer index moved to contract 3, so existing locks and indexes are stale.
+Custom implementations of `ZukeBindingDescriptor` must add the `label` getter.
 
 The coordinated release removes placement `target` from `ImplementsRequirement`,
 `PresentsRequirement`, `ZukeBinding`, and `VerifiesRequirement` as well as
@@ -180,6 +185,12 @@ Legacy locks, legacy result markers, and old history paths are rejected rather
 than read as current data. Remove or archive them outside the active current
 paths before checking in regenerated output.
 
+Evidence is read only from `evidence.output`, or from
+`generated/evidence/records` when that key is unset. The CLI no longer falls
+back to `.zuke/evidence` when the current directory is missing. Rerun managed
+tests to publish current records at the configured path; set `evidence.output`
+explicitly if a workspace intentionally uses another directory.
+
 ### Non-portable artifacts
 
 Derived files from the previous release are not inputs to the current CLI.
@@ -240,9 +251,9 @@ are available:
 dart run zuke_cli:zuke certify hosted --platform linux --host dart
 dart run zuke_cli:zuke certify hosted --platform windows --host dart
 dart run zuke_cli:zuke certify hosted --platform linux --host flutter \
-  --flutter-version 3.44.8
+  --flutter-version 3.47.9
 dart run zuke_cli:zuke certify hosted --platform windows --host flutter \
-  --flutter-version 3.44.8
+  --flutter-version 3.47.9
 ```
 
 The check creates its fixture outside the repository, reads exact package

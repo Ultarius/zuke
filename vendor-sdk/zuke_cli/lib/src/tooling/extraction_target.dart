@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:path/path.dart' as p;
 import 'package:zuke_frontend/zuke_frontend.dart';
 
 /// A resolved workspace placement used by every extraction boundary.
@@ -28,30 +29,60 @@ final class PlacementFailure implements Exception {
   String toString() => '$code: $message';
 }
 
+/// Resolves the target and package identity of [packageRoot].
+///
+/// [explicitWorkspaceRoot] names the workspace to use. Without it, the nearest
+/// ancestor containing a `zuke.yaml` is used.
 ResolvedPlacement resolvePlacement(
   String packageRoot, {
   String? requestedTarget,
   WorkspaceDiscoveryResult? workspace,
+  String? explicitWorkspaceRoot,
 }) {
   final packageDirectory = Directory(packageRoot);
-  final workspaceRoot = _findWorkspaceRoot(packageDirectory);
+  final workspaceRoot = _findWorkspaceRoot(
+    explicitWorkspaceRoot == null
+        ? packageDirectory
+        : Directory(explicitWorkspaceRoot),
+    searchParents: explicitWorkspaceRoot == null,
+  );
   if (workspaceRoot == null) {
-    throw const PlacementFailure(
+    throw PlacementFailure(
       'ZK-TARGET-UNASSIGNED',
-      'Package is not contained in a configured Zuke workspace',
+      explicitWorkspaceRoot == null
+          ? 'Package is not contained in a configured Zuke workspace'
+          : 'Configured workspace root has no zuke.yaml',
+      context: {'workspaceRoot': ?explicitWorkspaceRoot},
     );
   }
-  final discovered =
-      workspace ?? WorkspaceDiscovery().discover(workspaceRoot.path);
+  final WorkspaceDiscoveryResult discovered;
+  try {
+    discovered = workspace ?? WorkspaceDiscovery().discover(workspaceRoot.path);
+  } on LegacyWorkspaceConfigError catch (error) {
+    throw PlacementFailure(
+      'ZK-CONFIG-LEGACY-FORMAT',
+      'The workspace configuration is not the current schema-3 format: '
+          '${error.message}',
+      context: {'workspaceRoot': workspaceRoot.path},
+    );
+  } on WorkspaceConfigError catch (error) {
+    throw PlacementFailure(
+      'ZK-CONFIG-INVALID',
+      'The workspace configuration could not be parsed: ${error.message}',
+      context: {'workspaceRoot': workspaceRoot.path},
+    );
+  }
   final canonicalPackage = _canonical(packageDirectory);
-  final targets = discovered.config.workspaceTargets.values.toList();
-  final matchingTargets = <WorkspaceTarget>[];
+  final matchingTargets = <String, WorkspaceTarget>{};
   final matchingPackages = <String, WorkspacePackage>{};
   var missingConfiguredPackage = false;
-  for (final target in targets) {
+  for (final target in discovered.config.workspaceTargets.values) {
     for (final package in target.packages) {
+      // `join` would discard the workspace root for an absolute path, and a
+      // package outside the workspace is never a member of it.
+      if (p.isAbsolute(package.path)) continue;
       final configuredPath = Directory(
-        '${workspaceRoot.path}${Platform.pathSeparator}${package.path}',
+        p.join(workspaceRoot.path, package.path),
       );
       if (!configuredPath.existsSync()) {
         if (_canonical(configuredPath) == canonicalPackage) {
@@ -60,14 +91,11 @@ ResolvedPlacement resolvePlacement(
         continue;
       }
       if (_canonical(configuredPath) == canonicalPackage) {
-        matchingTargets.add(target);
+        matchingTargets[target.id] = target;
         matchingPackages[target.id] = package;
       }
     }
   }
-  final uniqueTargets = {
-    for (final target in matchingTargets) target.id: target,
-  };
   final requested = requestedTarget?.trim();
   if (requested != null && requested.isNotEmpty) {
     final target = discovered.config.workspaceTargets[requested];
@@ -99,7 +127,7 @@ ResolvedPlacement resolvePlacement(
       package: package,
     );
   }
-  if (uniqueTargets.isEmpty) {
+  if (matchingTargets.isEmpty) {
     if (missingConfiguredPackage) {
       throw const PlacementFailure(
         'ZK-SOURCE-MISSING-PACKAGE',
@@ -112,14 +140,14 @@ ResolvedPlacement resolvePlacement(
       context: {'packageRoot': packageRoot},
     );
   }
-  if (uniqueTargets.length != 1) {
+  if (matchingTargets.length != 1) {
     throw PlacementFailure(
       'ZK-TARGET-AMBIGUOUS',
       'Package belongs to multiple configured targets; pass --target',
-      context: {'targets': uniqueTargets.keys.toList()..sort()},
+      context: {'targets': matchingTargets.keys.toList()..sort()},
     );
   }
-  final target = uniqueTargets.values.single;
+  final target = matchingTargets.values.single;
   final package = matchingPackages[target.id];
   if (package == null) {
     throw PlacementFailure(
@@ -134,14 +162,13 @@ ResolvedPlacement resolvePlacement(
   );
 }
 
-Directory? _findWorkspaceRoot(Directory start) {
+Directory? _findWorkspaceRoot(Directory start, {required bool searchParents}) {
   var current = Directory(_canonical(start));
   while (true) {
-    if (File(
-      '${current.path}${Platform.pathSeparator}zuke.yaml',
-    ).existsSync()) {
+    if (File.fromUri(current.uri.resolve('zuke.yaml')).existsSync()) {
       return current;
     }
+    if (!searchParents) return null;
     final parent = current.parent;
     if (parent.path == current.path) return null;
     current = parent;

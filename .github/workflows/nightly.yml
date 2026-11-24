@@ -4,6 +4,9 @@ on:
   schedule:
     - cron: '0 2 * * *'
 
+permissions:
+  contents: read
+
 jobs:
   shopping-cart-assurance:
     uses: ./.github/workflows/flutter-example-assurance.yml
@@ -25,3 +28,30 @@ jobs:
     uses: ./.github/workflows/calculator-product-assurance.yml
     with:
       profile: nightly
+  library-catalog-assurance:
+    uses: ./.github/workflows/dart-example-assurance.yml
+    with:
+      profile: nightly
+      changed-since: HEAD~1
+      example-root: examples/library_catalog
+      package-name: library_catalog
+  plugin-cache-repair-integration:
+    name: plugin cache repair integration
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-26.04, windows-latest]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba825da76410c181273ba90b1
+      - uses: ./.github/actions/setup-zuke
+      # The repair worker pool against the real analysis-server plugin rather
+      # than a stub: two full AOT compiles per run, so it is kept off the pull
+      # request path. A one-off batch repair of a real 143-entry cache once
+      # reported 23 entries as failed that were current moments later, and was
+      # never reproduced; these are the assertions that would catch that class
+      # of fault.
+      - name: Run the plugin cache repair integration tests
+        working-directory: vendor-sdk/zuke_cli
+        run: dart --suppress-analytics test --run-skipped --tags integration

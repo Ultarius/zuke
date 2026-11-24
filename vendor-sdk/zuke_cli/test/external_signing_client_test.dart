@@ -87,7 +87,7 @@ void main() {
     final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
     addTearDown(server.close);
     server.listen((request) async {
-      await request.drain();
+      await request.drain<void>();
       request.response.headers.contentType = ContentType.json;
       request.response.write(
         jsonEncode({
@@ -129,7 +129,7 @@ void main() {
       final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
       addTearDown(server.close);
       server.listen((request) async {
-        await request.drain();
+        await request.drain<void>();
         request.response.headers.contentType = ContentType.json;
         request.response.write(
           jsonEncode({

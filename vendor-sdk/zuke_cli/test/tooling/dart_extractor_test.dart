@@ -241,16 +241,18 @@ class UnsupportedVerification {}
       expect(
         output.symbols.map((symbol) => symbol.kind),
         containsAll([
-          'requirementBoundary',
-          'presentationBoundary',
-          'verificationBoundary',
-          'controlProvider',
-          'binding',
+          ExtractedSymbolKind.requirementBoundary,
+          ExtractedSymbolKind.presentationBoundary,
+          ExtractedSymbolKind.verificationBoundary,
+          ExtractedSymbolKind.controlProvider,
+          ExtractedSymbolKind.binding,
         ]),
       );
       expect(
         output.symbols
-            .where((symbol) => symbol.kind == 'controlProvider')
+            .where(
+              (symbol) => symbol.kind == ExtractedSymbolKind.controlProvider,
+            )
             .expand((symbol) => symbol.controlIds),
         containsAll([
           'CTRL-FUNCTION',
@@ -262,7 +264,7 @@ class UnsupportedVerification {}
       final annotationOnlyProviderSymbols = output.symbols
           .where(
             (symbol) =>
-                symbol.kind == 'controlProvider' &&
+                symbol.kind == ExtractedSymbolKind.controlProvider &&
                 symbol.symbolId.contains('#provideControl'),
           )
           .toList();
@@ -278,7 +280,9 @@ class UnsupportedVerification {}
       );
       expect(
         targetedOutput.symbols
-            .where((symbol) => symbol.kind == 'controlProvider')
+            .where(
+              (symbol) => symbol.kind == ExtractedSymbolKind.controlProvider,
+            )
             .every((symbol) => symbol.target == 'flutter'),
         isTrue,
       );
@@ -366,5 +370,79 @@ environment:
     );
     expect(output.diagnostics, isNotEmpty);
     expect(output.graph, isNull);
+  });
+
+  test('excludes guide_snippets fixtures from extraction', () async {
+    final root = Directory.systemTemp.createTempSync(
+      'dart-extractor-guide-snippet-',
+    );
+    addTearDown(() => deleteTemporaryDirectory(root));
+    final dartTool = Directory('${root.path}/.dart_tool')
+      ..createSync(recursive: true);
+    Directory currentDir = Directory.current.absolute;
+    File? rootPackageConfig;
+    while (currentDir.path != currentDir.parent.path) {
+      final candidate = File(
+        '${currentDir.path}/.dart_tool/package_config.json',
+      );
+      if (candidate.existsSync()) {
+        rootPackageConfig = candidate;
+        break;
+      }
+      currentDir = currentDir.parent;
+    }
+    if (rootPackageConfig != null) {
+      final content = rootPackageConfig.readAsStringSync();
+      final workspaceUri = currentDir.uri.toString();
+      final resolvedContent = content.replaceAll(
+        '"rootUri": "../',
+        '"rootUri": "$workspaceUri',
+      );
+      File(
+        '${dartTool.path}/package_config.json',
+      ).writeAsStringSync(resolvedContent);
+    }
+    File('${root.path}/pubspec.yaml').writeAsStringSync('''
+name: dart_extractor_guide_fixture
+environment:
+  sdk: '>=3.10.0 <4.0.0'
+''');
+    Directory('${root.path}/lib').createSync();
+    File('${root.path}/lib/controller.dart').writeAsStringSync(r'''
+import 'package:zuke_annotations/zuke_annotations.dart';
+
+@ImplementsRequirement(['RULE-PROMO'])
+class CartController {}
+''');
+    Directory('${root.path}/test/guide_snippets').createSync(recursive: true);
+    File('${root.path}/test/guide_snippets/controller.dart').writeAsStringSync(
+      r'''
+import 'package:zuke_annotations/zuke_annotations.dart';
+
+@ImplementsRequirement(['RULE-PROMO'])
+class CartController {}
+''',
+    );
+
+    final output = await DartExtractor().extract(
+      root.path,
+      roots: ['lib', 'test'],
+      target: 'flutter',
+    );
+
+    final promoImplementations = output.symbols
+        .where(
+          (symbol) =>
+              symbol.kind == ExtractedSymbolKind.requirementBoundary &&
+              symbol.requirementIds.contains('RULE-PROMO'),
+        )
+        .toList();
+    expect(promoImplementations, hasLength(1));
+    expect(
+      promoImplementations.single.symbolId,
+      isNot(contains('guide_snippets')),
+    );
+    expect(output.graph, isNotNull);
+    expect(output.graph!.validate(), isEmpty);
   });
 }

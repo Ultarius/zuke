@@ -113,7 +113,7 @@ providers:
         final trust = File('${root.path}/assurance-history/trust/ed25519.json');
         trust.parent.createSync(recursive: true);
         trust.writeAsStringSync(
-          jsonEncode({'kind': 'zuke.ed25519-trust', 'keys': []}),
+          jsonEncode({'kind': 'zuke.ed25519-trust', 'keys': <Object?>[]}),
         );
         await expectLater(
           _currentCommand(root, evidence).create(),

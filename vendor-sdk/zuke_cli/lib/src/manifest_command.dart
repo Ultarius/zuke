@@ -95,7 +95,7 @@ class ManifestCommand {
       throw const FormatException('Release creation requires a current lock');
     }
     final lockDigest = lock.existsSync()
-        ? sha256.convert(lock.readAsBytesSync()).toString()
+        ? sha256DigestHex(lock.readAsBytesSync())
         : null;
     final body = <String, Object?>{
       'workspace': Directory(
@@ -155,7 +155,7 @@ class ManifestCommand {
     final file = File('${dir.path}/$digest.json');
     if (!file.existsSync()) {
       file.writeAsStringSync(
-        const JsonEncoder.withIndent('  ').convert(record) + '\n',
+        '${const JsonEncoder.withIndent('  ').convert(record)}\n',
       );
     }
     return file.path;
@@ -185,7 +185,7 @@ class ManifestCommand {
     );
     final record = <String, Object?>{
       ...unsigned,
-      'recordDigest': sha256.convert(payload).toString(),
+      'recordDigest': sha256DigestHex(payload),
       'signature': external.signature,
     };
     if (!await Ed25519ReleaseSigner().verify(
@@ -281,8 +281,7 @@ class ManifestCommand {
       final workspace = requireCurrentWorkspace(root);
       final lock = File(resolveProfileLockPath(root, 'release'));
       if (!lock.existsSync() ||
-          body['lockDigest'] !=
-              sha256.convert(lock.readAsBytesSync()).toString()) {
+          body['lockDigest'] != sha256DigestHex(lock.readAsBytesSync())) {
         return false;
       }
       if (body['policyHash'] != await _computeHash(root, 'policies') ||
@@ -344,11 +343,7 @@ class ManifestCommand {
       current = ((record as Map)['body'] as Map?)?['previousRecord'] as String?;
     }
     File(output).writeAsStringSync(
-      const JsonEncoder.withIndent('  ').convert({
-            'kind': 'zuke.behavioral-assurance-release-export',
-            'chain': chain,
-          }) +
-          '\n',
+      '${const JsonEncoder.withIndent('  ').convert({'kind': 'zuke.behavioral-assurance-release-export', 'chain': chain})}\n',
     );
   }
 
@@ -424,7 +419,7 @@ class ManifestCommand {
   static Future<String> _computeHash(String root, String relative) async {
     final directory = Directory('$root${Platform.pathSeparator}$relative');
     if (!directory.existsSync()) {
-      return 'sha256:${sha256.convert(utf8.encode('empty'))}';
+      return sha256Text('empty');
     }
     final rootPath = root.replaceAll('\\', '/').replaceFirst(RegExp(r'/$'), '');
     final files =
@@ -444,7 +439,7 @@ class ManifestCommand {
       bytes.addAll(canonicalDigestBytes(path, file.readAsBytesSync()));
       bytes.add(0);
     }
-    return 'sha256:${sha256.convert(bytes)}';
+    return sha256Hex(bytes);
   }
 
   // Current release history is the only supported history layout.

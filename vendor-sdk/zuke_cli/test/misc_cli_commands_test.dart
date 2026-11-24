@@ -7,6 +7,16 @@ import 'cli_test_helper.dart';
 import 'package:zuke_cli/src/generated/release_contract.dart';
 
 void main() {
+  test('affected reports an invalid workspace as a CLI error', () async {
+    final root = Directory.systemTemp.createTempSync('zuke-invalid-workspace-');
+    addTearDown(() => root.deleteSync(recursive: true));
+
+    final result = await runInProcessCli(['affected', '--root', root.path]);
+
+    expect(result.exitCode, 2);
+    expect(result.stderr, contains('zuke.yaml not found'));
+  });
+
   group('Misc CLI Commands', () {
     late Directory root;
 
@@ -41,7 +51,7 @@ void main() {
       final release = details is Map && details.containsKey('release')
           ? details['release']
           : details;
-      expect(release, isA<Map>());
+      expect(release, isA<Map<Object?, Object?>>());
       expect(
         (release as Map)['publicPackageVersions'],
         containsPair('zuke_cli', releasePublicPackageVersions['zuke_cli']),
@@ -115,6 +125,47 @@ void main() {
         expect(result.exitCode, 0);
       } finally {
         if (freshDir.existsSync()) freshDir.deleteSync(recursive: true);
+      }
+    });
+
+    test('init build-hook package path cannot escape via symlink', () async {
+      final freshDir = Directory.systemTemp.createTempSync('zuke-init-sym-');
+      final outsideDir = Directory.systemTemp.createTempSync('zuke-outside-');
+      try {
+        Directory(
+          '${freshDir.path}/vendor-sdk/zuke_dart_build_hook',
+        ).createSync(recursive: true);
+        File(
+          '${outsideDir.path}/pubspec.yaml',
+        ).writeAsStringSync('name: outside_pkg\n');
+        try {
+          Link(
+            '${freshDir.path}/packages',
+          ).createSync(outsideDir.path, recursive: true);
+        } on FileSystemException {
+          markTestSkipped('Symlink creation is not permitted on this host.');
+          return;
+        }
+
+        final result = await runInProcessCli([
+          'init',
+          '--root',
+          freshDir.path,
+          '--enable-dart-build-hooks',
+          '--package',
+          'packages/my_pkg',
+        ]);
+        expect(result.exitCode, 2, reason: result.stderr);
+        expect(result.stderr, contains('escapes the workspace'));
+        expect(
+          File(
+            '${freshDir.path}/vendor-sdk/zuke_dart_build_hook/hook/build.dart',
+          ).existsSync(),
+          isFalse,
+        );
+      } finally {
+        if (freshDir.existsSync()) freshDir.deleteSync(recursive: true);
+        if (outsideDir.existsSync()) outsideDir.deleteSync(recursive: true);
       }
     });
 

@@ -5,7 +5,6 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:crypto/crypto.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:zuke_annotations/zuke_annotations.dart';
@@ -178,7 +177,7 @@ void zukeTestWidgets(
         evidenceTypes: sortedTypes,
         target: context.target,
         runnerCompatibilityId: context.runnerCompatibilityId,
-        digestInput: sha256.convert(utf8.encode(digestInput)).toString(),
+        digestInput: sha256DigestHex(utf8.encode(digestInput)),
         controlIds: provedControls.map((control) => control.value),
         implementationSlots: implementationSlots,
         profile: context.profile,
@@ -228,11 +227,19 @@ final class FlutterEvidenceCase {
   /// Optional evidence types emitted by the case.
   final Iterable<String>? evidenceTypes;
 
+  /// Examples row observed by the case: the row's `caseId` column value, or a
+  /// positional ID such as `examples-1-row-2` when the table has no such column.
+  ///
+  /// Required for a scenario with Examples, where each row needs its own case.
+  /// Must be a string literal so the registration audit can read it.
+  final String? caseId;
+
   /// Creates a Flutter evidence case.
   const FlutterEvidenceCase({
     required this.scenario,
     required this.body,
     this.evidenceTypes,
+    this.caseId,
   });
 }
 
@@ -301,33 +308,33 @@ final class ZukeFlutterEvidenceHarness {
           'Each Flutter evidence case must emit at least one evidence type.',
         );
       }
-      testWidgets(
-        '${evidenceCase.scenario.id}: ${evidenceCase.scenario.title}',
-        (tester) async {
-          final digestInput = await evidenceCase.body(tester);
-          if (!managed) return;
-          final identity = sourceIdentity ?? context?.sourceIdentity;
-          if (identity == null) {
-            throw const FormatException(
-              'Managed Flutter evidence is missing source identity.',
-            );
-          }
-          const SuiteEvidenceEmitter().emitPassing(
-            requirementId: evidenceCase.scenario.requirementId.value,
-            scenarioId: evidenceCase.scenario.id,
-            evidenceTypes: evidenceTypes,
-            target: target,
-            variant: variant,
-            profile: profile ?? context?.profile,
-            runnerId: runnerId ?? context?.runnerId,
-            runnerCompatibilityId: runnerCompatibilityId,
-            outputDirectory: outputDirectory ?? context?.resultDirectory,
-            digestInput: digestInput,
-            sourceIdentity: identity,
+      testWidgets('${evidenceCase.scenario.id}: ${evidenceCase.scenario.title}'
+          '${evidenceCase.caseId == null ? '' : ' [${evidenceCase.caseId}]'}', (
+        tester,
+      ) async {
+        final digestInput = await evidenceCase.body(tester);
+        if (!managed) return;
+        final identity = sourceIdentity ?? context?.sourceIdentity;
+        if (identity == null) {
+          throw const FormatException(
+            'Managed Flutter evidence is missing source identity.',
           );
-        },
-        skip: !shouldRunScenario(evidenceCase.scenario.id.value, selected),
-      );
+        }
+        const SuiteEvidenceEmitter().emitPassing(
+          requirementId: evidenceCase.scenario.requirementId.value,
+          scenarioId: evidenceCase.scenario.id,
+          evidenceTypes: evidenceTypes,
+          target: target,
+          variant: variant,
+          profile: profile ?? context?.profile,
+          runnerId: runnerId ?? context?.runnerId,
+          runnerCompatibilityId: runnerCompatibilityId,
+          outputDirectory: outputDirectory ?? context?.resultDirectory,
+          digestInput: digestInput,
+          sourceIdentity: identity,
+          caseId: evidenceCase.caseId,
+        );
+      }, skip: !shouldRunScenario(evidenceCase.scenario.id.value, selected));
     }
   }
 }
@@ -410,7 +417,10 @@ final class ZukeFlutterHarness<W extends ScenarioWorld> {
       // Resolve before test execution so feature/contract drift is surfaced at
       // registration instead of as a late unresolved step.
       final resolved = resolveScenarioContract(feature, contract);
-      for (final exampleCase in scenarioExampleCases(resolved.scenario)) {
+      for (final exampleCase in scenarioExampleCases(
+        resolved.scenario,
+        scenarioId: contract.id.value,
+      )) {
         final suffix = exampleCase.displayLabel.isEmpty
             ? ''
             : ' (${exampleCase.displayLabel})';
@@ -653,7 +663,7 @@ flutterVendorSteps<W extends ScenarioWorld, B extends ZukeBindingDescriptor>({
     if (count == 0) throw StateError('No Flutter binding for $bindingId');
     if (count != 1) {
       throw StateError(
-        'Flutter binding $bindingId declares '
+        'Flutter binding ${bindingDisplayName(resolved.binding)} declares '
         '${resolved.binding.instanceCardinality.name} runtime instances but '
         'resolves to $count widgets; $operation requires exactly one.',
       );
@@ -681,52 +691,61 @@ flutterVendorSteps<W extends ScenarioWorld, B extends ZukeBindingDescriptor>({
         await tester.pump();
       },
     ),
-    StepDefinition(
+    StepDefinition.cucumber(
       tier: StepTier.vendor,
       target: 'flutter',
-      pattern: RegExp(r'^the user enters "([^"]*)" into "([^"]+)"$'),
-      action: (world, _, arguments) async {
+      expression: CucumberExpression(
+        'the user enters {string} into {string}',
+        StepParameterTypeRegistry.standard(),
+      ),
+      action: (world, _, values) async {
         final tester = testerFor(world);
-        final bindingId = arguments['2']!;
+        final bindingId = values[1] as String;
         requireExactlyOne(world, bindingId, 'entering text');
         final finder = resolveFinder(world, bindingId);
-        await tester.enterText(finder, arguments['1']!);
+        await tester.enterText(finder, values[0] as String);
         await tester.pump();
       },
     ),
-    StepDefinition(
+    StepDefinition.cucumber(
       tier: StepTier.vendor,
       target: 'flutter',
-      pattern: RegExp(r'^the user taps "([^"]+)"$'),
-      action: (world, _, arguments) async {
+      expression: CucumberExpression(
+        'the user taps {string}',
+        StepParameterTypeRegistry.standard(),
+      ),
+      action: (world, _, values) async {
         final tester = testerFor(world);
-        final bindingId = arguments['1']!;
+        final bindingId = values[0] as String;
         requireExactlyOne(world, bindingId, 'tapping');
         final finder = resolveFinder(world, bindingId);
         await tester.tap(finder);
         await tester.pumpAndSettle();
       },
     ),
-    StepDefinition(
+    StepDefinition.cucumber(
       tier: StepTier.vendor,
       target: 'flutter',
-      pattern: RegExp(r'^element "([^"]+)" displays "([^"]*)"$'),
-      action: (world, _, arguments) {
+      expression: CucumberExpression(
+        'element {string} displays {string}',
+        StepParameterTypeRegistry.standard(),
+      ),
+      action: (world, _, values) {
         final tester = testerFor(world);
-        final bindingId = arguments['1']!;
+        final bindingId = values[0] as String;
         final target = resolveFinder(world, bindingId);
         if (target.evaluate().isEmpty) {
-          throw StateError('No Flutter binding for ${arguments['1']}');
+          throw StateError('No Flutter binding for $bindingId');
         }
         final display = find.descendant(
           of: target,
-          matching: find.text(arguments['2']!),
+          matching: find.text(values[1] as String),
           matchRoot: true,
         );
         if (display.evaluate().isEmpty) {
           final observed = _readableTextValues(target);
           throw StateError(
-            'Expected $bindingId to display ${arguments['2']}. '
+            'Expected $bindingId to display ${values[1]}. '
             'Observed: ${observed.isEmpty ? '<no readable text>' : observed.join(', ')}',
           );
         }
@@ -734,12 +753,15 @@ flutterVendorSteps<W extends ScenarioWorld, B extends ZukeBindingDescriptor>({
         return tester.pump();
       },
     ),
-    StepDefinition(
+    StepDefinition.cucumber(
       tier: StepTier.vendor,
       target: 'flutter',
-      pattern: RegExp(r'^element "([^"]+)" is not present$'),
-      action: (world, _, arguments) {
-        final bindingId = arguments['1']!;
+      expression: CucumberExpression(
+        'element {string} is not present',
+        StepParameterTypeRegistry.standard(),
+      ),
+      action: (world, _, values) {
+        final bindingId = values[0] as String;
         final resolved = resolveBinding(world, bindingId);
         if (!resolved.binding.instanceCardinality.allowsZero) {
           throw StateError(
@@ -756,12 +778,15 @@ flutterVendorSteps<W extends ScenarioWorld, B extends ZukeBindingDescriptor>({
         }
       },
     ),
-    StepDefinition(
+    StepDefinition.cucumber(
       tier: StepTier.vendor,
       target: 'flutter',
-      pattern: RegExp(r'^element "([^"]+)" is focused$'),
-      action: (world, _, arguments) {
-        final bindingId = arguments['1']!;
+      expression: CucumberExpression(
+        'element {string} is focused',
+        StepParameterTypeRegistry.standard(),
+      ),
+      action: (world, _, values) {
+        final bindingId = values[0] as String;
         requireExactlyOne(world, bindingId, 'checking focus');
         final finder = resolveFinder(world, bindingId);
         final editable = find.descendant(
@@ -770,24 +795,27 @@ flutterVendorSteps<W extends ScenarioWorld, B extends ZukeBindingDescriptor>({
         );
         if (editable.evaluate().isEmpty) {
           throw StateError(
-            'Binding ${arguments['1']} does not expose an editable focus target',
+            'Binding $bindingId does not expose an editable focus target',
           );
         }
         final field = testerFor(world).widget<EditableText>(editable.first);
         if (!field.focusNode.hasFocus) {
-          throw StateError('Expected ${arguments['1']} to be focused');
+          throw StateError('Expected $bindingId to be focused');
         }
       },
     ),
-    StepDefinition(
+    StepDefinition.cucumber(
       tier: StepTier.vendor,
       target: 'flutter',
-      pattern: RegExp(r'^element "([^"]+)" has accessible name "([^"]+)"$'),
-      action: (world, _, arguments) {
-        final bindingId = arguments['1']!;
+      expression: CucumberExpression(
+        'element {string} has accessible name {string}',
+        StepParameterTypeRegistry.standard(),
+      ),
+      action: (world, _, values) {
+        final bindingId = values[0] as String;
         requireExactlyOne(world, bindingId, 'checking an accessible name');
-        if (find.bySemanticsLabel(arguments['2']!).evaluate().isEmpty) {
-          throw StateError('Expected accessible name ${arguments['2']}');
+        if (find.bySemanticsLabel(values[1] as String).evaluate().isEmpty) {
+          throw StateError('Expected accessible name ${values[1]}');
         }
       },
     ),
@@ -822,12 +850,24 @@ Key _instanceKey(Key family, Object instanceId) {
 Finder _instanceFinder(Key family, Object instanceId) =>
     find.byKey(_instanceKey(family, instanceId));
 
+/// A binding's human-readable name for diagnostics.
+///
+/// The feature metadata may declare a `label` for a binding; when it does, the
+/// label is what a reader recognizes, so a failure names the binding that way
+/// and still shows the canonical id it maps to.
+String bindingDisplayName(ZukeBindingDescriptor binding) {
+  final label = binding.label;
+  if (label == null || label.isEmpty || label == binding.id) return binding.id;
+  return '$label (${binding.id})';
+}
+
 void _validateBindingKey(ZukeBindingDescriptor binding, Key key) {
   final repeated = binding.instanceCardinality.allowsMany;
   if (key is! FlutterBindingKey) {
     if (repeated) {
       throw StateError(
-        'Binding ${binding.id} declares ${binding.instanceCardinality.name} '
+        'Binding ${bindingDisplayName(binding)} declares '
+        '${binding.instanceCardinality.name} '
         'runtime instances and requires FlutterBindingKey.collection or a '
         'finder override for legacy keys.',
       );
@@ -839,7 +879,8 @@ void _validateBindingKey(ZukeBindingDescriptor binding, Key key) {
       : FlutterBindingKind.single;
   if (key.kind != expected) {
     throw StateError(
-      'Binding ${binding.id} declares ${binding.instanceCardinality.name} '
+      'Binding ${bindingDisplayName(binding)} declares '
+      '${binding.instanceCardinality.name} '
       'runtime instances but was given FlutterBindingKey.${key.kind.name}; '
       'use FlutterBindingKey.${expected.name}.',
     );

@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.6.0
+
+- Breaking: specification, lock, and evidence digests are structural, so prose edits no longer move them. Run `zuke lock --refresh --all-profiles` after upgrading.
+- Breaking: analyzer index contract 3 records registration variants and runner-audited test files. Run `zuke generate`.
+- Binding coverage now reads the same test directories as `zuke test` and matches the variant a harness emits.
+- `zuke analyze` works on a first run with an empty plugin cache.
+- Generated contracts are excluded from source provenance when `contractOutput` uses its default.
+- `resolvePlacement` accepts an `explicitWorkspaceRoot` that takes precedence over the nearest `zuke.yaml`, and reports an unusable configuration as a typed `PlacementFailure`.
+- `zuke check --prepare-lock` publishes and verifies the profile lock with fresh evidence and restores the previous lock if verification fails.
+- `zuke coverage` matches absolute LCOV paths under relative workspace roots, normalizes source paths before scoping, and compares Windows drive and UNC paths case-insensitively across coverage policies, Git diffs, and baselines.
+
 ## 0.5.0
 
 - Materialize resolved requirement and control annotations in the governed

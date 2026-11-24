@@ -1,5 +1,3 @@
-import 'dart:convert';
-import 'package:crypto/crypto.dart';
 import 'package:zuke_frontend/zuke_frontend.dart';
 import '../ir.dart' as ir;
 import '../ir.dart';
@@ -30,31 +28,18 @@ class EvidenceValidator {
     final errors = <ValidationMessage>[];
 
     // Compute expected digests once per validation pass
-    final generator = DartContractGenerator();
-    final generated = generator.generate(
-      workspace: workspace,
+    final contractDigest = structuralContractDigest(
+      workspace,
       outputDir: workspace.config.contractOutput ?? 'lib/src/generated',
       exportPath: workspace.config.contractExport,
     );
-    final contractDigest =
-        'sha256:${sha256.convert(utf8.encode(generated.manifest.toJson())).toString()}';
 
     final rootPath = workspace.config.root;
-    final specificationDigest = rootPath != null
-        ? WorkspaceDigest.computeFiltered(
-            rootPath,
-            (path) => path.startsWith('specs/'),
-          )
+    final evidenceDigests = rootPath != null
+        ? WorkspaceDigest.computeEvidenceIndexDigests(rootPath)
         : null;
-    final mappingDigest = rootPath != null
-        ? WorkspaceDigest.computeFiltered(
-            rootPath,
-            (path) =>
-                path.startsWith('specs/registry/') ||
-                path.startsWith('policies/') ||
-                path.endsWith('zuke.yaml'),
-          )
-        : null;
+    final specificationDigest = evidenceDigests?['specificationIndex'];
+    final mappingDigest = evidenceDigests?['mapping'];
     final sourceCatalog = SourceOutputCatalog.build(workspace, outputs);
 
     // B2: Build valid mappings to check for unmapped records
@@ -162,7 +147,9 @@ class EvidenceValidator {
       final hasSecurityTag =
           feature.tags.any((t) => t.name == 'security') ||
           rule.tags.any((t) => t.name == 'security') ||
-          rule.scenarios.any((s) => s.tags.any((t) => t.name == 'security'));
+          rule.scenarios.any(
+            (s) => s.declaredTags.any((t) => t.name == 'security'),
+          );
       if (hasSecurityTag && record.status == EvidenceStatus.skipped) {
         errors.add(
           ValidationMessage(
@@ -245,10 +232,9 @@ class EvidenceValidator {
             ),
           );
         } else {
-          final sourceDigest = output.inputDigest.startsWith('sha256:')
-              ? output.inputDigest
-              : 'sha256:${output.inputDigest}';
-          if (record.digests['source'] != sourceDigest) {
+          final sourceDigest = output.publishedSourceDigest;
+          if (sourceDigest == null ||
+              record.digests['source'] != sourceDigest) {
             errors.add(
               ValidationMessage(
                 code: 'ZUKE-EVIDENCE-STALE',
@@ -329,10 +315,12 @@ class EvidenceValidator {
         final hasSecurityTag =
             feature.tags.any((t) => t.name == 'security') ||
             rule.tags.any((t) => t.name == 'security') ||
-            rule.scenarios.any((s) => s.tags.any((t) => t.name == 'security'));
+            rule.scenarios.any(
+              (s) => s.declaredTags.any((t) => t.name == 'security'),
+            );
         if (hasSecurityTag) {
           final hasNegativeScenario = rule.scenarios.any(
-            (s) => s.tags.any((t) => t.name == 'negative'),
+            (s) => s.declaredTags.any((t) => t.name == 'negative'),
           );
           if (!hasNegativeScenario) {
             errors.add(
@@ -350,7 +338,7 @@ class EvidenceValidator {
         final hasAccessibilityTag =
             rule.tags.any((t) => t.name == 'accessibility') ||
             rule.scenarios.any(
-              (s) => s.tags.any((t) => t.name == 'accessibility'),
+              (s) => s.declaredTags.any((t) => t.name == 'accessibility'),
             );
         if (hasAccessibilityTag) {
           if (!requiredEvidence.contains('flutter-widget') &&
@@ -435,10 +423,8 @@ class EvidenceValidator {
       if (output == null) {
         return true;
       } else {
-        final sourceDigest = output.inputDigest.startsWith('sha256:')
-            ? output.inputDigest
-            : 'sha256:${output.inputDigest}';
-        if (record.digests['source'] != sourceDigest) {
+        final sourceDigest = output.publishedSourceDigest;
+        if (sourceDigest == null || record.digests['source'] != sourceDigest) {
           return true;
         }
       }
@@ -779,7 +765,8 @@ class EvidenceValidator {
     ParsedRule rule,
     String evidenceType,
   ) => [
-    for (final slot in rule.metadata.evidenceRequirements ?? const [])
+    for (final slot
+        in rule.metadata.evidenceRequirements ?? const <Map<String, String>>[])
       if (slot['type'] == evidenceType || slot['evidenceType'] == evidenceType)
         slot,
   ];

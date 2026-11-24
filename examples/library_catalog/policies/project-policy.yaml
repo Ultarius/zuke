@@ -1,0 +1,8 @@
+schemaVersion: 1
+id: library-catalog-project-policy
+description: Project policy overlay for the library_catalog example.
+scenarioCoverage:
+  securityRulesRequireNegativeScenario: false
+  accessibilityRulesRequireFlutterEvidence: false
+documentationOnly:
+  requireReason: true

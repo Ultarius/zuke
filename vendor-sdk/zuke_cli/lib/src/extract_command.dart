@@ -36,7 +36,7 @@ class ExtractDartCommand {
     }
     final fragment = CanonicalFragment.fromOutput(output, workspaceRoot: root);
     final json =
-        const JsonEncoder.withIndent('  ').convert(fragment.toJson()) + '\n';
+        '${const JsonEncoder.withIndent('  ').convert(fragment.toJson())}\n';
     final emit = args['emit'] as String?;
     if (emit != null) {
       final file = File(emit);

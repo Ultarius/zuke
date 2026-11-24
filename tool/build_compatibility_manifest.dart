@@ -103,7 +103,7 @@ bool _sameMap(Object? left, Object? right) {
   return true;
 }
 
-Map<String, String> _stringMap(Map value) {
+Map<String, String> _stringMap(Map<Object?, Object?> value) {
   final result = <String, String>{};
   for (final entry in value.entries) {
     if (entry.key is! String || entry.value is! String) {

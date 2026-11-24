@@ -133,23 +133,26 @@ Feature: Contracts
   });
 
   test('resolves the earliest matching step tier before priority', () {
-    final registry = StepRegistry<World>()
-      ..register(
-        StepDefinition<World>(
-          pattern: RegExp(r'^an action$'),
-          priority: 999,
-          tier: StepTier.vendor,
-          action: (_, _, _) {},
+    final registry = buildStepRegistry<World>([
+      StepDefinition.cucumber(
+        expression: CucumberExpression(
+          'an action',
+          StepParameterTypeRegistry.standard(),
         ),
-      )
-      ..register(
-        StepDefinition<World>(
-          pattern: RegExp(r'^an action$'),
-          priority: 1,
-          tier: StepTier.project,
-          action: (_, _, _) {},
+        priority: 999,
+        tier: StepTier.vendor,
+        action: (_, _, _) {},
+      ),
+      StepDefinition.cucumber(
+        expression: CucumberExpression(
+          'an action',
+          StepParameterTypeRegistry.standard(),
         ),
-      );
+        priority: 1,
+        tier: StepTier.project,
+        action: (_, _, _) {},
+      ),
+    ]);
     const step = GherkinStep(
       keyword: 'Given',
       text: 'an action',
@@ -160,21 +163,24 @@ Feature: Contracts
   });
 
   test('retains ambiguity failures within the selected tier', () {
-    final registry = StepRegistry<World>()
-      ..register(
-        StepDefinition<World>(
-          pattern: RegExp(r'^ambiguous$'),
-          tier: StepTier.vendor,
-          action: (_, _, _) {},
+    final registry = buildStepRegistry<World>([
+      StepDefinition.cucumber(
+        expression: CucumberExpression(
+          'ambiguous',
+          StepParameterTypeRegistry.standard(),
         ),
-      )
-      ..register(
-        StepDefinition<World>(
-          pattern: RegExp(r'^ambiguous$'),
-          tier: StepTier.vendor,
-          action: (_, _, _) {},
+        tier: StepTier.vendor,
+        action: (_, _, _) {},
+      ),
+      StepDefinition.cucumber(
+        expression: CucumberExpression(
+          'ambiguous',
+          StepParameterTypeRegistry.standard(),
         ),
-      );
+        tier: StepTier.vendor,
+        action: (_, _, _) {},
+      ),
+    ]);
     const step = GherkinStep(
       keyword: 'Given',
       text: 'ambiguous',
@@ -212,17 +218,23 @@ Feature: Run
     final registry = StepRegistry<World>();
     final seen = <String>[];
     registry.register(
-      StepDefinition<World>(
-        pattern: RegExp(r'^value (.+)$'),
+      StepDefinition.cucumber(
+        expression: CucumberExpression(
+          'value {word}',
+          StepParameterTypeRegistry.standard(),
+        ),
         priority: 300,
-        action: (world, step, args) => seen.add(args['1']!),
+        action: (world, step, values) => seen.add(values[0]! as String),
       ),
     );
     registry.register(
-      StepDefinition<World>(
-        pattern: RegExp(r'^the sum is (.+)$'),
+      StepDefinition.cucumber(
+        expression: CucumberExpression(
+          'the sum is {word}',
+          StepParameterTypeRegistry.standard(),
+        ),
         priority: 300,
-        action: (world, step, args) => seen.add(args['1']!),
+        action: (world, step, values) => seen.add(values[0]! as String),
       ),
     );
     final executor = ScenarioExecutor<World>(
@@ -273,21 +285,23 @@ Feature: Outline cases
   # id: RULE-OUTLINE-001
   # rule-spec-end
   Rule: Cases
+    @SCN-OUTLINE-ALL
     Scenario Outline: all rows
       Given value <value>
+    @SCN-OUTLINE-FIRST
     Examples: first values
       | value |
       | one   |
       | two   |
+    @SCN-OUTLINE-SECOND
     Examples: second values
       | value |
       | three |
 ''', 'outline.feature')
         .features
         .single;
-    final cases = scenarioExampleCases(
-      feature.rules.single.scenarios.single,
-    ).toList();
+    final scenario = feature.rules.single.scenarios.single;
+    final cases = scenarioExampleCases(scenario).toList();
 
     expect(cases.map((exampleCase) => exampleCase.values['value']), [
       'one',
@@ -299,6 +313,254 @@ Feature: Outline cases
       'first values row 2',
       'second values row 1',
     ]);
+    expect(
+      scenarioExampleCases(scenario, scenarioId: 'SCN-OUTLINE-ALL'),
+      hasLength(3),
+    );
+    final secondBlock = scenarioExampleCases(
+      scenario,
+      scenarioId: 'SCN-OUTLINE-SECOND',
+    ).single;
+    expect(secondBlock.values['value'], 'three');
+    expect(scenarioExampleCaseId(secondBlock), 'examples-2-row-1');
+  });
+
+  test('a caseId column keeps row identity when rows move', () async {
+    final registry = StepRegistry<World>()
+      ..register(
+        StepDefinition.cucumber(
+          expression: CucumberExpression(
+            'value {word}',
+            StepParameterTypeRegistry.standard(),
+          ),
+          tier: StepTier.project,
+          action: (world, step, values) async {},
+        ),
+      );
+    for (final rows in const [
+      ['| trusted   | one |', '| untrusted | two |'],
+      ['| untrusted | two |', '| trusted   | one |'],
+    ]) {
+      final feature = GherkinParser()
+          .parseFile('''
+# spec-begin
+# schemaVersion: 1
+# id: FEAT-OUTLINE-005
+# spec-end
+Feature: Named rows
+  # rule-spec-begin
+  # id: RULE-OUTLINE-005
+  # rule-spec-end
+  Rule: A row keeps its name wherever it sits
+    @SCN-OUTLINE-NAMED
+    Scenario Outline: Execute <value>
+      Given value <value>
+      Examples:
+        | caseId    | value |
+        ${rows.join('\n        ')}
+''', 'outline.feature')
+          .features
+          .single;
+      final rule = feature.rules.single;
+      final scenario = rule.scenarios.single;
+
+      expect(
+        {
+          for (final exampleCase in scenarioExampleCases(scenario))
+            exampleCase.values['value']: scenarioExampleCaseId(exampleCase),
+        },
+        {'one': 'trusted', 'two': 'untrusted'},
+      );
+
+      final results = await ScenarioExecutor<World>(
+        registry: registry,
+        evidenceType: 'gherkin-api',
+        candidateId: const ScenarioId('SCN-OUTLINE-NAMED'),
+      ).executeRule(feature, rule, World.new);
+      expect(
+        results.map((result) => result.caseId),
+        unorderedEquals(['trusted', 'untrusted']),
+      );
+    }
+  });
+
+  test('executes only rows owned by the Examples candidate', () async {
+    final feature = GherkinParser()
+        .parseFile('''
+# spec-begin
+# schemaVersion: 1
+# id: FEAT-OUTLINE-003
+# spec-end
+Feature: Outline candidate
+  # rule-spec-begin
+  # id: RULE-OUTLINE-003
+  # rule-spec-end
+  Rule: A row belongs to its Examples contract
+    Scenario Outline: Execute <value>
+      Given value <value>
+      @SCN-OUTLINE-FIRST
+      Examples: First contract
+        | value |
+        | one   |
+      @SCN-OUTLINE-SECOND
+      Examples: Second contract
+        | value |
+        | two   |
+        | three |
+''', 'outline.feature')
+        .features
+        .single;
+    final executed = <String>[];
+    final registry = StepRegistry<World>()
+      ..register(
+        StepDefinition.cucumber(
+          expression: CucumberExpression(
+            'value {word}',
+            StepParameterTypeRegistry.standard(),
+          ),
+          tier: StepTier.project,
+          action: (world, step, values) async =>
+              executed.add(values.single as String),
+        ),
+      );
+    final executor = ScenarioExecutor<World>(
+      registry: registry,
+      evidenceType: 'gherkin-api',
+      candidateId: const ScenarioId('SCN-OUTLINE-SECOND'),
+    );
+    final rule = feature.rules.single;
+    await expectLater(
+      executor.executeScenario(feature, rule, rule.scenarios.single, World.new),
+      throwsArgumentError,
+    );
+    expect(executed, isEmpty);
+
+    final results = await executor.executeRule(feature, rule, World.new);
+    expect(executed, ['two', 'three']);
+    expect(
+      results.map((result) => result.status),
+      everyElement(ScenarioStatus.passed),
+    );
+    expect(
+      results.map((result) => result.candidateId),
+      everyElement('SCN-OUTLINE-SECOND'),
+    );
+    expect(results.map((result) => result.caseId), [
+      'examples-2-row-1',
+      'examples-2-row-2',
+    ]);
+  });
+
+  test('executeScenario refuses to report one row of several', () async {
+    final feature = GherkinParser()
+        .parseFile('''
+# spec-begin
+# schemaVersion: 1
+# id: FEAT-OUTLINE-004
+# spec-end
+Feature: Outline default
+  # rule-spec-begin
+  # id: RULE-OUTLINE-004
+  # rule-spec-end
+  Rule: A contract passes only when all of its rows ran
+    Scenario Outline: Execute <value>
+      Given value <value>
+        """text/<value>
+        <value>
+        """
+      @SCN-OUTLINE-MANY
+      Examples: Many rows
+        | value |
+        | one   |
+        | two   |
+      @SCN-OUTLINE-LAST
+      Examples: One row
+        | value |
+        | three |
+''', 'outline.feature')
+        .features
+        .single;
+    final rule = feature.rules.single;
+    final scenario = rule.scenarios.single;
+    final executed = <String>[];
+    final registry = StepRegistry<World>()
+      ..register(
+        StepDefinition.cucumber(
+          expression: CucumberExpression(
+            'value {word}',
+            StepParameterTypeRegistry.standard(),
+          ),
+          tier: StepTier.project,
+          action: (world, step, values) {
+            final value = values.single as String;
+            expect(step.docString, '        $value\n');
+            expect(step.docStringMediaType, 'text/$value');
+            expect(step.docStringIndent, 8);
+            executed.add(value);
+          },
+        ),
+      );
+
+    for (final candidate in const [null, ScenarioId('SCN-OUTLINE-MANY')]) {
+      await expectLater(
+        ScenarioExecutor<World>(
+          registry: registry,
+          evidenceType: 'gherkin-api',
+          candidateId: candidate,
+        ).executeScenario(feature, rule, scenario, World.new),
+        throwsArgumentError,
+      );
+    }
+    expect(executed, isEmpty, reason: 'no row runs before the refusal');
+
+    // A contract with exactly one row is unambiguous, even in a later block.
+    final single = await ScenarioExecutor<World>(
+      registry: registry,
+      evidenceType: 'gherkin-api',
+      candidateId: const ScenarioId('SCN-OUTLINE-LAST'),
+    ).executeScenario(feature, rule, scenario, World.new);
+    expect(single.status, ScenarioStatus.passed);
+    expect(single.caseId, 'examples-2-row-1');
+    expect(executed, ['three']);
+
+    // Explicit indexes still select one row of a larger contract.
+    final explicit = await ScenarioExecutor<World>(
+      registry: registry,
+      evidenceType: 'gherkin-api',
+      candidateId: const ScenarioId('SCN-OUTLINE-MANY'),
+    ).executeScenario(feature, rule, scenario, World.new, rowIndex: 1);
+    expect(explicit.caseId, 'examples-1-row-2');
+    expect(executed, ['three', 'two']);
+
+    // One index alone must still narrow the contract to a single row.
+    final unscoped = ScenarioExecutor<World>(
+      registry: registry,
+      evidenceType: 'gherkin-api',
+    );
+    await expectLater(
+      unscoped.executeScenario(
+        feature,
+        rule,
+        scenario,
+        World.new,
+        examplesIndex: 0,
+      ),
+      throwsArgumentError,
+    );
+    await expectLater(
+      unscoped.executeScenario(feature, rule, scenario, World.new, rowIndex: 0),
+      throwsArgumentError,
+    );
+    expect(executed, ['three', 'two']);
+
+    final onlyRowOfBlock = await unscoped.executeScenario(
+      feature,
+      rule,
+      scenario,
+      World.new,
+      examplesIndex: 1,
+    );
+    expect(onlyRowOfBlock.caseId, 'examples-2-row-1');
   });
 
   test('executes every Examples row when a non-first row fails', () async {
@@ -326,23 +588,26 @@ Feature: Outline execution
         .features
         .single;
     final seen = <String>[];
-    final registry = StepRegistry<World>()
-      ..register(
-        StepDefinition<World>(
-          pattern: RegExp(r'^setup$'),
-          action: (_, _, _) => seen.add('setup'),
+    final registry = buildStepRegistry<World>([
+      StepDefinition.cucumber(
+        expression: CucumberExpression(
+          'setup',
+          StepParameterTypeRegistry.standard(),
         ),
-      )
-      ..register(
-        StepDefinition<World>(
-          pattern: RegExp(r'^value (.+)$'),
-          action: (_, _, arguments) {
-            if (arguments['1'] == 'bad') {
-              throw StateError('intentional row failure');
-            }
-          },
+        action: (_, _, _) => seen.add('setup'),
+      ),
+      StepDefinition.cucumber(
+        expression: CucumberExpression(
+          'value {word}',
+          StepParameterTypeRegistry.standard(),
         ),
-      );
+        action: (_, _, values) {
+          if (values[0] == 'bad') {
+            throw StateError('intentional row failure');
+          }
+        },
+      ),
+    ]);
 
     final results = await ScenarioExecutor<World>(
       registry: registry,
@@ -379,13 +644,15 @@ Feature: Duplicate outline rows
 ''', 'duplicate-outline.feature')
         .features
         .single;
-    final registry = StepRegistry<World>()
-      ..register(
-        StepDefinition<World>(
-          pattern: RegExp(r'^value (.+)$'),
-          action: (_, _, _) {},
+    final registry = buildStepRegistry<World>([
+      StepDefinition.cucumber(
+        expression: CucumberExpression(
+          'value {word}',
+          StepParameterTypeRegistry.standard(),
         ),
-      );
+        action: (_, _, _) {},
+      ),
+    ]);
 
     final results = await ScenarioExecutor<World>(
       registry: registry,
@@ -486,27 +753,32 @@ Feature: Failures
         .features
         .single;
     final scenario = feature.rules.single.scenarios.single;
-    final ambiguous = StepRegistry<World>()
-      ..register(
-        StepDefinition<World>(
-          pattern: RegExp('failing action'),
-          action: (_, _, _) {},
+    final ambiguous = buildStepRegistry<World>([
+      StepDefinition.cucumber(
+        expression: CucumberExpression(
+          'a failing action',
+          StepParameterTypeRegistry.standard(),
         ),
-      )
-      ..register(
-        StepDefinition<World>(
-          pattern: RegExp('failing action'),
-          action: (_, _, _) {},
+        action: (_, _, _) {},
+      ),
+      StepDefinition.cucumber(
+        expression: CucumberExpression(
+          'a failing action',
+          StepParameterTypeRegistry.standard(),
         ),
-      );
-    final failed = StepRegistry<World>()
-      ..register(
-        StepDefinition<World>(
-          pattern: RegExp(r'^a (.+) action$'),
-          action: (_, _, arguments) =>
-              throw StateError(arguments['1'] ?? 'missing'),
+        action: (_, _, _) {},
+      ),
+    ]);
+    final failed = buildStepRegistry<World>([
+      StepDefinition.cucumber(
+        expression: CucumberExpression(
+          'a {word} action',
+          StepParameterTypeRegistry.standard(),
         ),
-      );
+        action: (_, _, values) =>
+            throw StateError(values[0] as String? ?? 'missing'),
+      ),
+    ]);
 
     final ambiguousResult = await ScenarioExecutor<World>(
       registry: ambiguous,
@@ -708,7 +980,9 @@ Feature: Failures
     expect(files, hasLength(2));
     final results = files
         .map(
-          (file) => SuiteResult.fromJson(jsonDecode(file.readAsStringSync())),
+          (file) => SuiteResult.fromJson(
+            jsonDecode(file.readAsStringSync()) as Map<String, Object?>,
+          ),
         )
         .toList();
     expect(results.map((result) => result.evidenceType).toSet(), {
@@ -740,7 +1014,7 @@ Feature: Failures
 
     expect(files, hasLength(1));
     final result = SuiteResult.fromJson(
-      jsonDecode(files.single.readAsStringSync()),
+      jsonDecode(files.single.readAsStringSync()) as Map<String, Object?>,
     );
     expect(result.controlIds, ['CTL-A', 'CTL-B']);
   });
@@ -787,10 +1061,10 @@ Feature: Failures
         .single;
 
     final pullRequestResult = SuiteResult.fromJson(
-      jsonDecode(pullRequest.readAsStringSync()),
+      jsonDecode(pullRequest.readAsStringSync()) as Map<String, Object?>,
     );
     final mergeResult = SuiteResult.fromJson(
-      jsonDecode(merge.readAsStringSync()),
+      jsonDecode(merge.readAsStringSync()) as Map<String, Object?>,
     );
     expect(mergeResult.executionId, isNot(pullRequestResult.executionId));
   });

@@ -4,7 +4,7 @@ import 'dart:io';
 import 'package:test/test.dart';
 
 import 'cli_test_helper.dart';
-import '../lib/src/test_host_doctor.dart';
+import 'package:zuke_cli/src/test_host_doctor.dart';
 
 void main() {
   test('reports consumer test constraints without writing overrides', () {

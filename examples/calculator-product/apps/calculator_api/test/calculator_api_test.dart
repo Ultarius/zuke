@@ -99,26 +99,18 @@ Future<void> _runBadOperator() async {
   expect(server.application.events, isEmpty);
 }
 
-Future<void> _runBadOperand() async {
-  for (final input in [
-    'one',
-    'NaN',
-    'Infinity',
-    '<script>alert(1)</script>',
-    '../../configuration',
-  ]) {
-    final server = await _server();
-    final response = await _post(server, {
-      'firstOperand': input,
-      'secondOperand': '3',
-      'operator': '+',
-    });
-    expect(response['status'], 400);
-    final body = response['body'] as Map;
-    expect((body['error'] as Map)['code'], 'INVALID_OPERAND');
-    expect(jsonEncode(body), isNot(contains(input)));
-    expect(server.application.events, isEmpty);
-  }
+Future<void> _runBadOperand(String input) async {
+  final server = await _server();
+  final response = await _post(server, {
+    'firstOperand': input,
+    'secondOperand': '3',
+    'operator': '+',
+  });
+  expect(response['status'], 400);
+  final body = response['body'] as Map;
+  expect((body['error'] as Map)['code'], 'INVALID_OPERAND');
+  expect(jsonEncode(body), isNot(contains(input)));
+  expect(server.application.events, isEmpty);
 }
 
 Future<void> _runOversizedBody() async {
@@ -160,6 +152,11 @@ Future<void> _runRateLimit() async {
   expect(server.application.events.length, completedBeforeBlocked + 1);
 }
 
+@VerifiesRequirement(
+  [FeatCalc001RequirementIds.performance],
+  evidenceType: 'performance',
+  variant: 'default',
+)
 Future<void> _runPerformanceBudget() async {
   final server = await _server();
   final samples = <int>[];
@@ -197,9 +194,78 @@ Future<void> _runUnexpectedFailure() async {
   expect(jsonEncode(response['body']), isNot(contains('_ThrowingCalculator')));
   expect(application.logEvents.single['correlationId'], 'corr-safe');
   expect(application.logEvents.single['first'], '[REDACTED]');
+
+  // A FormatException raised behind the body parser is still a server fault.
+  final downstream =
+      await CalculatorApplication(
+        calculator: _ThrowingCalculator(const FormatException('internal')),
+      ).registration.dispatch(
+        ZukeHttpRequest(
+          method: 'POST',
+          path: '/v1/calculations/evaluate',
+          rawBody: utf8.encode(
+            jsonEncode({
+              'firstOperand': '2',
+              'secondOperand': '3',
+              'operator': '+',
+            }),
+          ),
+        ),
+      );
+  expect(downstream.statusCode, 500);
+  expect(
+    ((downstream.body as Map)['error'] as Map)['code'],
+    'CALCULATION_FAILED',
+  );
 }
 
+@VerifiesRequirement(
+  [
+    FeatCalc001RequirementIds.addition,
+    FeatCalc001RequirementIds.subtraction,
+    FeatCalc001RequirementIds.multiplication,
+    FeatCalc001RequirementIds.division,
+    FeatCalc001RequirementIds.validation,
+    FeatCalc002RequirementIds.bodySize,
+    FeatCalc002RequirementIds.rateLimit,
+    FeatCalc002RequirementIds.errorRedaction,
+  ],
+  evidenceType: 'api-contract',
+  variant: 'default',
+)
 void main() {
+  final feature = ZukeFeatureLoader.load('calculator_operations.feature');
+  final addition = resolveScenarioContract(
+    feature,
+    AdditionScenarios.addValues,
+  );
+  final invalid = resolveScenarioContract(
+    feature,
+    ValidationScenarios.badOperand,
+  );
+  Future<void> runAdditionRow(int row) {
+    final values = scenarioExampleCaseAt(
+      addition.scenario,
+      examplesIndex: 0,
+      rowIndex: row,
+    ).values;
+    return _runBasicCalculation(
+      first: values['first']!,
+      second: values['second']!,
+      operator: '+',
+      expected: values['result']!,
+      ruleId: FeatCalc001RequirementIds.addition,
+    );
+  }
+
+  Future<void> runInvalidRow(int row) => _runBadOperand(
+    scenarioExampleCaseAt(
+      invalid.scenario,
+      examplesIndex: 0,
+      rowIndex: row,
+    ).values['input']!,
+  );
+
   final selectedScenarios = scenarioFilterFromEnvironment(Platform.environment);
   bool skipScenario(ZukeScenarioContract scenario) =>
       !shouldRunScenario(scenario.id.value, selectedScenarios);
@@ -217,15 +283,31 @@ void main() {
     skip: skipScenario(AdditionScenarios.addIntegersApi),
   );
   zukeTest(
-    () => _runBasicCalculation(
-      first: '2.5',
-      second: '1.25',
-      operator: '+',
-      expected: '3.75',
-      ruleId: FeatCalc001RequirementIds.addition,
-    ),
+    () => runAdditionRow(0),
     scenario: AdditionScenarios.addValues,
     evidenceTypes: const ['api-contract', 'gherkin-api'],
+    caseId: 'examples-1-row-1',
+    skip: skipScenario(AdditionScenarios.addValues),
+  );
+  zukeTest(
+    () => runAdditionRow(1),
+    scenario: AdditionScenarios.addValues,
+    evidenceTypes: const ['api-contract', 'gherkin-api'],
+    caseId: 'examples-1-row-2',
+    skip: skipScenario(AdditionScenarios.addValues),
+  );
+  zukeTest(
+    () => runAdditionRow(2),
+    scenario: AdditionScenarios.addValues,
+    evidenceTypes: const ['api-contract', 'gherkin-api'],
+    caseId: 'examples-1-row-3',
+    skip: skipScenario(AdditionScenarios.addValues),
+  );
+  zukeTest(
+    () => runAdditionRow(3),
+    scenario: AdditionScenarios.addValues,
+    evidenceTypes: const ['api-contract', 'gherkin-api'],
+    caseId: 'examples-1-row-4',
     skip: skipScenario(AdditionScenarios.addValues),
   );
   zukeTest(
@@ -301,13 +383,58 @@ void main() {
     skip: skipScenario(ValidationScenarios.badOperator),
   );
   zukeTest(
-    _runBadOperand,
+    () => runInvalidRow(0),
     scenario: ValidationScenarios.badOperand,
     evidenceTypes: const [
       'api-contract',
       'gherkin-api',
       'security-integration',
     ],
+    caseId: 'examples-1-row-1',
+    skip: skipScenario(ValidationScenarios.badOperand),
+  );
+  zukeTest(
+    () => runInvalidRow(1),
+    scenario: ValidationScenarios.badOperand,
+    evidenceTypes: const [
+      'api-contract',
+      'gherkin-api',
+      'security-integration',
+    ],
+    caseId: 'examples-1-row-2',
+    skip: skipScenario(ValidationScenarios.badOperand),
+  );
+  zukeTest(
+    () => runInvalidRow(2),
+    scenario: ValidationScenarios.badOperand,
+    evidenceTypes: const [
+      'api-contract',
+      'gherkin-api',
+      'security-integration',
+    ],
+    caseId: 'examples-1-row-3',
+    skip: skipScenario(ValidationScenarios.badOperand),
+  );
+  zukeTest(
+    () => runInvalidRow(3),
+    scenario: ValidationScenarios.badOperand,
+    evidenceTypes: const [
+      'api-contract',
+      'gherkin-api',
+      'security-integration',
+    ],
+    caseId: 'examples-1-row-4',
+    skip: skipScenario(ValidationScenarios.badOperand),
+  );
+  zukeTest(
+    () => runInvalidRow(4),
+    scenario: ValidationScenarios.badOperand,
+    evidenceTypes: const [
+      'api-contract',
+      'gherkin-api',
+      'security-integration',
+    ],
+    caseId: 'examples-1-row-5',
     skip: skipScenario(ValidationScenarios.badOperand),
   );
   zukeTest(
@@ -346,7 +473,11 @@ void main() {
 }
 
 final class _ThrowingCalculator extends Calculator {
+  final Object error;
+
+  _ThrowingCalculator([Object? error])
+    : error = error ?? StateError('internal calculator failure');
+
   @override
-  CalculationResult evaluate(CalculationCommand command) =>
-      throw StateError('internal calculator failure');
+  CalculationResult evaluate(CalculationCommand command) => throw error;
 }

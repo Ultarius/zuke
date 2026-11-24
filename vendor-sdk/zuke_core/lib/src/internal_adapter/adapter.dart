@@ -12,7 +12,8 @@ export '../internal_ir.dart'
         IrDiagnostic,
         IrDiagnosticSeverity,
         ExtractedSourceLocation,
-        ExtractedSymbol;
+        ExtractedSymbol,
+        ExtractedSymbolKind;
 
 /// Internal source-extraction boundary. Framework topology adapters use the
 /// current public [FrameworkAdapter] contract; this interface is only for

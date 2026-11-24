@@ -24,7 +24,7 @@ class SourceMappingValidator {
         final id = rule.metadata.id;
         if (id != null) rules.add(id);
         for (final scenario in rule.scenarios) {
-          for (final tag in scenario.tags.where(
+          for (final tag in scenario.declaredTags.where(
             (t) => t.name.startsWith('SCN-'),
           )) {
             scenarios.add(tag.name);
@@ -87,13 +87,10 @@ class SourceMappingValidator {
                     ?.map((value) => value.toString())
                     .toSet() ??
                 const <String>{};
-            final normalizedKind = symbol.providerKind == null
-                ? null
-                : symbol.providerKind!.replaceAllMapped(
-                    RegExp(r'([a-z])([A-Z])'),
-                    (match) =>
-                        '${match.group(1)}-${match.group(2)!.toLowerCase()}',
-                  );
+            final normalizedKind = symbol.providerKind?.replaceAllMapped(
+              RegExp(r'([a-z])([A-Z])'),
+              (match) => '${match.group(1)}-${match.group(2)!.toLowerCase()}',
+            );
             if (acceptableKinds.isNotEmpty &&
                 (normalizedKind == null ||
                     !acceptableKinds.contains(normalizedKind))) {

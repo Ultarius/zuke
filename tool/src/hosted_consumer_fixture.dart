@@ -24,7 +24,7 @@ final class HostedConsumerFixture {
   void render() {
     if (destination.existsSync() && destination.listSync().isNotEmpty) {
       throw StateError(
-        'Hosted consumer destination must be empty: ' + destination.path,
+        'Hosted consumer destination must be empty: ${destination.path}',
       );
     }
     destination.createSync(recursive: true);
@@ -70,7 +70,7 @@ final class HostedConsumerFixture {
               ? 'runner-flutter'
               : 'runner-dart'] ??
           (throw FormatException(
-            'Release matrix is missing ${host}-runner compatibility ID',
+            'Release matrix is missing $host-runner compatibility ID',
           )),
     };
 
@@ -102,7 +102,7 @@ final class HostedConsumerFixture {
   String _requiredSdk(String name) {
     final value = matrix.sdk[name];
     if (value is! String || value.trim().isEmpty) {
-      throw FormatException('Release matrix sdk.' + name + ' is missing');
+      throw FormatException('Release matrix sdk.$name is missing');
     }
     return value;
   }
@@ -125,13 +125,11 @@ final class HostedConsumerFixture {
     for (final package in ordered) {
       final release = matrix.packages[package];
       if (release == null) {
-        throw FormatException(
-          'Package is not in the release matrix: ' + package,
-        );
+        throw FormatException('Package is not in the release matrix: $package');
       }
-      values.add('  ' + package + ': ' + release.version);
+      values.add('  $package: ${release.version}');
     }
-    return values.join('\n') + '\n';
+    return '${values.join('\n')}\n';
   }
 
   String _cliDependency() {
@@ -171,17 +169,16 @@ final class HostedConsumerFixture {
           templatePath.replaceAll('/', Platform.pathSeparator),
     );
     if (!source.existsSync()) {
-      throw StateError('Missing hosted-consumer template: ' + source.path);
+      throw StateError('Missing hosted-consumer template: ${source.path}');
     }
     var content = source.readAsStringSync();
     for (final entry in variables.entries) {
-      content = content.replaceAll('{{' + entry.key + '}}', entry.value);
+      content = content.replaceAll('{{${entry.key}}}', entry.value);
     }
     final unresolved = RegExp(r'\{\{[A-Z0-9_]+\}\}').firstMatch(content);
     if (unresolved != null) {
       throw StateError(
-        'Unresolved hosted-consumer template variable: ' +
-            unresolved.group(0).toString(),
+        'Unresolved hosted-consumer template variable: ${unresolved.group(0)}',
       );
     }
     final destinationFile = File(

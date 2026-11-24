@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
@@ -17,6 +18,45 @@ void main() {
     });
 
     tearDown(() => deleteTemporaryDirectory(root));
+
+    test(
+      'refresh reports a persistent validation failure exactly once',
+      () async {
+        // A reference to an undeclared control keeps validation failing before
+        // and after the managed tests, so the skip probe must not echo the
+        // findings the final validate already prints.
+        final feature = File('${root.path}/specs/features/gateway.feature');
+        feature.writeAsStringSync(
+          feature.readAsStringSync().replaceFirst(
+            '# requiredEvidence: []',
+            '# requiredEvidence: []\n'
+                '  # requires: [{kind: control, id: CTRL-DOES-NOT-EXIST}]',
+          ),
+        );
+
+        final result = await runInProcessCli([
+          'lock',
+          '--refresh',
+          '--root',
+          root.path,
+          '--profile',
+          'pullRequest',
+        ]);
+
+        expect(result.exitCode, isNot(0));
+        const finding =
+            'Unknown control "CTRL-DOES-NOT-EXIST" required by '
+            'RULE-GATEWAY-RATE-LIMIT';
+        expect(result.stderr, contains(finding));
+        expect(
+          finding.allMatches(result.stderr).length,
+          1,
+          reason:
+              'the skip probe must stay silent so the final validate is the '
+              'only place the finding is printed: ${result.stderr}',
+        );
+      },
+    );
 
     test('refresh produces a receipt and protects lock destinations', () async {
       final lock = File('${root.path}/assurance/locks/pullRequest.lock.json');
@@ -59,6 +99,43 @@ void main() {
       ]);
       expect(repeated.exitCode, isNot(0));
       expect(receipt.readAsBytesSync(), bytes);
+    });
+
+    test('refresh without a lock section uses the default profiles', () async {
+      final config = File('${root.path}/zuke.yaml');
+      final withoutLock = config.readAsStringSync().replaceFirst(
+        RegExp(r'lock:\r?\n  directory: .*\r?\n  profiles: .*\r?\n'),
+        '',
+      );
+      expect(withoutLock, isNot(contains('assurance/locks')));
+      config.writeAsStringSync(withoutLock);
+
+      final single = await runInProcessCli([
+        'lock',
+        '--refresh',
+        '--root',
+        root.path,
+        '--profile',
+        'merge',
+      ]);
+      expect(single.exitCode, 0, reason: single.stderr);
+
+      final receipt = File('${root.path}/lock-diff.json');
+      final all = await runInProcessCli([
+        'lock',
+        '--refresh',
+        '--root',
+        root.path,
+        '--diff-output',
+        receipt.path,
+      ]);
+      expect(all.exitCode, 0, reason: all.stderr);
+      final json = jsonDecode(receipt.readAsStringSync()) as Map;
+      expect(
+        [for (final change in json['changed'] as List) change['profile']],
+        ['nightly', 'pullRequest', 'release'],
+        reason: 'every lock this refresh created must appear in its diff',
+      );
     });
 
     test(
@@ -274,7 +351,10 @@ void main() {
         final json =
             jsonDecode(lockFile.readAsStringSync()) as Map<String, Object?>;
         final digest = json['specificationDigest'] as String;
-        expect(json['specificationDigestScope'], 'discovery-inputs-v1');
+        expect(
+          json['specificationDigestScope'],
+          'discovery-inputs-structural-v1',
+        );
 
         // Must not be the SHA-256 of empty bytes
         const emptyDigest =
@@ -282,12 +362,29 @@ void main() {
         expect(digest, isNot(equals(emptyDigest)));
         expect(digest, startsWith('sha256:'));
 
-        // Modifying a feature file alters the digest
         final featureFile = File('${root.path}/specs/features/gateway.feature');
-        featureFile.writeAsStringSync(
-          '${featureFile.readAsStringSync()}\n# edit\n',
+        final original = featureFile.readAsStringSync();
+
+        // A prose-only edit must not invalidate a current lock.
+        featureFile.writeAsStringSync('$original\n# edit\n');
+        final proseCheck = await runInProcessCli([
+          'lock',
+          '--root',
+          root.path,
+          '--profile',
+          'pullRequest',
+          '--check',
+        ]);
+        expect(
+          proseCheck.exitCode,
+          0,
+          reason: 'a comment is not part of the specification structure',
         );
 
+        // A step edit is structure and must invalidate it.
+        featureFile.writeAsStringSync(
+          original.replaceFirst('Given a step', 'Given an edited step'),
+        );
         final checkResult = await runInProcessCli([
           'lock',
           '--root',
@@ -370,6 +467,113 @@ void main() {
           diagnostics.map((diagnostic) => diagnostic['code']),
           contains('ZK-LOCK-STALE'),
         );
+      },
+    );
+
+    test(
+      'check --prepare-lock writes the lock that lock --check accepts',
+      () async {
+        await runInProcessCli(['generate', '--root', root.path]);
+        final lockFile = File(
+          '${root.path}/assurance/locks/pullRequest.lock.json',
+        );
+        if (lockFile.existsSync()) lockFile.deleteSync();
+
+        // Without the flag, a missing lock fails the check.
+        final missing = await runInProcessCli([
+          'check',
+          '--root',
+          root.path,
+          '--profile',
+          'pullRequest',
+        ]);
+        expect(missing.exitCode, 1);
+        expect(lockFile.existsSync(), isFalse);
+
+        final prepared = await runInProcessCli([
+          'check',
+          '--root',
+          root.path,
+          '--profile',
+          'pullRequest',
+          '--prepare-lock',
+        ]);
+        expect(prepared.exitCode, 0, reason: prepared.stderr);
+        expect(lockFile.existsSync(), isTrue);
+
+        final verified = await runInProcessCli([
+          'lock',
+          '--root',
+          root.path,
+          '--profile',
+          'pullRequest',
+          '--check',
+        ]);
+        expect(verified.exitCode, 0, reason: verified.stderr);
+
+        // A stale lock is replaced rather than reported.
+        final preparedLock = lockFile.readAsStringSync();
+        lockFile.writeAsStringSync('{}\n');
+        final replaced = await runInProcessCli([
+          'check',
+          '--root',
+          root.path,
+          '--profile',
+          'pullRequest',
+          '--prepare-lock',
+        ]);
+        expect(replaced.exitCode, 0, reason: replaced.stderr);
+        expect(lockFile.readAsStringSync(), preparedLock);
+      },
+    );
+
+    test(
+      'check --prepare-lock restores the lock if verification fails',
+      () async {
+        await runInProcessCli(['generate', '--root', root.path]);
+        final canonicalRoot = root.resolveSymbolicLinksSync();
+        final lock = File(
+          '$canonicalRoot/assurance/locks/pullRequest.lock.json',
+        );
+        const previousBytes = 'previous lock bytes';
+        lock.parent.createSync(recursive: true);
+        lock.writeAsStringSync(previousBytes);
+
+        final outerZone = Zone.current;
+        var verificationFailed = false;
+        final result = await IOOverrides.runZoned(
+          () => runInProcessCli([
+            'check',
+            '--root',
+            canonicalRoot,
+            '--prepare-lock',
+            '--format',
+            'json',
+          ]),
+          createFile: (path) => outerZone.run(() {
+            final file = File(path);
+            // Simulate a failed read-back after the destination has been replaced.
+            if (!verificationFailed &&
+                file.uri == lock.uri &&
+                file.existsSync() &&
+                file.readAsStringSync() != previousBytes) {
+              verificationFailed = true;
+              return File('$canonicalRoot/missing-lock.json');
+            }
+            return file;
+          }),
+        );
+
+        expect(verificationFailed, isTrue);
+        expect(result.exitCode, 1);
+        final summary = CommandResult.fromJson(
+          jsonDecode(result.stdout) as Map<String, Object?>,
+        );
+        expect(
+          summary.diagnostics.map((diagnostic) => diagnostic.code),
+          contains('ZK-LOCK-STALE'),
+        );
+        expect(lock.readAsStringSync(), previousBytes);
       },
     );
   });

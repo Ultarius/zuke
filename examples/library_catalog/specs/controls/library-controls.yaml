@@ -1,0 +1,11 @@
+schemaVersion: 1
+controls:
+  - id: CTRL-LIBRARY-ISBN-VALIDATION
+    title: ISBN Shape & Loan Limit Validation
+    description: >-
+      Enforces ISBN-10/ISBN-13 digit shape and the maximum number of active
+      loans before a checkout mutates the register.
+    acceptableProviderKinds:
+      - application-validator
+    coverageSemantics: verification-backed
+    requiredLayers: [presentation]

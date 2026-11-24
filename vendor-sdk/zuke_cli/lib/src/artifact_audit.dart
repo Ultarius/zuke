@@ -53,8 +53,7 @@ final class ArtifactAuditReport {
 List<Diagnostic> _artifactFindingDiagnostics(ArtifactAuditReport report) => [
   for (final finding in report.findings)
     Diagnostic(
-      code:
-          'ZK-ARTIFACT-${finding.category.toUpperCase().replaceAll('-', '_')}',
+      code: 'ZK-ARTIFACT-${finding.category.toUpperCase()}',
       stage: 'artifacts',
       severity: DiagnosticSeverity.error,
       owner: DiagnosticOwner.project,

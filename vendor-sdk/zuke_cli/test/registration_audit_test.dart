@@ -419,6 +419,100 @@ void main() {
     }
   });
 
+  group('Flutter evidence harness over Examples rows', () {
+    late Directory root;
+    late File generated;
+
+    setUp(() {
+      root = Directory.systemTemp.createTempSync('zuke-evidence-rows-');
+      generated = File('${root.path}/generated.dart')
+        ..writeAsStringSync('''
+enum DemoScenario {
+  block(ScenarioId('SCN-BLOCK'));
+  const DemoScenario(this.id);
+  final ScenarioId id;
+}
+''');
+    });
+    tearDown(() => root.deleteSync(recursive: true));
+
+    RegistrationAuditResult audit(String cases) {
+      final source = File('${root.path}/evidence_test.dart')
+        ..writeAsStringSync('''
+void main() {
+  const harness = ZukeFlutterEvidenceHarness(
+    runnerCompatibilityId: 'runner',
+    defaultEvidenceTypes: ['flutter-widget'],
+  );
+  harness.registerAll([
+$cases
+  ]);
+}
+''');
+      return const RegistrationAudit().inspectFiles(
+        [source, generated],
+        knownScenarioIds: const {'SCN-BLOCK'},
+        scenarioCaseIds: const {
+          'SCN-BLOCK': ['examples-1-row-1', 'examples-1-row-2'],
+        },
+      );
+    }
+
+    String evidenceCase(String caseArgument) =>
+        '    FlutterEvidenceCase(scenario: DemoScenario.block, '
+        "body: (_) async => ''$caseArgument),";
+
+    test('one case per row satisfies the outline', () {
+      final result = audit(
+        [
+          evidenceCase(", caseId: 'examples-1-row-1'"),
+          evidenceCase(", caseId: 'examples-1-row-2'"),
+        ].join('\n'),
+      );
+      expect(result.diagnostics, isEmpty);
+      expect(result.registrations.map((registration) => registration.caseId), [
+        'examples-1-row-1',
+        'examples-1-row-2',
+      ]);
+    });
+
+    test('a missing row is reported', () {
+      final result = audit(evidenceCase(", caseId: 'examples-1-row-1'"));
+      expect(result.diagnostics.map((diagnostic) => diagnostic.code), [
+        'ZK-REGISTRATION-CASE-MISSING',
+      ]);
+      expect(result.diagnostics.single.message, contains('examples-1-row-2'));
+    });
+
+    test('a case without a row identity is reported as unknown', () {
+      final result = audit(evidenceCase(''));
+      expect(
+        result.diagnostics.map((diagnostic) => diagnostic.code),
+        containsAll([
+          'ZK-REGISTRATION-CASE-UNKNOWN',
+          'ZK-REGISTRATION-CASE-MISSING',
+        ]),
+      );
+    });
+
+    test('a dynamic row identity is reported', () {
+      final result = audit(evidenceCase(', caseId: rowName()'));
+      expect(
+        result.diagnostics.map((diagnostic) => diagnostic.code),
+        contains('ZK-REGISTRATION-CASE-DYNAMIC'),
+      );
+    });
+
+    test('two cases for one row are a duplicate', () {
+      final row = evidenceCase(", caseId: 'examples-1-row-1'");
+      final result = audit('$row\n$row');
+      expect(
+        result.diagnostics.map((diagnostic) => diagnostic.code),
+        contains('ZK-REGISTRATION-DUPLICATE-IDENTITY'),
+      );
+    });
+  });
+
   test('reports a commented-out registration as missing', () {
     final file =
         File.fromUri(

@@ -1,3 +1,4 @@
+import 'gherkin_syntax.dart';
 import 'types.dart';
 import 'package:yaml/yaml.dart';
 
@@ -32,7 +33,12 @@ class GherkinParser {
   /// Parses [content] as the feature at [file].
   GherkinParseResult parseFile(String content, String file) {
     _lastFile = file;
-    final lines = content.split('\n');
+    // The same line endings the evidence digest canonicalizes, so the parser
+    // and the digest always agree on where a line, and a doc string, ends.
+    final lines = content
+        .replaceAll('\r\n', '\n')
+        .replaceAll('\r', '\n')
+        .split('\n');
     final errors = <ParseError>[];
     final features = <ParsedFeature>[];
 
@@ -41,6 +47,8 @@ class GherkinParser {
       if (parsed != null) {
         features.add(parsed);
       }
+    } on ParseError catch (error) {
+      errors.add(error);
     } catch (e) {
       errors.add(
         ParseError(
@@ -54,10 +62,15 @@ class GherkinParser {
   }
 
   ParsedFeature? _parseDocument(List<String> lines, String file) {
-    final beginCount = lines
-        .where((line) => line.trim() == '# spec-begin')
-        .length;
-    final endCount = lines.where((line) => line.trim() == '# spec-end').length;
+    final docStringLines = _docStringLines(lines);
+    var beginCount = 0;
+    var endCount = 0;
+    for (var i = 0; i < lines.length; i++) {
+      if (docStringLines.contains(i)) continue;
+      final trimmed = lines[i].trim();
+      if (trimmed == '# spec-begin') beginCount++;
+      if (trimmed == '# spec-end') endCount++;
+    }
     if (beginCount != 1 || endCount != 1) {
       throw FormatException(
         'feature metadata requires exactly one # spec-begin/# spec-end block',
@@ -67,6 +80,7 @@ class GherkinParser {
       lines,
       'spec-begin',
       'spec-end',
+      docStringLines,
     );
     final featureTags = <GherkinTag>[];
     int? featureLine;
@@ -89,7 +103,7 @@ class GherkinParser {
           }
         }
       }
-      if (trimmed.startsWith('Feature:')) {
+      if (GherkinSyntax.keywordOf(trimmed) == GherkinSyntax.feature) {
         featureLine = i;
         break;
       }
@@ -99,7 +113,7 @@ class GherkinParser {
 
     final featureTitle = lines[featureLine]
         .trim()
-        .substring('Feature:'.length)
+        .substring(GherkinSyntax.feature.length)
         .trim();
     final description = <String>[];
     int? ruleStart;
@@ -108,10 +122,7 @@ class GherkinParser {
       final trimmed = lines[i].trim();
       if (trimmed.isEmpty) continue;
       if (trimmed.startsWith('@') ||
-          trimmed.startsWith('Rule:') ||
-          trimmed.startsWith('Background:') ||
-          trimmed.startsWith('Scenario:') ||
-          trimmed.startsWith('Scenario Outline:')) {
+          GherkinSyntax.opens(trimmed, GherkinSyntax.blockOpeners)) {
         ruleStart = i;
         break;
       }
@@ -125,7 +136,8 @@ class GherkinParser {
     // Find all Rule: positions
     final rulePositions = <int>[];
     for (int i = ruleStart ?? featureLine + 1; i < lines.length; i++) {
-      if (lines[i].trim().startsWith('Rule:')) {
+      if (!docStringLines.contains(i) &&
+          GherkinSyntax.keywordOf(lines[i].trim()) == GherkinSyntax.rule) {
         rulePositions.add(i);
       }
     }
@@ -135,7 +147,9 @@ class GherkinParser {
         ? lines.length
         : rulePositions.first;
     for (var i = featureLine + 1; i < featureBodyEnd; i++) {
-      if (lines[i].trim().startsWith('Background:')) {
+      if (!docStringLines.contains(i) &&
+          GherkinSyntax.keywordOf(lines[i].trim()) ==
+              GherkinSyntax.background) {
         featureBackgroundPositions.add(i);
       }
     }
@@ -161,6 +175,7 @@ class GherkinParser {
         start: metadataStart,
         end: rp,
         file: file,
+        docStringLines: docStringLines,
       );
       if (ruleBlocks.length != 1) {
         throw FormatException(
@@ -173,6 +188,7 @@ class GherkinParser {
       // Extract tags from just before the Rule: line
       final ruleTags = <GherkinTag>[];
       for (int j = rp - 1; j >= 0; j--) {
+        if (docStringLines.contains(j)) break;
         final t = lines[j].trim();
         if (t.startsWith('@')) {
           for (final tag in t.split(RegExp(r'\s+'))) {
@@ -191,10 +207,7 @@ class GherkinParser {
           }
         } else if (t.isEmpty ||
             t.startsWith('#') ||
-            t.startsWith('Rule:') ||
-            t.startsWith('Scenario:') ||
-            t.startsWith('@')) {
-          if (t.startsWith('@')) continue;
+            GherkinSyntax.opens(t, GherkinSyntax.tagScanOpeners)) {
           // Continue scanning — might be more tags or a rule-spec end
           if (t == '# rule-spec-end') break;
         } else {
@@ -221,6 +234,7 @@ class GherkinParser {
         start: rulePositions.last + 1,
         end: lines.length,
         file: file,
+        docStringLines: docStringLines,
       );
       if (trailing.isNotEmpty) {
         throw const FormatException(
@@ -235,7 +249,7 @@ class GherkinParser {
       source: SourceLocation(
         file: file,
         line: featureLine + 1,
-        column: lines[featureLine].indexOf('Feature:') + 1,
+        column: lines[featureLine].indexOf(GherkinSyntax.feature) + 1,
       ),
       tags: featureTags,
       description: description.isNotEmpty ? description.join('\n') : null,
@@ -245,6 +259,7 @@ class GherkinParser {
         ? _metadataFromYaml(
             featureMeta.content,
             featureMeta.source,
+            block: featureMeta,
             requireSchemaVersion: true,
           )
         : ParsedMetadata(source: SourceLocation(file: file, line: 1));
@@ -273,7 +288,7 @@ class GherkinParser {
   }) {
     int ruleLine = -1;
     for (int i = 0; i < lines.length; i++) {
-      if (lines[i].trim().startsWith('Rule:')) {
+      if (GherkinSyntax.keywordOf(lines[i].trim()) == GherkinSyntax.rule) {
         ruleLine = i;
         break;
       }
@@ -282,10 +297,13 @@ class GherkinParser {
     final source = SourceLocation(
       file: file,
       line: lineOffset + ruleLine + 1,
-      column: lines[ruleLine].indexOf('Rule:') + 1,
+      column: lines[ruleLine].indexOf(GherkinSyntax.rule) + 1,
     );
 
-    final ruleTitle = lines[ruleLine].trim().substring('Rule:'.length).trim();
+    final ruleTitle = lines[ruleLine]
+        .trim()
+        .substring(GherkinSyntax.rule.length)
+        .trim();
     final ruleElement = GherkinElement(
       keyword: GherkinKeyword.rule,
       title: ruleTitle,
@@ -299,8 +317,13 @@ class GherkinParser {
     List<String>? scenarioLines;
     int? scenarioStart;
     final pendingScenarioTags = <String>[];
+    final docStringLines = _docStringLines(lines, lineOffset: lineOffset);
 
     for (int i = ruleLine + 1; i < lines.length; i++) {
+      if (docStringLines.contains(i)) {
+        (scenarioLines ?? backgroundLines)?.add(lines[i]);
+        continue;
+      }
       final trimmed = lines[i].trim();
       if (trimmed.startsWith('@')) {
         if (scenarioLines != null && _tagsApplyToExamples(lines, i)) {
@@ -310,13 +333,13 @@ class GherkinParser {
         }
         continue;
       }
-      if (trimmed.startsWith('Background:') && scenarioLines == null) {
+      if (GherkinSyntax.keywordOf(trimmed) == GherkinSyntax.background &&
+          scenarioLines == null) {
         backgroundLines = [lines[i]];
         backgroundStart = i;
         continue;
       }
-      if (trimmed.startsWith('Scenario:') ||
-          trimmed.startsWith('Scenario Outline:')) {
+      if (GherkinSyntax.opens(trimmed, GherkinSyntax.scenarioKeywords)) {
         if (scenarioLines != null) {
           final scenario = _parseScenario(
             scenarioLines,
@@ -345,7 +368,11 @@ class GherkinParser {
 
     ParsedMetadata metadata;
     if (ruleMeta != null) {
-      metadata = _metadataFromYaml(ruleMeta.content, ruleMeta.source);
+      metadata = _metadataFromYaml(
+        ruleMeta.content,
+        ruleMeta.source,
+        block: ruleMeta,
+      );
     } else {
       throw FormatException(
         'rule "$ruleTitle" requires exactly one # rule-spec-begin/# rule-spec-end block',
@@ -367,6 +394,75 @@ class GherkinParser {
     );
   }
 
+  /// Indexes of the lines that belong to a step's doc string, delimiters
+  /// included.
+  ///
+  /// A doc string is step content, so its lines must never be read as tags or
+  /// structural keywords, whatever they happen to say. A delimiter only opens
+  /// one after an executable step, so not after `Examples:`, and only the same
+  /// delimiter closes it.
+  ///
+  /// Throws a [ParseError] at the opening delimiter of an unclosed doc string,
+  /// which would otherwise swallow the rest of the file, and at the second doc
+  /// string of a step, which would otherwise silently replace the first. The
+  /// whole document is scanned first, so the reported line is always a file
+  /// line.
+  Set<int> _docStringLines(
+    List<String> lines, {
+    bool inStepBody = false,
+    int lineOffset = 0,
+  }) {
+    final inside = <int>{};
+    String? delimiter;
+    var openedAt = 0;
+    var afterStep = false;
+    var stepHasDocString = false;
+    for (var i = 0; i < lines.length; i++) {
+      final trimmed = lines[i].trim();
+      if (delimiter != null) {
+        inside.add(i);
+        if (trimmed == delimiter) delimiter = null;
+        continue;
+      }
+      final keyword = GherkinSyntax.keywordOf(trimmed);
+      if (keyword != null) {
+        inStepBody = GherkinSyntax.stepContainers.contains(keyword);
+        afterStep = false;
+      } else if (inStepBody && GherkinSyntax.step.hasMatch(trimmed)) {
+        afterStep = true;
+        stepHasDocString = false;
+      } else if (afterStep) {
+        final opening = GherkinSyntax.docStringDelimiterOf(trimmed);
+        if (opening == null) continue;
+        if (stepHasDocString) {
+          throw ParseError(
+            message: 'This step already has a doc string.',
+            source: SourceLocation(
+              file: _lastFile!,
+              line: lineOffset + i + 1,
+              column: lines[i].indexOf(opening) + 1,
+            ),
+          );
+        }
+        inside.add(i);
+        delimiter = opening;
+        openedAt = i;
+        stepHasDocString = true;
+      }
+    }
+    if (delimiter != null) {
+      throw ParseError(
+        message: 'Doc string opened with $delimiter is never closed.',
+        source: SourceLocation(
+          file: _lastFile!,
+          line: lineOffset + openedAt + 1,
+          column: lines[openedAt].indexOf(delimiter) + 1,
+        ),
+      );
+    }
+    return inside;
+  }
+
   /// Gherkin tags immediately before an Examples block belong to that block,
   /// while tags before a following scenario belong to the following scenario.
   bool _tagsApplyToExamples(List<String> lines, int tagLine) {
@@ -375,7 +471,7 @@ class GherkinParser {
       if (next.isEmpty || next.startsWith('#') || next.startsWith('@')) {
         continue;
       }
-      return next.startsWith('Examples:');
+      return next.startsWith(GherkinSyntax.examples);
     }
     return false;
   }
@@ -387,8 +483,10 @@ class GherkinParser {
   }) {
     int scenarioLine = -1;
     for (int i = 0; i < lines.length; i++) {
-      if (lines[i].trim().startsWith('Scenario:') ||
-          lines[i].trim().startsWith('Scenario Outline:')) {
+      if (GherkinSyntax.opens(
+        lines[i].trim(),
+        GherkinSyntax.scenarioKeywords,
+      )) {
         scenarioLine = i;
         break;
       }
@@ -423,11 +521,21 @@ class GherkinParser {
     // Split step lines by Examples: blocks — everything between Scenario and
     // first Examples: are steps; each Examples: section has a title and table.
     final examplesList = <GherkinExamples>[];
+    final declaredCaseIds = <String>{};
     final executableLines = <String>[];
     final pendingExampleTags = <GherkinTag>[];
     int inExamples = -1;
+    final docStringLines = _docStringLines(
+      stepLines,
+      inStepBody: true,
+      lineOffset: lineOffset + scenarioLine + 1,
+    );
 
     for (int i = 0; i < stepLines.length; i++) {
+      if (docStringLines.contains(i)) {
+        if (inExamples < 0) executableLines.add(stepLines[i]);
+        continue;
+      }
       final trimmed = stepLines[i].trim();
       if (trimmed.startsWith('@')) {
         for (final tag in trimmed.split(RegExp(r'\s+'))) {
@@ -445,35 +553,49 @@ class GherkinParser {
         }
         continue;
       }
-      if (trimmed.startsWith('Examples:')) {
+      if (trimmed.startsWith(GherkinSyntax.examples)) {
         // Determine the title from the Examples: line
-        final titlePart = trimmed.substring('Examples:'.length).trim();
+        final titlePart = trimmed
+            .substring(GherkinSyntax.examples.length)
+            .trim();
         final examplesTitle = titlePart.isNotEmpty
             ? titlePart
             : 'examples_${examplesList.length}';
-        // Collect the table lines (rows starting with |)
+        // Collect the table rows. Gherkin allows comments and blank lines
+        // between them, so only other content ends the table. Stopping at a
+        // comment would silently discard every case after it.
         final tableLines = <String>[];
         int j = i + 1;
-        while (j < stepLines.length && stepLines[j].trim().startsWith('|')) {
-          tableLines.add(stepLines[j]);
-          j++;
+        for (var next = i + 1; next < stepLines.length; next++) {
+          final row = stepLines[next].trim();
+          if (row.isEmpty || row.startsWith('#')) continue;
+          if (!row.startsWith('|')) break;
+          tableLines.add(stepLines[next]);
+          j = next + 1;
         }
-        if (tableLines.isNotEmpty) {
-          final rows = tableLines.map(_parseTableRow).toList();
-          examplesList.add(
-            GherkinExamples(
-              title: examplesTitle,
-              tags: List.unmodifiable(pendingExampleTags),
-              headers: rows.first,
-              rows: rows.skip(1).toList(),
-              source: SourceLocation(
-                file: file,
-                line: lineOffset + scenarioLine + i + 2,
-                column: stepLines[i].indexOf('Examples:') + 1,
-              ),
-            ),
+        final source = SourceLocation(
+          file: file,
+          line: lineOffset + scenarioLine + i + 2,
+          column: stepLines[i].indexOf(GherkinSyntax.examples) + 1,
+        );
+        if (tableLines.length < 2) {
+          throw ParseError(
+            message:
+                'Examples "$examplesTitle" requires a table with a header and at least one data row.',
+            source: source,
           );
         }
+        final rows = tableLines.map(_parseTableRow).toList();
+        _validateCaseIds(examplesTitle, rows, source, declaredCaseIds);
+        examplesList.add(
+          GherkinExamples(
+            title: examplesTitle,
+            tags: List.unmodifiable(pendingExampleTags),
+            headers: rows.first,
+            rows: rows.skip(1).toList(),
+            source: source,
+          ),
+        );
         pendingExampleTags.clear();
         inExamples = i;
         i = j - 1; // skip past the table rows
@@ -489,14 +611,14 @@ class GherkinParser {
     );
 
     final scenarioElement = GherkinElement(
-      keyword: line.startsWith('Scenario Outline:')
+      keyword: line.startsWith(GherkinSyntax.scenarioOutline)
           ? GherkinKeyword.scenarioOutline
           : GherkinKeyword.scenario,
       title: title,
       source: SourceLocation(
         file: file,
         line: lineOffset + scenarioLine + 1,
-        column: lines[scenarioLine].indexOf('Scenario') + 1,
+        column: lines[scenarioLine].indexOf(GherkinSyntax.scenarioStem) + 1,
       ),
       tags: tags,
     );
@@ -509,6 +631,47 @@ class GherkinParser {
     );
   }
 
+  /// Validates the optional case ID column of one Examples [table].
+  ///
+  /// [declared] spans the whole scenario, because evidence identifies a case
+  /// by scenario and case ID, whichever block the row is in.
+  void _validateCaseIds(
+    String title,
+    List<List<String>> table,
+    SourceLocation source,
+    Set<String> declared,
+  ) {
+    const name = GherkinSyntax.caseIdColumn;
+    final headers = table.first;
+    final column = headers.indexOf(name);
+    if (column < 0) return;
+    Never fail(String problem) =>
+        throw ParseError(message: 'Examples "$title" $problem', source: source);
+    if (headers.lastIndexOf(name) != column) {
+      fail('declares more than one $name column.');
+    }
+    for (final row in table.skip(1)) {
+      if (row.length != headers.length) {
+        fail(
+          'has a row with ${row.length} cells for ${headers.length} columns.',
+        );
+      }
+      final caseId = row[column];
+      if (!_caseIdPattern.hasMatch(caseId)) {
+        fail('$name "$caseId" must be lowercase kebab-case.');
+      }
+      if (_positionalCaseIdPattern.hasMatch(caseId)) {
+        fail('$name "$caseId" is reserved for positional case IDs.');
+      }
+      if (!declared.add(caseId)) {
+        fail('$name "$caseId" is used more than once in this scenario.');
+      }
+    }
+  }
+
+  static final _caseIdPattern = RegExp(r'^[a-z0-9]+(?:-[a-z0-9]+)*$');
+  static final _positionalCaseIdPattern = RegExp(r'^examples-\d+-row-\d+$');
+
   List<GherkinStep> _parseSteps(
     List<String> lines,
     String file, {
@@ -518,6 +681,8 @@ class GherkinParser {
     GherkinStep? current;
     var previousKeyword = 'Given';
     String? docDelimiter;
+    String? docMediaType;
+    var docIndent = 0;
     final doc = StringBuffer();
     for (int i = 0; i < lines.length; i++) {
       final trimmed = lines[i].trim();
@@ -529,6 +694,8 @@ class GherkinParser {
             text: current.text,
             source: current.source,
             docString: doc.toString(),
+            docStringMediaType: docMediaType,
+            docStringIndent: docIndent,
             table: current.table,
           );
           steps[steps.length - 1] = current;
@@ -539,9 +706,7 @@ class GherkinParser {
         }
         continue;
       }
-      final match = RegExp(
-        r'^(Given|When|Then|And|But)\s+(.+)$',
-      ).firstMatch(trimmed);
+      final match = GherkinSyntax.step.firstMatch(trimmed);
       if (match != null) {
         final keyword = match.group(1)!;
         final inherited = keyword == 'And' || keyword == 'But'
@@ -559,17 +724,24 @@ class GherkinParser {
           ),
         );
         steps.add(current);
-      } else if (trimmed == '"""' || trimmed == "'''") {
-        if (current != null) {
-          docDelimiter = trimmed;
-        }
-      } else if (trimmed.startsWith('|') && current != null) {
+        continue;
+      }
+      if (current == null) continue;
+      final opening = GherkinSyntax.docStringDelimiterOf(trimmed);
+      if (opening != null) {
+        final mediaType = trimmed.substring(opening.length).trim();
+        docDelimiter = opening;
+        docMediaType = mediaType.isEmpty ? null : mediaType;
+        docIndent = lines[i].indexOf(opening);
+      } else if (trimmed.startsWith('|')) {
         current = GherkinStep(
           keyword: current.keyword,
           inheritedKeyword: current.inheritedKeyword,
           text: current.text,
           source: current.source,
           docString: current.docString,
+          docStringMediaType: current.docStringMediaType,
+          docStringIndent: current.docStringIndent,
           table: [...current.table, _parseTableRow(trimmed)],
         );
         steps[steps.length - 1] = current;
@@ -603,36 +775,65 @@ class GherkinParser {
     return cells;
   }
 
+  /// Strips the leading `#` and one space from the metadata comment line [raw]
+  /// on [fileLine], recording both the content and where it started.
+  ///
+  /// Shared by the feature and rule block extractors so the reconstructed YAML
+  /// and the recorded line map cannot drift apart. The two remain separate loops
+  /// because rule blocks are stricter — nesting, orphans, and non-comment lines
+  /// are all errors there — but the per-line mechanics must be identical, and
+  /// when they were not, every rule-level position silently came back empty.
+  static MetadataLine _stripCommentLine(String raw, int fileLine) {
+    final hash = raw.indexOf('#');
+    var content = raw.substring(hash + 1);
+    var column = hash + 1;
+    if (content.startsWith(' ')) {
+      content = content.substring(1);
+      column += 1;
+    }
+    return MetadataLine(
+      content: content,
+      fileLine: fileLine,
+      // 1-based, and shifted by one because `column` counts from the `#`.
+      contentColumn: column + 1,
+    );
+  }
+
   MetadataBlock? _extractMetadataBlock(
     List<String> lines,
     String beginMarker,
     String endMarker,
+    Set<int> docStringLines,
   ) {
     bool inBlock = false;
     int startLine = 0;
     final content = StringBuffer();
+    final lineMap = <MetadataLine>[];
 
     for (int i = 0; i < lines.length; i++) {
+      if (docStringLines.contains(i)) continue;
       final raw = lines[i];
       final trimmed = raw.trim();
       if (trimmed == '# $beginMarker') {
         inBlock = true;
         startLine = i + 1;
         content.clear();
+        lineMap.clear();
       } else if (inBlock && trimmed == '# $endMarker') {
         if (content.isNotEmpty) {
           return MetadataBlock(
             content: content.toString(),
             source: SourceLocation(file: _lastFile!, line: startLine),
+            lines: List.unmodifiable(lineMap),
           );
         }
         inBlock = false;
       } else if (inBlock && raw.trimLeft().startsWith('#')) {
-        var lineContent = raw.substring(raw.indexOf('#') + 1);
-        if (lineContent.startsWith(' ')) {
-          lineContent = lineContent.substring(1);
-        }
-        content.writeln(lineContent);
+        // Recorded in lockstep with the content, so entry N of `lineMap` is
+        // always line N+1 of the reconstructed YAML.
+        final stripped = _stripCommentLine(raw, i + 1);
+        content.writeln(stripped.content);
+        lineMap.add(stripped);
       }
     }
     return null;
@@ -641,9 +842,10 @@ class GherkinParser {
   ParsedMetadata _metadataFromYaml(
     String yamlText,
     SourceLocation source, {
+    MetadataBlock? block,
     bool requireSchemaVersion = false,
   }) {
-    final metadata = _parseSimpleYaml(yamlText, source);
+    final metadata = _parseSimpleYaml(yamlText, source, block: block);
     final errors = <String>[];
     var extensions = metadata.extensions;
     try {
@@ -680,6 +882,7 @@ class GherkinParser {
           'variant',
           'slot',
           'interaction',
+          'label',
           'defaultEvidence',
           'acceptableProviderKinds',
           'prohibitedProviderTargets',
@@ -724,6 +927,10 @@ class GherkinParser {
       ),
       securityProfile: metadata.securityProfile,
       extensions: extensions,
+      // Carried across from _parseSimpleYaml. This rebuild copies every other
+      // field by hand, so omitting it silently drops every recorded position and
+      // the block start becomes the only location known again.
+      valueSources: metadata.valueSources,
       source: source,
       errors: errors,
     );
@@ -745,7 +952,7 @@ class GherkinParser {
     return List.unmodifiable(result);
   }
 
-  Map<String, Object?> _extensionsFromYaml(Map value) {
+  Map<String, Object?> _extensionsFromYaml(Map<Object?, Object?> value) {
     Object? convert(Object? input) {
       if (input is Map) {
         final keys = input.keys.map((key) => key.toString()).toList()..sort();
@@ -769,7 +976,7 @@ class GherkinParser {
 
   /// Recursively validate YAML map keys: allow known keys and x-* prefixed keys.
   void _validateMapKeys(
-    Map map,
+    Map<Object?, Object?> map,
     Set<String> allowed,
     String prefix,
     List<String> errors,
@@ -794,11 +1001,18 @@ class GherkinParser {
     required int start,
     required int end,
     required String file,
+    required Set<int> docStringLines,
   }) {
     final blocks = <MetadataBlock>[];
     StringBuffer? content;
     int? beginLine;
+    // Kept in lockstep with `content`, as in _extractMetadataBlock. The two
+    // extractors are deliberately separate: rule blocks are stricter (nesting,
+    // orphans, and non-comment lines are all errors), so sharing one would mean
+    // sharing those rules too.
+    final lineMap = <MetadataLine>[];
     for (var index = start; index < end; index++) {
+      if (docStringLines.contains(index)) continue;
       final raw = lines[index];
       final trimmed = raw.trim();
       if (trimmed == '# rule-spec-begin') {
@@ -807,6 +1021,7 @@ class GherkinParser {
         }
         content = StringBuffer();
         beginLine = index + 1;
+        lineMap.clear();
       } else if (trimmed == '# rule-spec-end') {
         if (content == null || beginLine == null) {
           throw FormatException('orphan rule-spec end at line ${index + 1}');
@@ -815,6 +1030,7 @@ class GherkinParser {
           MetadataBlock(
             content: content.toString(),
             source: SourceLocation(file: file, line: beginLine),
+            lines: List.unmodifiable(lineMap),
           ),
         );
         content = null;
@@ -825,9 +1041,9 @@ class GherkinParser {
             'non-comment rule metadata at line ${index + 1}',
           );
         }
-        var lineContent = raw.substring(raw.indexOf('#') + 1);
-        if (lineContent.startsWith(' ')) lineContent = lineContent.substring(1);
-        content.writeln(lineContent);
+        final stripped = _stripCommentLine(raw, index + 1);
+        content.writeln(stripped.content);
+        lineMap.add(stripped);
       }
     }
     if (content != null) {
@@ -836,7 +1052,11 @@ class GherkinParser {
     return blocks;
   }
 
-  void _validateSecrets(Map value, String prefix, List<String> errors) {
+  void _validateSecrets(
+    Map<Object?, Object?> value,
+    String prefix,
+    List<String> errors,
+  ) {
     final privateKey = RegExp(
       r'-----BEGIN (?:[A-Z0-9 ]+ )?PRIVATE KEY-----',
       caseSensitive: false,
@@ -871,13 +1091,21 @@ class GherkinParser {
     }
   }
 
-  ParsedMetadata _parseSimpleYaml(String yamlText, SourceLocation source) {
+  ParsedMetadata _parseSimpleYaml(
+    String yamlText,
+    SourceLocation source, {
+    MetadataBlock? block,
+  }) {
     final parsed = loadYaml(yamlText);
     if (parsed is! YamlMap) {
       throw const FormatException('metadata must be a YAML mapping');
     }
     final root = _yamlMap(parsed);
     final bindingsRoot = _yamlMap(root['bindings']);
+    // Read through parsed, not the flattened map below: the conversion keeps
+    // values but discards the YamlNodes that carry a location, and the location
+    // is the point of recording them.
+    final valueSources = _valueSources(parsed, block);
 
     return ParsedMetadata(
       schemaVersion: _yamlText(root['schemaVersion']),
@@ -901,6 +1129,7 @@ class GherkinParser {
               variant: _yamlText(value['variant']) ?? 'default',
               slot: _yamlText(value['slot']) ?? 'primary',
               interaction: _yamlText(value['interaction']),
+              label: _yamlText(value['label']),
             ),
           )
           .toList(growable: false),
@@ -945,6 +1174,7 @@ class GherkinParser {
       evidenceRequirements: _yamlEvidenceRequirements(root['requiredEvidence']),
       securityProfile: _yamlText(root['securityProfile']),
       extensions: Map.unmodifiable(_extensionsFromYaml(root)),
+      valueSources: valueSources,
       source: source,
     );
   }
@@ -974,7 +1204,7 @@ class GherkinParser {
     if (value == null) return null;
     if (value is Iterable && value.any((item) => item is Map)) {
       return value
-          .whereType<Map>()
+          .whereType<Map<Object?, Object?>>()
           .map((item) => item['type'] ?? item['evidenceType'])
           .whereType<String>()
           .toList(growable: false);
@@ -1012,6 +1242,130 @@ class GherkinParser {
     return result;
   }
 
+  /// Maps every declared value in [root] to the line it was written on, grouped
+  /// by the field it was read from.
+  ///
+  /// Read through `.nodes`, not `[]`: `YamlMap[]` hands back the unwrapped
+  /// value, and a bare String carries no span, so there would be nothing to map.
+  Map<MetadataField, Map<String, SourceLocation>> _valueSources(
+    YamlMap root,
+    MetadataBlock? block,
+  ) {
+    final result = <MetadataField, Map<String, SourceLocation>>{};
+    if (block == null || block.lines.isEmpty) return const {};
+
+    SourceLocation? locate(YamlNode? node) {
+      if (node == null) return null;
+      final span = node.span;
+      // The span is 0-based in both axes, while MetadataBlock is 1-based, so the
+      // line is shifted here rather than in resolveAt: that keeps the helper's
+      // contract "a 1-based line in the content".
+      return block.resolveAt(span.start.line + 1, span.start.column);
+    }
+
+    String? textOf(YamlNode? node) {
+      if (node is! YamlScalar) return null;
+      final value = node.value;
+      if (value == null) return null;
+      final text = value is String ? value : value.toString();
+      return text.isEmpty ? null : text;
+    }
+
+    void record(MetadataField field, YamlNode? node, String? value) {
+      if (value == null) return;
+      final location = locate(node);
+      if (location == null) return;
+      (result[field] ??= <String, SourceLocation>{}).putIfAbsent(
+        value,
+        () => location,
+      );
+    }
+
+    // Scalars.
+    const scalars = {
+      MetadataField.id: 'id',
+      MetadataField.epic: 'epic',
+      MetadataField.owner: 'owner',
+      MetadataField.status: 'status',
+      MetadataField.securityProfile: 'securityProfile',
+    };
+    scalars.forEach((field, key) {
+      final node = root.nodes[key];
+      record(field, node, textOf(node));
+    });
+
+    // List entries, plus the identifying fields of list-of-mapping entries.
+    //
+    // [scalarField] is the field a list of plain scalars belongs to. It is
+    // named explicitly rather than inferred, because a list of scalars carries no
+    // field of its own to read back: defaulting it would file every scalar list
+    // under one field, and a finding about a PBI would then resolve to whatever
+    // happened to share its value.
+    void recordList(
+      String key,
+      MetadataField scalarField,
+      List<_FieldKey> entryFields,
+    ) {
+      final listNode = root.nodes[key];
+      if (listNode is! YamlList) return;
+      for (final item in listNode.nodes) {
+        if (item is YamlMap) {
+          for (final entry in entryFields) {
+            final node = item.nodes[entry.key];
+            record(entry.field, node, textOf(node));
+          }
+          continue;
+        }
+        // `requiredEvidence` accepts either a scalar per entry or a mapping.
+        record(scalarField, item, textOf(item));
+      }
+    }
+
+    recordList('targets', MetadataField.targets, const []);
+    recordList('pbis', MetadataField.pbis, const []);
+    recordList('events', MetadataField.events, const []);
+    recordList('featureFlags', MetadataField.featureFlags, const []);
+    recordList('requiredEvidence', MetadataField.requiredEvidence, const [
+      _FieldKey(MetadataField.requiredEvidence, 'type'),
+      _FieldKey(MetadataField.requiredEvidence, 'evidenceType'),
+    ]);
+    recordList('performance', MetadataField.performanceId, const [
+      _FieldKey(MetadataField.performanceId, 'id'),
+      _FieldKey(MetadataField.performanceTarget, 'target'),
+      _FieldKey(MetadataField.performanceProfile, 'profile'),
+    ]);
+    recordList('requires', MetadataField.requiresId, const [
+      _FieldKey(MetadataField.requiresId, 'id'),
+      _FieldKey(MetadataField.requiresTarget, 'target'),
+      _FieldKey(MetadataField.requiresCardinality, 'cardinality'),
+    ]);
+    recordList('endpoints', MetadataField.endpointId, const [
+      _FieldKey(MetadataField.endpointId, 'id'),
+      _FieldKey(MetadataField.endpointTarget, 'target'),
+      _FieldKey(MetadataField.endpointMethod, 'method'),
+      _FieldKey(MetadataField.endpointContract, 'contract'),
+    ]);
+
+    final bindings = root.nodes['bindings'];
+    if (bindings is YamlMap) {
+      final required = bindings.nodes['required'];
+      if (required is YamlList) {
+        for (final item in required.nodes) {
+          if (item is! YamlMap) continue;
+          for (final entry in const [
+            _FieldKey(MetadataField.bindingId, 'id'),
+            _FieldKey(MetadataField.bindingTarget, 'target'),
+            _FieldKey(MetadataField.bindingVariant, 'variant'),
+          ]) {
+            final node = item.nodes[entry.key];
+            record(entry.field, node, textOf(node));
+          }
+        }
+      }
+    }
+    return result.isEmpty ? const {} : Map.unmodifiable(result);
+  }
+
   String? _yamlText(Object? value) {
     if (value == null) return null;
     if (value is Map || (value is Iterable && value is! String)) {
@@ -1035,6 +1389,77 @@ class MetadataBlock {
   /// Location of the block in the source file.
   final SourceLocation source;
 
+  /// Where each line of [content] came from in the source file.
+  ///
+  /// A YAML node's span is relative to the reconstructed [content], not to the
+  /// file, and a fixed offset cannot recover the file line: a blank line inside
+  /// the block is dropped when [content] is rebuilt, so the two sequences drift
+  /// apart. A blank line is exactly the case that makes an offset silently
+  /// wrong, so the mapping is kept per line instead.
+  final List<MetadataLine> lines;
+
   /// Creates a metadata block.
-  const MetadataBlock({required this.content, required this.source});
+  const MetadataBlock({
+    required this.content,
+    required this.source,
+    this.lines = const [],
+  });
+
+  /// Maps a 1-based line in [content] and a 0-based [yamlColumn] to a location
+  /// in the source file, or null when the position is out of range.
+  ///
+  /// Named for the YAML coordinate it receives, to keep it distinct from
+  /// [MetadataLine.contentColumn], which is the file column the content starts
+  /// at. Returns null rather than throwing for an unexpected span: a location
+  /// only ever improves a diagnostic, so a mismatch must degrade to the coarser
+  /// answer instead of failing the parse.
+  SourceLocation? resolveAt(int contentLine, int yamlColumn) {
+    if (contentLine < 1 || contentLine > lines.length) return null;
+    final line = lines[contentLine - 1];
+    // `yamlColumn` is 0-based, matching the span it comes from.
+    // `contentColumn` on the line is 1-based, so its 0-based form is one less;
+    // adding the two and converting back to 1-based is therefore a plain sum.
+    return SourceLocation(
+      file: source.file,
+      line: line.fileLine,
+      column: line.contentColumn + yamlColumn,
+    );
+  }
+}
+
+/// A metadata field paired with the YAML key it is written under.
+///
+/// Grouping the two keeps a list of field mappings readable where a bare record
+/// or a pair of parallel lists would not: a field and its key always travel
+/// together, so one cannot be reordered or dropped without the other.
+class _FieldKey {
+  final MetadataField field;
+  final String key;
+
+  const _FieldKey(this.field, this.key);
+}
+
+/// One source line of a metadata block, and the content it contributed.
+class MetadataLine {
+  /// The line's text with the leading `#` and one following space removed.
+  ///
+  /// Carried so the reconstructed YAML and the position map are produced from
+  /// one pass over the same value, instead of two that can disagree.
+  final String content;
+
+  /// 1-based line in the source file.
+  final int fileLine;
+
+  /// 1-based column in the source file at which [content] begins.
+  ///
+  /// Recorded because the `#` and the single space after it are stripped, so a
+  /// YAML column has to be shifted back by the prefix width to point at the real
+  /// column in the file.
+  final int contentColumn;
+
+  const MetadataLine({
+    required this.content,
+    required this.fileLine,
+    required this.contentColumn,
+  });
 }

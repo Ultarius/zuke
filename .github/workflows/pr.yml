@@ -3,48 +3,68 @@ name: pr
 on:
   pull_request:
 
+permissions:
+  contents: read
+
 jobs:
   maintenance-parity:
     name: consumer maintenance parity (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 15
+    timeout-minutes: 20
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest]
+        os: [ubuntu-26.04, windows-latest]
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
-      - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2
-        with:
-          flutter-version: '3.44.8'
-          channel: stable
-          cache: true
-      - run: flutter --suppress-analytics pub get
-      - name: Verify framework replacements and rollback
+      - name: Check out repository for local action resolution
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - uses: ./.github/actions/setup-zuke
+      - name: Run the full zuke_cli test suite
         working-directory: vendor-sdk/zuke_cli
-        run: >-
-          dart --suppress-analytics test
-          test/lock_parity_test.dart test/lock_refresh_roots_test.dart
-          test/gate_record_test.dart test/artifact_audit_test.dart
-          test/alignment_doctor_test.dart test/registration_audit_test.dart
-          test/init_preset_test.dart test/zuke_generator_test.dart
-          test/vscode_preset_test.dart test/workspace_registration_audit_test.dart
-          test/gate_composition_test.dart test/trust_gate_test.dart
-          test/generate_command_test.dart
+        run: dart --suppress-analytics test
+      # Run from the package root rather than as `dart test <dir>`: the directory
+      # form globs the whole tree, and lib/src/zuke_test.dart is a library whose
+      # name ends in _test.dart, so it was loaded as an entrypoint and reported as
+      # having no main. Both runner packages were previously untested in CI
+      # because of exactly that shape of failure being mistaken for a real one.
+      - name: Run the zuke_runner suite
+        working-directory: vendor-sdk/zuke_runner
+        run: dart --suppress-analytics test
+      # Flutter, not dart: these are widget tests, so they cannot load on the VM.
+      # setup-zuke has already installed the pinned SDK and resolved the
+      # workspace, so this costs test time only.
+      - name: Run the zuke_runner_flutter suite
+        working-directory: vendor-sdk/zuke_runner_flutter
+        run: flutter --suppress-analytics test
 
   dependency-firewall:
     name: test-host dependency firewall
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
-      - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2
-        with:
-          flutter-version: '3.44.8'
-          channel: stable
-          cache: true
-      - run: flutter --suppress-analytics pub get
+      - name: Check out repository for local action resolution
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - uses: ./.github/actions/setup-zuke
       - name: Check test-host dependency firewall
         run: dart --suppress-analytics run tool/check_dependency_firewall.dart
+
+  editor-contract:
+    name: analyzer index contract
+    runs-on: ubuntu-26.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - uses: ./.github/actions/setup-zuke
+        with:
+          fetch-depth: '0'
+      - name: Check contract and plugin version bumps
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: dart --suppress-analytics run tool/check_editor_contract.dart "$BASE_SHA"
+      - name: Check serializer golden
+        working-directory: vendor-sdk/zuke_cli
+        run: dart --suppress-analytics test test/index_contract_test.dart
+      - name: Check plugin contract diagnostics
+        working-directory: vendor-sdk/zuke_analyzer
+        run: dart --suppress-analytics test
 
   shopping-cart-assurance:
     uses: ./.github/workflows/flutter-example-assurance.yml
@@ -68,3 +88,10 @@ jobs:
       profile: pullRequest
       prepare_lock: true
       demonstrate_rate_limit: true
+  library-catalog-assurance:
+    uses: ./.github/workflows/dart-example-assurance.yml
+    with:
+      profile: pullRequest
+      changed-since: ${{ github.event.pull_request.base.sha }}
+      example-root: examples/library_catalog
+      package-name: library_catalog

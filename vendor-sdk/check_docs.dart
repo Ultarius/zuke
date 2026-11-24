@@ -354,6 +354,17 @@ class DocumentationChecker {
               '$relative: published package depends on retired package $dependencyName',
             );
           }
+          // A lower floor lets a consumer resolve a release that lacks APIs
+          // this package now imports, which the workspace can never show.
+          if (release.publish &&
+              section == 'dependencies' &&
+              dependencyRelease != null &&
+              dependency.value != '^${dependencyRelease.version}') {
+            failures.add(
+              '$relative: $dependencyName must be constrained to '
+              '^${dependencyRelease.version}, the coordinated release version',
+            );
+          }
         }
       }
     }

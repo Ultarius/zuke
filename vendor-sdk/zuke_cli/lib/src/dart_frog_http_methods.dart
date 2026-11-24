@@ -1,6 +1,8 @@
 import 'package:analyzer/dart/ast/ast.dart';
 import 'package:analyzer/dart/element/element.dart';
 
+import 'tooling/inspection.dart' show namedArgumentValues;
+
 /// Recognizes a leading method guard that returns 405 for all other methods.
 /// Unsupported control flow remains unknown; occurrences of HttpMethod alone
 /// are not evidence of a route's method contract.
@@ -26,10 +28,11 @@ List<String> dartFrogHttpMethods(FunctionDeclaration handler) {
       !_dartFrog(response.constructorName.element)) {
     return const [];
   }
-  final status = response.argumentList.arguments
-      .whereType<NamedExpression>()
-      .where((argument) => argument.name.label.name == 'statusCode');
-  if (status.length != 1 || _integer(status.single.expression) != 405) {
+  final status = namedArgumentValues(
+    response.argumentList.arguments,
+    'statusCode',
+  );
+  if (status.length != 1 || _integer(status.single.value) != 405) {
     return const [];
   }
   final context = parameters.first.declaredFragment?.element;
@@ -45,10 +48,10 @@ List<String> dartFrogHttpMethods(FunctionDeclaration handler) {
     }
     if (expression.operator.lexeme != '!=') return null;
     for (final pair in [
-      (expression.leftOperand, expression.rightOperand),
-      (expression.rightOperand, expression.leftOperand),
+      _OperandPair(expression.leftOperand, expression.rightOperand),
+      _OperandPair(expression.rightOperand, expression.leftOperand),
     ]) {
-      final method = pair.$1;
+      final method = pair.method;
       if (method is! PropertyAccess ||
           method.propertyName.name != 'method' ||
           !_dartFrog(method.propertyName.element)) {
@@ -62,7 +65,7 @@ List<String> dartFrogHttpMethods(FunctionDeclaration handler) {
           request.prefix.element != context) {
         continue;
       }
-      final member = _element(pair.$2);
+      final member = _element(pair.operand);
       final value = member is GetterElement ? member.variable : member;
       if (value is! FieldElement ||
           value.enclosingElement.name != 'HttpMethod' ||
@@ -112,3 +115,10 @@ bool _dartFrog(Element? element) =>
       'package:dart_frog/',
     ) ??
     false;
+
+final class _OperandPair {
+  const _OperandPair(this.method, this.operand);
+
+  final Expression method;
+  final Expression operand;
+}

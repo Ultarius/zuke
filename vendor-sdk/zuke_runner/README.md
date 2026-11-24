@@ -10,7 +10,7 @@ that keep runner-specific imports separate from the primary `zuke` facade.
 
 ```yaml
 dependencies:
-  zuke_runner: ^0.4.0
+  zuke_runner: ^0.5.0
 ```
 
 Use these imports in new code:

@@ -225,6 +225,207 @@ Feature: Sample Feature
       expect(support.content, contains("target: 'backend'"));
     });
 
+    test('contract digest ignores scenario titles but not binding renames', () {
+      writeSchema3Workspace(
+        tempDir,
+        name: 'test-app',
+        target: 'flutter',
+        packageId: 'test-app',
+        framework: 'flutter',
+        roots: const ['lib', 'test'],
+        contractOutput: 'lib/src/generated',
+        generatedStepsOutput: 'test/support/generated',
+      );
+
+      Directory('${tempDir.path}/specs/features').createSync(recursive: true);
+      final feature = File('${tempDir.path}/specs/features/wording.feature');
+
+      String digestFor({required String scenario, required String bindingId}) {
+        feature.writeAsStringSync('''
+# spec-begin
+# schemaVersion: 1
+# id: FEAT-WORD-001
+# targets:
+#   - flutter
+# bindings:
+#   required:
+#     - id: $bindingId
+#       target: flutter
+#       cardinality: exactlyOne
+#       interaction: action
+# spec-end
+
+@FEAT-WORD-001
+Feature: Wording
+  # rule-spec-begin
+  # id: RULE-WORD-001
+  # rule-spec-end
+  @RULE-WORD-001
+  Rule: Rule
+    @SCN-WORD-001
+    Scenario: $scenario
+      When the user taps "$bindingId"
+''');
+        final discovery = WorkspaceDiscovery().discover(tempDir.path);
+        // Production passes the config-relative output directory, so the digest
+        // stays portable across checkout locations.
+        return structuralContractDigest(
+          discovery,
+          outputDir: 'lib/src/generated',
+          exportPath: 'lib/wording_contracts.dart',
+        );
+      }
+
+      final original = digestFor(
+        scenario: 'Add a task',
+        bindingId: 'word.button',
+      );
+      expect(
+        digestFor(
+          scenario: 'Create a brand new task',
+          bindingId: 'word.button',
+        ),
+        original,
+        reason: 'a scenario retitle is prose, not contract',
+      );
+      expect(
+        digestFor(scenario: 'Add a task', bindingId: 'word.pushButton'),
+        isNot(original),
+        reason: 'renaming a binding changes the generated contract',
+      );
+    });
+
+    test('emits binding labels as fromId aliases and label getters', () {
+      writeSchema3Workspace(
+        tempDir,
+        name: 'test-app',
+        target: 'flutter',
+        packageId: 'test-app',
+        framework: 'flutter',
+        roots: const ['lib', 'test'],
+        contractOutput: 'lib/src/generated',
+        generatedStepsOutput: 'test/support/generated',
+      );
+
+      Directory('${tempDir.path}/specs/features').createSync(recursive: true);
+      File('${tempDir.path}/specs/features/labelled.feature').writeAsStringSync(
+        '''
+# spec-begin
+# schemaVersion: 1
+# id: FEAT-LABEL-001
+# targets:
+#   - flutter
+# bindings:
+#   required:
+#     - id: sample.addTaskButton
+#       target: flutter
+#       cardinality: exactlyOne
+#       interaction: action
+#       label: add task button
+#     - id: sample.taskInput
+#       target: flutter
+#       cardinality: exactlyOne
+#       interaction: input
+#     - id: sample.confirmButton
+#       target: flutter
+#       cardinality: exactlyOne
+#       interaction: action
+#       label: sample.confirmButton
+# spec-end
+
+@FEAT-LABEL-001
+Feature: Labelled Feature
+''',
+      );
+
+      final discovery = WorkspaceDiscovery().discover(tempDir.path);
+      final generator = DartContractGenerator();
+
+      final result = generator.generate(
+        workspace: discovery,
+        outputDir: '${tempDir.path}/lib/src/generated',
+        exportPath: '${tempDir.path}/lib/labelled_contracts.dart',
+      );
+
+      expect(result.errors, isEmpty);
+      final contracts = result.files.firstWhere(
+        (f) => f.path.contains('feat_label_001_contracts.g.dart'),
+      );
+      expect(
+        contracts.content,
+        contains("'add task button' => addTaskButton,"),
+      );
+      expect(
+        contracts.content,
+        contains("String? get label => 'add task button';"),
+      );
+      expect(
+        contracts.content,
+        contains('String? get label => null;'),
+        reason: 'bindings without a label keep the nullable default',
+      );
+      expect(
+        contracts.content,
+        isNot(contains("'add task button' => taskInput,")),
+      );
+      expect(
+        "'sample.confirmButton' => confirmButton,".allMatches(
+          contracts.content,
+        ),
+        hasLength(1),
+      );
+    });
+
+    test('reports colliding binding labels as generation errors', () {
+      writeSchema3Workspace(
+        tempDir,
+        name: 'test-app',
+        target: 'flutter',
+        packageId: 'test-app',
+        framework: 'flutter',
+        roots: const ['lib', 'test'],
+      );
+
+      Directory('${tempDir.path}/specs/features').createSync(recursive: true);
+      File('${tempDir.path}/specs/features/dup.feature').writeAsStringSync('''
+# spec-begin
+# schemaVersion: 1
+# id: FEAT-DUP-001
+# targets:
+#   - flutter
+# bindings:
+#   required:
+#     - id: dup.submitButton
+#       target: flutter
+#       cardinality: exactlyOne
+#       interaction: action
+#       label: submit
+#     - id: dup.cancelButton
+#       target: flutter
+#       cardinality: exactlyOne
+#       interaction: action
+#       label: submit
+# spec-end
+
+@FEAT-DUP-001
+Feature: Duplicate Labels
+''');
+
+      final discovery = WorkspaceDiscovery().discover(tempDir.path);
+      final generator = DartContractGenerator();
+
+      final result = generator.generate(
+        workspace: discovery,
+        outputDir: '${tempDir.path}/lib/src/generated',
+      );
+
+      expect(
+        result.errors.any((e) => e.contains('colliding Flutter binding label')),
+        isTrue,
+        reason: result.errors.join('\n'),
+      );
+    });
+
     test('detects colliding member names and reports generation errors', () {
       writeSchema3Workspace(
         tempDir,

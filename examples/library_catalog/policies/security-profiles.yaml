@@ -1,0 +1,9 @@
+schemaVersion: 1
+securityProfiles:
+  library-validation-profile:
+    requires:
+      - kind: control
+        id: CTRL-LIBRARY-ISBN-VALIDATION
+        target: catalog
+        cardinality: oneOrMore
+    requiredEvidence: [domain-unit]

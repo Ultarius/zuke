@@ -40,14 +40,20 @@ final class StepParameterTypeRegistry {
     define<String>(
       StepParameterType(
         name: 'string',
+        // The optional backslash before the closing quote keeps a value such
+        // as "C:\temp\" matching: `\"` is an escape only when another quote
+        // still closes the value.
         expressions: [
-          RegExp(r'^"((?:[^"\\]|\\.)*)"$'),
-          RegExp("^'((?:[^'\\\\]|\\\\.)*)'\$"),
+          RegExp(r'^"((?:[^"\\]|\\.)*\\?)"$'),
+          RegExp("^'((?:[^'\\\\]|\\\\.)*\\\\?)'\$"),
         ],
         useForSnippets: true,
-        transform: (captures) => (captures.first ?? '')
-            .replaceAll(r'\"', '"')
-            .replaceAll(r"\'", "'"),
+        // One capture per quote style, and only the matching one is set.
+        transform: (captures) =>
+            (captures.firstWhere((capture) => capture != null, orElse: () => '')
+                    as String)
+                .replaceAll(r'\"', '"')
+                .replaceAll(r"\'", "'"),
       ),
     );
     define<int>(

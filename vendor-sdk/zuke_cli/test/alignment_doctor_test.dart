@@ -2,7 +2,7 @@ import 'dart:io';
 
 import 'package:test/test.dart';
 
-import '../lib/src/alignment_doctor.dart';
+import 'package:zuke_cli/src/alignment_doctor.dart';
 
 void main() {
   test('allows the supported tuple without requiring equal versions', () {
@@ -13,16 +13,16 @@ name: consumer
 environment:
   sdk: '>=3.10.0 <4.0.0'
 dependencies:
-  zuke_core: ^0.4.0
+  zuke_core: ^0.4.1
 dev_dependencies:
-  zuke_cli: ^0.5.0
+  zuke_cli: ^0.6.0
 ''');
     File('${root.path}/pubspec.lock').writeAsStringSync('''
 packages:
   zuke_core:
-    version: "0.4.0"
+    version: "0.4.1"
   zuke_cli:
-    version: "0.5.0"
+    version: "0.6.0"
 ''');
 
     final report = const AlignmentDoctor().inspect(root);
@@ -59,7 +59,7 @@ name: consumer
 environment:
   sdk: '>=3.10.0 <4.0.0'
 dependencies:
-  zuke_core: ^0.4.0
+  zuke_core: ^0.4.1
 ''');
 
     final report = const AlignmentDoctor().inspect(root);

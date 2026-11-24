@@ -2,7 +2,7 @@ import 'dart:io';
 
 import 'package:test/test.dart';
 
-import '../../../tool/check_dependency_firewall.dart';
+import 'support/check_dependency_firewall.dart';
 
 void main() {
   test('current workspace obeys the test-host dependency boundary', () {

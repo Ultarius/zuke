@@ -11,41 +11,50 @@
 # bindings:
 #   required:
 #     - id: todo.taskInput
+#       label: task input field
 #       target: flutter
 #       cardinality: exactlyOne
 #       interaction: input
 #     - id: todo.addTaskButton
+#       label: add task button
 #       target: flutter
 #       cardinality: exactlyOne
 #       interaction: action
 #     - id: todo.taskItemCheckbox
+#       label: task completion checkbox
 #       target: flutter
 #       cardinality: exactlyOne
 #       instanceCardinality: zeroOrMore
 #       interaction: action
 #     - id: todo.clearCompletedButton
+#       label: clear completed button
 #       target: flutter
 #       cardinality: exactlyOne
 #       interaction: action
 #     - id: todo.taskCountDisplay
+#       label: active task count
 #       target: flutter
 #       cardinality: exactlyOne
 #       interaction: output
 #     - id: todo.emptyStateMessage
+#       label: empty list message
 #       target: flutter
 #       cardinality: exactlyOne
 #       instanceCardinality: zeroOrOne
 #       interaction: output
 #     - id: todo.errorMessage
+#       label: error message
 #       target: flutter
 #       cardinality: exactlyOne
 #       instanceCardinality: zeroOrOne
 #       interaction: output
 #     - id: todo.taskList
+#       label: task list
 #       target: flutter
 #       cardinality: exactlyOne
 #       interaction: output
 #     - id: todo.taskItemText
+#       label: task text
 #       target: flutter
 #       cardinality: exactlyOne
 #       instanceCardinality: zeroOrMore
@@ -73,36 +82,34 @@ Feature: Todo List Application
 
     @SCN-TODO-ADD-ITEM @pr @merge @release
     Scenario: Add a new task to the todo list
-      When the user enters "Buy groceries" into "todo.taskInput"
-      And the user taps "todo.addTaskButton"
-      Then element "todo.taskCountDisplay" displays "1 item left"
-      And element "todo.taskItemText" displays "Buy groceries"
+      When the user enters "Buy groceries" into "task input field"
+      And the user taps "add task button"
+      Then element "active task count" displays "1 item left"
+      And element "task text" displays "Buy groceries"
 
     @SCN-TODO-ADD-EMPTY @negative @pr @merge
     Scenario: Reject adding an empty task
-      When the user enters "" into "todo.taskInput"
-      And the user taps "todo.addTaskButton"
-      Then element "todo.errorMessage" displays "Task text cannot be empty"
-      And element "todo.emptyStateMessage" displays "No tasks yet"
+      When the user enters "" into "task input field"
+      And the user taps "add task button"
+      Then element "error message" displays "Task text cannot be empty"
+      And element "empty list message" displays "No tasks yet"
 
     @SCN-TODO-ADD-WHITESPACE @negative @pr @merge
     Scenario: Reject adding a whitespace-only task
-      When the user enters 3 spaces into "todo.taskInput"
-      And the user taps "todo.addTaskButton"
-      Then element "todo.errorMessage" displays "Task text cannot be empty"
-      And element "todo.emptyStateMessage" displays "No tasks yet"
+      When the user enters 3 spaces into "task input field"
+      And the user taps "add task button"
+      Then element "error message" displays "Task text cannot be empty"
+      And element "empty list message" displays "No tasks yet"
 
     @SCN-TODO-MULTI-TASKS @pr @merge
-    Scenario: Track counts across multiple tasks
-      When the user enters "Task A" into "todo.taskInput"
-      And the user taps "todo.addTaskButton"
-      And the user enters "Task B" into "todo.taskInput"
-      And the user taps "todo.addTaskButton"
-      Then element "todo.taskCountDisplay" displays "2 items left"
-      When the user marks task "Task A" as complete
-      Then element "todo.taskCountDisplay" displays "1 item left"
-      When the user taps "todo.clearCompletedButton"
-      Then element "todo.taskItemText" displays "Task B"
+    Scenario: The active count reflects every task that is added
+      When the user enters "Task A" into "task input field"
+      And the user taps "add task button"
+      And the user enters "Task B" into "task input field"
+      And the user taps "add task button"
+      Then element "active task count" displays "2 items left"
+      And element "task text" displays "Task A"
+      And element "task text" displays "Task B"
 
   # rule-spec-begin
   # id: RULE-TODO-COMPLETE-ITEM
@@ -114,23 +121,36 @@ Feature: Todo List Application
 
     @SCN-TODO-COMPLETE-ITEM @pr @merge
     Scenario: Mark a task as complete
-      When the user enters "Buy groceries" into "todo.taskInput"
-      And the user taps "todo.addTaskButton"
-      And the user marks task "Buy groceries" as complete
-      Then element "todo.taskCountDisplay" displays "0 items left"
+      Given the todo list contains task "Buy groceries"
+      When the user marks task "Buy groceries" as complete
+      Then element "active task count" displays "0 items left"
 
-    @SCN-TODO-TOGGLE-BACK @negative @pr @merge
-    Scenario: Reopen a completed task
-      When the user enters "Buy groceries" into "todo.taskInput"
-      And the user taps "todo.addTaskButton"
-      And the user marks task "Buy groceries" as complete
-      And the user marks task "Buy groceries" as complete
-      Then element "todo.taskCountDisplay" displays "1 item left"
+    @SCN-TODO-COMPLETE-COUNT @pr @merge
+    Scenario: Completing one task lowers the active count by one
+      Given the todo list contains task "Task A"
+      And the todo list contains task "Task B"
+      When the user marks task "Task A" as complete
+      Then element "active task count" displays "1 item left"
+
+    @SCN-TODO-TOGGLE-BACK @pr @merge
+    Scenario: Reopening a completed task restores the active count
+      Given the todo list contains task "Buy groceries"
+      And task "Buy groceries" is complete
+      When the user reopens task "Buy groceries"
+      Then element "active task count" displays "1 item left"
 
     @SCN-TODO-CLEAR-COMPLETED @pr @merge
-    Scenario: Clear all completed tasks
-      When the user enters "Buy groceries" into "todo.taskInput"
-      And the user taps "todo.addTaskButton"
-      And the user marks task "Buy groceries" as complete
-      And the user taps "todo.clearCompletedButton"
-      Then element "todo.emptyStateMessage" displays "No tasks yet"
+    Scenario: Clearing completed tasks removes them from the list
+      Given the todo list contains task "Buy groceries"
+      And task "Buy groceries" is complete
+      When the user taps "clear completed button"
+      Then element "empty list message" displays "No tasks yet"
+
+    @SCN-TODO-CLEAR-KEEPS-INCOMPLETE @pr @merge
+    Scenario: Clearing completed tasks keeps the uncompleted tasks
+      Given the todo list contains task "Task A"
+      And the todo list contains task "Task B"
+      And task "Task A" is complete
+      When the user taps "clear completed button"
+      Then element "task text" displays "Task B"
+      And element "active task count" displays "1 item left"

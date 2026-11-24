@@ -2,7 +2,7 @@
   "files": [
     {
       "path": "packages/calculator_contracts/lib/src/generated/feat_calc_001_contracts.g.dart",
-      "contentHash": "20bb4d3a76a81ad45869cd840e7b9085d32c561126e22e9210f9f7d510136d50"
+      "contentHash": "3e82a8787a9a9bd3c550cbc01ce9730688811453db07b29fdef4c3c2d4c33cf6"
     },
     {
       "path": "packages/calculator_contracts/lib/src/generated/feat_calc_002_contracts.g.dart",
@@ -13,5 +13,5 @@
       "contentHash": "7f923651733035353f9d51ba2292374a03a13e03ae4869b20129b15c8ea031fe"
     }
   ],
-  "hash": "fa3e88be39c55dfc00f33a053ca4c4e6cb91b0341ae31d6bb5e97ef92f719c1d"
+  "hash": "995eac155f6c8788a4110e6b1ef03fb51c067444ed8f2994b1a0c0a91ff7ccc2"
 }

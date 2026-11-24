@@ -3,6 +3,8 @@ import 'package:zuke_frontend/zuke_frontend.dart';
 import 'package:zuke/runner.dart';
 import 'configuration_preflight.dart';
 import 'registration_audit.dart';
+import 'scenario_selection.dart';
+import 'tooling/source_files.dart' show runnerRegistrationRoots;
 
 /// Static registration checks over configured runner roots and contracts.
 /// Execution evidence is verified separately by the managed test command.
@@ -11,7 +13,8 @@ final class WorkspaceRegistrationAudit {
 
   RegistrationAuditResult inspect(String root) {
     final workspace = requireCurrentWorkspace(root);
-    final known = _scenarioCaseIds(workspace).keys.toSet();
+    final scenarioCaseIds = _scenarioCaseIds(workspace);
+    final known = scenarioCaseIds.keys.toSet();
     final registrations = <ZukeRegistration>[];
     final diagnostics = <RegistrationAuditDiagnostic>[];
     for (final error in workspace.data.errors) {
@@ -28,18 +31,14 @@ final class WorkspaceRegistrationAudit {
     for (final feature in workspace.data.features) {
       for (final rule in feature.rules) {
         for (final scenario in rule.scenarios) {
-          if (scenario.tags
-                  .where((tag) => tag.name.startsWith('SCN-'))
-                  .length !=
-              1) {
+          if (!scenarioHasValidIdentity(scenario)) {
             diagnostics.add(
-              const RegistrationAuditDiagnostic(
+              RegistrationAuditDiagnostic(
                 code: 'ZK-REGISTRATION-SCENARIO-IDENTITY',
-                message:
-                    'Each configured scenario must have exactly one SCN- tag.',
-                file: '<configured-specification>',
-                line: 1,
-                column: 1,
+                message: scenarioIdentityRequirement,
+                file: scenario.scenarioElement.source.file,
+                line: scenario.scenarioElement.source.line,
+                column: scenario.scenarioElement.source.column,
               ),
             );
           }
@@ -54,7 +53,7 @@ final class WorkspaceRegistrationAudit {
     final allFiles = <String, File>{};
     final diagnosticKeys = <String>{};
     if (runners is List) {
-      for (final runner in runners.whereType<Map>()) {
+      for (final runner in runners.whereType<Map<Object?, Object?>>()) {
         final target = runner['target']?.toString();
         final sourcePackage = runner['sourcePackage']?.toString();
         final workingDirectory = runner['workingDirectory']?.toString();
@@ -78,7 +77,6 @@ final class WorkspaceRegistrationAudit {
       }
     }
     final snapshot = const RegistrationAudit().prepareFiles(allFiles.values);
-    final scenarioCaseIds = _scenarioCaseIds(workspace);
     for (final sources in runnerSources) {
       final result = const RegistrationAudit().inspectSnapshot(
         snapshot,
@@ -91,7 +89,9 @@ final class WorkspaceRegistrationAudit {
       for (final registration in result.registrations) {
         final source =
             '${registration.file}|${registration.line}|'
-            '${registration.column}|${registration.target}';
+            '${registration.column}|${registration.target}|'
+            '${registration.runner}|${registration.scenarioId}|'
+            '${registration.caseId}';
         if (!sourceRegistrations.add(source)) continue;
         registrations.add(registration);
         if (registration.scenarioId == null) continue;
@@ -223,9 +223,6 @@ final class WorkspaceRegistrationAudit {
       }
     }
 
-    final packageRoot = Directory(
-      '${workspace.config.root}${Platform.pathSeparator}${package.path}',
-    ).path;
     // Contract generation is configured on a target in schema v3. The
     // convenience `config.contractOutput` value is intentionally only the
     // first configured output, which is insufficient for a runner whose
@@ -252,17 +249,14 @@ final class WorkspaceRegistrationAudit {
         contracts: true,
       );
     }
-    addDirectory('$packageRoot${Platform.pathSeparator}test');
-    addDirectory('$packageRoot${Platform.pathSeparator}integration_test');
-    for (final configuredRoot in package.roots) {
-      addDirectory('$packageRoot${Platform.pathSeparator}$configuredRoot');
-    }
-    if (workingDirectory != null && workingDirectory.isNotEmpty) {
-      final runnerRoot = Directory(
-        '${workspace.config.root}${Platform.pathSeparator}$workingDirectory',
-      ).path;
-      addDirectory('$runnerRoot${Platform.pathSeparator}test');
-      addDirectory('$runnerRoot${Platform.pathSeparator}integration_test');
+    for (final relative in runnerRegistrationRoots(
+      package,
+      workingDirectory: workingDirectory,
+    )) {
+      addDirectory(
+        '${workspace.config.root}${Platform.pathSeparator}'
+        '${relative.replaceAll('/', Platform.pathSeparator)}',
+      );
     }
     return _RunnerSources(target: target, files: Map.unmodifiable(files));
   }
@@ -274,13 +268,15 @@ final class WorkspaceRegistrationAudit {
     for (final feature in workspace.data.features) {
       for (final rule in feature.rules) {
         for (final scenario in rule.scenarios) {
-          final ids = scenario.tags
+          final ids = scenario.declaredTags
               .map((tag) => tag.name)
-              .where((tag) => tag.startsWith('SCN-'));
-          final caseIds = scenarioExampleCases(
-            scenario,
-          ).map(scenarioExampleCaseId).toSet();
+              .where((tag) => tag.startsWith('SCN-'))
+              .toSet();
           for (final scenarioId in ids) {
+            final caseIds = scenarioExampleCases(
+              scenario,
+              scenarioId: scenarioId,
+            ).map(scenarioExampleCaseId);
             result.putIfAbsent(scenarioId, () => <String?>{}).addAll(caseIds);
           }
         }

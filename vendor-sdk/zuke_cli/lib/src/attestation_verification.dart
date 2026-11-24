@@ -1,7 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:crypto/crypto.dart';
 import 'package:zuke_core/zuke_core.dart';
 import 'package:zuke_frontend/zuke_frontend.dart';
 
@@ -244,7 +243,7 @@ class AttestationVerification {
     }
   }
 
-  Map? _provider(
+  Map<Object?, Object?>? _provider(
     WorkspaceDiscoveryResult workspace,
     String controlId,
     String target,
@@ -253,7 +252,7 @@ class AttestationVerification {
     for (final policy in workspace.data.policies.values) {
       final providers = policy['providers'];
       if (providers is! List) continue;
-      for (final provider in providers.whereType<Map>()) {
+      for (final provider in providers.whereType<Map<Object?, Object?>>()) {
         if (provider['provides'] == controlId &&
             provider['assurance'] == 'attested' &&
             provider['target'] == target &&
@@ -283,7 +282,7 @@ class AttestationVerification {
   }
 
   String _hash(Object? value) {
-    return 'sha256:${sha256.convert(utf8.encode(canonicalJson(value)))}';
+    return sha256Text(canonicalJson(value));
   }
 
   String? _sourceDigest(String root, Object? files) {
@@ -297,6 +296,6 @@ class AttestationVerification {
       chunks.addAll(canonicalDigestBytes(path, file.readAsBytesSync()));
       chunks.add(0);
     }
-    return 'sha256:${sha256.convert(chunks)}';
+    return sha256Hex(chunks);
   }
 }

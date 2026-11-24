@@ -1,9 +1,10 @@
-# Calculator Product Workspace 🔴 (Advanced Reference)
+# Calculator Product Workspace 🔴 (Advanced · Multi-package)
 
 This is an advanced multi-package BDD and security attestation workspace
 reference for Zuke. It demonstrates multi-tier specification testing across
 backend Dart APIs, Flutter mobile applications, domain logic packages, and
-security controls.
+security controls (rate limit, body limit, redaction) with a dedicated
+assurance CI workflow.
 
 ---
 

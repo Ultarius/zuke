@@ -6,11 +6,11 @@ the remaining-work statuses below: duplicate tools and refresh scripts have
 been retired, direct registrations migrated, and init presets implemented.
 
 The requested projects are present as sibling directories `dart_backend` and
-`crunch_flutter` under `C:/Users/DAMIEN/Documents/GitHub`. The supplied
-`dart/_backend` and `crunch/_flutter` paths do not exist. This audit uses the
-former directories and the maintenance-reduction guideline supplied with the
-request. The Crunch consumer was migrated in this change; unrelated existing
-consumer modifications were preserved.
+`crunch_flutter` beside this repository. The supplied `dart/_backend` and
+`crunch/_flutter` paths do not exist. This audit uses the former directories
+and the maintenance-reduction guideline supplied with the request. The Crunch
+consumer was migrated in this change; unrelated existing consumer modifications
+were preserved.
 
 ## Findings and priorities
 

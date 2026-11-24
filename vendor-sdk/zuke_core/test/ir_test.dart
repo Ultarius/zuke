@@ -65,7 +65,7 @@ void main() {
       controlId: 'CTRL-1',
       status: ProofStatus.proven,
       semantics: CoverageSemantics.ingressDominance,
-      completeness: const {'routeRegistration': CompletenessValue.complete},
+      completeness: {'routeRegistration': CompletenessValue.complete},
     );
     expect(result.toJson()['status'], 'proven');
     expect(result.toJson()['semantics'], 'ingress-dominance');
@@ -222,7 +222,7 @@ void main() {
       column: 4,
     );
     const symbol = ExtractedSymbol(
-      kind: 'binding',
+      kind: ExtractedSymbolKind.binding,
       role: 'flutter',
       symbolId: 'service.dart#binding',
       requirementIds: ['RULE-B', 'RULE-A'],

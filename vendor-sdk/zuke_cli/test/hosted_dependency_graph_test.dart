@@ -2,7 +2,7 @@ import 'dart:convert';
 
 import 'package:test/test.dart';
 
-import '../../../tool/src/hosted_dependency_graph.dart';
+import 'support/hosted_dependency_graph.dart';
 
 void main() {
   const expected = {

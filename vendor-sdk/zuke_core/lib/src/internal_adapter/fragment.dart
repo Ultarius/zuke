@@ -7,6 +7,17 @@ class CanonicalFragment {
   final String packageRoot;
   final IrAdapterCompleteness completeness;
   final List<ExtractedSymbol> symbols;
+
+  /// The adapter's own read-digest, not the published snapshot identity.
+  ///
+  /// The tools that build a fragment (`zuke extract`) invoke the adapter
+  /// directly and never go through the extraction service, so no
+  /// `IrAdapterOutput.provenanceDigest` exists at this level. Locks and evidence
+  /// records publish the *provenance* identity instead, through
+  /// `IrAdapterOutput.requirePublishedSourceDigest`. The two are deliberately
+  /// different quantities: the read-digest covers generated files, the
+  /// provenance identity does not. Do not "fix" this to use the provenance —
+  /// there is none here, and the trace envelope is an adapter-level contract.
   final String inputDigest;
   final IrGraph? graph;
 
@@ -60,12 +71,14 @@ class CanonicalFragment {
     },
     'package': {'name': packageName, 'root': packageRoot},
     'completeness': completeness.toJson(),
+    // The adapter read-digest; see [inputDigest] for why this is not the
+    // published snapshot identity.
     'inputs': {'digest': 'sha256:$inputDigest'},
     if (graph != null) 'graph': graph!.toJson(),
     'symbols': symbols
         .map(
           (s) => {
-            'kind': s.kind,
+            'kind': s.kind.name,
             'role': s.role,
             'symbolId': s.symbolId,
             if (s.requirementIds.isNotEmpty) 'requirementIds': s.requirementIds,

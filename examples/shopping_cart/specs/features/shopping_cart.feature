@@ -75,17 +75,17 @@ Feature: E-Commerce Shopping Cart & Checkout
   # securityProfile: cart-validation-profile
   # rule-spec-end
   @RULE-CART-ITEM-MANAGEMENT
-  Rule: Item Selection and Cart Subtotal Calculation
+  Rule: Adding a catalog item updates the quantity and subtotal
 
     @SCN-CART-ADD-ITEM @pr @merge
-    Scenario: Add item to cart and verify updated subtotal
+    Scenario: Adding an item updates the cart subtotal
       Given the catalog item "Wireless Headphones" is listed at price "$100.00"
       When the user taps "shopping.addToCartHeadphones"
       Then element "shopping.cartBadge" displays "1"
       And element "shopping.subtotalDisplay" displays "$100.00"
 
     @SCN-CART-ADD-SECOND-ITEM @pr @merge
-    Scenario: Add same item twice and verify updated quantity and subtotal
+    Scenario: Adding the same item twice updates the quantity and subtotal
       Given the catalog item "Wireless Headphones" is listed at price "$100.00"
       When the user taps "shopping.addToCartHeadphones"
       And the user taps "shopping.addToCartHeadphones"
@@ -98,17 +98,17 @@ Feature: E-Commerce Shopping Cart & Checkout
   # securityProfile: promo-validation-profile
   # rule-spec-end
   @RULE-CART-PROMO-DISCOUNT
-  Rule: Promo Code Application and Validation
+  Rule: A promo code discounts the total only when it is valid and the cart is not empty
 
     @SCN-CART-APPLY-PROMO @pr @merge
-    Scenario Outline: Apply valid discount code and recalculate grand total
+    Scenario Outline: A known discount code reduces the order total
       Given the cart contains item "Wireless Headphones" at price "$100.00"
       When the user enters "<promo>" into "shopping.promoInput"
       And the user taps "shopping.applyPromoButton"
       Then element "shopping.discountStatusDisplay" displays "Discount Applied: <discount>"
       And element "shopping.totalDisplay" displays "<total>"
 
-      Examples:
+      Examples: Discount codes and their discounts
         | promo  | discount | total  |
         | SAVE20 | 20%      | $80.00 |
         | SAVE50 | 50%      | $50.00 |
@@ -143,11 +143,12 @@ Feature: E-Commerce Shopping Cart & Checkout
   # securityProfile: cart-validation-profile
   # rule-spec-end
   @RULE-CART-EMPTY-CHECKOUT
-  Rule: Empty Cart Checkout Prevention
+  Rule: The cart cannot be checked out while it is empty
 
     @SCN-CART-EMPTY-CHECKOUT @negative @pr @merge @release
-    Scenario: Prevent checkout when the cart is empty
+    Scenario: The checkout button is disabled for an empty cart
       Given the cart is completely empty
+      When the user views the checkout summary
       Then the checkout button state must be disabled
 
   # rule-spec-begin
@@ -156,10 +157,10 @@ Feature: E-Commerce Shopping Cart & Checkout
   # securityProfile: cart-validation-profile
   # rule-spec-end
   @RULE-CART-SUCCESSFUL-CHECKOUT
-  Rule: Successful Checkout
+  Rule: Placing an order empties the cart and clears the discount
 
     @SCN-CART-SUCCESS-CHECKOUT @pr @merge
-    Scenario: Successfully place order with items in cart and reset promo state
+    Scenario: Placing an order resets the cart and the discount
       Given the cart contains item "Wireless Headphones" at price "$100.00"
       When the user enters "SAVE20" into "shopping.promoInput"
       And the user taps "shopping.applyPromoButton"
@@ -176,10 +177,10 @@ Feature: E-Commerce Shopping Cart & Checkout
   # securityProfile: cart-accessible-profile
   # rule-spec-end
   @RULE-CART-ACCESSIBILITY
-  Rule: Cart Summary Screen Reader Accessibility
+  Rule: The checkout summary exposes the order total to assistive technology
 
     @SCN-CART-ACCESSIBLE @pr @merge
-    Scenario: Expose total order summary via semantics handle
+    Scenario: The screen reader announces the order total
       Given the cart contains item "Wireless Headphones" at price "$100.00"
       When the user views the checkout summary
       Then the semantics tree must contain label matching "Order Total: $100.00"

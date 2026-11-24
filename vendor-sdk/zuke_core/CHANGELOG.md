@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.4.1
+
+- Added digest helpers and a typed source snapshot identity.
+- Exported the atomic file writers. Replacing a file now keeps the original until the new content is in place.
+
 ## 0.4.0
 
 - Added normalized binding identities with explicit target, role, variant, and

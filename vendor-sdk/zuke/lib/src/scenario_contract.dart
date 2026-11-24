@@ -46,14 +46,9 @@ ResolvedScenarioContract resolveScenarioContract(
   final matches = <ResolvedScenarioContract>[];
   for (final rule in feature.rules) {
     for (final scenario in rule.scenarios) {
-      final ids = <String>{
-        for (final tag in scenario.tags)
-          if (tag.name.startsWith('SCN-')) tag.name,
-        for (final examples in scenario.examples)
-          for (final tag in examples.tags)
-            if (tag.name.startsWith('SCN-')) tag.name,
-      };
-      if (ids.contains(contract.id.value)) {
+      if (scenario.declaredTags.any(
+        (tag) => tag.name.startsWith('SCN-') && tag.name == contract.id.value,
+      )) {
         matches.add(
           ResolvedScenarioContract(
             contract: contract,

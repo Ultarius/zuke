@@ -1,3 +1,7 @@
-linter:
-  rules:
-    avoid_print: false
+analyzer:
+  exclude:
+    - build/**
+    - android/**
+    - ios/**
+    - windows/**
+include: ../../../../analysis_options.flutter.yaml

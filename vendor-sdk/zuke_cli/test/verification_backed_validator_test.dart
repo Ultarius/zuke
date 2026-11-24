@@ -14,7 +14,7 @@ void main() {
         completeness: const IrAdapterCompleteness(),
         symbols: const [
           ExtractedSymbol(
-            kind: 'controlProvider',
+            kind: ExtractedSymbolKind.controlProvider,
             role: 'provider',
             symbolId: 'package:fixture/provider.dart#verified',
             controlIds: ['CTRL-VERIFIED'],
@@ -158,7 +158,7 @@ void main() {
       completeness: IrAdapterCompleteness(),
       symbols: [
         ExtractedSymbol(
-          kind: 'controlProvider',
+          kind: ExtractedSymbolKind.controlProvider,
           role: 'provider',
           symbolId: 'package:fixture/provider.dart#edge',
           controlIds: ['CTRL-LAYERED'],

@@ -4,10 +4,22 @@ import 'package:crypto/crypto.dart';
 import 'package:cryptography/cryptography.dart';
 import 'package:zuke_core/zuke_core.dart';
 
+import '../support/resolved_workspace.dart';
+
 Future<Directory> createEligibleWorkspace(
   Directory tempDir, {
   DateTime? attestationIssuedAt,
   DateTime? attestationExpiresAt,
+  String? pullRequestTagExpression,
+  List<String> scenarioTags = const [],
+
+  /// When set, the rule declares one `flutter-widget` slot and the workspace
+  /// declares a severity for the binding-coverage code, which is what makes the
+  /// check run at all. The workspace has no managed test registration, so the
+  /// slot is unbound. The runner's own `evidenceTypes` are what make the slot
+  /// *decidable*: they give the slot an adapter to be attributed to, which is a
+  /// different thing from a test existing to satisfy it.
+  bool bindingCoverage = false,
 }) async {
   if (!tempDir.existsSync()) {
     tempDir.createSync(recursive: true);
@@ -64,6 +76,35 @@ Future<Directory> createEligibleWorkspace(
       ? ''
       : '\n${runnerArgs.map((a) => '        - $a').join('\n')}';
 
+  final execution = StringBuffer('execution:\n');
+  if (pullRequestTagExpression != null) {
+    execution
+      ..writeln('  pullRequest:')
+      ..writeln("    tagExpression: '$pullRequestTagExpression'");
+  }
+  execution
+    ..writeln('  runners:')
+    ..writeln('    - id: trivial')
+    ..writeln('      target: backend')
+    ..writeln('      sourcePackage: backend')
+    ..writeln('      sourceAdapter: dart-source')
+    ..writeln('      sourceCompatibilityId: dart-source-package-v1')
+    ..writeln('      runnerCompatibilityId: dart-runner-v1')
+    ..writeln("      executable: '$runnerExec'")
+    ..writeln('      args:$yamlArgs')
+    ..writeln('      timeoutSeconds: 30');
+  if (bindingCoverage) {
+    // The runner has to be able to publish the kind the slot names, and its
+    // (target, package) is where the check attributes the slot's adapter from.
+    execution.writeln('      evidenceTypes: [flutter-widget]');
+  }
+  // Opting in is what makes the binding-coverage check run at all: it is off
+  // until the workspace declares a severity for its code.
+  final bindingPolicy = bindingCoverage
+      ? '  protectedSeverities:\n'
+            '    ZUKE-EVIDENCE-BINDING-UNBOUND: warning\n'
+      : '';
+
   File('${tempDir.path}/zuke.yaml').writeAsStringSync('''schemaVersion: 3
 workspace:
   name: test-workspace
@@ -85,18 +126,11 @@ lock:
   profiles: [pullRequest, merge, release, nightly]
 policies:
   project: specs/policies/project.yaml
-execution:
-  runners:
-    - id: trivial
-      target: backend
-      sourcePackage: backend
-      sourceAdapter: dart-source
-      sourceCompatibilityId: dart-source-package-v1
-      runnerCompatibilityId: dart-runner-v1
-      executable: '$runnerExec'
-      args:$yamlArgs
-      timeoutSeconds: 30
-''');
+$bindingPolicy${bindingCoverage ? '''evidence:
+  types:
+    flutter-widget:
+      mode: record
+''' : ''}$execution''');
   final packageConfig = _workspacePackageConfig();
   final repositoryRoot = packageConfig.parent.parent.path.replaceAll('\\', '/');
   File('${tempDir.path}/pubspec.yaml').writeAsStringSync('''
@@ -114,17 +148,7 @@ dependency_overrides:
   zuke_core:
     path: '$repositoryRoot/vendor-sdk/zuke_core'
 ''');
-  final pubGet = await Process.run(Platform.resolvedExecutable, [
-    '--suppress-analytics',
-    'pub',
-    'get',
-    '--offline',
-  ], workingDirectory: tempDir.path);
-  if (pubGet.exitCode != 0) {
-    throw StateError(
-      'Fixture pub get failed: ${pubGet.stdout}\n${pubGet.stderr}',
-    );
-  }
+  await configureFixturePackages(tempDir);
 
   // A consumer repository does not track Pub's generated package metadata.
   // Keeping it ignored also makes clean-repository release tests resilient to
@@ -143,11 +167,16 @@ dependency_overrides:
 Feature: Gateway
   # rule-spec-begin
   # id: RULE-GATEWAY-RATE-LIMIT
-  # requiredEvidence: []
+${bindingCoverage ? '''  # requiredEvidence:
+  #   - type: flutter-widget
+  #     target: backend
+  #     sourcePackage: backend
+  #     sourceAdapter: dart-source
+  #     variant: default''' : '  # requiredEvidence: []'}
   # rule-spec-end
   @RULE-GATEWAY-RATE-LIMIT
   Rule: Gateway rate-limit
-    @SCN-GATEWAY-001
+    ${[...scenarioTags, '@SCN-GATEWAY-001'].join(' ')}
     Scenario: trivial
       Given a step
 ''');

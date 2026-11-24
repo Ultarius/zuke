@@ -2,7 +2,6 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:zuke_core/zuke_core.dart';
-import 'package:zuke_core/src/atomic_file_writer.dart';
 
 Diagnostic gateDiagnostic({
   required String stage,

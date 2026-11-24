@@ -101,8 +101,8 @@ class GateCommand {
         final diagnostics = [
           for (final entry in stages.entries)
             if (entry.value == 'failed') ...[...diagnosticsFor(entry.key)],
-          if (artifactDiagnostic != null) artifactDiagnostic,
-          if (artifactAuditDiagnostic != null) artifactAuditDiagnostic,
+          ?artifactDiagnostic,
+          ?artifactAuditDiagnostic,
         ];
         return CommandResult(
           command: 'gate',
@@ -450,7 +450,7 @@ class GateCommand {
     for (final profile in profileResults) {
       final raw = profile['diagnostics'];
       if (raw is List) {
-        for (final diagnostic in raw.whereType<Map>()) {
+        for (final diagnostic in raw.whereType<Map<Object?, Object?>>()) {
           diagnostics.add(Diagnostic.fromJson(diagnostic));
         }
       }
@@ -467,10 +467,7 @@ class GateCommand {
             ? CommandStatus.passed
             : CommandStatus.failed,
         eligible: resultExitCode == 0,
-        diagnostics: [
-          ...diagnostics,
-          if (artifactAuditDiagnostic != null) artifactAuditDiagnostic,
-        ],
+        diagnostics: [...diagnostics, ?artifactAuditDiagnostic],
         details: {
           'profiles': profileResults,
           if (report != null) 'artifactAudit': report.toJson(),
@@ -729,7 +726,7 @@ class GateCommand {
     } on FormatException catch (e) {
       return failure(e.message);
     } on StateError catch (e) {
-      return failure('${e.message}');
+      return failure(e.message);
     }
     return const [];
   }

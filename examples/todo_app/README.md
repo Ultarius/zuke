@@ -1,8 +1,9 @@
-# Zuke Todo App Example 🟢 (Beginner)
+# Zuke Todo App Example 🟢 (Beginner · Flutter)
 
-This is the **primary getting-started reference** for Zuke. It demonstrates a
+This is the **primary beginner Flutter reference** for Zuke. It demonstrates a
 complete, easy-to-understand Flutter BDD setup with generated contracts,
-widget bindings, and Gherkin scenarios.
+widget bindings, and Gherkin scenarios. For a pure-Dart start (no Flutter),
+see [Library Catalog](../library_catalog/README.md) first.
 
 This beginner example intentionally keeps release signing and Dart build-hook
 enforcement disabled. Those production concerns are introduced by the

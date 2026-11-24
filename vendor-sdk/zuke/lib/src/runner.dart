@@ -2,10 +2,8 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:crypto/crypto.dart';
 import 'package:zuke_frontend/zuke_frontend.dart';
 import 'package:zuke_core/zuke_core.dart';
-import 'package:zuke_core/src/atomic_file_writer.dart';
 import 'step_arguments.dart';
 
 abstract class ScenarioWorld {
@@ -61,12 +59,32 @@ class StepDefinition<W extends ScenarioWorld> {
   final String target;
   final StepAction<W> action;
 
+  /// Prefer [StepDefinition.cucumber] and compose definitions through
+  /// [StepRegistry] (or `buildStepRegistry`) instead of raw RegExp steps.
+  @Deprecated(
+    'Use StepDefinition.cucumber with a CucumberExpression and register via '
+    'StepRegistry/buildStepRegistry instead of the raw RegExp constructor.',
+  )
   const StepDefinition({
+    required RegExp pattern,
+    required StepAction<W> action,
+    int priority = 100,
+    StepTier tier = StepTier.project,
+    String target = 'generic',
+  }) : this._(
+         pattern: pattern,
+         action: action,
+         priority: priority,
+         tier: tier,
+         target: target,
+       );
+
+  const StepDefinition._({
     required this.pattern,
     required this.action,
-    this.priority = 100,
-    this.tier = StepTier.project,
-    this.target = 'generic',
+    required this.priority,
+    required this.tier,
+    required this.target,
   });
 
   factory StepDefinition.cucumber({
@@ -75,7 +93,7 @@ class StepDefinition<W extends ScenarioWorld> {
     int priority = 100,
     StepTier tier = StepTier.project,
     String target = 'generic',
-  }) => StepDefinition(
+  }) => StepDefinition._(
     pattern: expression.pattern,
     priority: priority,
     tier: tier,
@@ -221,7 +239,7 @@ class EvidenceWriter {
     final root = Directory(directory)..createSync(recursive: true);
     final encoded =
         '${const JsonEncoder.withIndent('  ').convert(record.toJson())}\n';
-    final digest = sha256.convert(utf8.encode(encoded)).toString();
+    final digest = sha256DigestHex(utf8.encode(encoded));
     final semantic = File('${root.path}${Platform.pathSeparator}$digest.json');
     _writeEncodedAtomically(semantic, encoded);
     // Observation envelopes are written by the CLI run coordinator so this
@@ -385,6 +403,7 @@ class ScenarioResult implements ExecutionResult {
         error: error,
       );
 
+  @override
   Map<String, Object?> toJson() {
     final identity = _sourceIdentity(
       sourcePackage: sourcePackage,
@@ -574,6 +593,7 @@ class SuiteResult implements ExecutionResult {
         error: error,
       );
 
+  @override
   Map<String, Object?> toJson() {
     final identity = _sourceIdentity(
       sourcePackage: sourcePackage,
@@ -791,7 +811,7 @@ final class SuiteEvidenceEmitter {
         'Evidence source identity disagrees with managed context',
       );
     }
-    final digest = 'sha256:${sha256.convert(utf8.encode(digestInput))}';
+    final digest = sha256Text(digestInput);
     final sortedControlIds = [...controlIds.toSet()]..sort();
     final sortedImplementationSlots = [...implementationSlots.toSet()]..sort();
     final identity = effectiveIdentity;
@@ -853,7 +873,7 @@ final class SuiteEvidenceEmitter {
       'runnerCompatibilityId': runnerCompatibilityId,
       'caseId': caseId,
     });
-    return 'exec-${sha256.convert(utf8.encode(identity))}';
+    return 'exec-${sha256DigestHex(utf8.encode(identity))}';
   }
 }
 
@@ -882,16 +902,27 @@ final class ScenarioExampleCase {
 /// A plain Scenario has one implicit default case and keeps the historical
 /// null identity. Scenario Outline rows receive an identity independent of
 /// display text so renamed Examples labels do not change evidence identity.
+/// A row in a table with a [GherkinSyntax.caseIdColumn] uses that value, so its
+/// identity also survives reordering. Other rows are identified by position.
 String? scenarioExampleCaseId(ScenarioExampleCase exampleCase) {
   if (exampleCase.displayLabel.isEmpty) return null;
-  return 'examples-${exampleCase.examplesIndex + 1}-row-${exampleCase.rowIndex + 1}';
+  return exampleCase.values[GherkinSyntax.caseIdColumn] ??
+      'examples-${exampleCase.examplesIndex + 1}-row-${exampleCase.rowIndex + 1}';
 }
 
-/// Enumerates every executable case for [scenario] in source order.
+/// Enumerates executable cases for [scenario] in source order.
+///
+/// A scenario-level [scenarioId] includes all rows. An Examples-level ID
+/// includes only rows in the block that declares it, with their original case
+/// indexes preserved.
 Iterable<ScenarioExampleCase> scenarioExampleCases(
-  GherkinScenario scenario,
-) sync* {
+  GherkinScenario scenario, {
+  String? scenarioId,
+}) sync* {
+  final allCases =
+      scenarioId == null || scenario.tags.any((tag) => tag.name == scenarioId);
   if (scenario.examples.isEmpty) {
+    if (!allCases) return;
     yield const ScenarioExampleCase(
       examplesIndex: 0,
       rowIndex: 0,
@@ -907,6 +938,9 @@ Iterable<ScenarioExampleCase> scenarioExampleCases(
     examplesIndex++
   ) {
     final examples = scenario.examples[examplesIndex];
+    if (!allCases && !examples.tags.any((tag) => tag.name == scenarioId)) {
+      continue;
+    }
     for (var rowIndex = 0; rowIndex < examples.rows.length; rowIndex++) {
       yield ScenarioExampleCase(
         examplesIndex: examplesIndex,
@@ -1011,7 +1045,10 @@ class ScenarioExecutor<W extends ScenarioWorld> {
   ) async {
     final results = <ScenarioResult>[];
     for (final scenario in rule.scenarios) {
-      for (final exampleCase in scenarioExampleCases(scenario)) {
+      for (final exampleCase in scenarioExampleCases(
+        scenario,
+        scenarioId: candidateId?.value,
+      )) {
         results.add(
           await executeScenario(
             feature,
@@ -1027,36 +1064,91 @@ class ScenarioExecutor<W extends ScenarioWorld> {
     return results;
   }
 
+  /// Executes one case of [scenario].
+  ///
+  /// Unless both indexes are given, those that are must identify exactly one
+  /// case for [candidateId]. Anything broader throws instead of reporting a
+  /// pass for only one row: use [executeRule], or iterate
+  /// [scenarioExampleCases] and pass both indexes.
   Future<ScenarioResult> executeScenario(
     ParsedFeature feature,
     ParsedRule rule,
     GherkinScenario scenario,
     W Function() worldFactory, {
-    int rowIndex = 0,
-    int examplesIndex = 0,
+    int? rowIndex,
+    int? examplesIndex,
   }) async {
-    final exampleCase = scenarioExampleCaseAt(
-      scenario,
-      examplesIndex: examplesIndex,
-      rowIndex: rowIndex,
-    );
+    final ScenarioExampleCase exampleCase;
+    if (rowIndex != null && examplesIndex != null) {
+      exampleCase = scenarioExampleCaseAt(
+        scenario,
+        examplesIndex: examplesIndex,
+        rowIndex: rowIndex,
+      );
+    } else {
+      final cases =
+          scenarioExampleCases(scenario, scenarioId: candidateId?.value)
+              .where(
+                (candidate) =>
+                    (rowIndex == null || candidate.rowIndex == rowIndex) &&
+                    (examplesIndex == null ||
+                        candidate.examplesIndex == examplesIndex),
+              )
+              .toList(growable: false);
+      if (cases.length > 1) {
+        throw ArgumentError(
+          'Scenario "${scenario.scenarioElement.title}" has ${cases.length} '
+          'matching Examples cases. Use executeRule, or pass rowIndex and '
+          'examplesIndex for each case from scenarioExampleCases.',
+        );
+      }
+      // No match falls through to the range and candidate checks, which name
+      // the index that was wrong.
+      exampleCase = cases.isEmpty
+          ? scenarioExampleCaseAt(
+              scenario,
+              examplesIndex: examplesIndex ?? 0,
+              rowIndex: rowIndex ?? 0,
+            )
+          : cases.single;
+    }
+    final selectedExamplesIndex = exampleCase.examplesIndex;
+    final selectedRowIndex = exampleCase.rowIndex;
     final examples = scenario.examples;
-    final selectedExamples = examples.isEmpty ? null : examples[examplesIndex];
+    final selectedExamples = examples.isEmpty
+        ? null
+        : examples[selectedExamplesIndex];
+    final id = candidateId?.value;
+    if (id != null &&
+        !scenario.tags.any((tag) => tag.name == id) &&
+        !(selectedExamples?.tags.any((tag) => tag.name == id) ?? false)) {
+      throw ArgumentError(
+        'Scenario ID "$id" does not apply to the selected case.',
+      );
+    }
+    final rowCaseId = scenarioExampleCaseId(exampleCase);
+    if (rowCaseId != null && caseId != null && caseId != rowCaseId) {
+      throw ArgumentError.value(
+        caseId,
+        'caseId',
+        'Expected "$rowCaseId" for the selected row',
+      );
+    }
     final row = exampleCase.values;
     final executionId = _executionId(
       feature,
       rule,
       scenario,
       row,
-      selectedExamples?.title,
-      examplesIndex,
-      rowIndex,
+      selectedExamples,
+      selectedExamplesIndex,
+      selectedRowIndex,
     );
     final requirementId =
         rule.metadata.id ??
         feature.metadata.id ??
         scenario.scenarioElement.title;
-    final scenarioIds = <ScenarioId>[if (candidateId != null) candidateId!];
+    final scenarioIds = <ScenarioId>[?candidateId];
     ScenarioResult result(
       ScenarioStatus status, {
       List<StepResult> steps = const [],
@@ -1070,7 +1162,7 @@ class ScenarioExecutor<W extends ScenarioWorld> {
       target: target,
       variant: variant,
       candidateId: candidateId?.value ?? executionId,
-      caseId: caseId,
+      caseId: rowCaseId ?? caseId,
       profile: profile,
       runnerId: runnerId ?? 'zuke-runner',
       runnerCompatibilityId: runnerCompatibilityId ?? 'zuke-runner-scenario-v1',
@@ -1086,10 +1178,10 @@ class ScenarioExecutor<W extends ScenarioWorld> {
       ...rule.backgroundSteps,
       ...scenario.steps,
     ].map((step) => _substitute(step, row)).toList();
-    final matches = <(GherkinStep, StepMatch<W>)>[];
+    final matches = <_ResolvedStep<W>>[];
     try {
       for (final step in allSteps) {
-        matches.add((step, registry.resolve(step)));
+        matches.add(_ResolvedStep(step, registry.resolve(step)));
       }
     } on UnresolvedStepException catch (e) {
       return result(ScenarioStatus.unresolved, error: e.toString());
@@ -1101,11 +1193,15 @@ class ScenarioExecutor<W extends ScenarioWorld> {
     final stepResults = <StepResult>[];
     for (final pair in matches) {
       try {
-        await pair.$2.definition.action(world, pair.$1, pair.$2.arguments);
+        await pair.match.definition.action(
+          world,
+          pair.step,
+          pair.match.arguments,
+        );
         stepResults.add(
           StepResult(
-            keyword: pair.$1.keyword,
-            text: pair.$1.text,
+            keyword: pair.step.keyword,
+            text: pair.step.text,
             status: StepStatus.passed,
           ),
         );
@@ -1113,8 +1209,8 @@ class ScenarioExecutor<W extends ScenarioWorld> {
         final diagnostic = '$e\n$stackTrace';
         stepResults.add(
           StepResult(
-            keyword: pair.$1.keyword,
-            text: pair.$1.text,
+            keyword: pair.step.keyword,
+            text: pair.step.text,
             status: StepStatus.failed,
             error: diagnostic,
           ),
@@ -1134,7 +1230,7 @@ class ScenarioExecutor<W extends ScenarioWorld> {
     ParsedRule rule,
     GherkinScenario scenario,
     Map<String, String> row,
-    String? examplesTitle,
+    GherkinExamples? examples,
     int examplesIndex,
     int rowIndex,
   ) {
@@ -1154,12 +1250,21 @@ class ScenarioExecutor<W extends ScenarioWorld> {
     final digestIdentity = stableDigests
         .map((entry) => '${entry.key}=${entry.value}')
         .join('&');
+    final id = candidateId?.value;
+    // The outline and an Examples contract can publish the same row. Scope the
+    // latter to its own ID while preserving existing outline execution IDs.
+    final examplesIdentity =
+        id != null &&
+            examples != null &&
+            examples.tags.any((tag) => tag.name == id)
+        ? '\x00$id'
+        : '';
     final input =
         '$stableFeature\x00$stableRule\x00$stableScenario\x00'
-        '${examplesTitle ?? ''}\x00$examplesIndex\x00$rowIndex\x00'
+        '${examples?.title ?? ''}\x00$examplesIndex\x00$rowIndex\x00'
         '$rowIdentity\x00$profile\x00$target\x00$variant\x00'
-        '$digestIdentity';
-    return sha256.convert(utf8.encode(input)).toString();
+        '$digestIdentity$examplesIdentity';
+    return sha256DigestHex(utf8.encode(input));
   }
 
   GherkinStep _substitute(GherkinStep step, Map<String, String> row) {
@@ -1173,7 +1278,18 @@ class ScenarioExecutor<W extends ScenarioWorld> {
       text: replace(step.text),
       source: step.source,
       docString: step.docString == null ? null : replace(step.docString!),
+      docStringMediaType: step.docStringMediaType == null
+          ? null
+          : replace(step.docStringMediaType!),
+      docStringIndent: step.docStringIndent,
       table: step.table.map((r) => r.map(replace).toList()).toList(),
     );
   }
+}
+
+final class _ResolvedStep<W extends ScenarioWorld> {
+  const _ResolvedStep(this.step, this.match);
+
+  final GherkinStep step;
+  final StepMatch<W> match;
 }

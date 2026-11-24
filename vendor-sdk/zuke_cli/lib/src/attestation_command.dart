@@ -2,7 +2,6 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:args/args.dart';
-import 'package:crypto/crypto.dart';
 import 'package:zuke_core/zuke_core.dart';
 import 'package:zuke_frontend/zuke_frontend.dart';
 
@@ -72,7 +71,7 @@ class AttestationCommand {
       'reference': reference,
       'scopeHash': _hash(provider['scope']),
       'evidenceType': (provider['evidence'] as Map?)?['type']?.toString() ?? '',
-      'evidenceDigest': 'sha256:${sha256.convert(evidence)}',
+      'evidenceDigest': sha256Hex(evidence),
       'issuedAt': issuedAt.toIso8601String(),
       'expiresAt': expiresAt.toIso8601String(),
     };
@@ -139,8 +138,8 @@ class AttestationCommand {
             .join('; ');
         final configuredProviders = verifiedWorkspace.data.policies.values
             .expand(
-              (policy) =>
-                  (policy['providers'] as List? ?? const []).whereType<Map>(),
+              (policy) => (policy['providers'] as List? ?? const [])
+                  .whereType<Map<Object?, Object?>>(),
             )
             .map(
               (candidate) =>
@@ -181,11 +180,14 @@ class AttestationCommand {
     return parsed;
   }
 
-  Map? _provider(WorkspaceDiscoveryResult workspace, String id) {
+  Map<Object?, Object?>? _provider(
+    WorkspaceDiscoveryResult workspace,
+    String id,
+  ) {
     for (final policy in workspace.data.policies.values) {
       final providers = policy['providers'];
       if (providers is List) {
-        for (final provider in providers.whereType<Map>()) {
+        for (final provider in providers.whereType<Map<Object?, Object?>>()) {
           if (provider['id'] == id && provider['assurance'] == 'attested') {
             return provider;
           }
@@ -195,8 +197,7 @@ class AttestationCommand {
     return null;
   }
 
-  String _hash(Object? value) =>
-      'sha256:${sha256.convert(utf8.encode(canonicalJson(value)))}';
+  String _hash(Object? value) => sha256Text(canonicalJson(value));
 
   String _updateProviderPolicy(
     String source, {
@@ -257,12 +258,6 @@ class AttestationCommand {
   }
 
   void _writeAtomically(File target, String contents) {
-    target.parent.createSync(recursive: true);
-    final temporary = File(
-      '${target.path}.tmp-${pid}-${DateTime.now().microsecondsSinceEpoch}',
-    );
-    temporary.writeAsStringSync(contents);
-    if (target.existsSync()) target.deleteSync();
-    temporary.renameSync(target.path);
+    writeBytesReplacing(target, utf8.encode(contents));
   }
 }
