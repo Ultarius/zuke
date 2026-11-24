@@ -14,22 +14,24 @@ import 'temporary_directory.dart';
 /// provenance is attributed, and whether two registrations of one scenario stay
 /// separate. Every test using this fixture resolves actual source.
 ///
-/// Resolution is the slow part of these tests, so they are spread over several
-/// files for the test runner to schedule concurrently.
 final class ManagedBindingFixture {
   late Directory root;
 
   /// Registers per-test setup and teardown in the calling suite.
   ManagedBindingFixture() {
-    setUp(() async {
-      root = Directory.systemTemp.createTempSync('zuke-binding-scan-');
-      await configureFixturePackages(root);
-      source(
-        'pubspec.yaml',
-        "name: fixture\nenvironment:\n  sdk: '>=3.10.0 <4.0.0'\n",
-      );
-    });
+    setUp(_createWorkspace);
     tearDown(() => deleteTemporaryDirectory(root));
+  }
+
+  ManagedBindingFixture._();
+
+  Future<void> _createWorkspace() async {
+    root = Directory.systemTemp.createTempSync('zuke-binding-scan-');
+    source(
+      'pubspec.yaml',
+      "name: fixture\nenvironment:\n  sdk: '>=3.10.0 <4.0.0'\n",
+    );
+    await configureFixturePackages(root);
   }
 
   File source(String path, String content) {
@@ -129,17 +131,37 @@ void main() {
     final claims = (await scan()).managedScenarios;
     return claims.single.evidenceTypes;
   }
+}
 
-  /// Registers one harness case and returns the kinds inherited for it.
-  Future<List<String>?> harnessKinds({
-    required String harness,
-    required String cases,
-  }) async {
-    contract();
-    source('app/test/app_test.dart', '''
+/// Resolves independent, fully identified harness registrations together.
+///
+/// Each case has its own library so declarations remain isolated, but the
+/// analyzer can link the real Flutter dependencies once for the workspace.
+final class ManagedHarnessCases {
+  final _sources = <String, String>{};
+  late final _result = _scan();
+
+  Future<List<ManagedScenarioClaim>> Function() add(String body) {
+    final path = 'app/test/case_${_sources.length}.dart';
+    _sources[path] =
+        '''
 import 'package:zuke_runner_flutter/zuke_runner_flutter.dart';
 import 'package:fixture/demo_contract.dart';
 
+$body
+''';
+    return () async => (await _result).managedScenarios
+        .where((claim) => claim.sourcePath == path)
+        .toList();
+  }
+
+  void testKinds(
+    String description, {
+    required String harness,
+    required String cases,
+    required Object? expected,
+  }) {
+    final claims = add('''
 $harness
 
 void main() {
@@ -148,46 +170,24 @@ $cases
   ]);
 }
 ''');
-    return (await scan()).managedScenarios.single.evidenceTypes;
+    test(description, () async {
+      expect((await claims()).single.evidenceTypes, expected);
+    });
   }
 
-  /// Registers one case under each of two harnesses and returns their kinds in
-  /// registration order, so per-harness attribution is observable.
-  Future<List<List<String>?>> twoHarnessKinds({
-    required String readable,
-    required String unreadable,
-  }) async {
-    contract();
-    source('app/test/app_test.dart', '''
-import 'package:zuke_runner_flutter/zuke_runner_flutter.dart';
-import 'package:fixture/demo_contract.dart';
-
-final otherScenario = FakeScenario(
-  ScenarioId('SCN-DEMO-002'),
-  RuleId('RULE-DEMO-001'),
-  'Another demo scenario',
-  <ControlId>{},
-);
-
-$readable
-$unreadable
-
-void main() {
-  readableHarness.registerAll([
-    FlutterEvidenceCase(scenario: demo, body: (tester) async {}),
-  ]);
-  dynamicHarness.registerAll([
-    FlutterEvidenceCase(scenario: otherScenario, body: (tester) async {}),
-  ]);
-}
-''');
-    final result = await scan();
-    final Map<String, ManagedScenarioClaim> byScenario = {
-      for (final claim in result.managedScenarios) claim.scenarioId: claim,
-    };
-    return [
-      byScenario['SCN-DEMO-001']?.evidenceTypes,
-      byScenario['SCN-DEMO-002']?.evidenceTypes,
-    ];
+  Future<WorkspaceAnnotationScan> _scan() async {
+    final fixture = ManagedBindingFixture._();
+    try {
+      await fixture._createWorkspace();
+      fixture.contract();
+      for (final entry in _sources.entries) {
+        fixture.source(entry.key, entry.value);
+      }
+      final result = await fixture.scan();
+      expect(result.unresolvedManagedRegistrations, 0);
+      return result;
+    } finally {
+      await deleteTemporaryDirectory(fixture.root);
+    }
   }
 }

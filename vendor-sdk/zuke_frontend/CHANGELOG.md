@@ -9,6 +9,7 @@
 - An unclosed doc string is now a parse error at its opening delimiter, instead of silently hiding the rest of the file.
 - Doc strings support media types such as `"""json` and deliver the same content with LF, CRLF, or CR line endings.
 - A second doc string on one step is now a parse error, instead of silently replacing the first.
+- Examples tables can name rows with a reserved `caseId` column. Values must be unique lowercase kebab-case within a scenario.
 
 ## 0.2.2
 

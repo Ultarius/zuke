@@ -25,6 +25,12 @@ abstract final class GherkinSyntax {
   /// `Examples:` opens an example table.
   static const examples = 'Examples:';
 
+  /// Reserved `Examples` column that gives each row a readable case ID.
+  ///
+  /// The ID travels with the row, so reordering a table cannot change which
+  /// row a test proves. Tables without it use positional IDs.
+  static const caseIdColumn = 'caseId';
+
   /// The stem every scenario keyword starts with, used for source columns.
   static const scenarioStem = 'Scenario';
 

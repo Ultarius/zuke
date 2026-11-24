@@ -902,9 +902,12 @@ final class ScenarioExampleCase {
 /// A plain Scenario has one implicit default case and keeps the historical
 /// null identity. Scenario Outline rows receive an identity independent of
 /// display text so renamed Examples labels do not change evidence identity.
+/// A row in a table with a [GherkinSyntax.caseIdColumn] uses that value, so its
+/// identity also survives reordering. Other rows are identified by position.
 String? scenarioExampleCaseId(ScenarioExampleCase exampleCase) {
   if (exampleCase.displayLabel.isEmpty) return null;
-  return 'examples-${exampleCase.examplesIndex + 1}-row-${exampleCase.rowIndex + 1}';
+  return exampleCase.values[GherkinSyntax.caseIdColumn] ??
+      'examples-${exampleCase.examplesIndex + 1}-row-${exampleCase.rowIndex + 1}';
 }
 
 /// Enumerates executable cases for [scenario] in source order.

@@ -85,6 +85,89 @@ $table
     );
   });
 
+  test('accepts readable caseId values across Examples blocks', () {
+    final scenario = scenarioOf('''
+        | caseId      | value |
+        | first-case  | 1     |
+        | second-case | 2     |
+      @SCN-ONE-002
+      Examples: Another block
+        | caseId     | value |
+        | third-case | 3     |''');
+
+    expect(scenario.examples.map((block) => block.rows.length), [2, 1]);
+  });
+
+  for (final (name, table, message) in const [
+    (
+      'a duplicate',
+      '''
+        | caseId | value |
+        | same   | 1     |
+        | same   | 2     |''',
+      'more than once',
+    ),
+    (
+      'a duplicate in another block',
+      '''
+        | caseId | value |
+        | same   | 1     |
+      @SCN-ONE-002
+      Examples: Another block
+        | caseId | value |
+        | same   | 2     |''',
+      'more than once',
+    ),
+    (
+      'a value that is not kebab-case',
+      '''
+        | caseId    | value |
+        | Not Valid | 1     |''',
+      'lowercase kebab-case',
+    ),
+    (
+      'an empty value',
+      '''
+        | caseId | value |
+        |        | 1     |''',
+      'lowercase kebab-case',
+    ),
+    (
+      'a reserved positional value',
+      '''
+        | caseId           | value |
+        | examples-1-row-2 | 1     |''',
+      'reserved',
+    ),
+    (
+      'a repeated column',
+      '''
+        | caseId | caseId | value |
+        | one    | two    | 1     |''',
+      'more than one caseId column',
+    ),
+    (
+      'a row without every cell',
+      '''
+        | caseId | value |
+        | one    |''',
+      'cells',
+    ),
+  ]) {
+    test('rejects $name in a caseId column', () {
+      final source = feature(table);
+      final parsed = GherkinParser().parseFile(source, 'one.feature');
+
+      expect(parsed.features, isEmpty);
+      final error = parsed.errors.single;
+      expect(error.message, contains(message));
+      expect(
+        source.split('\n')[error.source.line - 1].trim(),
+        startsWith('Examples:'),
+      );
+    });
+  }
+
   test('declaredTags includes tags on Examples blocks', () {
     final scenario = scenarioOf('''
         | value |

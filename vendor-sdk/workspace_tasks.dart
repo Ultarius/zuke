@@ -57,10 +57,22 @@ Future<void> main(List<String> arguments) async {
         ..sort((a, b) => a.path.compareTo(b.path));
   if (selected.isEmpty) return;
 
+  final collectsCoverage =
+      task == 'test' &&
+      extra.any((arg) => arg == '--coverage' || arg.startsWith('--coverage='));
+  // CLI tests resolve Flutter libraries and launch subprocesses. Both still
+  // contend for CPU and memory when the CLI has only one test worker.
+  final cliCoverage = collectsCoverage
+      ? selected.where((package) => package.name == 'zuke_cli').firstOrNull
+      : null;
+  final parallelPackages = cliCoverage == null
+      ? selected
+      : selected.where((package) => package != cliCoverage).toList();
+
   late final int packageSlots;
   try {
     packageSlots = budget.packageSlotsFor(
-      selected.length,
+      parallelPackages.length,
       overrideEnv: rawPackageSlots,
     );
   } on FormatException catch (error) {
@@ -81,12 +93,20 @@ Future<void> main(List<String> arguments) async {
     '(processors=${Platform.numberOfProcessors}, '
     'packages=$jobs, workers/package=$workers).',
   );
-  final results = await _runBounded(
-    selected,
-    jobs: jobs,
-    run: (package) =>
-        _runPackage(package, task: task, workers: workers, extra: extra),
-  );
+  final results = [
+    ...await _runBounded(
+      parallelPackages,
+      jobs: jobs,
+      run: (package) =>
+          _runPackage(package, task: task, workers: workers, extra: extra),
+    ),
+  ];
+  if (cliCoverage != null) {
+    stdout.writeln('Dart CLI coverage: running separately with one worker.');
+    results.add(
+      await _runPackage(cliCoverage, task: task, workers: 1, extra: extra),
+    );
+  }
   // Passing tests may intentionally exercise negative CLI paths. Those paths
   // report their diagnostics on stderr, but surfacing that stream as a
   // warning makes a green workspace run look failed. Keep successful package
@@ -167,11 +187,13 @@ final class WorkerBudget {
 }
 
 final class _WorkspacePackage {
+  final String? name;
   final String path;
   final bool isFlutter;
   final bool hasTests;
 
   const _WorkspacePackage({
+    required this.name,
     required this.path,
     required this.isFlutter,
     required this.hasTests,
@@ -224,6 +246,7 @@ Future<List<_WorkspacePackage>> _workspacePackages() async {
     );
     final content = pubspec.existsSync() ? pubspec.readAsStringSync() : '';
     return _WorkspacePackage(
+      name: entry['name']?.toString(),
       path: directory.path,
       isFlutter: RegExp(
         r'^\s*sdk\s*:\s*flutter\s*$',

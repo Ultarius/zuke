@@ -6,6 +6,7 @@
 - HTTP vendor steps use Cucumber expressions. `{string}` now returns single-quoted values and accepts a value ending in a backslash.
 - Deprecated the raw `RegExp` `StepDefinition` constructor.
 - `executeScenario` now throws unless its indexes identify exactly one case of a contract with several Examples rows, instead of passing after running only the first row.
+- A row's `caseId` column value is now its case ID, so evidence identity survives reordering an Examples table.
 
 ## 0.4.0
 

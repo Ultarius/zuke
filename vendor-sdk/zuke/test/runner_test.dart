@@ -325,6 +325,65 @@ Feature: Outline cases
     expect(scenarioExampleCaseId(secondBlock), 'examples-2-row-1');
   });
 
+  test('a caseId column keeps row identity when rows move', () async {
+    final registry = StepRegistry<World>()
+      ..register(
+        StepDefinition.cucumber(
+          expression: CucumberExpression(
+            'value {word}',
+            StepParameterTypeRegistry.standard(),
+          ),
+          tier: StepTier.project,
+          action: (world, step, values) async {},
+        ),
+      );
+    for (final rows in const [
+      ['| trusted   | one |', '| untrusted | two |'],
+      ['| untrusted | two |', '| trusted   | one |'],
+    ]) {
+      final feature = GherkinParser()
+          .parseFile('''
+# spec-begin
+# schemaVersion: 1
+# id: FEAT-OUTLINE-005
+# spec-end
+Feature: Named rows
+  # rule-spec-begin
+  # id: RULE-OUTLINE-005
+  # rule-spec-end
+  Rule: A row keeps its name wherever it sits
+    @SCN-OUTLINE-NAMED
+    Scenario Outline: Execute <value>
+      Given value <value>
+      Examples:
+        | caseId    | value |
+        ${rows.join('\n        ')}
+''', 'outline.feature')
+          .features
+          .single;
+      final rule = feature.rules.single;
+      final scenario = rule.scenarios.single;
+
+      expect(
+        {
+          for (final exampleCase in scenarioExampleCases(scenario))
+            exampleCase.values['value']: scenarioExampleCaseId(exampleCase),
+        },
+        {'one': 'trusted', 'two': 'untrusted'},
+      );
+
+      final results = await ScenarioExecutor<World>(
+        registry: registry,
+        evidenceType: 'gherkin-api',
+        candidateId: const ScenarioId('SCN-OUTLINE-NAMED'),
+      ).executeRule(feature, rule, World.new);
+      expect(
+        results.map((result) => result.caseId),
+        unorderedEquals(['trusted', 'untrusted']),
+      );
+    }
+  });
+
   test('executes only rows owned by the Examples candidate', () async {
     final feature = GherkinParser()
         .parseFile('''

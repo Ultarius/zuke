@@ -8,6 +8,7 @@
 - `zuke analyze` works on a first run with an empty plugin cache.
 - Generated contracts are excluded from source provenance when `contractOutput` uses its default.
 - `resolvePlacement` accepts an `explicitWorkspaceRoot` that takes precedence over the nearest `zuke.yaml`, and reports an unusable configuration as a typed `PlacementFailure`.
+- `zuke coverage` matches absolute LCOV paths under relative workspace roots, normalizes source paths before scoping, and compares Windows drive and UNC paths case-insensitively across coverage policies, Git diffs, and baselines.
 
 ## 0.5.0
 

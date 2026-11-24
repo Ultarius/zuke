@@ -521,6 +521,7 @@ class GherkinParser {
     // Split step lines by Examples: blocks — everything between Scenario and
     // first Examples: are steps; each Examples: section has a title and table.
     final examplesList = <GherkinExamples>[];
+    final declaredCaseIds = <String>{};
     final executableLines = <String>[];
     final pendingExampleTags = <GherkinTag>[];
     int inExamples = -1;
@@ -585,6 +586,7 @@ class GherkinParser {
           );
         }
         final rows = tableLines.map(_parseTableRow).toList();
+        _validateCaseIds(examplesTitle, rows, source, declaredCaseIds);
         examplesList.add(
           GherkinExamples(
             title: examplesTitle,
@@ -628,6 +630,47 @@ class GherkinParser {
       examples: examplesList,
     );
   }
+
+  /// Validates the optional case ID column of one Examples [table].
+  ///
+  /// [declared] spans the whole scenario, because evidence identifies a case
+  /// by scenario and case ID, whichever block the row is in.
+  void _validateCaseIds(
+    String title,
+    List<List<String>> table,
+    SourceLocation source,
+    Set<String> declared,
+  ) {
+    const name = GherkinSyntax.caseIdColumn;
+    final headers = table.first;
+    final column = headers.indexOf(name);
+    if (column < 0) return;
+    Never fail(String problem) =>
+        throw ParseError(message: 'Examples "$title" $problem', source: source);
+    if (headers.lastIndexOf(name) != column) {
+      fail('declares more than one $name column.');
+    }
+    for (final row in table.skip(1)) {
+      if (row.length != headers.length) {
+        fail(
+          'has a row with ${row.length} cells for ${headers.length} columns.',
+        );
+      }
+      final caseId = row[column];
+      if (!_caseIdPattern.hasMatch(caseId)) {
+        fail('$name "$caseId" must be lowercase kebab-case.');
+      }
+      if (_positionalCaseIdPattern.hasMatch(caseId)) {
+        fail('$name "$caseId" is reserved for positional case IDs.');
+      }
+      if (!declared.add(caseId)) {
+        fail('$name "$caseId" is used more than once in this scenario.');
+      }
+    }
+  }
+
+  static final _caseIdPattern = RegExp(r'^[a-z0-9]+(?:-[a-z0-9]+)*$');
+  static final _positionalCaseIdPattern = RegExp(r'^examples-\d+-row-\d+$');
 
   List<GherkinStep> _parseSteps(
     List<String> lines,

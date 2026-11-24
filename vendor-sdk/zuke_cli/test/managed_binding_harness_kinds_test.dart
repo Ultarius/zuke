@@ -3,66 +3,41 @@ import 'package:test/test.dart';
 import 'support/managed_binding_fixture.dart';
 
 void main() {
-  final fixture = ManagedBindingFixture();
-  final source = fixture.source;
-  final contract = fixture.contract;
-  final scan = fixture.scan;
-  final harnessKinds = fixture.harnessKinds;
-  final twoHarnessKinds = fixture.twoHarnessKinds;
-
   group('scenario harness evidence kinds', () {
+    final batch = ManagedHarnessCases();
     const oneCase =
         '    FlutterEvidenceCase(scenario: demo, body: (tester) async {}),';
-
-    test('a case inherits the harness default', () async {
-      expect(
-        await harnessKinds(
-          harness: '''
+    const defaultHarness = '''
 const evidenceHarness = ZukeFlutterEvidenceHarness(
   runnerCompatibilityId: 'app-runner-v1',
   defaultEvidenceTypes: ['flutter-widget', 'gherkin-ui'],
 );
-''',
-          cases: oneCase,
-        ),
-        ['flutter-widget', 'gherkin-ui'],
-      );
-    });
+''';
 
-    test(
+    batch.testKinds(
+      'a case inherits the harness default',
+      harness: defaultHarness,
+      cases: oneCase,
+      expected: ['flutter-widget', 'gherkin-ui'],
+    );
+
+    batch.testKinds(
       'two harnesses declaring the same default are not ambiguous',
-      () async {
-        // Compared by contents: two equal lists must collapse to one, or the
-        // association reads as ambiguous and falls back to a default that
-        // describes neither harness.
-        expect(
-          await harnessKinds(
-            harness: '''
-const evidenceHarness = ZukeFlutterEvidenceHarness(
-  runnerCompatibilityId: 'app-runner-v1',
-  defaultEvidenceTypes: ['flutter-widget', 'gherkin-ui'],
-);
+      harness:
+          '''
+$defaultHarness
 const other = ZukeFlutterEvidenceHarness(
   runnerCompatibilityId: 'other-runner-v1',
   defaultEvidenceTypes: ['gherkin-ui', 'flutter-widget'],
 );
 ''',
-            cases: oneCase,
-          ),
-          ['flutter-widget', 'gherkin-ui'],
-        );
-      },
+      cases: oneCase,
+      expected: ['flutter-widget', 'gherkin-ui'],
     );
 
-    test(
+    batch.testKinds(
       'a second harness with different defaults does not blur this one',
-      () async {
-        // Attribution follows the `registerAll` receiver, so a sibling harness
-        // declaring something else cannot make this case undecidable. Under the
-        // previous library-wide reading this was the ambiguity case.
-        expect(
-          await harnessKinds(
-            harness: '''
+      harness: '''
 const evidenceHarness = ZukeFlutterEvidenceHarness(
   runnerCompatibilityId: 'app-runner-v1',
   defaultEvidenceTypes: ['flutter-widget'],
@@ -72,183 +47,139 @@ const other = ZukeFlutterEvidenceHarness(
   defaultEvidenceTypes: ['gherkin-api'],
 );
 ''',
-            cases: oneCase,
-          ),
-          ['flutter-widget'],
-          reason: 'the registering harness decides, not the library',
-        );
-      },
+      cases: oneCase,
+      expected: ['flutter-widget'],
     );
 
-    test('a case is attributed to the harness that registers it', () async {
-      // The case both harnesses could claim is decidable, and the one under the
-      // unreadable harness is not. Nothing about the first depends on the second.
-      expect(
-        await twoHarnessKinds(
-          readable: '''
+    final attributed = batch.add('''
+const otherScenario = FakeScenario(
+  ScenarioId('SCN-DEMO-002'),
+  RuleId('RULE-DEMO-001'),
+  'Another demo scenario',
+  <ControlId>{},
+);
+
 const readableHarness = ZukeFlutterEvidenceHarness(
   runnerCompatibilityId: 'readable-runner-v1',
   defaultEvidenceTypes: ['flutter-widget'],
 );
-''',
-          unreadable: '''
 final dynamicHarness = ZukeFlutterEvidenceHarness(
   runnerCompatibilityId: 'dynamic-runner-v1',
   defaultEvidenceTypes: buildKinds(),
 );
-''',
-        ),
-        [
-          // The readable harness's case keeps its kinds...
-          ['flutter-widget'],
-          // ...and the dynamic harness's case is unknown, not defaulted.
-          isNull,
-        ],
+
+void main() {
+  readableHarness.registerAll([
+    FlutterEvidenceCase(scenario: demo, body: (tester) async {}),
+  ]);
+  dynamicHarness.registerAll([
+    FlutterEvidenceCase(scenario: otherScenario, body: (tester) async {}),
+  ]);
+}
+''');
+    test('a case is attributed to the harness that registers it', () async {
+      expect(
+        {
+          for (final claim in await attributed())
+            claim.scenarioId: claim.evidenceTypes,
+        },
+        {
+          'SCN-DEMO-001': ['flutter-widget'],
+          'SCN-DEMO-002': null,
+        },
       );
     });
 
-    test(
+    batch.testKinds(
       'a case override that cannot be read is unknown, not the default',
-      () async {
-        // Falling through to the inherited default here would report coverage the
-        // override may well remove.
-        expect(
-          await harnessKinds(
-            harness: '''
-const evidenceHarness = ZukeFlutterEvidenceHarness(
-  runnerCompatibilityId: 'app-runner-v1',
-  defaultEvidenceTypes: ['flutter-widget', 'gherkin-ui'],
-);
-''',
-            cases:
-                '    FlutterEvidenceCase(scenario: demo, body: (t) async {}, '
-                'evidenceTypes: buildKinds()),',
-          ),
-          isNull,
-        );
-      },
+      harness: defaultHarness,
+      cases:
+          '    FlutterEvidenceCase(scenario: demo, body: (t) async {}, '
+          'evidenceTypes: buildKinds()),',
+      expected: isNull,
     );
 
-    test('an unreadable harness default stays unknown', () async {
-      expect(
-        await harnessKinds(
-          harness: '''
+    batch.testKinds(
+      'an unreadable harness default stays unknown',
+      harness: '''
 final evidenceHarness = ZukeFlutterEvidenceHarness(
   runnerCompatibilityId: 'app-runner-v1',
   defaultEvidenceTypes: buildKinds(),
 );
 ''',
-          cases: oneCase,
-        ),
-        isNull,
-      );
-    });
+      cases: oneCase,
+      expected: isNull,
+    );
 
-    test('an explicitly empty harness default publishes no kinds', () async {
-      expect(
-        await harnessKinds(
-          harness: '''
+    batch.testKinds(
+      'an explicitly empty harness default publishes no kinds',
+      harness: '''
 const evidenceHarness = ZukeFlutterEvidenceHarness(
   runnerCompatibilityId: 'app-runner-v1',
   defaultEvidenceTypes: [],
 );
 ''',
-          cases: oneCase,
-        ),
-        isEmpty,
-      );
-    });
-
-    test('an absent harness default does not poison a readable one', () async {
-      // The argument is `required`, so this file does not compile. It is still
-      // the state the scan sees while a user is part-way through typing the
-      // argument, and it declares no default at all: it neither establishes nor
-      // contradicts one. Under the previous library-wide reading it made every
-      // case in the file undecidable.
-      expect(
-        await harnessKinds(
-          harness: '''
-const evidenceHarness = ZukeFlutterEvidenceHarness(
-  runnerCompatibilityId: 'app-runner-v1',
-  defaultEvidenceTypes: ['flutter-widget', 'gherkin-ui'],
-);
-final other = ZukeFlutterEvidenceHarness(runnerCompatibilityId: 'other-runner-v1');
-''',
-          cases: oneCase,
-        ),
-        ['flutter-widget', 'gherkin-ui'],
-        reason: 'the absent declaration belongs to a harness nobody registers',
-      );
-    });
-
-    test(
-      'an absent harness default alone leaves the case undecidable',
-      () async {
-        // With nothing readable declared, the case cannot inherit a default, so
-        // it stays unknown rather than being credited with the framework's
-        // `gherkin-ui`.
-        expect(
-          await harnessKinds(
-            harness: '''
-const evidenceHarness = ZukeFlutterEvidenceHarness(
-  runnerCompatibilityId: 'app-runner-v1',
-);
-''',
-            cases: oneCase,
-          ),
-          isNull,
-        );
-      },
+      cases: oneCase,
+      expected: isEmpty,
     );
 
-    test('a partly readable scenario list remains incomplete', () async {
-      contract();
-      source('app/test/steps_test.dart', '''
+    // A required argument can be temporarily missing while editing.
+    batch.testKinds(
+      'an absent harness default does not poison a readable one',
+      harness:
+          '''
+$defaultHarness
+final other = ZukeFlutterEvidenceHarness(runnerCompatibilityId: 'other-runner-v1');
+''',
+      cases: oneCase,
+      expected: ['flutter-widget', 'gherkin-ui'],
+    );
+
+    batch.testKinds(
+      'an absent harness default alone leaves the case undecidable',
+      harness: '''
+const evidenceHarness = ZukeFlutterEvidenceHarness(
+  runnerCompatibilityId: 'app-runner-v1',
+);
+''',
+      cases: oneCase,
+      expected: isNull,
+    );
+
+    group('unresolved scenario lists', () {
+      final fixture = ManagedBindingFixture();
+      for (final (description, expression) in const [
+        (
+          'a partly readable scenario list remains incomplete',
+          'missingScenario()',
+        ),
+        ('a scenario spread is not silently omitted', '...moreScenarios()'),
+      ]) {
+        test(description, () async {
+          fixture.contract();
+          fixture.source('app/test/steps_test.dart', '''
 import 'package:zuke_runner_flutter/zuke_runner_flutter.dart';
 import 'package:fixture/demo_contract.dart';
+
 void main() {
   ZukeFlutterHarness(
-    scenarios: [demo, missingScenario()],
+    scenarios: [demo, $expression],
     feature: null as dynamic,
     registryFactory: () => [],
     worldFactory: (tester) => null as dynamic,
-      runnerId: 'app-tests',
-      runnerCompatibilityId: 'app-runner-v1',
-    ).registerAll();
-  }
-  ''');
-      final result = await scan();
-      expect(result.managedScenarioIds, {'SCN-DEMO-001'});
-      expect(result.unresolvedManagedRegistrations, 1);
+    runnerId: 'app-tests',
+    runnerCompatibilityId: 'app-runner-v1',
+  ).registerAll();
+}
+''');
+          final result = await fixture.scan();
+          expect(result.managedScenarioIds, {'SCN-DEMO-001'});
+          expect(result.unresolvedManagedRegistrations, 1);
+        });
+      }
     });
 
-    test('a scenario spread is not silently omitted', () async {
-      contract();
-      source('app/test/steps_test.dart', '''
-import 'package:zuke_runner_flutter/zuke_runner_flutter.dart';
-import 'package:fixture/demo_contract.dart';
-void main() {
-  ZukeFlutterHarness(
-    scenarios: [demo, ...moreScenarios()],
-    feature: null as dynamic,
-    registryFactory: () => [],
-    worldFactory: (tester) => null as dynamic,
-      runnerId: 'app-tests',
-      runnerCompatibilityId: 'app-runner-v1',
-    ).registerAll();
-  }
-  ''');
-      final result = await scan();
-      expect(result.managedScenarioIds, {'SCN-DEMO-001'});
-      expect(result.unresolvedManagedRegistrations, 1);
-    });
-
-    test('a literal singular evidenceType reads as a kind', () async {
-      contract();
-      source('app/test/steps_test.dart', '''
-import 'package:zuke_runner_flutter/zuke_runner_flutter.dart';
-import 'package:fixture/demo_contract.dart';
-
+    final singular = batch.add('''
 class DemoWorld {}
 
 void main() {
@@ -263,10 +194,8 @@ void main() {
   ).registerAll();
 }
 ''');
-
-      expect((await scan()).managedScenarios.single.evidenceTypes, [
-        'custom-ui',
-      ]);
+    test('a literal singular evidenceType reads as a kind', () async {
+      expect((await singular()).single.evidenceTypes, ['custom-ui']);
     });
   });
 }

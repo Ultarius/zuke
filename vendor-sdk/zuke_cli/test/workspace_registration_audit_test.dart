@@ -73,6 +73,60 @@ Feature: Example
     expect(unknown.registrations.single.scenarioId, isNull);
   });
 
+  test('a caseId column gives rows readable, order-independent identity', () {
+    final feature = File('${root.path}/specs/features/example.feature');
+    void writeRows(List<String> rows) => feature.writeAsStringSync('''
+# spec-begin
+# schemaVersion: 1
+# id: FEAT-EXAMPLE-001
+# spec-end
+@FEAT-EXAMPLE-001
+Feature: Example
+  # rule-spec-begin
+  # id: RULE-EXAMPLE-001
+  # requiredEvidence: []
+  # rule-spec-end
+  @RULE-EXAMPLE-001
+  Rule: Example rule
+    @SCN-EXAMPLE-001
+    Scenario Outline: Example <value>
+      Given an example <value>
+      Examples: Named rows
+        | caseId    | value |
+        ${rows.join('\n        ')}
+''');
+    void writeCases(String first, String second) =>
+        testFile.writeAsStringSync('''
+void main() {
+  zukeTest(() {}, scenario: ExampleScenario.first, caseId: '$first');
+  zukeTest(() {}, scenario: ExampleScenario.first, caseId: '$second');
+}
+''');
+
+    writeCases('trusted', 'untrusted');
+    for (final rows in const [
+      ['| trusted   | one |', '| untrusted | two |'],
+      ['| untrusted | two |', '| trusted   | one |'],
+    ]) {
+      writeRows(rows);
+      final audit = const WorkspaceRegistrationAudit().inspect(root.path);
+      expect(audit.diagnostics.map((item) => item.toJson()), isEmpty);
+    }
+
+    // A named row is no longer addressable by its position.
+    writeCases('examples-1-row-1', 'examples-1-row-2');
+    expect(
+      const WorkspaceRegistrationAudit()
+          .inspect(root.path)
+          .diagnostics
+          .map((item) => item.code),
+      containsAll([
+        'ZK-REGISTRATION-CASE-UNKNOWN',
+        'ZK-REGISTRATION-CASE-MISSING',
+      ]),
+    );
+  });
+
   test('Examples-level scenario IDs audit only their own rows', () {
     final feature = File('${root.path}/specs/features/example.feature');
     feature.writeAsStringSync('''

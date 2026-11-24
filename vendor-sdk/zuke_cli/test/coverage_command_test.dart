@@ -83,6 +83,152 @@ end_of_record
     expect(report.covered, 1);
   });
 
+  test(
+    'matches Windows production roots, changed lines, and layers by case',
+    () {
+      final report = parseLcov('''
+TN:
+SF:C:\\Workspace\\LIB\\Service.dart
+DA:1,1
+DA:2,0
+end_of_record
+''').scoped(root: r'c:\workspace', includedRoots: const ['lib']);
+
+      expect(report.files.single.path, 'LIB/Service.dart');
+      final summary = report.toJson(
+        changedLines: {
+          'lib/service.dart': {2},
+        },
+        layers: const {
+          'services': ['lib/**'],
+        },
+      );
+      expect(summary['changedLines'], {
+        'covered': 0,
+        'total': 1,
+        'percent': 0.0,
+      });
+      expect(summary['layers'], contains('services'));
+    },
+  );
+
+  test('scopes Windows UNC paths with different case and separators', () {
+    final report = parseLcov('''
+SF://SERVER/SHARE/Workspace/lib/Service.dart
+DA:1,1
+SF://SERVER/OTHER/Workspace/lib/Service.dart
+DA:1,1
+end_of_record
+''').scoped(root: r'\\server\share\workspace', includedRoots: const ['lib']);
+
+    expect(report.files.single.path, 'lib/Service.dart');
+  });
+
+  test('keeps POSIX LCOV path scoping case-sensitive', () {
+    final report = parseLcov('''
+TN:
+SF:/Workspace/lib/service.dart
+DA:1,1
+SF:/workspace/LIB/service.dart
+DA:1,1
+end_of_record
+''').scoped(root: '/workspace', includedRoots: const ['lib']);
+
+    expect(report.files, isEmpty);
+  });
+
+  test('normalizes dot segments before checking production roots', () {
+    final report = parseLcov('''
+SF:/workspace/lib/../test/service.dart
+DA:1,1
+SF:lib/../test/other.dart
+DA:1,1
+SF:/workspace/./test/../lib/service.dart
+DA:1,0
+end_of_record
+''').scoped(root: '/workspace', includedRoots: const ['lib']);
+
+    expect(report.files.single.path, 'lib/service.dart');
+    expect(report.percent, 0);
+  });
+
+  test('excludes outside sources even with an empty production-root list', () {
+    final report = parseLcov('''
+SF:/workspace-other/lib/external.dart
+DA:1,1
+SF:lib/../../other/lib/external.dart
+DA:1,1
+SF:lib/service.dart
+DA:1,1
+end_of_record
+''').scoped(root: '/workspace', includedRoots: const []);
+
+    expect(report.files.single.path, 'lib/service.dart');
+  });
+
+  test('combines coverage records that resolve to the same Windows file', () {
+    final report = parseLcov('''
+SF:C:/Workspace/LIB/Service.dart
+DA:1,0
+DA:2,0
+SF:lib/./service.dart
+DA:1,1
+DA:3,0
+end_of_record
+''').scoped(root: r'c:\workspace', includedRoots: const ['lib']);
+
+    expect(report.files.single.path, 'LIB/Service.dart');
+    expect(report.files.single.lines, {1: 1, 2: 0, 3: 0});
+  });
+
+  test('scopes absolute LCOV paths under a relative root', () async {
+    final toolDirectory = Directory('.dart_tool')..createSync(recursive: true);
+    final directory = toolDirectory.createTempSync('zuke-coverage-root-');
+    addTearDown(() => directory.deleteSync(recursive: true));
+    expect(directory.isAbsolute, isFalse);
+    Directory('${directory.path}/specs/features').createSync(recursive: true);
+    Directory('${directory.path}/lib').createSync(recursive: true);
+    File(
+      '${directory.path}/specs/features/coverage.feature',
+    ).writeAsStringSync('Feature: Coverage\n  Scenario: relative root\n');
+    File('${directory.path}/zuke.yaml').writeAsStringSync('''
+schemaVersion: 3
+workspace:
+  name: coverage-test
+  root: .
+specifications:
+  features: [specs/features/**/*.feature]
+targets:
+  backend:
+    language: dart
+    framework: dart
+    packages:
+      - id: backend
+        path: .
+        roots: [lib]
+coverage:
+  input: lcov.info
+  includedRoots: [lib]
+  minimumTotal: 50
+''');
+    final separator = Platform.pathSeparator;
+    final source =
+        '${directory.absolute.path}${separator}lib${separator}service.dart';
+    File('${directory.path}/lcov.info').writeAsStringSync('''
+TN:
+SF:$source
+DA:1,1
+DA:2,0
+end_of_record
+''');
+
+    final result = await CoverageCommand(
+      _args(directory.path, includeBaseline: false),
+    ).execute();
+
+    expect(result, 0);
+  });
+
   test('applies governed exclusions and preserves their metadata', () {
     const exclusion = CoverageExclusion(
       path: 'lib/generated.dart',
@@ -93,7 +239,7 @@ end_of_record
     final report =
         parseLcov('''
 TN:
-SF:lib/generated.dart
+SF:LIB/Generated.dart
 DA:1,1
 DA:2,0
 end_of_record
@@ -112,6 +258,68 @@ end_of_record
       'approvedBy': 'platform-owner',
     });
   });
+
+  test(
+    'enforces the changed-line gate across Windows LCOV, Git, and baseline casing',
+    () async {
+      final directory = Directory.systemTemp.createTempSync(
+        'zuke-coverage-case-',
+      );
+      addTearDown(() => directory.deleteSync(recursive: true));
+      _writeSnapshotWorkspace(directory);
+      File('${directory.path}/zuke.yaml').writeAsStringSync('''
+  exclusions:
+    - path: lib/service.dart
+      lines: [1]
+      justification: Fixture exclusion
+      approvedBy: project-owner
+''', mode: FileMode.append);
+      File('${directory.path}/lcov.info').writeAsStringSync('''
+SF:${directory.path}/LIB/Service.dart
+DA:1,0
+DA:2,1
+DA:3,0
+DA:4,1
+end_of_record
+''');
+      File('${directory.path}/baseline.json').writeAsStringSync(
+        jsonEncode({
+          'percent': 50,
+          'files': {
+            'lib/SERVICE.dart': {
+              'coveredLines': [2, 3, 4],
+            },
+          },
+        }),
+      );
+      final resultPath = '${directory.path}/result.json';
+      final result = await CoverageCommand(
+        _args(directory.path, changedSince: 'base', output: resultPath),
+        processRunner: (executable, arguments, {workingDirectory}) async =>
+            ProcessResult(0, 0, '+++ b/lib/service.dart\n@@ -3 +3 @@\n', ''),
+      ).execute();
+
+      expect(result, 1);
+      final document = jsonDecode(File(resultPath).readAsStringSync()) as Map;
+      expect(document['total'], 3);
+      expect(document['changedLines'], {
+        'covered': 0,
+        'total': 1,
+        'percent': 0.0,
+      });
+      expect(
+        document['baselineComparison'],
+        containsPair('lostUnchangedLineCount', 0),
+      );
+      expect(
+        document['diagnostics'].toString(),
+        contains('Changed production lines'),
+      );
+    },
+    skip: Platform.isWindows
+        ? false
+        : 'Requires a native Windows workspace root.',
+  );
 
   test('rejects malformed coverage policy values and exclusions', () async {
     final directory = Directory.systemTemp.createTempSync(

@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:args/args.dart';
+import 'package:path/path.dart' as p;
 import 'package:zuke_frontend/zuke_frontend.dart';
 import 'configuration_preflight.dart';
 
@@ -55,11 +56,18 @@ final class CoverageCommand {
     }
   }
 
+  /// The workspace root as an absolute path. LCOV usually reports absolute
+  /// sources, which a relative root such as `.` could never match.
+  String get _rootPath => p.normalize(
+    Directory(args['root'] as String? ?? Directory.current.path).absolute.path,
+  );
+
   Future<int> _execute() async {
-    final root = Directory(args['root'] as String? ?? Directory.current.path);
+    final root = Directory(_rootPath);
     final workspace = requireCurrentWorkspace(root.path);
     final typed = workspace.config.coverage;
     final config = workspace.config.coverageConfig;
+    final includedRoots = _includedRoots(config, typed);
     final input =
         args['input'] as String? ??
         typed.input ??
@@ -77,7 +85,7 @@ final class CoverageCommand {
     final changed = await _changedLines(
       root.path,
       changedSince,
-      _includedRoots(config, typed),
+      includedRoots,
       processRunner,
     );
     final minimum = _number(
@@ -103,27 +111,22 @@ final class CoverageCommand {
         ? null
         : _readBaseline(root.path, baselinePath);
     final exclusions = _configuredExclusions(config);
-    _validateExclusions(
-      report,
+    final productionReport = report.scoped(
       root: root.path,
-      includedRoots: _includedRoots(config, typed),
-      exclusions: exclusions,
+      includedRoots: includedRoots,
     );
-    final scopedReport = report.scoped(
-      root: root.path,
-      includedRoots: _includedRoots(config, typed),
-      exclusions: exclusions,
-    );
+    _validateExclusions(productionReport, includedRoots, exclusions);
+    final scopedReport = productionReport._withoutExclusions(exclusions);
     if (scopedReport.files.isEmpty) {
       return _fail(
         'LCOV contains no files under the configured production roots: '
-        '${_includedRoots(config, typed).join(', ')}',
+        '${includedRoots.join(', ')}',
       );
     }
     final payload = scopedReport.toJson(
       changedLines: changed.current,
       layers: _configuredLayers(config, typed),
-      includedRoots: _includedRoots(config, typed),
+      includedRoots: includedRoots,
     );
     // Preserve the pre-existing baseline for regression comparison. When a
     // caller explicitly writes a replacement baseline, the newly generated
@@ -138,7 +141,7 @@ final class CoverageCommand {
             baselinePath: baselinePath!,
             changedSince: changedSince,
             fallback: changed.hunks,
-            includedRoots: _includedRoots(config, typed),
+            includedRoots: includedRoots,
             processRunner: processRunner,
           );
     Map<String, Object?>? replacementBaseline;
@@ -157,7 +160,7 @@ final class CoverageCommand {
       replacementBaseline = buildCoverageBaseline(
         scopedReport,
         root: root.path,
-        includedRoots: _includedRoots(config, typed),
+        includedRoots: includedRoots,
         exclusions: exclusions,
         revision: _gitRevision(root.path),
       );
@@ -270,8 +273,7 @@ final class CoverageCommand {
       });
       final output = args['output'] as String?;
       if (output != null && output.isNotEmpty) {
-        final root = args['root'] as String? ?? Directory.current.path;
-        final file = File(_resolve(root, output));
+        final file = File(_resolve(_rootPath, output));
         file.parent.createSync(recursive: true);
         file.writeAsStringSync('$payload\n');
       }
@@ -285,8 +287,11 @@ final class CoverageCommand {
 
 final class LcovReport {
   final List<LcovFile> files;
+  final _CoveragePaths _paths;
 
-  const LcovReport(this.files);
+  const LcovReport(this.files) : _paths = const _CoveragePaths(false);
+
+  const LcovReport._scoped(this.files, this._paths);
 
   int get total => files.fold(0, (sum, file) => sum + file.total);
   int get covered => files.fold(0, (sum, file) => sum + file.covered);
@@ -299,26 +304,49 @@ final class LcovReport {
     required List<String> includedRoots,
     List<CoverageExclusion> exclusions = const [],
   }) {
-    final scopedFiles = <LcovFile>[];
+    final paths = _CoveragePaths.forRoot(root);
+    final scopedFiles = <String, LcovFile>{};
     for (final file in files) {
-      final path = _relativeCoveragePath(root, file.path);
-      if (includedRoots.isNotEmpty &&
-          !includedRoots.any((included) => _underRoot(path, included))) {
+      final path = paths.relative(root, file.path);
+      if (path == null || !paths.includes(path, includedRoots)) continue;
+      final scoped = scopedFiles.putIfAbsent(
+        paths.key(path),
+        () => LcovFile(path),
+      );
+      for (final entry in file.lines.entries) {
+        scoped.lines[entry.key] = (scoped.lines[entry.key] ?? 0) + entry.value;
+      }
+    }
+    return LcovReport._scoped(
+      scopedFiles.values.toList(),
+      paths,
+    )._withoutExclusions(exclusions);
+  }
+
+  LcovReport _withoutExclusions(List<CoverageExclusion> exclusions) {
+    if (exclusions.isEmpty) return this;
+    final excluded = <String, Set<int>>{};
+    for (final exclusion in exclusions) {
+      excluded
+          .putIfAbsent(_paths.key(exclusion.path), () => {})
+          .addAll(exclusion.lines);
+    }
+    final filtered = <LcovFile>[];
+    for (final file in files) {
+      final excludedLines = excluded[_paths.key(file.path)];
+      if (excludedLines == null) {
+        filtered.add(file);
         continue;
       }
-      final copy = LcovFile(path);
-      final excluded = <int>{
-        for (final exclusion in exclusions)
-          if (_normalize(exclusion.path) == path) ...exclusion.lines,
-      };
+      final included = LcovFile(file.path);
       for (final entry in file.lines.entries) {
-        if (!excluded.contains(entry.key)) {
-          copy.lines[entry.key] = entry.value;
+        if (!excludedLines.contains(entry.key)) {
+          included.lines[entry.key] = entry.value;
         }
       }
-      scopedFiles.add(copy);
+      filtered.add(included);
     }
-    return LcovReport(scopedFiles);
+    return LcovReport._scoped(filtered, _paths);
   }
 
   Map<String, Object?> toJson({
@@ -328,8 +356,14 @@ final class LcovReport {
   }) {
     var changedTotal = 0;
     var changedCovered = 0;
+    final changedByPath = <String, Set<int>>{};
+    for (final entry in changedLines.entries) {
+      changedByPath
+          .putIfAbsent(_paths.key(entry.key), () => {})
+          .addAll(entry.value);
+    }
     for (final file in files) {
-      final lines = changedLines[_normalize(file.path)];
+      final lines = changedByPath[_paths.key(file.path)];
       if (lines == null) continue;
       for (final line in lines) {
         final hits = file.lines[line];
@@ -359,13 +393,19 @@ final class LcovReport {
     for (final file in files) {
       String? configuredLayer;
       for (final entry in configuredLayers.entries) {
-        if (entry.value.any((pattern) => _matches(pattern, file.path))) {
+        if (entry.value.any(
+          (pattern) =>
+              _matches(pattern, file.path, caseSensitive: !_paths.windows),
+        )) {
           configuredLayer = entry.key;
           break;
         }
       }
       layers
-          .putIfAbsent(configuredLayer ?? _riskLayer(file.path), () => [])
+          .putIfAbsent(
+            configuredLayer ?? _riskLayer(_paths.key(file.path)),
+            () => [],
+          )
           .add(file);
     }
     return {
@@ -538,7 +578,11 @@ Future<Map<String, List<_CoverageDiffHunk>>> _baselineHunks(
   // take precedence even when the recorded revision is still available.
   final sourceLines = baseline['sourceLines'];
   if (sourceLines is Map &&
-      _hasCompleteSourceSnapshots(baseline, sourceLines)) {
+      _hasCompleteSourceSnapshots(
+        baseline,
+        sourceLines,
+        _CoveragePaths.forRoot(root),
+      )) {
     return _snapshotHunks(root, sourceLines);
   }
   final revision = baseline['revision'];
@@ -615,9 +659,9 @@ Future<bool> _gitRevisionAvailable(
 }
 
 String _resolve(String root, String path) =>
-    path.startsWith('/') || RegExp(r'^[A-Za-z]:[\\/]').hasMatch(path)
+    path.startsWith('/') || _isWindowsAbsolute(path)
     ? path
-    : '$root${Platform.pathSeparator}$path';
+    : p.join(root, path);
 
 /// LCOV path comparison form: forward slashes without a leading `./`.
 ///
@@ -698,26 +742,21 @@ List<CoverageExclusion> _configuredExclusions(Map<Object?, Object?> config) {
 }
 
 void _validateExclusions(
-  LcovReport report, {
-  required String root,
-  required List<String> includedRoots,
-  required List<CoverageExclusion> exclusions,
-}) {
-  final files = {
-    for (final file in report.files)
-      _relativeCoveragePath(root, file.path): file,
-  };
+  LcovReport report,
+  List<String> includedRoots,
+  List<CoverageExclusion> exclusions,
+) {
+  if (exclusions.isEmpty) return;
+  final paths = report._paths;
+  final files = {for (final file in report.files) paths.key(file.path): file};
   for (final exclusion in exclusions) {
-    final normalizedPath = _normalize(exclusion.path);
-    if (!includedRoots.any(
-      (included) => _underRoot(normalizedPath, included),
-    )) {
+    if (!paths.includes(exclusion.path, includedRoots)) {
       throw FormatException(
         'Coverage exclusion is outside configured production roots: '
         '${exclusion.path}',
       );
     }
-    final file = files[normalizedPath];
+    final file = files[paths.key(exclusion.path)];
     if (file == null) {
       throw FormatException(
         'Coverage exclusion path is absent from LCOV: ${exclusion.path}',
@@ -812,22 +851,27 @@ Map<String, Object?> _compareBaseline(
       'lostUnchangedLines': <Object?>[],
     };
   }
+  final paths = current._paths;
   final currentCovered = <String, Set<int>>{
     for (final file in current.files)
-      _normalize(file.path): {
+      paths.key(file.path): {
         for (final entry in file.lines.entries)
           if (entry.value > 0) entry.key,
       },
+  };
+  final hunksByPath = {
+    for (final entry in hunks.entries) paths.key(entry.key): entry.value,
   };
   final lost = <String, List<int>>{};
   for (final entry in rawFiles.entries) {
     if (entry.key is! String || entry.value is! Map) continue;
     final file = _normalize(entry.key as String);
+    final key = paths.key(file);
     final values = (entry.value as Map)['coveredLines'];
     if (values is! List) continue;
     final previous = values.whereType<int>().toSet();
-    final currentLines = currentCovered[file] ?? const <int>{};
-    final fileHunks = hunks[file];
+    final currentLines = currentCovered[key] ?? const <int>{};
+    final fileHunks = hunksByPath[key];
     final unchanged = <int>{};
     for (final oldLine in previous) {
       if (fileHunks == null || fileHunks.isEmpty) {
@@ -872,15 +916,17 @@ Map<String, List<String>> _sourceSnapshots(String root, LcovReport report) {
 bool _hasCompleteSourceSnapshots(
   Map<String, Object?> baseline,
   Map<Object?, Object?> snapshots,
+  _CoveragePaths paths,
 ) {
   final files = baseline['files'];
   if (files is! Map || files.isEmpty) return false;
-  for (final entry in files.entries) {
-    if (entry.key is! String || !snapshots.containsKey(entry.key)) {
-      return false;
-    }
-  }
-  return true;
+  final snapshotPaths = snapshots.keys
+      .whereType<String>()
+      .map(paths.key)
+      .toSet();
+  return files.keys.every(
+    (path) => path is String && snapshotPaths.contains(paths.key(path)),
+  );
 }
 
 Map<String, List<_CoverageDiffHunk>> _snapshotHunks(
@@ -1138,13 +1184,16 @@ String? _gitRevision(String root) {
   return null;
 }
 
-bool _matches(String pattern, String path) {
+bool _matches(String pattern, String path, {required bool caseSensitive}) {
   final normalizedPattern = _normalize(pattern);
   final normalizedPath = _normalize(path);
   final expression = RegExp.escape(
     normalizedPattern,
   ).replaceAll(r'\*\*', '.*').replaceAll(r'\*', '[^/]*');
-  return RegExp('^$expression\$').hasMatch(normalizedPath);
+  return RegExp(
+    '^$expression\$',
+    caseSensitive: caseSensitive,
+  ).hasMatch(normalizedPath);
 }
 
 double _round(num value) => double.parse(value.toStringAsFixed(2));
@@ -1160,20 +1209,56 @@ double _number(String? value, {required double fallback}) {
   return parsed;
 }
 
-String _relativeCoveragePath(String root, String path) {
-  final normalizedPath = _normalize(path);
-  final normalizedRoot = _normalize(root).replaceFirst(RegExp(r'/$'), '');
-  if (normalizedPath == normalizedRoot) return '';
-  final prefix = '$normalizedRoot/';
-  if (normalizedPath.startsWith(prefix)) {
-    return normalizedPath.substring(prefix.length);
-  }
-  return normalizedPath;
-}
+final _windowsAbsolutePath = RegExp(r'^(?:[A-Za-z]:/|//[^/]+/[^/]+(?:/|$))');
 
-bool _underRoot(String path, String root) {
-  final normalizedRoot = _normalize(root).replaceFirst(RegExp(r'/$'), '');
-  return path == normalizedRoot || path.startsWith('$normalizedRoot/');
+bool _isWindowsAbsolute(String path) =>
+    _windowsAbsolutePath.hasMatch(path.replaceAll('\\', '/'));
+
+/// Uses the workspace's path style even when the report came from another
+/// host. Keys are used for matching, and report paths keep their spelling.
+final class _CoveragePaths {
+  const _CoveragePaths(this.windows);
+
+  _CoveragePaths.forRoot(String root) : windows = _isWindowsAbsolute(root);
+
+  final bool windows;
+
+  p.Context get _style => windows ? p.windows : p.posix;
+
+  String _native(String path) =>
+      windows ? path.replaceAll('/', '\\') : path.replaceAll('\\', '/');
+
+  String key(String path) {
+    final normalized = _normalize(_style.normalize(_native(path)));
+    return windows ? normalized.toLowerCase() : normalized;
+  }
+
+  /// Returns a normalized workspace-relative path or null for outside sources.
+  String? relative(String root, String source) {
+    final sourceIsWindows = _isWindowsAbsolute(source);
+    final absolute = sourceIsWindows || _normalize(source).startsWith('/');
+    final normalized = _style.normalize(_native(source));
+    if (absolute) {
+      final workspace = _native(root);
+      if (sourceIsWindows != windows ||
+          !_style.isWithin(workspace, normalized)) {
+        return null;
+      }
+      return _normalize(_style.relative(normalized, from: workspace));
+    }
+    final path = _normalize(normalized);
+    return path == '.' || path == '..' || path.startsWith('../') ? null : path;
+  }
+
+  bool includes(String path, List<String> roots) {
+    final candidate = _native(path);
+    return roots.isEmpty ||
+        roots.any((root) {
+          final included = _native(root);
+          return _style.equals(included, candidate) ||
+              _style.isWithin(included, candidate);
+        });
+  }
 }
 
 String _riskLayer(String path) {

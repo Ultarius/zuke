@@ -227,7 +227,8 @@ final class FlutterEvidenceCase {
   /// Optional evidence types emitted by the case.
   final Iterable<String>? evidenceTypes;
 
-  /// Examples row observed by the case, such as `examples-1-row-2`.
+  /// Examples row observed by the case: the row's `caseId` column value, or a
+  /// positional ID such as `examples-1-row-2` when the table has no such column.
   ///
   /// Required for a scenario with Examples, where each row needs its own case.
   /// Must be a string literal so the registration audit can read it.

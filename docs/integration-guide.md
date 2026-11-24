@@ -830,8 +830,25 @@ exactly one row of the contract, so a result can never report a pass for only
 part of it. `rowIndex` and `examplesIndex` together always do. One of them alone
 is enough only when it leaves a single row. Use `executeRule` to run every row,
 or iterate `scenarioExampleCases`. With `ZukeFlutterEvidenceHarness`, register one
-`FlutterEvidenceCase` per row and give each a literal `caseId` such as
-`examples-1-row-2`.
+`FlutterEvidenceCase` per row and give each that row's literal `caseId`.
+
+Prefer naming rows with a reserved `caseId` column:
+
+```gherkin
+Examples: trusted and untrusted origins
+  | caseId           | requestOrigin           | expectedHeader |
+  | trusted-origin   | https://trusted.example | reflected      |
+  | untrusted-origin | https://evil.example    | absent         |
+```
+
+```dart pseudocode
+zukeTest(body, scenario: scenario, caseId: 'untrusted-origin');
+```
+
+The ID travels with its row, so reordering the table cannot change which row a
+test proves. Values must be lowercase kebab-case and unique within the scenario.
+A table without the column uses positional IDs such as `examples-1-row-2`, which
+follow the row's position.
 
 ### Profile and tag selection
 
@@ -937,9 +954,9 @@ the outline.
 
 A profile selecting only some blocks requires an ID on each selected block.
 Use block IDs when blocks have different execution targets. For direct managed
-registrations, declare each row with its generated case ID, such as
-`examples-2-row-1` for the first data row in the second block. `ScenarioExecutor`
-sets that ID when it executes a row.
+registrations, declare each row with its case ID: its `caseId` column value, or
+a positional ID such as `examples-2-row-1` for the first data row in the second
+block. `ScenarioExecutor` sets that ID when it executes a row.
 
 Use the enum directly for one scenario: `registerScenario(FeatCart001Scenario.successCheckout)`.
 Use a prefix or regular expression for a deliberate family, such as

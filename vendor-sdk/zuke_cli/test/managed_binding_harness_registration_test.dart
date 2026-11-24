@@ -7,38 +7,24 @@ import 'package:zuke_frontend/zuke_frontend.dart';
 import 'support/managed_binding_fixture.dart';
 
 void main() {
-  final fixture = ManagedBindingFixture();
-  final source = fixture.source;
-  final contract = fixture.contract;
-  final scan = fixture.scan;
-  final harnessKinds = fixture.harnessKinds;
-
   group('scenario harness registration', () {
-    const oneCase =
-        '    FlutterEvidenceCase(scenario: demo, body: (tester) async {}),';
-
-    test('a harness alias retains its registering owner', () async {
-      expect(
-        await harnessKinds(
-          harness: '''
+    final batch = ManagedHarnessCases();
+    batch.testKinds(
+      'a harness alias retains its registering owner',
+      harness: '''
 const original = ZukeFlutterEvidenceHarness(
   runnerCompatibilityId: 'app-runner-v1',
   defaultEvidenceTypes: ['flutter-widget'],
 );
 final evidenceHarness = original;
 ''',
-          cases: oneCase,
-        ),
-        ['flutter-widget'],
-      );
-    });
+      cases:
+          '    FlutterEvidenceCase(scenario: demo, body: (tester) async {}),',
+      expected: ['flutter-widget'],
+    );
 
     for (final cascade in [false, true]) {
-      test('named case lists resolve with cascade=$cascade', () async {
-        contract();
-        source('app/test/app_test.dart', '''
-import 'package:zuke_runner_flutter/zuke_runner_flutter.dart';
-import 'package:fixture/demo_contract.dart';
+      final claims = batch.add('''
 void main() {
   final original = FlutterEvidenceCase(scenario: demo, body: (_) async => 'ok');
   final caseAlias = original;
@@ -49,60 +35,25 @@ void main() {
   )${cascade ? '..registerAll(cases)' : '; harness.registerAll(cases)'};
 }
 ''');
-        final result = await scan();
-        expect(result.managedScenarios.single.evidenceTypes, [
-          'flutter-widget',
-        ]);
-        expect(result.unresolvedManagedRegistrations, 0);
+      test('named case lists resolve with cascade=$cascade', () async {
+        expect((await claims()).single.evidenceTypes, ['flutter-widget']);
       });
     }
 
-    test('unused constructions do not register cases', () async {
-      contract();
-      source('app/test/app_test.dart', '''
-import 'package:zuke_runner_flutter/zuke_runner_flutter.dart';
-import 'package:fixture/demo_contract.dart';
+    final unused = batch.add('''
 void main() {
   const harness = ZukeFlutterEvidenceHarness(
     runnerCompatibilityId: 'app-runner-v1',
-    defaultEvidenceTypes: ['flutter-widget'],
+    defaultEvidenceTypes: const ['flutter-widget'],
   );
   final unused = FlutterEvidenceCase(scenario: demo, body: (_) async => 'ok');
 }
 ''');
-      final result = await scan();
-      expect(result.managedScenarios, isEmpty);
-      expect(result.unresolvedManagedRegistrations, 0);
+    test('unused constructions do not register cases', () async {
+      expect(await unused(), isEmpty);
     });
 
-    test(
-      'a reassigned harness is unresolved rather than its initializer',
-      () async {
-        contract();
-        source('app/test/app_test.dart', '''
-import 'package:zuke_runner_flutter/zuke_runner_flutter.dart';
-import 'package:fixture/demo_contract.dart';
-void main() {
-  var harness = const ZukeFlutterEvidenceHarness(
-    runnerCompatibilityId: 'app-runner-v1',
-    defaultEvidenceTypes: ['flutter-widget'],
-  );
-  harness = buildHarness();
-  harness.registerAll([FlutterEvidenceCase(scenario: demo, body: (_) async => 'ok')]);
-}
-''');
-        final result = await scan();
-        expect(result.managedScenarios, isEmpty);
-        expect(result.unresolvedManagedRegistrations, 1);
-      },
-    );
-
-    test('a case publishes the variant its harness emits', () async {
-      contract();
-      source('app/test/app_test.dart', '''
-import 'package:zuke_runner_flutter/zuke_runner_flutter.dart';
-import 'package:fixture/demo_contract.dart';
-
+    final variant = batch.add('''
 const evidenceHarness = ZukeFlutterEvidenceHarness(
   runnerCompatibilityId: 'runner-v1',
   defaultEvidenceTypes: ['flutter-widget'],
@@ -115,15 +66,11 @@ void main() {
   ]);
 }
 ''');
-      expect((await scan()).managedScenarios.single.variant, 'dark-mode');
+    test('a case publishes the variant its harness emits', () async {
+      expect((await variant()).single.variant, 'dark-mode');
     });
 
-    test('an unreadable harness variant stays unknown', () async {
-      contract();
-      source('app/test/app_test.dart', '''
-import 'package:zuke_runner_flutter/zuke_runner_flutter.dart';
-import 'package:fixture/demo_contract.dart';
-
+    final dynamicVariant = batch.add('''
 final name = DateTime.now().toString();
 final evidenceHarness = ZukeFlutterEvidenceHarness(
   runnerCompatibilityId: 'runner-v1',
@@ -137,14 +84,39 @@ void main() {
   ]);
 }
 ''');
-      expect((await scan()).managedScenarios.single.variant, isNull);
+    test('an unreadable harness variant stays unknown', () async {
+      expect((await dynamicVariant()).single.variant, isNull);
     });
 
-    test(
-      'runner tests outside extraction roots count as registrations',
-      () async {
-        contract();
-        final testFile = source('app/test/app_test.dart', '''
+    group('isolated registration scans', () {
+      final fixture = ManagedBindingFixture();
+      test(
+        'a reassigned harness is unresolved rather than its initializer',
+        () async {
+          fixture.contract();
+          fixture.source('app/test/app_test.dart', '''
+import 'package:zuke_runner_flutter/zuke_runner_flutter.dart';
+import 'package:fixture/demo_contract.dart';
+void main() {
+  var harness = const ZukeFlutterEvidenceHarness(
+    runnerCompatibilityId: 'app-runner-v1',
+    defaultEvidenceTypes: ['flutter-widget'],
+  );
+  harness = buildHarness();
+  harness.registerAll([FlutterEvidenceCase(scenario: demo, body: (_) async => 'ok')]);
+}
+''');
+          final result = await fixture.scan();
+          expect(result.managedScenarios, isEmpty);
+          expect(result.unresolvedManagedRegistrations, 1);
+        },
+      );
+
+      test(
+        'runner tests outside extraction roots count as registrations',
+        () async {
+          fixture.contract();
+          final testFile = fixture.source('app/test/app_test.dart', '''
 import 'package:zuke_annotations/zuke_annotations.dart';
 import 'package:zuke_runner/zuke_runner.dart';
 import 'package:fixture/demo_contract.dart';
@@ -156,54 +128,55 @@ void main() {
   zukeTest(() {}, scenario: demo, evidenceTypes: const ['domain-unit']);
 }
 ''');
-        final result = await scanWorkspaceAnnotations(
-          fixture.root.path,
-          WorkspaceDiscoveryResult(
-            config: const ZukeConfig(
-              workspaceTargets: {
-                'app': WorkspaceTarget(
-                  id: 'app',
-                  language: 'dart',
-                  framework: 'dart',
-                  packages: [
-                    WorkspacePackage(
-                      id: 'app-pkg',
-                      path: 'app',
-                      roots: ['lib'],
-                    ),
-                  ],
-                ),
-              },
-              workspaceRunners: [
-                WorkspaceRunner(
-                  id: 'app-tests',
-                  target: 'app',
-                  sourcePackage: 'app-pkg',
-                  sourceAdapter: 'dart-source',
-                  sourceCompatibilityId: 'dart-source-package-v1',
-                  runnerCompatibilityId: 'dart-runner-v1',
-                ),
-              ],
+          final result = await scanWorkspaceAnnotations(
+            fixture.root.path,
+            WorkspaceDiscoveryResult(
+              config: const ZukeConfig(
+                workspaceTargets: {
+                  'app': WorkspaceTarget(
+                    id: 'app',
+                    language: 'dart',
+                    framework: 'dart',
+                    packages: [
+                      WorkspacePackage(
+                        id: 'app-pkg',
+                        path: 'app',
+                        roots: ['lib'],
+                      ),
+                    ],
+                  ),
+                },
+                workspaceRunners: [
+                  WorkspaceRunner(
+                    id: 'app-tests',
+                    target: 'app',
+                    sourcePackage: 'app-pkg',
+                    sourceAdapter: 'dart-source',
+                    sourceCompatibilityId: 'dart-source-package-v1',
+                    runnerCompatibilityId: 'dart-runner-v1',
+                  ),
+                ],
+              ),
+              data: const MetadataExtractorResult(),
             ),
-            data: const MetadataExtractorResult(),
-          ),
-        );
+          );
 
-        final claim = result.managedScenarios.single;
-        expect(claim.sourcePath, 'app/test/app_test.dart');
-        expect(claim.target, 'app');
-        expect(claim.packageId, 'app-pkg');
-        expect(
-          result.claims,
-          isEmpty,
-          reason: 'a test file is not an implementation source',
-        );
-        expect(
-          result.sourcePaths.map((path) => File(path).absolute.path),
-          contains(File(testFile.path).absolute.path),
-          reason: 'the index must notice when this file changes',
-        );
-      },
-    );
+          final claim = result.managedScenarios.single;
+          expect(claim.sourcePath, 'app/test/app_test.dart');
+          expect(claim.target, 'app');
+          expect(claim.packageId, 'app-pkg');
+          expect(
+            result.claims,
+            isEmpty,
+            reason: 'a test file is not an implementation source',
+          );
+          expect(
+            result.sourcePaths.map((path) => File(path).absolute.path),
+            contains(File(testFile.path).absolute.path),
+            reason: 'the index must notice when this file changes',
+          );
+        },
+      );
+    });
   });
 }
